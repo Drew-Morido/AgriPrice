@@ -104,6 +104,14 @@ AgriPricePH.API = (function () {
     historical: () => get('/api/historical-data'),
     predictions: () => getLenient('/api/predictions', { noCache: true }),
     modelStatus: () => get('/api/model-status'),
+    catalog: () => getLenient('/api/catalog', { noCache: true }),
+    taxes: () => getLenient('/api/taxes', { noCache: true }),
+    priceBrackets: (params = {}) => getLenient(
+      '/api/prices/brackets' + (Object.keys(params).length
+        ? '?' + new URLSearchParams(params).toString() : ''), { noCache: true }),
+    consumerPrice: (category, date) => getLenient(
+      '/api/consumer-price?' + new URLSearchParams(date ? { category, date } : { category }).toString(),
+      { noCache: true }),
     trainingStatus: () => get('/api/training-status'),
     trainingHistory: () => get('/api/training-history', { noCache: true }),
     dashboardMetrics: () => get('/api/dashboard-metrics', { noCache: true }),

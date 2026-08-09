@@ -1,0 +1,65 @@
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">DTI Rice Categories &amp; Brands</span>
+    <span id="cat-note" style="font-size:11px;color:var(--text-muted);"></span>
+  </div>
+  <div class="card-body" style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="text-align:left;color:var(--text-muted);">
+          <th style="padding:6px 8px;">Category</th>
+          <th style="padding:6px 8px;">Segment</th>
+          <th style="padding:6px 8px;">Model key</th>
+          <th style="padding:6px 8px;">DTI verified</th>
+          <th style="padding:6px 8px;">Brands</th>
+        </tr>
+      </thead>
+      <tbody id="cat-body"><tr><td colspan="5" style="padding:10px 8px;color:var(--text-muted);">Loading…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="content-grid grid-2" style="margin-top:16px;">
+  <div class="card">
+    <div class="card-header"><span class="card-title">Taxes &amp; Import Charges (imported rice)</span></div>
+    <div class="card-body" style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="text-align:left;color:var(--text-muted);">
+            <th style="padding:6px 8px;">Name</th><th style="padding:6px 8px;">Kind</th>
+            <th style="padding:6px 8px;">Rate / Flat</th><th style="padding:6px 8px;">Legal basis</th>
+          </tr>
+        </thead>
+        <tbody id="tax-body"><tr><td colspan="4" style="padding:10px 8px;color:var(--text-muted);">Loading…</td></tr></tbody>
+      </table>
+      <div id="tax-note" style="font-size:12px;color:var(--text-muted);margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">Consumer-Price Preview</span></div>
+    <div class="card-body">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+        <select id="cp-category" style="padding:6px 10px;border-radius:8px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-color);"></select>
+        <button id="cp-go" class="btn" style="padding:6px 14px;border-radius:8px;cursor:pointer;">Compute</button>
+      </div>
+      <div id="cp-result" style="font-size:13px;color:var(--text-muted);">Pick a category and press Compute.</div>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px;">
+  <div class="card-header"><span class="card-title">Latest Price Brackets (₱ min–max)</span></div>
+  <div class="card-body" style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="text-align:left;color:var(--text-muted);">
+          <th style="padding:6px 8px;">Category</th><th style="padding:6px 8px;">Date</th>
+          <th style="padding:6px 8px;">Min</th><th style="padding:6px 8px;">Max</th>
+          <th style="padding:6px 8px;">Market</th><th style="padding:6px 8px;">Source</th>
+        </tr>
+      </thead>
+      <tbody id="bracket-body"><tr><td colspan="6" style="padding:10px 8px;color:var(--text-muted);">Loading…</td></tr></tbody>
+    </table>
+  </div>
+</div>

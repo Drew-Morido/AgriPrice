@@ -1736,6 +1736,50 @@ def api_model_status():
     })
 
 
+# ── Rice catalog: DTI categories/brands, price brackets, taxes, consumer price ──
+@app.route("/api/catalog", methods=["GET"])
+def api_catalog():
+    try:
+        from catalog_service import list_catalog
+        return jsonify(list_catalog())
+    except Exception as exc:
+        return jsonify({"ready": False, "error": str(exc), "categories": []}), 500
+
+
+@app.route("/api/taxes", methods=["GET"])
+def api_taxes():
+    try:
+        from catalog_service import list_taxes
+        return jsonify(list_taxes())
+    except Exception as exc:
+        return jsonify({"ready": False, "error": str(exc), "taxes": []}), 500
+
+
+@app.route("/api/prices/brackets", methods=["GET"])
+def api_price_brackets():
+    try:
+        from catalog_service import list_brackets
+        return jsonify(list_brackets(
+            category_key=request.args.get("category"),
+            market=request.args.get("market"),
+            date=request.args.get("date"),
+        ))
+    except Exception as exc:
+        return jsonify({"ready": False, "error": str(exc), "brackets": []}), 500
+
+
+@app.route("/api/consumer-price", methods=["GET"])
+def api_consumer_price():
+    key = request.args.get("category")
+    if not key:
+        return jsonify({"ready": True, "error": "category query param required"}), 400
+    try:
+        from catalog_service import consumer_price
+        return jsonify(consumer_price(key, request.args.get("date")))
+    except Exception as exc:
+        return jsonify({"ready": False, "error": str(exc)}), 500
+
+
 # ── /api/import-2026 ──────────────────────────────────────────────────────────
 @app.route("/api/import-2026", methods=["POST", "GET"])
 def api_import_2026():

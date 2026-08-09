@@ -13,6 +13,7 @@ AgriPricePH.Router = (function () {
     'metrics':      { title: 'Performance Metrics',      module: 'Metrics' },
     'correlation':  { title: 'Correlation Analysis',     module: 'Correlation' },
     'reports':      { title: 'Reports & Export',         module: 'Reports' },
+    'catalog':      { title: 'Rice Catalog & Taxes',      module: 'Catalog' },
     'alerts':       { title: 'Price Alerts',             module: 'Alerts' },
     'settings':     { title: 'System Settings',          module: 'Settings' },
     'logs':         { title: 'System Logs',              module: 'SystemLogs' },

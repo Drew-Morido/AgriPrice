@@ -87,6 +87,16 @@ AgriPricePH.Metrics = (function () {
       if (sn) sn.textContent = `Shock days = top ${100 - (shock.pct ?? 90)}% most volatile test days (price moved ≥ ${peso(shock.threshold_peso)} from last value); n=${shock.count}. This is the "lead-time awareness" use case where the naive baseline is weakest.`;
     }
 
+    const extra = document.getElementById('m-extra');
+    if (extra) {
+      const re = primary.rolling_eval;
+      const bits = [];
+      if (primary.mape_pct != null) bits.push(`MAPE ${primary.mape_pct}%`);
+      if (primary.r2 != null) bits.push(`R² ${Number(primary.r2).toFixed(3)} (high because prices trend — persistence scores similarly; judge value by MAE vs baseline)`);
+      if (re) bits.push(`rolling-origin MAE ${re.mean}±${re.std} over ${re.k} test blocks`);
+      extra.textContent = bits.join('  ·  ');
+    }
+
     const body = document.getElementById('m-per-type');
     if (body) {
       const rows = Object.entries(meta.targets).map(([key, t]) => {
@@ -99,11 +109,13 @@ AgriPricePH.Metrics = (function () {
           <td style="padding:6px 8px;">${peso(t.mae_peso)}</td>
           <td style="padding:6px 8px;">${peso(t.baseline_mae_peso)}</td>
           <td style="padding:6px 8px;">${t.arima ? peso(t.arima.mae_peso) : '—'}</td>
+          <td style="padding:6px 8px;">${t.mape_pct != null ? t.mape_pct + '%' : '—'}</td>
+          <td style="padding:6px 8px;">${t.r2 != null ? Number(t.r2).toFixed(3) : '—'}</td>
           <td style="padding:6px 8px;">${shkCell}</td>
           <td style="padding:6px 8px;">${t.accuracy_pct != null ? t.accuracy_pct + '%' : '—'}</td>
         </tr>`;
       }).join('');
-      body.innerHTML = rows || '<tr><td colspan="6" style="padding:10px 8px;color:var(--text-muted);">No trained model yet — run Training first.</td></tr>';
+      body.innerHTML = rows || '<tr><td colspan="8" style="padding:10px 8px;color:var(--text-muted);">No trained model yet — run Training first.</td></tr>';
     }
   }
 
