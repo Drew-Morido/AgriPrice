@@ -5,13 +5,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 AgriPricePH — a Philippine rice price monitoring & forecasting system. It scrapes/imports
-rice, fuel, USD/PHP, weather, and stock data into SQLite, trains an LSTM (or MLP fallback)
-to forecast the Local Well-Milled rice price 2 days ahead, and serves a public site +
-admin dashboard from one Flask app.
+rice, fuel, USD/PHP, and stock data into SQLite, trains a multivariate LSTM (or MLP fallback)
+per rice type to forecast retail prices for all 8 rice types up to 3 days (48–72h) ahead, and
+serves a public site + admin dashboard from one Flask app.
 
 Full narrative docs already exist in the repo — read them before making non-trivial changes:
 - [README.txt](README.txt) — setup, folder layout, admin credentials, troubleshooting
 - [SYSTEM_GUIDE.txt](SYSTEM_GUIDE.txt) — end-to-end architecture and the exact ML math (scaling, sequencing, loss formulas, inference steps)
+- [documents/](documents/) — the capstone paper (`AgriPrice_Draft_Revised.docx`) and `PAPER_CORRECTIONS.md`
+
+## Keep the capstone paper and code in sync (required)
+
+This repo is a capstone project: the running app must match what the paper
+(`documents/AgriPrice_Draft_Revised.docx`) claims, because it is defended before a panel.
+**Whenever you change anything the paper describes, cross-check the document against the code
+and reconcile both.** Paper-relevant surfaces include: the feature/input set, data sources,
+forecast horizon, train/val/test split, evaluation metrics and baselines, and the UI scope
+(desktop/mobile).
+
+- `documents/PAPER_CORRECTIONS.md` is the authoritative **doc↔app reconciliation log** — read it
+  first, and update it with every paper-relevant change.
+- After a change, verify the paper's claims still hold against the code (features in
+  `model/meta.json`, `HORIZON`/split in `model/train.py`, sources in `tools/scrap.py`, live
+  `/api/predictions` and Admin → Metrics). If wording drifts, update the `.docx` too.
+- Never let the paper claim something the app does not do (e.g., "beats the baseline"): the
+  honest evaluation result is that the LSTM ≈ naive persistence ≈ ARIMA at this horizon.
 
 ## Commands
 

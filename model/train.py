@@ -33,8 +33,10 @@ EPOCHS = int(os.environ.get("AGRIPRICE_EPOCHS", "100"))
 BATCH_SIZE = 32
 # Anchored-delta mode: model predicts the price CHANGE from the last observed value in the
 # window (instead of the absolute level). Anchors forecasts to the last price like the naive
-# baseline does, removing level-bias. Toggle with AGRIPRICE_DELTA_MODE=1.
-DELTA_MODE = os.environ.get("AGRIPRICE_DELTA_MODE", "0").strip().lower() in ("1", "true", "yes")
+# baseline does, removing level-bias — it roughly halves test MAE vs. level mode, so it is the
+# DEFAULT. It must stay default-on: the web "Start Training" button inherits the server env and
+# would otherwise silently retrain the worse level-mode model. Opt out with AGRIPRICE_DELTA_MODE=0.
+DELTA_MODE = os.environ.get("AGRIPRICE_DELTA_MODE", "1").strip().lower() in ("1", "true", "yes")
 
 
 def _save_meta(meta: dict) -> None:
