@@ -1,0 +1,56 @@
+<div class="section-header" style="margin-bottom:20px;">
+  <div>
+    <div class="section-title">Reports &amp; Export</div>
+    <div class="section-subtitle text-muted" id="reports-page-subtitle">Generate and download data exports from the live database</div>
+  </div>
+</div>
+
+<div id="reports-status-banner" class="alerts-status-banner error" hidden></div>
+
+<div class="export-cards" id="export-cards">
+  <div class="export-card" data-export-type="prices_csv">
+    <div class="export-icon" style="background:rgba(76,175,110,0.12);">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4CAF6E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    </div>
+    <div class="export-name">Price Report CSV</div>
+    <div class="export-desc">All rice, fuel &amp; FX records</div>
+    <button type="button" class="btn btn-outline btn-sm reports-export-btn" data-export-type="prices_csv" style="margin-top:12px;width:100%;">Export CSV</button>
+  </div>
+  <div class="export-card" data-export-type="forecast_report">
+    <div class="export-icon" style="background:rgba(59,130,246,0.12);">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    </div>
+    <div class="export-name">Forecast Report</div>
+    <div class="export-desc">2-day LSTM forecast (HTML + print PDF)</div>
+    <button type="button" class="btn btn-outline btn-sm reports-export-btn" data-export-type="forecast_report" style="margin-top:12px;width:100%;">Export Report</button>
+  </div>
+  <div class="export-card" data-export-type="metrics_json">
+    <div class="export-icon" style="background:rgba(139,92,246,0.12);">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>
+    </div>
+    <div class="export-name">Model Metrics</div>
+    <div class="export-desc">MAE, RMSE, accuracy &amp; live forecast</div>
+    <button type="button" class="btn btn-outline btn-sm reports-export-btn" data-export-type="metrics_json" style="margin-top:12px;width:100%;">Export JSON</button>
+  </div>
+  <div class="export-card" data-export-type="correlation_xlsx">
+    <div class="export-icon" style="background:rgba(245,158,11,0.12);">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/><path d="M10 13a5 5 0 0 0 7.54.54l3-3"/></svg>
+    </div>
+    <div class="export-name">Correlation Data</div>
+    <div class="export-desc">Pearson r matrix (Excel)</div>
+    <button type="button" class="btn btn-outline btn-sm reports-export-btn" data-export-type="correlation_xlsx" style="margin-top:12px;width:100%;">Export XLSX</button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Report History</span>
+    <button type="button" class="btn btn-ghost btn-sm" id="reports-refresh-history">Refresh</button>
+  </div>
+  <div class="card-body" id="report-history-body">
+    <div id="report-history-list"></div>
+    <div id="report-history-empty" class="text-muted" style="padding:16px 0;font-size:13px;text-align:center;">
+      No exports yet. Use the cards above to generate a report.
+    </div>
+  </div>
+</div>

@@ -1,0 +1,41 @@
+<div class="metrics-hero">
+  <div class="metric-hero-card">
+    <div class="pill pill-green" style="display:inline-flex;">MAE</div>
+    <div class="metric-hero-value">₱1.32</div>
+    <div class="metric-hero-label">Mean Absolute Error</div>
+    <div class="metric-hero-desc">On average, the LSTM forecast is off by ±₱1.32 per kg</div>
+  </div>
+  <div class="metric-hero-card">
+    <div class="pill pill-blue" style="display:inline-flex;">RMSE</div>
+    <div class="metric-hero-value">₱1.87</div>
+    <div class="metric-hero-label">Root Mean Squared Error</div>
+    <div class="metric-hero-desc">Penalizes large outlier errors more heavily than MAE</div>
+  </div>
+  <div class="metric-hero-card">
+    <div class="pill pill-orange" style="display:inline-flex;">ADF</div>
+    <div class="metric-hero-value">87.4%</div>
+    <div class="metric-hero-label">Directional Accuracy</div>
+    <div class="metric-hero-desc">Correctly predicts price direction 87.4% of the time</div>
+  </div>
+</div>
+
+<div class="content-grid grid-2">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Predicted vs Actual — Well Milled Rice</span>
+      <div class="conf-legend">
+        <div class="conf-legend-item"><span class="conf-swatch" style="background:#4CAF6E;"></span>Actual</div>
+        <div class="conf-legend-item"><span class="conf-swatch" style="background:#F59E0B;"></span>Predicted</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <canvas id="pred-vs-actual-chart" style="width:100%;height:240px;display:block;"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Error Distribution (₱)</span></div>
+    <div class="card-body">
+      <canvas id="error-dist-chart" style="width:100%;height:240px;display:block;"></canvas>
+    </div>
+  </div>
+</div>

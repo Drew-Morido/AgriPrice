@@ -1,0 +1,24 @@
+<div class="section-header" style="margin-bottom:20px;">
+  <div><div class="section-title">System Logs</div><div class="section-subtitle">Real-time system activity</div></div>
+  <div style="display:flex;gap:8px;">
+    <button class="btn btn-outline btn-sm">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export Logs
+    </button>
+    <button class="btn btn-outline btn-sm">Clear</button>
+  </div>
+</div>
+
+<div class="log-viewer card">
+  <div class="log-viewer-toolbar">
+    <div class="log-level-filter">
+      <button class="log-filter-btn active" data-filter="ALL">ALL</button>
+      <button class="log-filter-btn" data-filter="INFO">INFO</button>
+      <button class="log-filter-btn" data-filter="SUCCESS">SUCCESS</button>
+      <button class="log-filter-btn" data-filter="WARNING">WARNING</button>
+      <button class="log-filter-btn" data-filter="ERROR">ERROR</button>
+    </div>
+    <input type="text" placeholder="Filter logs…" style="margin-left:auto;background:rgba(255,255,255,0.05);border:1px solid rgba(76,175,110,0.2);border-radius:5px;padding:4px 10px;color:white;font-size:12px;outline:none;width:180px;" />
+  </div>
+  <div class="log-viewer-body" id="log-viewer-body"></div>
+</div>

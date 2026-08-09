@@ -1,0 +1,89 @@
+<div class="section-header" style="margin-bottom:20px;">
+  <div>
+    <div class="section-title">Price Alert Rules</div>
+    <div class="section-subtitle" id="alerts-page-subtitle">Loading…</div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <button class="btn btn-outline btn-sm" id="alerts-run-check-btn" type="button">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      Run Check Now
+    </button>
+    <button class="btn btn-primary" id="add-alert-btn" type="button">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Alert
+    </button>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-header">
+    <span class="card-title">Alert Rules</span>
+    <span class="text-xs text-muted" id="alerts-rules-hint">Live prices from database</span>
+  </div>
+  <div class="card-body">
+    <div class="alert-rules-list" id="alert-rules-list"></div>
+    <div id="alert-rules-empty" class="text-muted" style="display:none;padding:16px 0;font-size:13px;text-align:center;">
+      No alert rules yet. Click <strong>Add Alert</strong> to create one.
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Notification Log</span>
+    <button class="btn btn-ghost btn-sm" id="clear-notif-log-btn" type="button">Clear Log</button>
+  </div>
+  <div class="card-body">
+    <div class="notification-log" id="notif-log-list"></div>
+    <div id="notif-log-empty" class="text-muted" style="display:none;padding:16px 0;font-size:13px;text-align:center;">
+      No notifications yet. Active rules will appear here when triggered.
+    </div>
+  </div>
+</div>
+
+<div class="alert-modal-overlay" id="alert-modal-overlay" hidden>
+  <div class="alert-modal card" role="dialog" aria-labelledby="alert-modal-title">
+    <div class="card-header">
+      <span class="card-title" id="alert-modal-title">Add Alert Rule</span>
+      <button type="button" class="btn btn-ghost btn-sm" id="alert-modal-close" aria-label="Close">✕</button>
+    </div>
+    <div class="card-body">
+      <form id="alert-form" class="alert-form">
+        <input type="hidden" id="alert-form-id" value="" />
+        <label class="alert-form-label">
+          Rule name
+          <input type="text" id="alert-form-name" class="alert-form-input" required placeholder="e.g. Well Milled spike" />
+        </label>
+        <label class="alert-form-label">
+          Rice type
+          <select id="alert-form-rice" class="alert-form-input"></select>
+        </label>
+        <label class="alert-form-label">
+          Condition
+          <select id="alert-form-condition" class="alert-form-input"></select>
+        </label>
+        <label class="alert-form-label">
+          Threshold
+          <input type="number" id="alert-form-threshold" class="alert-form-input" step="0.01" min="0" required />
+        </label>
+        <label class="alert-form-label">
+          Severity
+          <select id="alert-form-type" class="alert-form-input">
+            <option value="danger">Danger</option>
+            <option value="warning">Warning</option>
+            <option value="info">Info</option>
+            <option value="success">Success</option>
+          </select>
+        </label>
+        <label class="alert-form-check">
+          <input type="checkbox" id="alert-form-active" checked />
+          Active (monitor this rule)
+        </label>
+        <div class="alert-form-actions">
+          <button type="button" class="btn btn-outline" id="alert-modal-cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="alert-form-submit">Save Rule</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

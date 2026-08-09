@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en" class="public-site">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="js/public-settings.js"></script>
+  <title>Create Account — AgriPricePH</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/global.css" />
+  <link rel="stylesheet" href="css/landpage.css" />
+  <link rel="stylesheet" href="css/public.css" />
+  <link rel="stylesheet" href="css/landpage-nav.css" />
+  <link rel="stylesheet" href="css/public-alert.css" />
+</head>
+<body data-page="signup" data-layout="auth" data-title="Create Account" data-subtitle="Free registration">
+
+<div class="public-auth-wrap" id="public-auth-wrap">
+  <div class="public-auth-box">
+    <h2>Create your account</h2>
+    <p class="subtitle">
+      Choose whether you <strong>sell rice</strong> (vendor) or <strong>buy for home</strong> (household).
+      Registration is free.
+    </p>
+
+    <div id="auth-error" class="auth-error" role="alert" hidden></div>
+
+    <form id="form-signup">
+      <div class="lp-form-group">
+        <label for="signup-name">Your name</label>
+        <input class="form-input" type="text" id="signup-name" required placeholder="e.g. Maria Santos" />
+      </div>
+      <div class="lp-form-group">
+        <label for="signup-email">Email</label>
+        <input class="form-input" type="email" id="signup-email" required autocomplete="email" placeholder="you@email.com" />
+      </div>
+      <div class="lp-form-group">
+        <label for="signup-password">Password</label>
+        <input class="form-input" type="password" id="signup-password" required minlength="6" autocomplete="new-password" placeholder="At least 6 characters" />
+      </div>
+      <div class="lp-form-group">
+        <label>I am signing up as a…</label>
+        <div class="lp-role-select">
+          <label><input type="radio" name="signup-role" value="vendor" /> Vendor<br /><span class="form-hint" style="margin:0;font-weight:400">I sell rice</span></label>
+          <label><input type="radio" name="signup-role" value="household" checked /> Household<br /><span class="form-hint" style="margin:0;font-weight:400">I buy for home</span></label>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-lg" style="width:100%">Create account</button>
+    </form>
+
+    <p class="form-hint" style="margin-top:20px;text-align:center">
+      For this demo, your account is saved on this device only.
+    </p>
+
+    <div class="public-auth-footer">
+      Already registered? <a href="login.html">Log in</a><br />
+      <a href="landpage.html">← Back to home</a>
+    </div>
+  </div>
+</div>
+
+<script src="js/public-alert.js"></script>
+<script src="js/public-auth.js"></script>
+<script src="js/public-auth-modal.js"></script>
+<script src="js/public-shell.js"></script>
+<script src="js/public-pages.js"></script>
+</body>
+</html>

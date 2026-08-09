@@ -1,0 +1,370 @@
+<div class="section-header" style="margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
+  <div>
+    <div class="section-title">System Settings</div>
+    <div class="section-subtitle" id="settings-last-saved">Loading settings…</div>
+  </div>
+  <button type="button" class="btn btn-primary" id="settings-save-all-btn">Save All Settings</button>
+</div>
+
+<div class="settings-layout">
+  <nav class="settings-nav" id="settings-nav" aria-label="Settings sections">
+    <div class="settings-nav-item active" data-tab="general" role="tab" aria-selected="true">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      General
+    </div>
+    <div class="settings-nav-item" data-tab="data-sources" role="tab" aria-selected="false">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      Data Sources
+    </div>
+    <div class="settings-nav-item" data-tab="model" role="tab" aria-selected="false">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Model Config
+    </div>
+    <div class="settings-nav-item" data-tab="notifications" role="tab" aria-selected="false">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      Notifications
+    </div>
+    <div class="settings-nav-item" data-tab="security" role="tab" aria-selected="false">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Security
+    </div>
+  </nav>
+
+  <div class="settings-panels" id="settings-panels">
+
+    <!-- General -->
+    <div class="settings-panel active" id="settings-panel-general" data-panel="general" role="tabpanel">
+      <div class="settings-section">
+        <div class="settings-section-title">General</div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">System Name</div>
+            <div class="settings-row-desc">Shown in sidebar and browser title</div>
+          </div>
+          <input type="text" class="form-input" id="set-system-name" style="width:220px;" />
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Currency</div>
+            <div class="settings-row-desc">Price display symbol across dashboards</div>
+          </div>
+          <select class="form-select" id="set-currency" style="width:140px;">
+            <option value="PHP">PHP (₱)</option>
+            <option value="USD">USD ($)</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Date Format</div>
+            <div class="settings-row-desc">How dates appear in tables and charts</div>
+          </div>
+          <select class="form-select" id="set-date-format" style="width:160px;">
+            <option value="mdy">MM/DD/YYYY</option>
+            <option value="dmy">DD/MM/YYYY</option>
+            <option value="iso">YYYY-MM-DD</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Dark Mode</div>
+            <div class="settings-row-desc">Dark theme for the dashboard UI</div>
+          </div>
+          <label class="toggle-switch"><input type="checkbox" id="set-dark-mode"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">API Server URL</div>
+            <div class="settings-row-desc">Flask backend (restart may be needed after change)</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="url" class="form-input" id="set-api-url" style="width:240px;" placeholder="http://127.0.0.1:5000" />
+            <button type="button" class="btn btn-outline btn-sm" id="set-test-api-btn">Test</button>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Connection Status</div>
+            <div class="settings-row-desc" id="set-api-status-desc">Checking backend…</div>
+          </div>
+          <span class="pill pill-gray" id="set-api-status-pill">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Sources -->
+    <div class="settings-panel" id="settings-panel-data-sources" data-panel="data-sources" role="tabpanel" hidden>
+      <div class="settings-section">
+        <div class="settings-section-title">Scraper &amp; Sync</div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Auto Scrape</div>
+            <div class="settings-row-desc">Background scrape when API server is running</div>
+          </div>
+          <label class="toggle-switch"><input type="checkbox" id="set-auto-scrape"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Scrape Interval</div>
+            <div class="settings-row-desc">Hours between automatic scrape cycles</div>
+          </div>
+          <select class="form-select" id="set-scrape-interval" style="width:160px;">
+            <option value="6">Every 6 hours</option>
+            <option value="12">Every 12 hours</option>
+            <option value="24">Every 24 hours</option>
+            <option value="48">Every 48 hours</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Sync 2026 XLSX</div>
+            <div class="settings-row-desc">Import rice, fuel, and USD daily files into DB</div>
+          </div>
+          <button type="button" class="btn btn-outline btn-sm" id="set-import-2026-btn">Run Import Now</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-section-title">Enabled Sources</div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">DA Rice Prices</div>
+            <div class="settings-row-desc">Department of Agriculture price monitoring</div>
+          </div>
+          <label class="toggle-switch"><input type="checkbox" id="set-da-enabled"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">DOE / Fuel (Zigwheels)</div>
+            <div class="settings-row-desc">Diesel and fuel price scraper</div>
+          </div>
+          <label class="toggle-switch"><input type="checkbox" id="set-fuel-enabled"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">USD/PHP Exchange API</div>
+            <div class="settings-row-desc">Open exchange rate API</div>
+          </div>
+          <label class="toggle-switch"><input type="checkbox" id="set-exchange-enabled"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Live Source Status</div>
+            <div class="settings-row-desc" id="set-sources-live-desc">—</div>
+          </div>
+          <a href="#data-sources" class="btn btn-ghost btn-sm" id="set-goto-sources">Open Data Sources</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Model Config -->
+    <div class="settings-panel" id="settings-panel-model" data-panel="model" role="tabpanel" hidden>
+      <div class="settings-section">
+        <div class="settings-section-title">LSTM Model</div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Model Status</div>
+            <div class="settings-row-desc" id="set-model-status-desc">—</div>
+          </div>
+          <span class="pill pill-gray" id="set-model-status-pill">—</span>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Forecast Horizon</div>
+            <div class="settings-row-desc">Days ahead (current trained model: fixed until retrain)</div>
+          </div>
+          <input type="number" class="form-input" id="set-forecast-horizon" min="1" max="14" style="width:100px;" />
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Sliding Window</div>
+            <div class="settings-row-desc">Historical days used as LSTM input sequence</div>
+          </div>
+          <input type="number" class="form-input" id="set-sliding-window" min="7" max="90" style="width:100px;" />
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Training Epochs</div>
+            <div class="settings-row-desc">Used on next training run (AGRIPRICE_EPOCHS)</div>
+          </div>
+          <input type="number" class="form-input" id="set-training-epochs" min="10" max="500" style="width:100px;" />
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Train All 8 Rice Types</div>
+            <div class="settings-row-desc">Each Start Training run builds one LSTM per type (local + imported). Off = quick run for primary target only.</div>
+          </div>
+          <label class="toggle-switch"><input type="checkbox" id="set-train-all-rice" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Primary Forecast (Dashboard)</div>
+            <div class="settings-row-desc">Default rice line on Predictions — not the only model trained when “Train all 8” is on</div>
+          </div>
+          <select class="form-select" id="set-target-rice" style="width:200px;">
+            <option value="locWellMilled">Local Well-Milled</option>
+            <option value="locRegular">Local Regular Milled</option>
+            <option value="locPremium">Local Premium</option>
+            <option value="locSpecial">Local Special</option>
+            <option value="impWellMilled">Imported Well-Milled</option>
+            <option value="impRegular">Imported Regular Milled</option>
+            <option value="impPremium">Imported Premium</option>
+            <option value="impSpecial">Imported Special</option>
+          </select>
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-section-title">Retraining</div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Auto Retrain</div>
+            <div class="settings-row-desc">Schedule automatic model retraining (preference)</div>
+          </div>
+          <label class="toggle-switch"><input type="checkbox" id="set-auto-retrain"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Retrain Schedule</div>
+            <div class="settings-row-desc">Preferred retrain window</div>
+          </div>
+          <select class="form-select" id="set-retrain-schedule" style="width:200px;">
+            <option value="weekly_sunday">Every Sunday 02:00</option>
+            <option value="weekly_monday">Every Monday 02:00</option>
+            <option value="monthly_first">1st of each month</option>
+            <option value="manual">Manual only</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <div></div>
+          <a href="#training" class="btn btn-outline btn-sm" id="set-goto-training">Open Training Module</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notifications -->
+    <div class="settings-panel" id="settings-panel-notifications" data-panel="notifications" role="tabpanel" hidden>
+      <div class="settings-section">
+        <div class="settings-section-title">Price Alerts</div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Email Alerts</div>
+            <div class="settings-row-desc">Send email when alert rules trigger (requires mail setup)</div>
+          </div>
+          <label class="toggle-switch"><input type="checkbox" id="set-email-alerts"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Alert Email</div>
+            <div class="settings-row-desc">Recipient for price alert notifications</div>
+          </div>
+          <input type="email" class="form-input" id="set-alert-email" style="width:260px;" />
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Browser Notifications</div>
+            <div class="settings-row-desc">Show alerts in topbar notification panel</div>
+          </div>
+          <label class="toggle-switch"><input type="checkbox" id="set-browser-notif"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Check Alerts on Startup</div>
+            <div class="settings-row-desc">Evaluate rules when API server starts</div>
+          </div>
+          <label class="toggle-switch"><input type="checkbox" id="set-alert-startup"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Active Alert Rules</div>
+            <div class="settings-row-desc" id="set-alerts-rules-desc">—</div>
+          </div>
+          <a href="#alerts" class="btn btn-ghost btn-sm" id="set-goto-alerts">Manage Alerts</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Security -->
+    <div class="settings-panel" id="settings-panel-security" data-panel="security" role="tabpanel" hidden>
+      <div class="settings-section">
+        <div class="settings-section-title">Session</div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Display Name</div>
+            <div class="settings-row-desc">Shown in topbar user area</div>
+          </div>
+          <input type="text" class="form-input" id="set-admin-name" style="width:200px;" />
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Session Timeout</div>
+            <div class="settings-row-desc">Idle minutes before session reminder (UI only)</div>
+          </div>
+          <select class="form-select" id="set-session-timeout" style="width:160px;">
+            <option value="30">30 minutes</option>
+            <option value="60">60 minutes</option>
+            <option value="120">2 hours</option>
+            <option value="480">8 hours</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Lock After Idle</div>
+            <div class="settings-row-desc">Blur screen when idle timeout is reached</div>
+          </div>
+          <label class="toggle-switch"><input type="checkbox" id="set-lock-idle"><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-section-title">Admin access</div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">6-digit access code</div>
+            <div class="settings-row-desc">6 numbers required at admin login. Leave blank to keep the current code.</div>
+          </div>
+          <input type="password" class="form-input" id="set-admin-access-code" style="width:140px;font-family:var(--font-mono);"
+            inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="New 6-digit code" autocomplete="new-password" />
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-section-title">Account</div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Change Password</div>
+            <div class="settings-row-desc">Update local admin password (stored in settings file)</div>
+          </div>
+          <button type="button" class="btn btn-outline btn-sm" id="set-change-password-btn">Change Password</button>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Reset to Defaults</div>
+            <div class="settings-row-desc">Restore all settings to factory defaults</div>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" id="set-reset-defaults-btn" style="color:var(--color-danger);">Reset Defaults</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="alert-modal-overlay" id="settings-password-overlay" hidden>
+  <div class="alert-modal card" style="max-width:360px;">
+    <div class="card-header">
+      <span class="card-title">Change Password</span>
+      <button type="button" class="btn btn-ghost btn-sm" id="settings-password-close">✕</button>
+    </div>
+    <div class="card-body" style="display:flex;flex-direction:column;gap:12px;">
+      <label class="alert-form-label">Current password
+        <input type="password" class="alert-form-input" id="set-pw-current" autocomplete="current-password" />
+      </label>
+      <label class="alert-form-label">New password
+        <input type="password" class="alert-form-input" id="set-pw-new" autocomplete="new-password" />
+      </label>
+      <label class="alert-form-label">Confirm new password
+        <input type="password" class="alert-form-input" id="set-pw-confirm" autocomplete="new-password" />
+      </label>
+      <div class="alert-form-actions">
+        <button type="button" class="btn btn-outline" id="settings-password-cancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="settings-password-save">Update Password</button>
+      </div>
+    </div>
+  </div>
+</div>

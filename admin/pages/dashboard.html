@@ -1,0 +1,191 @@
+<div class="stat-grid">
+  <div class="stat-card" id="stat-mae">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div class="stat-icon" style="background:rgba(76,175,110,0.12);">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4CAF6E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </div>
+      <span class="pill pill-green">MAE</span>
+    </div>
+    <div class="stat-value">—</div>
+    <div class="stat-label">Forecast Error (MAE) · hold-out test</div>
+    <div class="stat-change text-muted" id="stat-mae-change">Loading from training history…</div>
+  </div>
+
+  <div class="stat-card" id="stat-rmse">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div class="stat-icon" style="background:rgba(59,130,246,0.12);">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>
+      </div>
+      <span class="pill pill-blue">RMSE</span>
+    </div>
+    <div class="stat-value">—</div>
+    <div class="stat-label">RMSE Score · hold-out test</div>
+    <div class="stat-change text-muted" id="stat-rmse-change">Loading from training history…</div>
+  </div>
+
+  <div class="stat-card" id="stat-accuracy">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div class="stat-icon" style="background:rgba(139,92,246,0.12);">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      </div>
+      <span class="pill pill-green">Good</span>
+    </div>
+    <div class="stat-value">—</div>
+    <div class="stat-label">Model Accuracy (avg, all types)</div>
+    <div class="stat-change text-muted" id="stat-accuracy-change">Loading from training history…</div>
+  </div>
+
+  <div class="stat-card" id="stat-records">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div class="stat-icon" style="background:rgba(245,158,11,0.12);">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+      </div>
+      <span class="pill pill-orange">Live</span>
+    </div>
+    <div class="stat-value">—</div>
+    <div class="stat-label">Merged Daily Records</div>
+    <div class="stat-change text-muted" id="stat-records-change">Loading database…</div>
+  </div>
+</div>
+
+<div class="source-strip">
+  <div class="source-pill"><span class="dot active"></span>DA Rice Prices</div>
+  <div class="source-pill"><span class="dot active"></span>DOE Fuel</div>
+  <div class="source-pill"><span class="dot active"></span>USD/PHP API</div>
+</div>
+
+<div class="card dash-predictions-card" style="margin-bottom:20px;">
+  <div class="card-header dash-pred-header">
+    <div class="dash-pred-header-left">
+      <span class="card-title">Rice Price Predictions</span>
+      <span class="text-xs text-muted" id="dash-pred-subtitle">Live 2-day forecasts from API · 4 types per view</span>
+    </div>
+    <div class="dash-pred-filters">
+      <div class="dash-pred-segment" id="dash-pred-origin-toggle" role="group" aria-label="Rice origin">
+        <button type="button" class="dash-pred-segment-btn active" data-origin="local">Local</button>
+        <button type="button" class="dash-pred-segment-btn" data-origin="imported">Imported</button>
+      </div>
+      <div class="dash-pred-segment" id="dash-pred-day-toggle" role="group" aria-label="Forecast day">
+        <button type="button" class="dash-pred-segment-btn active" data-day="1">Day 1</button>
+        <button type="button" class="dash-pred-segment-btn" data-day="2">Day 2</button>
+      </div>
+      <a href="#predictions" class="btn btn-ghost btn-sm" id="dash-pred-view-more">Full Predictions →</a>
+    </div>
+  </div>
+  <div class="card-body dash-pred-body">
+    <div class="dash-pred-table" id="dash-pred-table">
+      <div class="dash-pred-row dash-pred-row-head">
+        <span>Rice Type</span>
+        <span>Last Price</span>
+        <span>Forecast Price</span>
+        <span>Change</span>
+        <span>Train accuracy</span>
+        <span>Model</span>
+      </div>
+      <div id="dash-pred-rows">
+        <div class="dash-pred-loading text-muted">Loading forecasts…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="dashboard-grid">
+  <div class="dashboard-col">
+    <div class="card">
+      <div class="card-header dash-trend-header">
+        <span class="card-title" id="dash-trend-title">Rice Price Trend — Last 90 Days (Local)</span>
+        <div class="dash-trend-legend" id="dash-trend-legend">
+          <span class="dash-legend-item"><span class="dash-legend-swatch" style="background:#4CAF6E;"></span>Well Milled</span>
+          <span class="dash-legend-item"><span class="dash-legend-swatch" style="background:#3B82F6;"></span>Regular Milled</span>
+          <span class="dash-legend-item"><span class="dash-legend-swatch" style="background:#8B5CF6;"></span>Premium</span>
+          <span class="dash-legend-item"><span class="dash-legend-swatch" style="background:#F59E0B;"></span>Special</span>
+        </div>
+        <div class="outlook-select-wrap dash-trend-select-wrap" id="dash-trend-select-wrap">
+          <div class="outlook-select-trigger" id="dash-trend-select-trigger">
+            <span id="dash-trend-select-label">Local</span>
+            <svg class="outlook-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="outlook-dropdown" id="dash-trend-dropdown">
+            <div class="outlook-option active" data-value="local">Local</div>
+            <div class="outlook-option" data-value="imported">Imported</div>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        <canvas id="main-price-chart" style="width:100%;height:240px;"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Key Indicators</span>
+        <span class="text-xs text-muted">Last 90 days</span>
+      </div>
+      <div class="card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);font-weight:600;margin-bottom:4px;">Well Milled Rice</div>
+          <canvas id="spark-wm" style="width:100%;height:44px;display:block;"></canvas>
+          <div style="font-size:13px;font-weight:700;font-family:var(--font-mono);margin-top:4px;">₱52.50</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);font-weight:600;margin-bottom:4px;">Regular Milled Rice</div>
+          <canvas id="spark-rm" style="width:100%;height:44px;display:block;"></canvas>
+          <div style="font-size:13px;font-weight:700;font-family:var(--font-mono);margin-top:4px;">₱48.00</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);font-weight:600;margin-bottom:4px;">Diesel Price</div>
+          <canvas id="spark-fuel" style="width:100%;height:44px;display:block;"></canvas>
+          <div style="font-size:13px;font-weight:700;font-family:var(--font-mono);margin-top:4px;">₱62.40</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text-muted);font-weight:600;margin-bottom:4px;">USD/PHP Rate</div>
+          <canvas id="spark-usd" style="width:100%;height:44px;display:block;"></canvas>
+          <div style="font-size:13px;font-weight:700;font-family:var(--font-mono);margin-top:4px;">₱56.42</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="flex:1;">
+      <div class="card-header">
+        <span class="card-title">Data Sources</span>
+        <span class="text-xs text-muted">3 sources configured</span>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <div id="dash-sources-table"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-col">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Today's Rice Prices</span>
+        <span class="pill pill-green">
+          <span style="width:5px;height:5px;background:#4CAF6E;border-radius:50%;display:inline-block;margin-right:4px;"></span>
+          Live
+        </span>
+      </div>
+      <div class="card-body" id="dash-price-list"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">2-Day Forecast (Well Milled)</span>
+        <span class="text-xs text-muted">LSTM Model</span>
+      </div>
+      <div class="card-body">
+        <div class="pred-timeline" id="dash-pred-bars"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Recent Alerts</span>
+        <span class="pill pill-red" id="dash-alerts-badge">—</span>
+      </div>
+      <div class="card-body" id="dash-recent-alerts">
+        <div class="text-muted" style="font-size:12px;">Loading alerts…</div>
+      </div>
+    </div>
+  </div>
+</div>

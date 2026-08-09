@@ -1,0 +1,363 @@
+/* ============================================
+   AgriPricePH - Training Module CSS
+   ============================================ */
+
+.training-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.training-toolbar-title {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.training-toolbar .training-tabs {
+  flex: 0 1 auto;
+  margin-bottom: 0;
+}
+
+.training-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.training-run-btn,
+.training-cancel-btn,
+.training-refresh-btn {
+  white-space: nowrap;
+}
+
+.training-cancel-btn.btn-danger {
+  background: #dc2626;
+  border-color: #b91c1c;
+  color: #fff;
+}
+
+.training-cancel-btn.btn-danger:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.training-refresh-btn:not([hidden]) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.training-history-hint {
+  margin: -4px 0 16px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  color: #92400e;
+}
+
+.training-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-lg);
+  width: fit-content;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+
+.training-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.training-tab-btn svg { flex-shrink: 0; opacity: 0.75; }
+
+.training-tab-btn:hover {
+  background: rgba(76, 175, 110, 0.08);
+  color: var(--text-primary);
+}
+
+.training-tab-btn.active {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-mid) 100%);
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+.training-tab-btn.active svg { opacity: 1; stroke: #fff; }
+
+.training-tab-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.2);
+  color: inherit;
+}
+
+.training-tab-btn:not(.active) .training-tab-badge {
+  background: rgba(76, 175, 110, 0.15);
+  color: var(--color-primary);
+}
+
+.training-tab-panel { display: none; }
+.training-tab-panel.active { display: block; }
+
+.training-chart-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 10px;
+  text-align: center;
+}
+
+.training-progress-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-lg);
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.training-header {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-mid) 100%);
+  padding: 20px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+.epoch-counter {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--font-mono);
+}
+
+.epoch-counter-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+}
+
+.epoch-level-num {
+  font-size: 28px;
+  font-weight: 700;
+  color: white;
+  line-height: 1;
+}
+
+.training-metrics {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.training-metric-item {
+  padding: 16px 20px;
+  border-right: 1px solid var(--border-color);
+}
+.training-metric-item:last-child { border-right: none; }
+
+.training-metric-label {
+  font-size: 11px; color: var(--text-muted); font-weight: 500; margin-bottom: 4px;
+}
+
+.training-metric-val-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.training-metric-val {
+  font-size: 18px; font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+
+.metric-status {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(143, 168, 150, 0.2);
+  color: var(--text-muted);
+}
+
+.metric-status svg {
+  width: 12px;
+  height: 12px;
+  display: block;
+}
+
+.metric-status-ok {
+  background: rgba(76, 175, 110, 0.18);
+  color: #2D8A50;
+  box-shadow: 0 0 0 1px rgba(76, 175, 110, 0.35);
+}
+
+.metric-status-warn {
+  background: rgba(245, 158, 11, 0.18);
+  color: #B45309;
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.35);
+}
+
+.metric-status-bad {
+  background: rgba(239, 68, 68, 0.14);
+  color: #B91C1C;
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.3);
+}
+
+.metric-status-none {
+  background: rgba(143, 168, 150, 0.15);
+  color: var(--text-muted);
+}
+
+.loss-chart-container { height: 220px; position: relative; }
+
+.table-wrap { overflow-x: auto; }
+
+.training-history-table tbody tr {
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.training-history-table tbody tr:hover {
+  background: rgba(76, 175, 110, 0.06);
+}
+
+.training-history-table .row-chevron {
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.training-history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 48px 24px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* [hidden] loses to display:flex above — force hide when empty state is off */
+.training-history-empty.is-hidden,
+.training-history-empty[hidden] {
+  display: none !important;
+}
+
+#training-history-table-wrap.is-hidden {
+  display: none !important;
+}
+
+.training-history-empty svg {
+  color: var(--color-primary);
+  opacity: 0.5;
+}
+
+.training-modal-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.training-modal-metric {
+  background: var(--bg-subtle, #f4f8f5);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.training-modal-metric label {
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.training-modal-metric .val {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.training-insights-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+}
+
+.training-insights-list li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.training-insights-list li:last-child { border-bottom: none; }
+
+.training-insights-list svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--color-primary);
+}
+
+.training-modal-chart-wrap {
+  margin: 16px 0;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--bg-card);
+}
+
+.training-modal-log {
+  max-height: 140px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: #0d1f14;
+  color: #c5d9ca;
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 12px;
+  line-height: 1.45;
+}
+
+.training-modal-log .log-warn { color: #fbbf24; }
+.training-modal-log .log-err { color: #f87171; }
+.training-modal-log .log-ok { color: #4ade80; }
+
+@media (max-width: 900px) {
+  .training-metrics { grid-template-columns: 1fr 1fr; }
+  .training-modal-metrics { grid-template-columns: 1fr; }
+  .training-run-btn { margin-left: 0; width: 100%; justify-content: center; }
+  .training-toolbar .training-tabs { width: 100%; }
+}

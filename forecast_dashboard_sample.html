@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rice Price Forecast</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300;1,9..144,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --g:#2d6a4f;--gp:#f0f5f1;--gm:#4caf6e;--gl:#d4edda;
+  --t1:#1c1c18;--t2:#3d3d35;--t3:#8a8a7e;--t4:#b5b5aa;
+  --bd:#e4e1d9;--bmd:#ccc9c0;--bdk:#b8b4ab;
+  --card:#fff;--bg:#f2f0eb;--bg2:#ede9e2;
+  --danger:#c0392b;--dbg:#fdf0ee;--dbd:#f5c6c0;
+  --blue:#1d4ed8;--bbg:#eff6ff;
+  --amber:#b45309;--abg:#fef3c7;
+  --rm:10px;--rl:14px;--rxl:20px;
+  --shadow:0 1px 3px rgba(28,28,24,0.06), 0 4px 12px rgba(28,28,24,0.04);
+  --shadow-md:0 2px 8px rgba(28,28,24,0.08), 0 8px 24px rgba(28,28,24,0.06);
+}
+
+body{
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+  background:var(--bg);
+  color:var(--t1);
+  padding:0;
+  min-height:100vh;
+}
+
+/* ── TOPBAR ── */
+.topbar{
+  background:var(--card);
+  border-bottom:1px solid var(--bd);
+  padding:0 28px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  height:52px;
+  position:sticky;
+  top:0;
+  z-index:100;
+}
+.topbar-brand{display:flex;align-items:center;gap:10px;}
+.brand-icon{
+  width:30px;height:30px;border-radius:8px;
+  background:var(--g);
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-size:15px;
+}
+.brand-name{font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:var(--t1);letter-spacing:-0.02em;}
+.brand-name span{color:var(--g);}
+.topbar-right{display:flex;align-items:center;gap:8px;}
+.live-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--gp);border:1px solid rgba(45,106,79,0.2);
+  border-radius:99px;padding:4px 12px;
+  font-size:10px;font-weight:700;color:var(--g);
+  letter-spacing:0.07em;text-transform:uppercase;
+}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--gm);animation:blink 2.5s ease infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.25}}
+.toggle-wrap{display:flex;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:3px;gap:2px;}
+.tbtn{padding:6px 14px;border-radius:6px;font-size:11px;font-weight:700;color:var(--t3);background:transparent;border:none;cursor:pointer;font-family:inherit;letter-spacing:0.02em;transition:all 0.15s;}
+.tbtn.active{background:var(--g);color:#fff;}
+.tbtn:hover:not(.active){color:var(--g);}
+
+/* ── MAIN — full width, no side padding gap ── */
+.main{
+  width:100%;
+  max-width:100%;
+  padding:24px 0 60px;
+  display:flex;
+  flex-direction:column;
+  gap:20px;
+}
+/* inner wrapper for contained sections */
+.inner{
+  padding:0 24px;
+}
+
+/* ── HERO SPLIT ── */
+.hero{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  background:var(--card);
+  border-top:1px solid var(--bd);
+  border-bottom:1px solid var(--bd);
+  overflow:hidden;
+  box-shadow:var(--shadow);
+}
+.hero-left{padding:32px 40px 28px;border-right:1px solid var(--bd);position:relative;}
+.eyebrow-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--gp);border:1px solid rgba(45,106,79,0.15);
+  border-radius:99px;padding:4px 12px;
+  font-size:10px;font-weight:700;color:var(--g);
+  letter-spacing:0.08em;text-transform:uppercase;
+  margin-bottom:16px;
+}
+.hero-title{font-family:'Fraunces',serif;font-size:34px;font-weight:700;color:var(--t1);line-height:1.08;letter-spacing:-0.03em;}
+.hero-title em{font-style:italic;color:var(--g);font-weight:300;}
+.hero-sub{font-size:12.5px;color:var(--t3);margin-top:12px;line-height:1.7;}
+.hero-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:20px;}
+.meta-tag{display:inline-flex;align-items:center;gap:5px;background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;color:var(--t2);}
+.meta-tag i{font-size:12px;color:var(--t3);}
+
+/* Hero right — 4 KPI quadrants */
+.hero-right{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;}
+.kpi-q{padding:22px 22px 18px;border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);position:relative;transition:background 0.15s;}
+.kpi-q:nth-child(2),.kpi-q:nth-child(4){border-right:none;}
+.kpi-q:nth-child(3),.kpi-q:nth-child(4){border-bottom:none;}
+.kpi-q:hover{background:var(--bg);}
+.kpi-q-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;color:var(--t4);margin-bottom:10px;}
+.kpi-q-val{font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:600;color:var(--g);line-height:1;letter-spacing:-0.03em;}
+.kpi-q-sub{font-size:11px;color:var(--t3);margin-top:7px;}
+.kpi-q-trend{position:absolute;top:18px;right:18px;display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;color:var(--gm);}
+.kpi-q-trend.flat{color:var(--t3);}
+
+/* ── STATUS ROW ── */
+.status-row{display:grid;grid-template-columns:repeat(4,1fr);gap:0;padding:0 24px;}
+
+/* card color variants — border only */
+.stat-card{
+  background:var(--card);
+  border:1px solid var(--bd);
+  border-radius:var(--rl);
+  margin:0 6px;
+  padding:16px;
+  display:flex;align-items:flex-start;gap:12px;
+  box-shadow:var(--shadow);
+  transition:box-shadow 0.15s, transform 0.15s;
+}
+.stat-card:first-child{margin-left:0;}
+.stat-card:last-child{margin-right:0;}
+.stat-card:hover{box-shadow:var(--shadow-md);transform:translateY(-1px);}
+
+/* Four distinct green border shades */
+.stat-card:nth-child(1){border-color:#2d6a4f;}
+.stat-card:nth-child(2){border-color:#52b788;}
+.stat-card:nth-child(3){border-color:#95d5b2;}
+.stat-card:nth-child(4){border-color:#b7e4c7;}
+
+.stat-icon{width:36px;height:36px;border-radius:9px;background:var(--gp);color:var(--g);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:17px;}
+.stat-body{}
+.stat-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--t3);margin-bottom:3px;}
+.stat-val{font-size:13.5px;font-weight:700;color:var(--t1);}
+.stat-sub{font-size:11px;color:var(--t3);margin-top:3px;line-height:1.4;}
+.badge{display:inline-block;margin-top:6px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;}
+.badge.blue{background:var(--bbg);color:var(--blue);}
+.badge.amber{background:var(--abg);color:var(--amber);}
+.badge.green{background:var(--gp);color:var(--g);}
+
+/* System status indicator */
+.status-indicator{display:inline-flex;align-items:center;gap:5px;margin-top:6px;}
+.status-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;animation:blink 2s ease infinite;}
+.status-text{font-size:10px;font-weight:700;color:#16a34a;letter-spacing:0.04em;}
+
+/* ── RICE TYPE TABS ── */
+.tabs-section{
+  background:var(--card);
+  border:1px solid var(--bd);
+  border-radius:var(--rl);
+  padding:6px 8px;
+  display:flex;align-items:center;gap:4px;
+  overflow-x:auto;
+  scrollbar-width:none;
+  box-shadow:var(--shadow);
+  margin:0 24px;
+}
+.tabs-section::-webkit-scrollbar{display:none;}
+.tabs-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--t4);white-space:nowrap;padding:0 10px 0 4px;border-right:1px solid var(--bd);margin-right:4px;}
+.tab-group-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--t4);padding:0 6px;white-space:nowrap;opacity:0.7;}
+.tab-divider{width:1px;height:22px;background:var(--bd);margin:0 4px;flex-shrink:0;}
+.tab{padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;color:var(--t2);background:transparent;border:1px solid transparent;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all 0.15s;}
+.tab.active{background:var(--g);border-color:var(--g);color:#fff;}
+.tab:hover:not(.active){border-color:var(--bd);color:var(--g);background:var(--gp);}
+
+/* ── CHART SECTION ── */
+.chart-section{background:var(--card);border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);overflow:hidden;box-shadow:var(--shadow);}
+.chart-top{display:grid;grid-template-columns:1fr auto;align-items:start;padding:24px 32px 0;gap:20px;}
+.chart-title-area{}
+.chart-eyebrow{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;color:var(--t4);margin-bottom:5px;}
+.chart-title{font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--t1);letter-spacing:-0.02em;}
+.chart-title em{font-style:italic;color:var(--g);}
+.chart-sub-txt{font-size:12px;color:var(--t3);margin-top:4px;}
+.legend{display:flex;gap:16px;align-self:flex-end;padding-bottom:2px;}
+.leg-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t3);}
+.leg-line{width:20px;height:2.5px;border-radius:2px;}
+.leg-line.actual{background:var(--g);}
+.leg-line.pred{background:var(--blue);opacity:0.7;}
+.leg-swatch{width:13px;height:9px;border-radius:2px;background:rgba(45,106,79,0.12);border:1px solid rgba(45,106,79,0.18);}
+
+.chart-body{padding:16px 32px 0;height:230px;position:relative;}
+canvas{width:100%!important;height:100%!important;}
+
+/* 3-col data strip below chart */
+.chart-bottom{display:grid;grid-template-columns:1fr 1px 1fr 1px 1fr;border-top:1px solid var(--bd);margin-top:20px;}
+.divider-v{background:var(--bd);}
+.cb-cell{padding:18px 28px;}
+.cb-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--t4);margin-bottom:10px;}
+.cb-main{display:flex;align-items:baseline;gap:8px;}
+.cb-price{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:600;color:var(--g);}
+.cb-change{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;background:var(--gp);color:var(--g);border:1px solid rgba(45,106,79,0.15);border-radius:99px;padding:2px 8px;}
+.cb-sub{font-size:11px;color:var(--t3);margin-top:5px;}
+.cb-timeline{display:flex;flex-direction:column;gap:7px;margin-top:2px;}
+.cb-trow{display:flex;align-items:center;gap:8px;}
+.cb-tlbl{font-size:10px;color:var(--t3);min-width:40px;font-weight:600;}
+.cb-ttrack{flex:1;height:18px;background:var(--bg);border-radius:4px;overflow:hidden;border:1px solid var(--bd);}
+.cb-tbar{height:100%;border-radius:3px;background:var(--g);display:flex;align-items:center;justify-content:flex-end;padding-right:7px;}
+.cb-tval{font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#fff;white-space:nowrap;}
+.conf-rows{display:flex;flex-direction:column;gap:8px;margin-top:2px;}
+.conf-row-item{display:flex;align-items:center;gap:9px;}
+.conf-day{font-size:11px;color:var(--t3);min-width:44px;font-weight:600;}
+.conf-track{flex:1;height:6px;background:var(--bg);border-radius:99px;overflow:hidden;border:1px solid var(--bd);}
+.conf-fill{height:100%;border-radius:99px;background:var(--g);transition:width .5s;}
+.conf-pct{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--t2);min-width:28px;text-align:right;}
+
+/* ── TABLE ── */
+.table-card{background:var(--card);border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);overflow:hidden;box-shadow:var(--shadow);}
+.table-header{display:flex;align-items:center;justify-content:space-between;padding:20px 32px 14px;border-bottom:1px solid var(--bd);}
+.table-title{font-family:'Fraunces',serif;font-size:17px;font-weight:700;color:var(--t1);letter-spacing:-0.02em;}
+.table-title em{font-style:italic;color:var(--g);font-weight:300;}
+.trow{display:grid;grid-template-columns:2fr 1fr 1.2fr 1fr 0.9fr;align-items:center;padding:0 32px;border-bottom:1px solid var(--bd);gap:12px;transition:background 0.12s;min-height:60px;}
+.trow:not(.hdr){border-left:3px solid transparent;transition:border-color 0.15s,background 0.12s;}
+.trow:not(.hdr):hover{background:var(--bg);border-left-color:var(--g);}
+.trow:last-child{border-bottom:none;}
+.hdr{font-size:10px;font-weight:700;color:var(--t4);text-transform:uppercase;letter-spacing:0.08em;background:var(--bg);min-height:38px;border-bottom:1px solid var(--bmd)!important;border-left:3px solid transparent;}
+.date-main{font-size:13px;font-weight:700;color:var(--t1);}
+.date-sub{font-size:11px;color:var(--t3);margin-top:2px;}
+.dir{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--g);}
+.dir.down{color:var(--danger);}
+.fp{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;color:var(--t1);}
+.cbadge{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;background:var(--gp);color:var(--g);}
+.cbadge.down{background:var(--dbg);color:var(--danger);}
+.conf-bar-cell{display:flex;align-items:center;gap:7px;}
+.conf-bar-track{flex:1;height:5px;background:var(--bg);border-radius:99px;border:1px solid var(--bd);overflow:hidden;}
+.conf-bar-fill{height:100%;border-radius:99px;background:var(--g);}
+.conf-bar-pct{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--t2);white-space:nowrap;}
+
+.tip{display:flex;gap:12px;align-items:flex-start;margin:0 32px 20px;padding:13px 16px;background:var(--gp);border:1px solid rgba(45,106,79,0.15);border-left:3px solid var(--g);border-radius:0 var(--rm) var(--rm) 0;font-size:12.5px;color:var(--t2);line-height:1.65;}
+.tip i{color:var(--g);font-size:16px;margin-top:1px;flex-shrink:0;}
+.tip strong{color:var(--t1);}
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+.hero{animation:fadeUp 0.4s ease both;}
+.status-row{animation:fadeUp 0.4s ease 0.07s both;}
+.tabs-section{animation:fadeUp 0.4s ease 0.12s both;}
+.chart-section{animation:fadeUp 0.4s ease 0.17s both;}
+.table-card{animation:fadeUp 0.4s ease 0.22s both;}
+
+/* ── RESPONSIVE ── */
+@media(max-width:720px){
+  .hero{grid-template-columns:1fr;}
+  .hero-left{border-right:none;border-bottom:1px solid var(--bd);}
+  .hero-right{grid-template-columns:1fr 1fr;grid-template-rows:auto auto;}
+  .kpi-q:nth-child(2){border-right:none;}
+  .status-row{grid-template-columns:1fr 1fr;padding:0 16px;}
+  .stat-card{margin:0;}
+  .chart-bottom{grid-template-columns:1fr;grid-template-rows:auto;}
+  .divider-v{display:none;}
+  .trow{grid-template-columns:1.5fr 1fr 1fr;}
+  .trow>:nth-child(4),.trow>:nth-child(5){display:none;}
+  .topbar{padding:0 16px;}
+  .tabs-section{margin:0 16px;}
+}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-brand">
+    <div class="brand-icon"><i class="ti ti-grain"></i></div>
+    <div class="brand-name">Rice<span>Price</span></div>
+  </div>
+  <div class="topbar-right">
+    <div class="live-chip"><span class="dot"></span> Updated every morning</div>
+    <div class="toggle-wrap">
+      <button class="tbtn active" onclick="this.parentNode.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active')">For Sellers</button>
+      <button class="tbtn" onclick="this.parentNode.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));this.classList.add('active')">For Families</button>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- RICE TYPE TABS — now ABOVE the hero -->
+  <div class="tabs-section">
+    <span class="tabs-label">Rice Type</span>
+    <span class="tab-group-label">Local</span>
+    <button class="tab active" data-rice="well-milled" onclick="selectTab(this)">Well-Milled</button>
+    <button class="tab" data-rice="regular-milled" onclick="selectTab(this)">Regular Milled</button>
+    <button class="tab" data-rice="special" onclick="selectTab(this)">Special</button>
+    <button class="tab" data-rice="premium" onclick="selectTab(this)">Premium</button>
+    <div class="tab-divider"></div>
+    <span class="tab-group-label">Imported</span>
+    <button class="tab" data-rice="sinandomeng" onclick="selectTab(this)">Sinandomeng</button>
+    <button class="tab" data-rice="jasmine" onclick="selectTab(this)">Jasmine</button>
+    <button class="tab" data-rice="brown" onclick="selectTab(this)">Brown</button>
+    <button class="tab" data-rice="red-rice" onclick="selectTab(this)">Red Rice</button>
+  </div>
+
+  <!-- HERO SPLIT -->
+  <div class="hero">
+    <div class="hero-left">
+      <div class="eyebrow-chip"><span class="dot"></span> Expected rice prices for the next 2 days</div>
+      <div class="hero-title">How Much Will<br><em>Rice Cost?</em></div>
+      <div class="hero-sub">See the expected rice price for tomorrow and the day after — helpful for sellers when setting prices, and for families planning their grocery budget.</div>
+      <div class="hero-meta">
+        <div class="meta-tag"><i class="ti ti-device-desktop-analytics"></i> Computer-powered guessing</div>
+        <div class="meta-tag"><i class="ti ti-database"></i> Based on prices since 2015</div>
+        <div class="meta-tag"><i class="ti ti-clock"></i> Updated at 6:00 AM daily</div>
+      </div>
+    </div>
+    <div class="hero-right">
+      <div class="kpi-q">
+        <div class="kpi-q-lbl">Price tomorrow</div>
+        <div class="kpi-q-val" id="kpi-tomorrow">₱52.80</div>
+        <div class="kpi-q-sub" id="kpi-tomorrow-sub">Well-Milled · per kilo</div>
+        <div class="kpi-q-trend" id="kpi-tomorrow-trend"><i class="ti ti-arrow-up" style="font-size:11px"></i><span id="kpi-tomorrow-trend-val">+₱0.40</span></div>
+      </div>
+      <div class="kpi-q">
+        <div class="kpi-q-lbl">Price in 2 days</div>
+        <div class="kpi-q-val" id="kpi-day2">₱53.10</div>
+        <div class="kpi-q-sub" id="kpi-day2-sub">Expected to go up +₱0.30 more</div>
+      </div>
+      <div class="kpi-q">
+        <div class="kpi-q-lbl">How sure are we</div>
+        <div class="kpi-q-val" id="kpi-confidence">87%</div>
+        <div class="kpi-q-sub">Tomorrow — very likely correct</div>
+        <div class="kpi-q-trend flat"><i class="ti ti-minus" style="font-size:11px"></i>reliable</div>
+      </div>
+      <div class="kpi-q">
+        <div class="kpi-q-lbl">Price today</div>
+        <div class="kpi-q-val" id="kpi-today">₱52.40</div>
+        <div class="kpi-q-sub">Actual price today · per kilo</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATUS ROW -->
+  <div class="status-row">
+    <div class="stat-card">
+      <div class="stat-icon"><i class="ti ti-device-desktop-analytics"></i></div>
+      <div class="stat-body">
+        <div class="stat-lbl">System Status</div>
+        <div class="stat-val">Running</div>
+        <div class="stat-sub">Forecasting engine is active</div>
+        <div class="status-indicator"><span class="status-dot"></span><span class="status-text">LIVE</span></div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon"><i class="ti ti-database"></i></div>
+      <div class="stat-body">
+        <div class="stat-lbl">Based on</div>
+        <div class="stat-val">2015 up to now</div>
+        <div class="stat-sub">Over 9 years of daily rice prices</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon"><i class="ti ti-refresh"></i></div>
+      <div class="stat-body">
+        <div class="stat-lbl">Last updated</div>
+        <div class="stat-val">Today, 6:00 AM</div>
+        <div class="stat-sub">Refreshes every morning</div>
+        <span class="badge amber">Auto-updated</span>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon"><i class="ti ti-trending-up"></i></div>
+      <div class="stat-body">
+        <div class="stat-lbl">How accurate</div>
+        <div class="stat-val">Usually within ₱0.42</div>
+        <div class="stat-sub">Typically this close to the real price</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHART SECTION -->
+  <div class="chart-section">
+    <div class="chart-top">
+      <div class="chart-title-area">
+        <div class="chart-eyebrow" id="chart-eyebrow">Price going up and down · Well-Milled</div>
+        <div class="chart-title">Price History and <em>What's Next</em></div>
+        <div class="chart-sub-txt">Real prices from the past 14 days, plus expected prices for the next 2 days</div>
+      </div>
+      <div class="legend">
+        <div class="leg-item"><div class="leg-line actual"></div> Real price</div>
+        <div class="leg-item"><div class="leg-line pred"></div> Expected price</div>
+        <div class="leg-item"><div class="leg-swatch"></div> Price range estimate</div>
+      </div>
+    </div>
+    <div class="chart-body"><canvas id="fc"></canvas></div>
+    <div class="chart-bottom">
+      <div class="cb-cell">
+        <div class="cb-lbl">Expected price tomorrow</div>
+        <div class="cb-main">
+          <span class="cb-price" id="cb-tomorrow">₱52.80</span>
+          <span class="cb-change" id="cb-change"><i class="ti ti-arrow-up" style="font-size:11px"></i> <span id="cb-change-val">+₱0.40</span></span>
+        </div>
+        <div class="cb-sub" id="cb-sub">Well-Milled · per kilo · May 28, 2026</div>
+      </div>
+      <div class="divider-v"></div>
+      <div class="cb-cell">
+        <div class="cb-lbl">Price over the next 2 days</div>
+        <div class="cb-timeline" id="cb-timeline">
+          <div class="cb-trow"><span class="cb-tlbl">Today</span><div class="cb-ttrack"><div class="cb-tbar" style="width:82%" id="bar-today"><span class="cb-tval">₱52.40</span></div></div></div>
+          <div class="cb-trow"><span class="cb-tlbl">Tomorrow</span><div class="cb-ttrack"><div class="cb-tbar" style="width:84%" id="bar-tomorrow"><span class="cb-tval">₱52.80</span></div></div></div>
+          <div class="cb-trow"><span class="cb-tlbl">Day after</span><div class="cb-ttrack"><div class="cb-tbar" style="width:85%" id="bar-dayafter"><span class="cb-tval">₱53.10</span></div></div></div>
+        </div>
+      </div>
+      <div class="divider-v"></div>
+      <div class="cb-cell">
+        <div class="cb-lbl">How sure are we</div>
+        <div class="conf-rows">
+          <div class="conf-row-item">
+            <span class="conf-day">Tomorrow</span>
+            <div class="conf-track"><div class="conf-fill" id="conf1" style="width:87%"></div></div>
+            <span class="conf-pct" id="conf1-pct">87%</span>
+          </div>
+          <div class="conf-row-item">
+            <span class="conf-day">Day after</span>
+            <div class="conf-track"><div class="conf-fill" id="conf2" style="width:74%"></div></div>
+            <span class="conf-pct" id="conf2-pct">74%</span>
+          </div>
+          <div class="cb-sub" style="margin-top:6px;">Tomorrow — very likely. Day after — fairly likely.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-card">
+    <div class="table-header">
+      <div class="table-title">Price <em>Summary</em></div>
+      <div id="table-sub" style="font-size:11px;color:var(--t3);">Well-Milled · per kilo</div>
+    </div>
+    <div class="trow hdr">
+      <span>Day</span><span>Going</span><span>Expected price</span><span>Change</span><span>How sure</span>
+    </div>
+    <div class="trow" id="row1">
+      <div><div class="date-main">Tomorrow</div><div class="date-sub">May 28, 2026</div></div>
+      <span class="dir"><i class="ti ti-arrow-up" style="font-size:13px"></i> Up</span>
+      <span class="fp" id="row1-price">₱52.80</span>
+      <span class="cbadge" id="row1-change">+₱0.40</span>
+      <div class="conf-bar-cell"><div class="conf-bar-track"><div class="conf-bar-fill" id="row1-conf-bar" style="width:87%"></div></div><span class="conf-bar-pct" id="row1-conf-pct">87%</span></div>
+    </div>
+    <div class="trow" id="row2">
+      <div><div class="date-main">Day after</div><div class="date-sub">May 29, 2026</div></div>
+      <span class="dir"><i class="ti ti-arrow-up" style="font-size:13px"></i> Up</span>
+      <span class="fp" id="row2-price">₱53.10</span>
+      <span class="cbadge" id="row2-change">+₱0.30</span>
+      <div class="conf-bar-cell"><div class="conf-bar-track"><div class="conf-bar-fill" id="row2-conf-bar" style="width:74%"></div></div><span class="conf-bar-pct" id="row2-conf-pct">74%</span></div>
+    </div>
+    <div class="tip" id="tip-text">
+      <i class="ti ti-bulb"></i>
+      <span><strong>Tip:</strong> Rice prices are expected to go up over the next two days. If you sell rice, it may be a good idea to buy stock today at ₱52.40 before the price goes higher.</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ── RICE DATA ── */
+const riceData = {
+  'well-milled':    { name:'Well-Milled',   today:52.40, d1:52.80, d2:53.10, conf1:87, conf2:74, base:50.2, trend:0.15 },
+  'regular-milled': { name:'Regular Milled', today:48.20, d1:48.55, d2:48.85, conf1:85, conf2:71, base:46.0, trend:0.12 },
+  'special':        { name:'Special',        today:58.00, d1:58.50, d2:59.00, conf1:82, conf2:68, base:55.5, trend:0.17 },
+  'premium':        { name:'Premium',        today:63.50, d1:64.10, d2:64.60, conf1:80, conf2:65, base:60.8, trend:0.19 },
+  'sinandomeng':    { name:'Sinandomeng',    today:55.00, d1:55.40, d2:55.75, conf1:83, conf2:70, base:52.5, trend:0.13 },
+  'jasmine':        { name:'Jasmine',        today:60.00, d1:60.60, d2:61.10, conf1:78, conf2:63, base:57.2, trend:0.20 },
+  'brown':          { name:'Brown',          today:57.50, d1:57.90, d2:58.25, conf1:81, conf2:67, base:55.0, trend:0.11 },
+  'red-rice':       { name:'Red Rice',       today:65.00, d1:65.60, d2:66.10, conf1:76, conf2:60, base:62.0, trend:0.21 },
+};
+
+/* ── CHART INIT ── */
+const labels=['May 14','May 15','May 16','May 17','May 18','May 19','May 20','May 21','May 22','May 23','May 24','May 25','May 26','Today','Day 1','Day 2'];
+
+function buildChartData(d) {
+  const base = d.base, t = d.trend;
+  const actual = [
+    base, base+t*1, base+t*5, base+t*3, base+t*7, base+t*10, base+t*8,
+    base+t*13, base+t*15, base+t*14, base+t*16, base+t*18, base+t*19,
+    d.today, null, null
+  ];
+  const predicted = [null,null,null,null,null,null,null,null,null,null,null,null,null,d.today,d.d1,d.d2];
+  const spread1 = (d.d1 - d.today) * 0.5;
+  const spread2 = (d.d2 - d.today) * 0.8;
+  const bandHigh = [null,null,null,null,null,null,null,null,null,null,null,null,null,d.today,d.d1+spread1,d.d2+spread2];
+  const bandLow =  [null,null,null,null,null,null,null,null,null,null,null,null,null,d.today,d.d1-spread1,d.d2-spread2];
+  return {actual,predicted,bandHigh,bandLow};
+}
+
+let myChart;
+function initChart(key) {
+  const d = riceData[key];
+  const {actual,predicted,bandHigh,bandLow} = buildChartData(d);
+  if (myChart) myChart.destroy();
+  myChart = new Chart(document.getElementById('fc'),{
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {label:'Band high',data:bandHigh,borderWidth:0,pointRadius:0,fill:'+1',backgroundColor:'rgba(45,106,79,0.08)',tension:0.4},
+        {label:'Band low',data:bandLow,borderWidth:0,pointRadius:0,fill:false,tension:0.4},
+        {label:'Actual',data:actual,borderColor:'#2d6a4f',borderWidth:2.5,pointRadius:3.5,pointBackgroundColor:'#2d6a4f',pointBorderColor:'#fff',pointBorderWidth:1.5,fill:false,tension:0.4,spanGaps:false},
+        {label:'Predicted',data:predicted,borderColor:'#1d4ed8',borderWidth:2.5,borderDash:[5,4],pointRadius:5,pointBackgroundColor:'#1d4ed8',pointBorderColor:'#fff',pointBorderWidth:2,fill:false,tension:0.4,spanGaps:false}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#fff',borderColor:'#e4e1d9',borderWidth:1,
+          titleColor:'#1c1c18',bodyColor:'#3d3d35',padding:10,
+          callbacks:{label:c=>c.dataset.label==='Band high'||c.dataset.label==='Band low'?null:'  '+(c.dataset.label==='Actual'?'Real price':'Expected price')+': ₱'+c.parsed.y?.toFixed(2)}
+        }
+      },
+      scales:{
+        x:{ticks:{font:{size:10,family:"'Plus Jakarta Sans',sans-serif"},color:'#8a8a7e',maxRotation:30},grid:{display:false},border:{display:false}},
+        y:{ticks:{font:{size:10,family:"'Plus Jakarta Sans',sans-serif"},color:'#8a8a7e',callback:v=>'₱'+v},grid:{color:'rgba(0,0,0,0.04)'},border:{display:false}}
+      }
+    }
+  });
+}
+
+/* ── UPDATE UI ── */
+function updateUI(key) {
+  const d = riceData[key];
+  const chg1 = (d.d1 - d.today).toFixed(2);
+  const chg2 = (d.d2 - d.d1).toFixed(2);
+  const sign1 = chg1 >= 0 ? '+' : '';
+  const sign2 = chg2 >= 0 ? '+' : '';
+
+  // Hero KPIs
+  document.getElementById('kpi-tomorrow').textContent = '₱'+d.d1.toFixed(2);
+  document.getElementById('kpi-tomorrow-sub').textContent = d.name+' · per kilo';
+  document.getElementById('kpi-tomorrow-trend-val').textContent = sign1+'₱'+chg1;
+  document.getElementById('kpi-day2').textContent = '₱'+d.d2.toFixed(2);
+  document.getElementById('kpi-day2-sub').textContent = 'Expected to go '+(chg2>=0?'up':'down')+' '+sign2+'₱'+Math.abs(chg2)+' more';
+  document.getElementById('kpi-confidence').textContent = d.conf1+'%';
+  document.getElementById('kpi-today').textContent = '₱'+d.today.toFixed(2);
+
+  // Chart eyebrow
+  document.getElementById('chart-eyebrow').textContent = 'Price going up and down · '+d.name;
+
+  // Bottom strip
+  document.getElementById('cb-tomorrow').textContent = '₱'+d.d1.toFixed(2);
+  document.getElementById('cb-change-val').textContent = sign1+'₱'+chg1;
+  document.getElementById('cb-sub').textContent = d.name+' · per kilo · May 28, 2026';
+
+  const maxP = d.d2 * 1.02;
+  const pToday = Math.round((d.today/maxP)*100);
+  const pD1    = Math.round((d.d1/maxP)*100);
+  const pD2    = Math.round((d.d2/maxP)*100);
+  document.getElementById('bar-today').style.width = pToday+'%';
+  document.getElementById('bar-today').querySelector('.cb-tval').textContent = '₱'+d.today.toFixed(2);
+  document.getElementById('bar-tomorrow').style.width = pD1+'%';
+  document.getElementById('bar-tomorrow').querySelector('.cb-tval').textContent = '₱'+d.d1.toFixed(2);
+  document.getElementById('bar-dayafter').style.width = pD2+'%';
+  document.getElementById('bar-dayafter').querySelector('.cb-tval').textContent = '₱'+d.d2.toFixed(2);
+
+  document.getElementById('conf1').style.width = d.conf1+'%';
+  document.getElementById('conf1-pct').textContent = d.conf1+'%';
+  document.getElementById('conf2').style.width = d.conf2+'%';
+  document.getElementById('conf2-pct').textContent = d.conf2+'%';
+
+  // Table
+  document.getElementById('table-sub').textContent = d.name+' · per kilo';
+  document.getElementById('row1-price').textContent = '₱'+d.d1.toFixed(2);
+  document.getElementById('row1-change').textContent = sign1+'₱'+chg1;
+  document.getElementById('row2-price').textContent = '₱'+d.d2.toFixed(2);
+  document.getElementById('row2-change').textContent = sign2+'₱'+chg2;
+  document.getElementById('row1-conf-bar').style.width = d.conf1+'%';
+  document.getElementById('row1-conf-pct').textContent = d.conf1+'%';
+  document.getElementById('row2-conf-bar').style.width = d.conf2+'%';
+  document.getElementById('row2-conf-pct').textContent = d.conf2+'%';
+
+  const trendWord = chg1 >= 0 ? 'go up' : 'go down';
+  const action = chg1 >= 0 ? 'buy stock today at ₱'+d.today.toFixed(2)+' before the price goes higher' : 'wait before buying — prices may drop further';
+  document.getElementById('tip-text').innerHTML = '<i class="ti ti-bulb"></i><span><strong>Tip:</strong> '+d.name+' prices are expected to '+trendWord+' over the next two days. If you sell rice, it may be a good idea to '+action+'.</span>';
+
+  // Chart
+  initChart(key);
+}
+
+function selectTab(btn) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  updateUI(btn.dataset.rice);
+}
+
+// Init
+initChart('well-milled');
+</script>
+</body>
+</html>

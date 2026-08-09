@@ -1,0 +1,125 @@
+<div class="section-header" style="margin-bottom:20px;">
+  <div>
+    <div class="section-title">LSTM Neural Network Architecture</div>
+    <div class="section-subtitle">Long Short-Term Memory — 30-day sliding window · 5 input features</div>
+  </div>
+  <span class="pill pill-green">Model Active</span>
+</div>
+
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-header"><span class="card-title">Model Architecture</span></div>
+  <div class="card-body">
+    <div class="architecture-diagram">
+      <div class="arch-block">
+        <div class="arch-node" style="background:#1A4A30;">
+          <div>
+            <div style="font-size:9px;opacity:0.6;margin-bottom:2px;">INPUT</div>
+            <div>5 Features</div>
+            <div style="font-size:9px;opacity:0.5;">×30 days</div>
+          </div>
+        </div>
+        <div class="arch-label">Input Layer</div>
+      </div>
+      <div class="arch-arrow"></div>
+      <div class="arch-block">
+        <div class="arch-node" style="background:#2D5A3E;">
+          <div>
+            <div style="font-size:9px;opacity:0.6;margin-bottom:2px;">LSTM</div>
+            <div>128</div>
+            <div style="font-size:9px;opacity:0.5;">units</div>
+          </div>
+        </div>
+        <div class="arch-label">LSTM Layer 1</div>
+      </div>
+      <div class="arch-arrow"></div>
+      <div class="arch-block">
+        <div class="arch-node" style="background:#3A5C44;">
+          <div>
+            <div style="font-size:9px;opacity:0.6;margin-bottom:2px;">DROP</div>
+            <div>0.2</div>
+          </div>
+        </div>
+        <div class="arch-label">Dropout</div>
+      </div>
+      <div class="arch-arrow"></div>
+      <div class="arch-block">
+        <div class="arch-node" style="background:#2D5A3E;">
+          <div>
+            <div style="font-size:9px;opacity:0.6;margin-bottom:2px;">LSTM</div>
+            <div>64</div>
+            <div style="font-size:9px;opacity:0.5;">units</div>
+          </div>
+        </div>
+        <div class="arch-label">LSTM Layer 2</div>
+      </div>
+      <div class="arch-arrow"></div>
+      <div class="arch-block">
+        <div class="arch-node" style="background:#3A5C44;">
+          <div>
+            <div style="font-size:9px;opacity:0.6;margin-bottom:2px;">DROP</div>
+            <div>0.2</div>
+          </div>
+        </div>
+        <div class="arch-label">Dropout</div>
+      </div>
+      <div class="arch-arrow"></div>
+      <div class="arch-block">
+        <div class="arch-node" style="background:#1A4A30;">
+          <div>
+            <div style="font-size:9px;opacity:0.6;margin-bottom:2px;">DENSE</div>
+            <div>32</div>
+            <div style="font-size:9px;opacity:0.5;">ReLU</div>
+          </div>
+        </div>
+        <div class="arch-label">Dense Layer</div>
+      </div>
+      <div class="arch-arrow"></div>
+      <div class="arch-block">
+        <div class="arch-node" style="background:#4CAF6E;color:white;">
+          <div>
+            <div style="font-size:9px;opacity:0.8;margin-bottom:2px;">OUTPUT</div>
+            <div>₱/kg</div>
+          </div>
+        </div>
+        <div class="arch-label">Price Output</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="content-grid grid-2">
+  <div class="card">
+    <div class="card-header"><span class="card-title">Hyperparameters</span></div>
+    <div class="card-body">
+      <div class="hyper-grid">
+        <div class="hyper-item"><span class="hyper-key">Window Size</span><span class="hyper-val">30 days</span></div>
+        <div class="hyper-item"><span class="hyper-key">LSTM Units L1</span><span class="hyper-val">128</span></div>
+        <div class="hyper-item"><span class="hyper-key">LSTM Units L2</span><span class="hyper-val">64</span></div>
+        <div class="hyper-item"><span class="hyper-key">Dropout Rate</span><span class="hyper-val">0.20</span></div>
+        <div class="hyper-item"><span class="hyper-key">Dense Units</span><span class="hyper-val">32</span></div>
+        <div class="hyper-item"><span class="hyper-key">Activation</span><span class="hyper-val">ReLU</span></div>
+        <div class="hyper-item"><span class="hyper-key">Optimizer</span><span class="hyper-val">Adam</span></div>
+        <div class="hyper-item"><span class="hyper-key">Learning Rate</span><span class="hyper-val">0.001</span></div>
+        <div class="hyper-item"><span class="hyper-key">Batch Size</span><span class="hyper-val">32</span></div>
+        <div class="hyper-item"><span class="hyper-key">Max Epochs</span><span class="hyper-val">100</span></div>
+        <div class="hyper-item"><span class="hyper-key">Loss Function</span><span class="hyper-val">MSE</span></div>
+        <div class="hyper-item"><span class="hyper-key">Early Stop</span><span class="hyper-val">patience=10</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Input Features</span></div>
+    <div class="card-body">
+      <table class="data-table">
+        <thead><tr><th>Feature</th><th>Source</th><th>Frequency</th><th>Scaling</th></tr></thead>
+        <tbody>
+          <tr><td>Rice Price (8 types)</td><td>DA</td><td>Daily</td><td>Min-Max</td></tr>
+          <tr><td>Diesel Fuel Price</td><td>DOE</td><td>Weekly→Daily</td><td>Min-Max</td></tr>
+          <tr><td>USD/PHP Rate</td><td>API</td><td>Daily</td><td>Min-Max</td></tr>
+          <tr><td>Rice Stock Level</td><td>PSA</td><td>Monthly→Daily</td><td>Min-Max</td></tr>
+          <tr><td>Rainfall / Weather</td><td>PAGASA</td><td>Daily</td><td>Min-Max</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

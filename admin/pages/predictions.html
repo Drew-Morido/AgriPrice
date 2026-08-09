@@ -1,0 +1,156 @@
+<div class="prediction-hero">
+  <div class="hero-left">
+    <div class="hero-tag">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span data-dynamic-date="forecast-tag">Live Forecast — Loading…</span>
+    </div>
+    <h2 style="color:white;font-size:22px;margin-top:10px;">2-Day Price Forecast</h2>
+    <p data-dynamic-date="forecast-subtitle" style="color:rgba(255,255,255,0.55);font-size:12px;margin-top:4px;">Powered by LSTM Neural Network · 30-day sliding window</p>
+  </div>
+  <div class="hero-prices" id="hero-prices"></div>
+  <div class="hero-right">
+    <div class="hero-refresh">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      <span data-dynamic-date="refresh">Updated just now</span>
+    </div>
+    <div class="hero-toggle" id="hero-toggle">
+      <button class="hero-toggle-btn active" data-type="local">Local</button>
+      <button class="hero-toggle-btn" data-type="imported">Imported</button>
+    </div>
+  </div>
+</div>
+
+<div class="model-status-strip">
+  <div class="model-status-item">
+    <div class="model-status-icon" style="background:rgba(76,175,110,0.12);">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4CAF6E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+    </div>
+    <div>
+      <div class="model-status-label">Model Status</div>
+      <div class="model-status-val" style="color:#4CAF6E;">Active</div>
+    </div>
+  </div>
+  <div class="model-status-item">
+    <div class="model-status-icon" style="background:rgba(59,130,246,0.12);">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    </div>
+    <div>
+      <div class="model-status-label">MAE Score</div>
+      <div class="model-status-val">₱1.32</div>
+    </div>
+  </div>
+  <div class="model-status-item">
+    <div class="model-status-icon" style="background:rgba(139,92,246,0.12);">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>
+    </div>
+    <div>
+      <div class="model-status-label">RMSE Score</div>
+      <div class="model-status-val">₱1.87</div>
+    </div>
+  </div>
+  <div class="model-status-item">
+    <div class="model-status-icon" style="background:rgba(245,158,11,0.12);">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    </div>
+    <div>
+      <div class="model-status-label">Last Retrain</div>
+      <div class="model-status-val">1 day ago</div>
+    </div>
+  </div>
+</div>
+
+<div class="pred-layout">
+  <div class="pred-main">
+    <div id="pred-view-chart" class="pred-view-panel">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" id="forecast-chart-title">Forecast vs Historical (Local Well-Milled)</span>
+          <div class="conf-legend">
+            <div class="conf-legend-item"><span class="conf-swatch" style="background:#4CAF6E;opacity:0.5;"></span>Confidence Band</div>
+            <div class="conf-legend-item"><span class="conf-swatch" style="background:#4CAF6E;"></span>Historical</div>
+            <div class="conf-legend-item"><span class="conf-swatch" style="background:#8B5CF6;"></span>Predicted</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <canvas id="forecast-main-chart" style="width:100%;height:280px;display:block;"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div id="pred-view-table" class="pred-view-panel">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" id="forecast-table-title">Daily Forecast Table — Local Well-Milled</span>
+        </div>
+        <div id="forecast-table-container">
+          <div class="forecast-row header">
+            <span>Date</span><span>Trend</span><span>Price</span><span>Change</span><span>Accuracy</span>
+          </div>
+          <div id="forecast-tbody"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pred-sidebar">
+    <div class="card pred-slider-card" id="pred-slider-card">
+      <div class="pred-slide active" data-slide="0">
+        <div class="card-header">
+          <span class="card-title">Next Day Prediction</span>
+          <span class="pill pill-green">Tomorrow</span>
+        </div>
+        <div class="card-body" style="text-align:center;padding:20px 20px 12px;">
+          <div id="tomorrow-rice-label" style="font-size:11px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Well Milled Rice · Day 1</div>
+          <div style="font-size:36px;font-weight:700;font-family:var(--font-mono);color:var(--text-primary);letter-spacing:-1px;">₱52.80</div>
+          <div style="font-size:13px;font-weight:600;color:var(--color-danger);margin-top:6px;">▲ +₱0.30 (+0.57%)</div>
+          <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border-color);">
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">Model Confidence</div>
+            <div style="background:var(--bg-input);border-radius:99px;height:8px;overflow:hidden;">
+              <div style="width:92%;height:100%;background:linear-gradient(90deg,#4CAF6E,#2D8A50);border-radius:99px;"></div>
+            </div>
+            <div style="font-size:13px;font-weight:700;font-family:var(--font-mono);color:var(--color-accent);margin-top:6px;">92%</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pred-slide" data-slide="1">
+        <div class="card-header">
+          <span class="card-title">2-Day Outlook</span>
+          <div class="outlook-select-wrap" id="outlook-select-wrap">
+            <div class="outlook-select-trigger" id="outlook-select-trigger">
+              <span id="outlook-select-label">Local Well-Milled</span>
+              <svg class="outlook-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="outlook-dropdown" id="outlook-dropdown">
+              <div class="outlook-option active" data-value="wm">Local Well-Milled</div>
+              <div class="outlook-option" data-value="rm">Local Regular</div>
+              <div class="outlook-option" data-value="pm">Local Premium</div>
+              <div class="outlook-option" data-value="sp">Local Special</div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="pred-timeline" id="pred-sidebar-bars"></div>
+        </div>
+      </div>
+
+      <div class="pred-slide" data-slide="2">
+        <div class="card-header">
+          <span class="card-title">Accuracy by Day</span>
+          <span class="text-xs text-muted">Hold-out test · matches dashboard</span>
+        </div>
+        <div class="card-body" style="padding:0 20px 12px;">
+          <div id="pred-conf-bars"></div>
+        </div>
+      </div>
+
+      <div class="pred-slide-zone pred-slide-zone-left" id="pred-zone-left"></div>
+      <div class="pred-slide-zone pred-slide-zone-right" id="pred-zone-right"></div>
+      <div class="pred-slide-dots">
+        <span class="pred-dot" data-dot="0"></span>
+        <span class="pred-dot active" data-dot="1"></span>
+        <span class="pred-dot" data-dot="2"></span>
+      </div>
+    </div>
+  </div>
+</div>

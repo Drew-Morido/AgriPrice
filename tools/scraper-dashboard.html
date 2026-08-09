@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AgriPricePH — Scraper Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+<style>
+/* ═══════════════════════════════════════════
+   RESET & VARIABLES
+═══════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0a0c0e;
+  --bg-panel:  #0f1214;
+  --bg-card:   #141719;
+  --bg-input:  #1a1d20;
+  --border:    rgba(255,255,255,0.06);
+  --border-hi: rgba(255,255,255,0.12);
+
+  --ink:       #e8eaec;
+  --ink-2:     #8d9399;
+  --ink-3:     #525a62;
+
+  --rice:      #f0c040;
+  --fuel:      #f06060;
+  --rates:     #60c0f0;
+  --ok:        #50d08a;
+  --warn:      #f0a040;
+  --err:       #f06060;
+
+  --mono:      'IBM Plex Mono', monospace;
+  --sans:      'DM Sans', sans-serif;
+
+  --r:         6px;
+  --r-sm:      4px;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+/* ═══════════════════════════════════════════
+   LAYOUT
+═══════════════════════════════════════════ */
+.shell {
+  display: grid;
+  grid-template-rows: 52px 1fr;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ─── TOPBAR ─── */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 20px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  z-index: 10;
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.brand-icon {
+  width: 28px; height: 28px;
+  background: linear-gradient(135deg, #f0c040, #f06040);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.brand-icon svg { width: 14px; height: 14px; }
+
+.brand-name {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: 0.05em;
+}
+
+.brand-sub {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.topbar-sep {
+  width: 1px;
+  height: 24px;
+  background: var(--border);
+}
+
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 100px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid var(--border);
+  color: var(--ink-2);
+  background: var(--bg-input);
+}
+
+.status-pill.running {
+  border-color: rgba(80, 208, 138, 0.35);
+  color: var(--ok);
+  background: rgba(80, 208, 138, 0.08);
+}
+
+.status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status-pill.running .status-dot {
+  animation: pulse 1.2s ease infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.7); }
+}
+
+.topbar-spacer { flex: 1; }
+
+.topbar-stats {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ts-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-radius: var(--r-sm);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.ts-label { color: var(--ink-3); font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; }
+.ts-val   { color: var(--ink); font-weight: 500; font-size: 13px; }
+
+.ts-item.rice  .ts-val { color: var(--rice); }
+.ts-item.fuel  .ts-val { color: var(--fuel); }
+.ts-item.rates .ts-val { color: var(--rates); }
+
+.ts-divider {
+  width: 1px; height: 28px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+.run-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 16px;
+  border-radius: var(--r);
+  background: linear-gradient(135deg, #50d08a, #40b870);
+  color: #0a1a10;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.run-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(80,208,138,0.3); }
+.run-btn:active { transform: translateY(0); }
+.run-btn:disabled {
+  background: var(--bg-input);
+  color: var(--ink-3);
+  border: 1px solid var(--border);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* ─── BODY GRID ─── */
+.body {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  grid-template-rows: 1fr;
+  overflow: hidden;
+}
+
+/* ─── LEFT PANEL ─── */
+.left-panel {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+
+/* ─── RIGHT PANEL ─── */
+.right-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ═══════════════════════════════════════════
+   PANEL SECTIONS
+═══════════════════════════════════════════ */
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  flex-shrink: 0;
+}
+
+.section-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-3);
+}
+
+.pill {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+  border-radius: 100px;
+}
+
+.pill-green { background: rgba(80,208,138,0.12); color: var(--ok); border: 1px solid rgba(80,208,138,0.2); }
+.pill-gray  { background: rgba(255,255,255,0.05); color: var(--ink-3); border: 1px solid var(--border); }
+.pill-blue  { background: rgba(96,192,240,0.12); color: var(--rates); border: 1px solid rgba(96,192,240,0.2); }
+
+/* ═══════════════════════════════════════════
+   ACTIVITY LOG
+═══════════════════════════════════════════ */
+.log-wrap {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.log-wrap::-webkit-scrollbar { width: 4px; }
+.log-wrap::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
+
+.log-entry {
+  display: grid;
+  grid-template-columns: 60px 44px 1fr;
+  gap: 0 8px;
+  padding: 2px 16px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1.7;
+  border-left: 2px solid transparent;
+  transition: background 0.1s;
+}
+
+.log-entry:hover { background: rgba(255,255,255,0.02); }
+
+.log-entry.lvl-ERROR   { border-left-color: var(--err); }
+.log-entry.lvl-WARN    { border-left-color: var(--warn); }
+.log-entry.lvl-SUCCESS { border-left-color: var(--ok); }
+
+.le-time { color: var(--ink-3); }
+.le-lvl  { font-weight: 600; }
+.le-msg  { color: #b8c4cc; word-break: break-word; }
+
+.le-lvl.INFO    { color: #6090b0; }
+.le-lvl.WARN    { color: var(--warn); }
+.le-lvl.ERROR   { color: var(--err); }
+.le-lvl.SUCCESS { color: var(--ok); }
+
+.log-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 100%;
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+/* ═══════════════════════════════════════════
+   SCHEDULE
+═══════════════════════════════════════════ */
+.schedule-block {
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.sched-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.1s;
+}
+
+.sched-row:hover { background: rgba(255,255,255,0.02); }
+.sched-row:last-child { border-bottom: none; }
+
+.sched-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.sched-source {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--ink-3);
+  margin-top: 1px;
+}
+
+.sched-next {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-2);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════
+   RIGHT PANEL — DATA PREVIEW
+═══════════════════════════════════════════ */
+.tab-bar {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--bg-panel);
+  padding: 0 8px;
+}
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 12px 16px 11px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+  top: 1px;
+}
+
+.tab-btn:hover { color: var(--ink-2); }
+
+.tab-btn.active { border-bottom-color: currentColor; }
+.tab-btn[data-tab="rice"].active  { color: var(--rice); }
+.tab-btn[data-tab="fuel"].active  { color: var(--fuel); }
+.tab-btn[data-tab="rates"].active { color: var(--rates); }
+
+.tab-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Source info bar */
+.source-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--ink-3);
+  background: var(--bg-panel);
+  flex-shrink: 0;
+}
+
+.src-item { display: flex; align-items: center; gap: 6px; }
+.src-tag  {
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.src-url { color: var(--rates); text-decoration: none; }
+.src-url:hover { text-decoration: underline; }
+
+/* Table area */
+.table-wrap {
+  flex: 1;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  position: relative;
+}
+
+.table-wrap::-webkit-scrollbar { width: 4px; height: 4px; }
+.table-wrap::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.data-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.data-table thead th {
+  background: var(--bg-panel);
+  padding: 9px 14px;
+  text-align: left;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.data-table tbody td {
+  padding: 7px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  white-space: nowrap;
+  color: var(--ink-2);
+}
+
+.data-table tbody tr:first-child td { color: var(--ink); font-weight: 500; }
+.data-table tbody tr:hover td { background: rgba(255,255,255,0.02); }
+
+.data-table tbody td:first-child {
+  color: var(--ink-3);
+  font-size: 10px;
+}
+
+.data-table tbody tr:first-child td:first-child { color: var(--ok); }
+
+/* Empty state */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 100%;
+  min-height: 300px;
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.empty-state svg { opacity: 0.3; }
+
+/* Footer bar */
+.table-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel);
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--ink-3);
+  flex-shrink: 0;
+}
+
+.foot-count { color: var(--ink-2); }
+
+/* ═══════════════════════════════════════════
+   COUNTDOWN TICKER
+═══════════════════════════════════════════ */
+.ticker {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--rates);
+}
+
+/* ═══════════════════════════════════════════
+   CONNECTION BANNER
+═══════════════════════════════════════════ */
+.conn-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  background: rgba(240,96,96,0.1);
+  border-bottom: 1px solid rgba(240,96,96,0.2);
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--err);
+  flex-shrink: 0;
+}
+
+.conn-banner.ok {
+  background: rgba(80,208,138,0.07);
+  border-color: rgba(80,208,138,0.15);
+  color: var(--ok);
+}
+
+.conn-banner.hidden { display: none; }
+
+/* ═══════════════════════════════════════════
+   SCRAPING OVERLAY MODAL
+═══════════════════════════════════════════ */
+.scrape-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 12, 14, 0.72);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.scrape-overlay.visible {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.scrape-modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border-hi);
+  border-radius: 10px;
+  width: 460px;
+  max-width: 90vw;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+  overflow: hidden;
+  transform: translateY(8px);
+  transition: transform 0.25s ease;
+}
+
+.scrape-overlay.visible .scrape-modal {
+  transform: translateY(0);
+}
+
+.scrape-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.scrape-modal-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-pulse {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--ok);
+  animation: pulse 1.2s ease infinite;
+}
+
+/* Steps tracker */
+.scrape-steps {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.scrape-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+.scrape-step:last-child { border-bottom: none; }
+
+.step-icon {
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  transition: all 0.3s ease;
+}
+
+.scrape-step.active   .step-icon { background: rgba(80,208,138,0.12); border-color: rgba(80,208,138,0.3); }
+.scrape-step.done     .step-icon { background: rgba(80,208,138,0.08); border-color: rgba(80,208,138,0.2); }
+.scrape-step.error    .step-icon { background: rgba(240,96,96,0.1);   border-color: rgba(240,96,96,0.25); }
+
+.step-body { flex: 1; }
+
+.step-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-2);
+  transition: color 0.2s;
+}
+
+.scrape-step.active .step-name { color: var(--ink); }
+.scrape-step.done   .step-name { color: var(--ok); }
+.scrape-step.error  .step-name { color: var(--err); }
+
+.step-detail {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-3);
+  margin-top: 2px;
+  min-height: 14px;
+  transition: color 0.2s;
+}
+
+.scrape-step.active .step-detail { color: var(--ink-2); }
+
+.step-status {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 100px;
+  color: var(--ink-3);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+  align-self: center;
+  transition: all 0.2s;
+}
+
+.scrape-step.active .step-status {
+  color: var(--ok);
+  background: rgba(80,208,138,0.1);
+  border-color: rgba(80,208,138,0.25);
+}
+
+.scrape-step.done .step-status {
+  color: var(--ok);
+  background: rgba(80,208,138,0.07);
+  border-color: rgba(80,208,138,0.15);
+}
+
+.scrape-step.error .step-status {
+  color: var(--err);
+  background: rgba(240,96,96,0.08);
+  border-color: rgba(240,96,96,0.2);
+}
+
+/* Latest log line inside modal */
+.modal-log-line {
+  padding: 10px 20px 14px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-3);
+  min-height: 36px;
+  border-top: 1px solid var(--border);
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.modal-log-line span { color: var(--ink-2); }
+
+/* ═══════════════════════════════════════════
+   SCROLLBAR GLOBAL
+═══════════════════════════════════════════ */
+body * { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ═══ TOPBAR ═══ -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-name">AgriPricePH</div>
+        <div class="brand-sub">Scraper Console</div>
+      </div>
+    </div>
+
+    <div class="topbar-sep"></div>
+
+    <div class="status-pill" id="status-pill">
+      <span class="status-dot"></span>
+      <span id="status-text">IDLE</span>
+    </div>
+
+    <div class="topbar-spacer"></div>
+
+    <!-- Record counters -->
+    <div class="topbar-stats">
+      <div class="ts-item rice">
+        <div>
+          <div class="ts-label">Rice</div>
+          <div class="ts-val" id="stat-rice">—</div>
+        </div>
+      </div>
+      <div class="ts-divider"></div>
+      <div class="ts-item fuel">
+        <div>
+          <div class="ts-label">Fuel</div>
+          <div class="ts-val" id="stat-fuel">—</div>
+        </div>
+      </div>
+      <div class="ts-divider"></div>
+      <div class="ts-item rates">
+        <div>
+          <div class="ts-label">Rates</div>
+          <div class="ts-val" id="stat-rates">—</div>
+        </div>
+      </div>
+      <div class="ts-divider"></div>
+      <div class="ts-item">
+        <div>
+          <div class="ts-label">Next Run</div>
+          <div class="ts-val ticker" id="stat-next">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="topbar-sep"></div>
+
+    <button class="run-btn" id="run-btn" type="button">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+        <polygon points="5 3 19 12 5 21 5 3"/>
+      </svg>
+      Run Now
+    </button>
+  </header>
+
+  <!-- ═══ BODY ═══ -->
+  <div class="body">
+
+    <!-- ─── LEFT PANEL ─── -->
+    <div class="left-panel">
+
+      <!-- Connection banner -->
+      <div class="conn-banner hidden" id="conn-banner">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span id="conn-msg">Cannot reach backend — is scraper_console.py running?</span>
+      </div>
+
+      <!-- Activity Log -->
+      <div class="section-head">
+        <span class="section-label">Activity Log</span>
+        <span class="pill pill-green" id="log-live-pill">Live</span>
+      </div>
+
+      <div class="log-wrap" id="log-wrap">
+        <div class="log-empty" id="log-empty">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg>
+          Connecting to backend…
+        </div>
+      </div>
+
+      <!-- Schedule -->
+      <div class="schedule-block">
+        <div class="section-head">
+          <span class="section-label">Schedule</span>
+          <span class="ticker" style="font-size:9px;" id="sched-ts">—</span>
+        </div>
+
+        <div class="sched-row">
+          <div>
+            <div class="sched-name">🌾 DA Rice Prices</div>
+            <div class="sched-source">da.gov.ph/price-monitoring</div>
+          </div>
+          <div class="sched-next" id="next-rice">—</div>
+          <span class="pill pill-green">4h</span>
+        </div>
+
+        <div class="sched-row">
+          <div>
+            <div class="sched-name">⛽ DOE Fuel Prices</div>
+            <div class="sched-source">zigwheels.ph/fuel-price</div>
+          </div>
+          <div class="sched-next" id="next-fuel">—</div>
+          <span class="pill pill-green">Mon</span>
+        </div>
+
+        <div class="sched-row">
+          <div>
+            <div class="sched-name">💱 USD/PHP Rate</div>
+            <div class="sched-source">open.er-api.com</div>
+          </div>
+          <div class="sched-next" id="next-rates">—</div>
+          <span class="pill pill-green">1h</span>
+        </div>
+
+        <div class="sched-row">
+          <div>
+            <div class="sched-name">📦 PSA Stock Level</div>
+            <div class="sched-source">psa.gov.ph</div>
+          </div>
+          <div class="sched-next" id="next-psa">—</div>
+          <span class="pill pill-gray">Planned</span>
+        </div>
+
+        <div class="sched-row">
+          <div>
+            <div class="sched-name">🌧 PAGASA Rainfall</div>
+            <div class="sched-source">pagasa.dost.gov.ph</div>
+          </div>
+          <div class="sched-next" id="next-pagasa">—</div>
+          <span class="pill pill-gray">Planned</span>
+        </div>
+      </div>
+
+    </div><!-- /left-panel -->
+
+    <!-- ─── RIGHT PANEL ─── -->
+    <div class="right-panel">
+
+      <!-- Tab bar -->
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="rice" type="button">
+          <span class="tab-dot"></span>
+          Rice
+        </button>
+        <button class="tab-btn" data-tab="fuel" type="button">
+          <span class="tab-dot"></span>
+          Fuel
+        </button>
+        <button class="tab-btn" data-tab="rates" type="button">
+          <span class="tab-dot"></span>
+          Rates
+        </button>
+      </div>
+
+      <!-- Source info -->
+      <div class="source-bar" id="source-bar">
+        <div class="src-item">
+          <span class="src-tag">Source</span>
+          <span id="src-url-label">—</span>
+        </div>
+        <div class="src-item">
+          <span class="src-tag">Method</span>
+          <span id="src-method-label">—</span>
+        </div>
+        <div class="src-item">
+          <span class="src-tag">Format</span>
+          <span id="src-format-label">—</span>
+        </div>
+        <div style="flex:1;"></div>
+        <span id="src-rec-count" style="color:var(--ink-2);">— records</span>
+      </div>
+
+      <!-- Table -->
+      <div class="table-wrap" id="table-wrap">
+        <div class="empty-state" id="table-empty">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M22 12h-6l-2 3h-4l-2-3H2"/>
+            <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
+          </svg>
+          No data yet — run the scraper to collect records
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="table-foot">
+        <span id="foot-left" class="foot-count">—</span>
+        <span id="foot-right" style="color:var(--ink-3);">Read from CSV — separate from historical database</span>
+      </div>
+
+    </div><!-- /right-panel -->
+
+  </div><!-- /body -->
+<!-- ═══ SCRAPING OVERLAY ═══ -->
+<div class="scrape-overlay" id="scrape-overlay">
+  <div class="scrape-modal">
+
+    <div class="scrape-modal-head">
+      <div class="scrape-modal-title">
+        <span class="modal-pulse"></span>
+        Scraping in Progress
+      </div>
+      <span class="pill pill-green" id="modal-step-counter">0 / 3</span>
+    </div>
+
+    <div class="scrape-steps">
+
+      <div class="scrape-step" id="mstep-rice" data-step="rice">
+        <div class="step-icon">🌾</div>
+        <div class="step-body">
+          <div class="step-name">DA Rice Prices</div>
+          <div class="step-detail" id="mstep-rice-detail">da.gov.ph/price-monitoring — PDF extract</div>
+        </div>
+        <div class="step-status" id="mstep-rice-status">Waiting</div>
+      </div>
+
+      <div class="scrape-step" id="mstep-fuel" data-step="fuel">
+        <div class="step-icon">⛽</div>
+        <div class="step-body">
+          <div class="step-name">DOE Fuel Prices</div>
+          <div class="step-detail" id="mstep-fuel-detail">zigwheels.ph/fuel-price — HTML scrape</div>
+        </div>
+        <div class="step-status" id="mstep-fuel-status">Waiting</div>
+      </div>
+
+      <div class="scrape-step" id="mstep-rates" data-step="rates">
+        <div class="step-icon">💱</div>
+        <div class="step-body">
+          <div class="step-name">USD/PHP Exchange Rates</div>
+          <div class="step-detail" id="mstep-rates-detail">open.er-api.com/v6/latest — JSON API</div>
+        </div>
+        <div class="step-status" id="mstep-rates-status">Waiting</div>
+      </div>
+
+    </div>
+
+    <div class="modal-log-line" id="modal-log-line">
+      <span>Initializing scraper…</span>
+    </div>
+
+  </div>
+</div>
+
+</div><!-- /shell -->
+
+<script>
+/* ════════════════════════════════════════════════════════════
+   AgriPricePH — Standalone Scraper Dashboard  (no-glitch v2)
+   Connects to scraper_console.py via polling + SSE
+   NO router dependency, NO module dependency
+
+   GLITCH FIX:
+   • _patchTable()  — in-place cell text update, ZERO DOM flash
+   • Overlay modal  — shown during active scrape so background
+                      table updates are invisible to the user
+   • _renderTable() — full rebuild ONLY on tab switch or
+                      empty↔data transition; otherwise patches
+   • Log dedup      — keyed on time+msg, no duplicate entries
+     even when SSE + polling both fire
+════════════════════════════════════════════════════════════ */
+(function () {
+  const API      = 'http://127.0.0.1:5000';
+  const IDLE_MS  = 10_000;
+  const RUN_MS   = 2_000;
+
+  /* ─── state ─── */
+  let _running   = false;
+  let _logs      = [];
+  let _logCount  = 0;
+  let _logKeys   = new Set();          // dedup: time+msg
+  let _pollTimer = null;
+  let _cdTimer   = null;
+  let _cache     = { rice: null, fuel: null, rates: null };
+  let _tableState = { tab: null, hasData: false, colCount: 0 }; // track last render
+  let _activeTab = 'rice';
+  let _nextRun   = null;
+  let _backendOk = null;
+  let _sse       = null;
+
+  /* ─── source metadata ─── */
+  const SRC = {
+    rice:  { url: 'da.gov.ph/price-monitoring', method: 'PDF scrape',  format: 'CSV — agriprice_database.csv' },
+    fuel:  { url: 'zigwheels.ph/fuel-price',    method: 'HTML scrape', format: 'CSV — fuel_database.csv' },
+    rates: { url: 'open.er-api.com/v6/latest',  method: 'JSON API',    format: 'CSV — exchange_rate_database.csv' },
+  };
+
+  /* ─── column display names ─── */
+  const SHORT = {
+    'Local Special':           'L-Special',
+    'Local Premium':           'L-Premium',
+    'Local Well Milled':       'L-Well',
+    'Local Regular Milled':    'L-Regular',
+    'Imported Special':        'I-Special',
+    'Imported Premium':        'I-Premium',
+    'Imported Well Milled':    'I-Well',
+    'Imported Regular Milled': 'I-Regular',
+    'USD_to_PHP':              'USD→PHP',
+    'THB_to_PHP':              'THB→PHP',
+    'VND_to_PHP':              'VND→PHP',
+  };
+
+  const COLS = {
+    rice:  ['Date','Local Special','Local Premium','Local Well Milled','Local Regular Milled',
+            'Imported Special','Imported Premium','Imported Well Milled','Imported Regular Milled'],
+    fuel:  ['Date','Gasoline','RON_100','RON_97','RON_95','RON_91','Diesel','Diesel_Plus','Kerosene'],
+    rates: ['Date','USD_to_PHP','THB_to_PHP','VND_to_PHP'],
+  };
+
+  /* ═════ INIT ═════ */
+  function init() {
+    _bindBtn();
+    _bindTabs();
+    _updateSchedule();
+    _poll();
+    setTimeout(_connectSSE, 800);
+  }
+
+  /* ═════ POLLING ═════ */
+  function _poll() {
+    clearTimeout(_pollTimer);
+    _fetchStatus().finally(() => {
+      _pollTimer = setTimeout(_poll, _running ? RUN_MS : IDLE_MS);
+    });
+  }
+
+  async function _fetchStatus() {
+    try {
+      const res = await fetch(`${API}/api/scrape-status`);
+      if (!res.ok) throw new Error('non-200');
+      const d = await res.json();
+
+      _setBackend(true);
+
+      const wasRunning = _running;
+      _running = !!(d.stats && d.stats.running);
+      if (wasRunning !== _running) {
+        _syncBtn();
+        _syncOverlay();   // show/hide modal on state change
+      }
+      _syncStatus();
+
+      /* Stats — textContent only, no reflow */
+      _setText('stat-rice',  d.stats?.rice_count  ?? '—');
+      _setText('stat-fuel',  d.stats?.fuel_count  ?? '—');
+      _setText('stat-rates', d.stats?.rates_count ?? '—');
+
+      /* Logs — incremental only */
+      const allLogs = d.logs || [];
+      if (allLogs.length > _logCount) {
+        allLogs.slice(_logCount).forEach(_pushLog);
+        _logCount = allLogs.length;
+      }
+
+      /* Cache + smart table update */
+      _cache.rice  = d.preview_rice  || null;
+      _cache.fuel  = d.preview_fuel  || null;
+      _cache.rates = d.preview_rates || null;
+      _smartTable(_activeTab);
+
+      _updateSchedule();
+
+    } catch (_) {
+      _setBackend(false);
+    }
+  }
+
+  /* ═════ SSE ═════ */
+  function _connectSSE() {
+    if (_sse) { try { _sse.close(); } catch(_){} }
+    try {
+      _sse = new EventSource(`${API}/api/stream-scrape`);
+      _sse.onmessage = e => {
+        try { _pushLog(JSON.parse(e.data)); } catch(_){}
+      };
+      _sse.onerror = () => {
+        try { _sse.close(); } catch(_){}
+        _sse = null;
+      };
+    } catch(_) { _sse = null; }
+  }
+
+  /* ═════ OVERLAY MODAL ═════ */
+  /* Parse log lines to detect which scrape step is active/done/error */
+  const _STEP_SIGNALS = {
+    rice:  { active: /\[1\/3\]|rice prices/i,   done: /rice.*saved|✔.*rice/i,  err: /rice.*error|✘.*rice/i  },
+    fuel:  { active: /\[2\/3\]|fuel prices/i,   done: /fuel.*saved|✔.*fuel/i,  err: /fuel.*error|✘.*fuel/i  },
+    rates: { active: /\[3\/3\]|exchange rates/i, done: /rates.*saved|✔.*rates/i, err: /rates.*error|✘.*rates/i },
+  };
+
+  const _stepState = { rice: 'waiting', fuel: 'waiting', rates: 'waiting' };
+  let _doneCount = 0;
+
+  function _syncOverlay() {
+    const overlay = document.getElementById('scrape-overlay');
+    if (!overlay) return;
+    if (_running) {
+      /* Reset step states when a new run begins */
+      _doneCount = 0;
+      ['rice','fuel','rates'].forEach(s => _setStepState(s, 'waiting'));
+      _setText('modal-log-line', 'Starting scraper…');
+      _setText('modal-step-counter', '0 / 3');
+      overlay.classList.add('visible');
+    } else {
+      /* Brief delay before hiding so user sees final state */
+      setTimeout(() => overlay.classList.remove('visible'), 1800);
+    }
+  }
+
+  function _setStepState(step, state) {
+    _stepState[step] = state;
+    const row    = document.getElementById(`mstep-${step}`);
+    const status = document.getElementById(`mstep-${step}-status`);
+    if (!row || !status) return;
+    row.className = `scrape-step ${state}`;
+    const labels = { waiting: 'Waiting', active: 'Running…', done: 'Done ✔', error: 'Failed ✘' };
+    status.textContent = labels[state] || state;
+  }
+
+  function _updateOverlayFromLog(msg) {
+    /* Update step states based on log message content */
+    ['rice','fuel','rates'].forEach(step => {
+      const sig = _STEP_SIGNALS[step];
+      const cur = _stepState[step];
+      if (cur === 'waiting' && sig.active.test(msg)) {
+        /* Mark previous steps done if they were still "active" */
+        ['rice','fuel','rates'].forEach(s => {
+          if (_stepState[s] === 'active') _advanceStep(s, 'done');
+        });
+        _setStepState(step, 'active');
+      }
+      if (cur !== 'done' && cur !== 'error') {
+        if (sig.done.test(msg)) _advanceStep(step, 'done');
+        if (sig.err.test(msg))  _advanceStep(step, 'error');
+      }
+    });
+
+    /* Latest log line in modal */
+    const ll = document.getElementById('modal-log-line');
+    if (ll) ll.innerHTML = `<span>${_esc(msg)}</span>`;
+  }
+
+  function _advanceStep(step, state) {
+    _setStepState(step, state);
+    if (state === 'done') {
+      _doneCount++;
+      _setText('modal-step-counter', `${_doneCount} / 3`);
+    }
+  }
+
+  /* ═════ RUN BUTTON ═════ */
+  function _bindBtn() {
+    document.getElementById('run-btn').addEventListener('click', async () => {
+      if (_running) {
+        _pushLog({ time: _ts(), level: 'WARN', msg: 'Scraper is already running.' });
+        return;
+      }
+      _pushLog({ time: _ts(), level: 'INFO', msg: 'Manual run initiated — sending request...' });
+      try {
+        const res = await fetch(`${API}/api/run-scraper`, { method: 'POST' });
+        if (res.status === 409) {
+          _pushLog({ time: _ts(), level: 'WARN', msg: 'Already running on server.' });
+          return;
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        _running = true;
+        _syncBtn();
+        _syncStatus();
+        _syncOverlay();
+        _pushLog({ time: _ts(), level: 'INFO', msg: 'Scraper started. Watch the overlay for progress…' });
+        setTimeout(_connectSSE, 300);
+        clearTimeout(_pollTimer);
+        _pollTimer = setTimeout(_poll, 600);
+      } catch (err) {
+        _pushLog({ time: _ts(), level: 'ERROR', msg: `Cannot reach backend: ${err.message}` });
+        _pushLog({ time: _ts(), level: 'INFO',  msg: 'Start with: python scraper_console.py --serve' });
+      }
+    });
+  }
+
+  function _syncBtn() {
+    const btn = document.getElementById('run-btn');
+    if (_running) {
+      btn.disabled = true;
+      btn.innerHTML = `<svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"
+        style="animation:pulse 1s ease infinite"><circle cx="12" cy="12" r="10"/></svg> Running…`;
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+        <polygon points="5 3 19 12 5 21 5 3"/></svg> Run Now`;
+    }
+  }
+
+  function _syncStatus() {
+    const pill = document.getElementById('status-pill');
+    const txt  = document.getElementById('status-text');
+    if (_running) {
+      pill.classList.add('running');
+      txt.textContent = 'RUNNING';
+    } else {
+      pill.classList.remove('running');
+      txt.textContent = 'IDLE';
+    }
+  }
+
+  /* ═════ BACKEND BANNER ═════ */
+  function _setBackend(ok) {
+    if (_backendOk === ok) return;
+    _backendOk = ok;
+    const el  = document.getElementById('conn-banner');
+    const msg = document.getElementById('conn-msg');
+    if (ok) {
+      el.className = 'conn-banner ok';
+      msg.textContent = 'Backend connected — scraper_console.py is running.';
+      setTimeout(() => { el.className = 'conn-banner hidden'; }, 3000);
+    } else {
+      el.className = 'conn-banner';
+      msg.textContent = 'Cannot reach backend — run: python scraper_console.py --serve';
+    }
+  }
+
+  /* ═════ TABS ═════ */
+  function _bindTabs() {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        _activeTab = btn.dataset.tab;
+        document.querySelectorAll('.tab-btn').forEach(b =>
+          b.classList.toggle('active', b === btn)
+        );
+        /* Tab switch → force full rebuild */
+        _tableState.tab = null;
+        _smartTable(_activeTab);
+      });
+    });
+  }
+
+  /* ═════ SMART TABLE — no-flash core ═════ */
+  /*
+   * Strategy:
+   *   1. If tab changed, or data presence changed, or col count changed
+   *      → full rebuild (_buildTable) — unavoidable but rare
+   *   2. Otherwise → _patchTable: walk existing <td> nodes and update
+   *      only those whose text changed — ZERO layout thrash, ZERO flash
+   */
+  function _smartTable(tab) {
+    const src    = SRC[tab];
+    _setText('src-url-label',    src.url);
+    _setText('src-method-label', src.method);
+    _setText('src-format-label', src.format);
+
+    const rows    = _cache[tab];
+    const hasData = !!(rows && rows.length);
+    const keys    = hasData ? Object.keys(rows[0]) : [];
+    const cols    = hasData ? (COLS[tab] || keys).filter(k => keys.includes(k)) : [];
+    const top10   = hasData ? rows.slice(-10).reverse() : [];
+
+    const needRebuild =
+      _tableState.tab      !== tab        ||
+      _tableState.hasData  !== hasData    ||
+      _tableState.colCount !== cols.length;
+
+    if (needRebuild) {
+      _buildTable(tab, hasData, cols, top10, rows);
+      _tableState = { tab, hasData, colCount: cols.length };
+    } else if (hasData) {
+      _patchTable(cols, top10, rows);
+    }
+  }
+
+  /* Full DOM build — called only when structure actually changes */
+  function _buildTable(tab, hasData, cols, top10, rows) {
+    const wrap = document.getElementById('table-wrap');
+    if (!wrap) return;
+
+    if (!hasData) {
+      wrap.innerHTML = `
+        <div class="empty-state">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M22 12h-6l-2 3h-4l-2-3H2"/>
+            <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
+          </svg>
+          No ${tab} data yet — run the scraper to collect records
+        </div>`;
+      _setText('src-rec-count', '— records');
+      _setText('foot-left', '—');
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+    const table = document.createElement('table');
+    table.className = 'data-table';
+    table.id = 'live-table';
+
+    const thead = document.createElement('thead');
+    const hrow  = document.createElement('tr');
+    cols.forEach(c => {
+      const th = document.createElement('th');
+      th.textContent = SHORT[c] || c;
+      hrow.appendChild(th);
+    });
+    thead.appendChild(hrow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    top10.forEach(r => {
+      const tr = document.createElement('tr');
+      cols.forEach(c => {
+        const td = document.createElement('td');
+        td.textContent = r[c] ?? '';
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    frag.appendChild(table);
+
+    wrap.innerHTML = '';
+    wrap.appendChild(frag);
+
+    _setText('src-rec-count', `${rows.length} records`);
+    _setText('foot-left', `Showing latest ${top10.length} of ${rows.length} records — live from CSV`);
+  }
+
+  /* In-place patch — only touches cells that actually changed */
+  function _patchTable(cols, top10, rows) {
+    const table = document.getElementById('live-table');
+    if (!table) return;
+    const trows = table.tBodies[0]?.rows;
+    if (!trows) return;
+
+    top10.forEach((r, ri) => {
+      if (ri >= trows.length) return;
+      const cells = trows[ri].cells;
+      cols.forEach((c, ci) => {
+        if (ci >= cells.length) return;
+        const val = String(r[c] ?? '');
+        if (cells[ci].textContent !== val) cells[ci].textContent = val;
+      });
+    });
+
+    /* Update footer counts silently */
+    _setText('src-rec-count', `${rows.length} records`);
+    _setText('foot-left', `Showing latest ${top10.length} of ${rows.length} records — live from CSV`);
+  }
+
+  /* ═════ LOG ═════ */
+  const LVL_MAP = { INFO:'INFO', WARN:'WARN', WARNING:'WARN', ERROR:'ERROR', SUCCESS:'SUCCESS' };
+
+  function _pushLog(entry) {
+    /* Dedup — SSE and polling can both fire for the same line */
+    const key = entry.time + '|' + entry.msg;
+    if (_logKeys.has(key)) return;
+    _logKeys.add(key);
+
+    const level = LVL_MAP[entry.level] || 'INFO';
+    _logs.push(entry);
+
+    /* Update overlay step tracker */
+    _updateOverlayFromLog(entry.msg);
+
+    const wrap  = document.getElementById('log-wrap');
+    const empty = document.getElementById('log-empty');
+    if (empty) empty.remove();
+
+    const div = document.createElement('div');
+    div.className = `log-entry lvl-${level}`;
+    /* Use textContent for each span — no innerHTML injection risk, no reflow */
+    const tSpan = document.createElement('span');
+    tSpan.className = 'le-time'; tSpan.textContent = entry.time;
+    const lSpan = document.createElement('span');
+    lSpan.className = `le-lvl ${level}`; lSpan.textContent = level;
+    const mSpan = document.createElement('span');
+    mSpan.className = 'le-msg'; mSpan.textContent = entry.msg;
+    div.appendChild(tSpan); div.appendChild(lSpan); div.appendChild(mSpan);
+    wrap.appendChild(div);
+    wrap.scrollTop = wrap.scrollHeight;
+  }
+
+  /* ═════ SCHEDULE ═════ */
+  function _nextMonthlyFirst(now) {
+    const d = new Date(now);
+    let next = new Date(d.getFullYear(), d.getMonth(), 1, 8, 0, 0, 0);
+    if (next <= d) next = new Date(d.getFullYear(), d.getMonth() + 1, 1, 8, 0, 0, 0);
+    return next;
+  }
+
+  function _formatSchedNext(dt) {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const pad = n => String(n).padStart(2, '0');
+    const clock = `${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+    if (dt.toDateString() === now.toDateString()) return `Today ${clock}`;
+    if (dt.toDateString() === tomorrow.toDateString()) return `Tomorrow ${clock}`;
+    return `${months[dt.getMonth()]} ${dt.getDate()}`;
+  }
+
+  function _updateSchedule() {
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const fmt = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+    const nextRice   = _nextInterval(now, 4 * 60);
+    const nextRates  = _nextInterval(now, 60);
+    const nextFuel   = _nextWeekday(now, 1);
+    const nextPsa    = _nextMonthlyFirst(now);
+    const nextPagasa = _nextInterval(now, 3 * 60);
+
+    _setText('next-rice',   fmt(nextRice));
+    _setText('next-rates',  fmt(nextRates));
+    _setText('next-fuel',   nextFuel.toLocaleDateString('en-PH', { month:'short', day:'numeric' }));
+    _setText('next-psa',    _formatSchedNext(nextPsa));
+    _setText('next-pagasa', _formatSchedNext(nextPagasa));
+
+    _nextRun = new Date(Math.min(nextRice, nextRates));
+    _startCountdown();
+  }
+
+  function _startCountdown() {
+    clearInterval(_cdTimer);
+    const tick = () => {
+      if (_running) { _setText('stat-next', 'Now'); _setText('sched-ts', _ts()); return; }
+      if (!_nextRun) return;
+      const diff = _nextRun - new Date();
+      if (diff <= 0) { _setText('stat-next', 'Now'); return; }
+      const h = Math.floor(diff / 3_600_000);
+      const m = Math.floor((diff % 3_600_000) / 60_000);
+      const s = Math.floor((diff % 60_000) / 1_000);
+      _setText('stat-next', `${h > 0 ? h+'h ' : ''}${m}m ${s}s`);
+      _setText('sched-ts', _ts());
+    };
+    tick();
+    _cdTimer = setInterval(tick, 1000);
+  }
+
+  /* ═════ UTILS ═════ */
+  function _nextInterval(now, mins) {
+    const ms = mins * 60_000;
+    return new Date(Math.ceil((now.getTime() + 1) / ms) * ms);
+  }
+
+  function _nextWeekday(now, day) {
+    const d = new Date(now);
+    const diff = (day - d.getDay() + 7) % 7 || 7;
+    d.setDate(d.getDate() + diff);
+    d.setHours(6, 0, 0, 0);
+    return d;
+  }
+
+  function _setText(id, val) {
+    const el = document.getElementById(id);
+    if (el && el.textContent !== String(val)) el.textContent = val;
+  }
+
+  function _esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function _ts() {
+    return new Date().toLocaleTimeString('en-PH', { hour12: false });
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+{
+  "exported_at": "2026-05-23T04:39:18",
+  "model_meta": {
+    "target": "locWellMilled",
+    "features": [
+      "locWellMilled",
+      "locPremium",
+      "fuel",
+      "exchange",
+      "rainfall"
+    ],
+    "seq_len": 30,
+    "horizon": 2,
+    "backend": "tensorflow",
+    "mae_peso": 0.3941,
+    "rmse_peso": 0.5055,
+    "accuracy_pct": 99.11,
+    "train_samples": 3304,
+    "test_samples": 826,
+    "last_date": "2026-05-23"
+  },
+  "live_prediction": {
+    "forecast": [
+      {
+        "day": 1,
+        "date": "May 24",
+        "date_iso": "2026-05-24",
+        "price": 49.96,
+        "change": 0.01,
+        "confidence": 0.98
+      },
+      {
+        "day": 2,
+        "date": "May 25",
+        "date_iso": "2026-05-25",
+        "price": 50.1,
+        "change": 0.14,
+        "confidence": 0.98
+      }
+    ],
+    "current_prices": {
+      "locWellMilled": 49.95,
+      "locPremium": 55.31,
+      "locSpecial": 60.55,
+      "locRegular": 45.28,
+      "impWellMilled": 48.02,
+      "impSpecial": 60.2,
+      "impRegular": 42.5
+    },
+    "as_of_date": "2026-05-23",
+    "last_data_date": "2026-05-23"
+  }
+}

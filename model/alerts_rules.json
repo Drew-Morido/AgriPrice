@@ -1,0 +1,50 @@
+[
+  {
+    "id": "rule-wm-above",
+    "name": "Well Milled Above Threshold",
+    "rice_key": "locWellMilled",
+    "condition": "above",
+    "threshold": 55.0,
+    "type": "danger",
+    "active": true,
+    "triggered_count": 0,
+    "last_triggered": null,
+    "created_at": "2026-01-01T00:00:00"
+  },
+  {
+    "id": "rule-rm-below",
+    "name": "Regular Milled Drop Alert",
+    "rice_key": "locRegular",
+    "condition": "below",
+    "threshold": 44.0,
+    "type": "info",
+    "active": true,
+    "triggered_count": 0,
+    "last_triggered": null,
+    "created_at": "2026-01-01T00:00:00"
+  },
+  {
+    "id": "rule-spike",
+    "name": "Large 3-Day Price Spike",
+    "rice_key": "all",
+    "condition": "change_up",
+    "threshold": 5.0,
+    "type": "warning",
+    "active": true,
+    "triggered_count": 2,
+    "last_triggered": "2026-07-27T22:39:48",
+    "created_at": "2026-01-01T00:00:00"
+  },
+  {
+    "id": "rule-confidence",
+    "name": "Low Forecast Confidence",
+    "rice_key": "locWellMilled",
+    "condition": "confidence_below",
+    "threshold": 75.0,
+    "type": "info",
+    "active": false,
+    "triggered_count": 0,
+    "last_triggered": null,
+    "created_at": "2026-01-01T00:00:00"
+  }
+]

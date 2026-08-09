@@ -1,0 +1,269 @@
+<div class="training-toolbar">
+  <div class="training-toolbar-title">
+    <div class="section-title">LSTM Model Training</div>
+    <div class="section-subtitle">30-day window LSTM • features: rice, RON95, diesel, stock, farmgate, currency • live monitor and run history</div>
+  </div>
+
+  <nav class="training-tabs" role="tablist" aria-label="Training sections">
+  <button type="button" class="training-tab-btn active" data-tab="live" role="tab"
+    aria-selected="true" aria-controls="training-tab-live" id="training-tab-btn-live">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polygon points="5 3 19 12 5 21 5 3"/>
+    </svg>
+    Live Training
+  </button>
+  <button type="button" class="training-tab-btn" data-tab="history" role="tab"
+    aria-selected="false" aria-controls="training-tab-history" id="training-tab-btn-history">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 3v5h5"/>
+      <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/>
+      <path d="M12 7v5l4 2"/>
+    </svg>
+    Training History
+    <span class="training-tab-badge" id="training-history-count">0</span>
+  </button>
+  </nav>
+
+  <div class="training-toolbar-actions">
+    <button class="btn btn-ghost training-refresh-btn" id="training-module-refresh" type="button" hidden
+      title="Reload admin window to refresh predictions, dashboard, and public view">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85 1.08 6.47 2.8"/>
+        <path d="M21 3v6h-6"/>
+      </svg>
+      Refresh Window
+    </button>
+    <button class="btn btn-danger training-cancel-btn" id="training-cancel-btn" type="button" hidden>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+      </svg>
+      Cancel Training
+    </button>
+    <button class="btn btn-primary training-run-btn" id="training-run-btn" type="button">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="5 3 19 12 5 21 5 3"/>
+      </svg>
+      Start Training
+    </button>
+  </div>
+</div>
+
+<p class="training-history-hint text-xs text-muted" id="training-history-hint" hidden></p>
+
+<!-- ── TAB 1: Live Training ── -->
+<div id="training-tab-live" class="training-tab-panel active" role="tabpanel"
+  aria-labelledby="training-tab-btn-live">
+
+  <div class="training-progress-card">
+    <div class="training-header">
+      <div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:4px;">TRAINING STATUS</div>
+        <div id="training-status-label" style="color:white;font-size:16px;font-weight:700;">
+          Last Run: — Never
+        </div>
+      </div>
+      <div class="epoch-counter">
+        <span class="epoch-counter-label">Epoch Level</span>
+        <span id="epoch-level" class="epoch-level-num">0</span>
+      </div>
+    </div>
+
+    <div style="padding:16px 24px;border-bottom:1px solid var(--border-color);">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:12px;color:var(--text-muted);">Training Progress</span>
+        <span id="training-pct-label" style="font-size:12px;font-weight:600;">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="training-progress-fill"
+          style="background:linear-gradient(90deg,#4CAF6E,#2D8A50);width:0%;">
+        </div>
+      </div>
+    </div>
+
+    <div class="training-metrics">
+      <div class="training-metric-item">
+        <div class="training-metric-label">Train Loss</div>
+        <div class="training-metric-val-row">
+          <span class="metric-status" id="metric-train-loss-status" title="—" aria-label="Status unknown"></span>
+          <div class="training-metric-val" id="metric-train-loss">—</div>
+        </div>
+      </div>
+      <div class="training-metric-item">
+        <div class="training-metric-label">Val Loss</div>
+        <div class="training-metric-val-row">
+          <span class="metric-status" id="metric-val-loss-status" title="—" aria-label="Status unknown"></span>
+          <div class="training-metric-val" id="metric-val-loss">—</div>
+        </div>
+      </div>
+      <div class="training-metric-item">
+        <div class="training-metric-label">MAE</div>
+        <div class="training-metric-val-row">
+          <span class="metric-status" id="metric-mae-status" title="—" aria-label="Status unknown"></span>
+          <div class="training-metric-val" id="metric-mae">—</div>
+        </div>
+      </div>
+      <div class="training-metric-item">
+        <div class="training-metric-label">Duration</div>
+        <div class="training-metric-val" id="metric-duration">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="content-grid grid-2">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <span class="card-title">Loss Curve</span>
+          <div class="text-xs text-muted" id="loss-chart-caption" style="margin-top:2px;"></div>
+        </div>
+        <div class="conf-legend">
+          <div class="conf-legend-item">
+            <span class="conf-swatch" style="background:#4CAF6E;"></span>Train Loss
+          </div>
+          <div class="conf-legend-item">
+            <span class="conf-swatch" style="background:#3B82F6;opacity:0.7;"></span>Val Loss
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        <canvas id="loss-chart" class="loss-chart-container"
+          style="width:100%;height:220px;display:block;"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="card-title">Train / Test Split</span></div>
+      <div class="card-body">
+        <div style="margin-bottom:14px;">
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">
+            Dataset Split (Chronological)
+          </div>
+          <div style="display:flex;height:28px;border-radius:6px;overflow:hidden;gap:3px;">
+            <div style="flex:8;background:#4CAF6E;display:flex;align-items:center;
+              justify-content:center;font-size:11px;font-weight:700;color:white;">
+              Training (2015–2023)
+            </div>
+            <div style="flex:2;background:#F59E0B;display:flex;align-items:center;
+              justify-content:center;font-size:11px;font-weight:700;color:white;">
+              Validation/Test (2024–2025)
+            </div>
+          </div>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr><th>Split</th><th>Period</th><th>Records</th><th>Purpose</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="pill pill-green">Training</span></td>
+              <td>2015–2023</td><td>2,922</td><td>Model learning</td>
+            </tr>
+            <tr>
+              <td><span class="pill pill-orange">Test</span></td>
+              <td>2024–2025</td><td>730</td><td>Final evaluation</td>
+            </tr>
+            <tr>
+              <td><span class="pill pill-blue">Live</span></td>
+              <td>2026+</td><td>—</td><td>Inference</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:24px;">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Training Log</span>
+        <span class="pill pill-green" id="training-log-pill">Idle</span>
+      </div>
+      <div class="scraper-log-container" id="training-log"
+        style="height:300px;"
+        data-empty-msg="No training runs yet. Click Start Training to begin.">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── TAB 2: Training History ── -->
+<div id="training-tab-history" class="training-tab-panel" role="tabpanel" hidden
+  aria-labelledby="training-tab-btn-history">
+
+  <div class="content-grid grid-2" style="margin-bottom:20px;">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Learning Path</span>
+        <span class="text-xs text-muted">Final validation loss per run (lower is better)</span>
+      </div>
+      <div class="card-body">
+        <canvas id="history-path-chart" class="loss-chart-container"
+          style="width:100%;height:240px;display:block;"></canvas>
+        <p class="training-chart-hint" id="history-path-hint">
+          Complete a training run to plot how the model generalizes over time.
+        </p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Accuracy Trend</span>
+        <span class="text-xs text-muted">Estimated accuracy % per run</span>
+      </div>
+      <div class="card-body">
+        <canvas id="history-accuracy-chart" class="loss-chart-container"
+          style="width:100%;height:240px;display:block;"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Training Runs</span>
+      <button type="button" class="btn btn-ghost btn-sm" id="training-history-refresh">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85 1.08 6.47 2.8"/>
+          <path d="M21 3v6h-6"/>
+        </svg>
+        Refresh
+      </button>
+    </div>
+    <div class="card-body" style="padding:0;">
+      <div class="training-history-empty is-hidden" id="training-history-empty">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="12" y1="18" x2="12" y2="12"/>
+          <line x1="9" y1="15" x2="15" y2="15"/>
+        </svg>
+        <p>No archived training runs yet.</p>
+        <span class="text-xs text-muted">Start training on the Live tab — each run is saved automatically.</span>
+      </div>
+      <div class="table-wrap" id="training-history-table-wrap">
+        <table class="data-table training-history-table" id="training-history-table">
+          <thead>
+            <tr>
+              <th>Run</th>
+              <th>Date</th>
+              <th>Status</th>
+              <th>Epoch Level</th>
+              <th>Val Loss</th>
+              <th>MAE (PHP)</th>
+              <th>Accuracy</th>
+              <th>Duration</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="training-history-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>

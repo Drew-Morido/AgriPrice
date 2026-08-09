@@ -1,0 +1,28 @@
+[
+  {
+    "id": "log-e0af33666db1",
+    "rule_id": "rule-spike",
+    "type": "warning",
+    "title": "Price Alert: Large 3-Day Price Spike",
+    "desc": "Local Regular 3-day change is +10.38% — exceeds +5.0% threshold.",
+    "rice_key": "locRegular",
+    "price": 49.45,
+    "threshold": 5.0,
+    "condition": "change_up",
+    "created_at": "2026-05-28T02:34:27",
+    "read": false
+  },
+  {
+    "id": "log-2232fd09a581",
+    "rule_id": "rule-spike",
+    "type": "warning",
+    "title": "Price Alert: Large 3-Day Price Spike",
+    "desc": "Local Regular 3-day change is +11.92% — exceeds +5.0% threshold.",
+    "rice_key": "locRegular",
+    "price": 50.12,
+    "threshold": 5.0,
+    "condition": "change_up",
+    "created_at": "2026-07-27T22:39:48",
+    "read": false
+  }
+]

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Sign In — AgriPricePH</title>
+  <link rel="stylesheet" href="../css/global.css" />
+  <link rel="stylesheet" href="../public/css/landpage.css" />
+  <link rel="stylesheet" href="../public/css/public.css" />
+</head>
+<body data-page="admin" data-layout="auth" data-title="Admin Sign In" data-subtitle="Staff only">
+
+<div class="public-auth-wrap" id="public-auth-wrap">
+  <div class="public-auth-box">
+    <h2>Admin sign in</h2>
+    <p class="subtitle">
+      For authorized staff only. You need a username, password, and a 6-digit access code.
+    </p>
+
+    <div class="public-auth-steps" aria-hidden="true">
+      <span class="public-auth-step active">1. Username</span>
+      <span class="public-auth-step active">2. Password</span>
+      <span class="public-auth-step active">3. Access code</span>
+    </div>
+
+    <div class="auth-security-note">
+      Your session expires automatically. After 5 wrong tries, sign-in is paused for 15 minutes.
+    </div>
+
+    <div id="auth-error" class="auth-error" role="alert" hidden></div>
+
+    <form id="form-admin" autocomplete="off">
+      <div class="lp-form-group">
+        <label for="admin-user">Username</label>
+        <input class="form-input" type="text" id="admin-user" autocomplete="username" placeholder="Enter username" required />
+      </div>
+      <div class="lp-form-group">
+        <label for="admin-pass">Password</label>
+        <input class="form-input" type="password" id="admin-pass" autocomplete="current-password" placeholder="Enter password" required />
+      </div>
+      <div class="lp-form-group">
+        <label for="admin-code">6-digit access code</label>
+        <input class="form-input" type="password" id="admin-code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6"
+          autocomplete="one-time-code" placeholder="••••••" required
+          style="font-family:var(--font-mono);letter-spacing:0.35em;text-align:center;font-size:18px" />
+        <p class="form-hint">Change this code in the admin dashboard under Settings → Security.</p>
+      </div>
+      <button type="submit" class="btn btn-primary btn-lg" style="width:100%">Sign in to dashboard</button>
+    </form>
+
+    <div class="public-auth-footer">
+      <a href="../public/landpage.html">← Back to public site</a><br />
+      <a href="../public/login.html">Vendor or household login</a>
+    </div>
+  </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../public/js/public-auth.js"></script>
+<script src="../public/js/public-shell.js"></script>
+<script src="../public/js/public-pages.js"></script>
+</body>
+</html>

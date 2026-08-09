@@ -1,0 +1,143 @@
+/* AgriPricePH — Public alert modals */
+
+.public-alert-root {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  pointer-events: none;
+}
+
+.public-alert-root.is-open {
+  display: flex;
+  pointer-events: auto;
+}
+
+.public-alert-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(13, 33, 23, 0.52);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.public-alert-dialog {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 400px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 28px 26px 22px;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(21, 55, 35, 0.22), 0 4px 14px rgba(21, 55, 35, 0.1);
+  animation: publicAlertIn 0.22s ease;
+}
+
+@keyframes publicAlertIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.public-alert-icon {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.public-alert-icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.public-alert--success .public-alert-icon {
+  background: rgba(82, 176, 122, 0.15);
+  color: #2a5c3f;
+}
+
+.public-alert--invalid .public-alert-icon {
+  background: rgba(245, 158, 11, 0.15);
+  color: #b45309;
+}
+
+.public-alert--error .public-alert-icon {
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+}
+
+.public-alert--warning .public-alert-icon {
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+}
+
+.public-alert-title {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f1e14;
+  margin: 0 0 8px;
+}
+
+.public-alert-message {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #3a5045;
+  margin: 0 0 22px;
+}
+
+.public-alert-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 120px;
+  height: 40px;
+  padding: 0 24px;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: #2a5c3f;
+  cursor: pointer;
+  transition: background 0.18s, transform 0.12s;
+}
+
+.public-alert-btn:hover {
+  background: #357350;
+  transform: translateY(-1px);
+}
+
+.public-alert--invalid .public-alert-btn {
+  background: #b45309;
+}
+
+.public-alert--invalid .public-alert-btn:hover {
+  background: #d97706;
+}
+
+.public-alert--error .public-alert-btn {
+  background: #b91c1c;
+}
+
+.public-alert--error .public-alert-btn:hover {
+  background: #dc2626;
+}
+
+body.public-alert-open {
+  overflow: hidden;
+}

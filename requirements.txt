@@ -1,0 +1,15 @@
+pandas>=2.0
+openpyxl>=3.1
+numpy>=1.24
+# Pinned so saved scaler/model artifacts match the runtime that loads them (avoids
+# InconsistentVersionWarning / silent scaler drift). Retrain if you change this.
+scikit-learn>=1.9,<1.10
+statsmodels>=0.14
+joblib>=1.3
+flask>=3.0
+flask-cors>=4.0
+requests>=2.28
+beautifulsoup4>=4.12
+pdfplumber>=0.11
+# TensorFlow (LSTM) — install with Python 3.11–3.13 only:
+# py -3.13 -m pip install tensorflow

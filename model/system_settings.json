@@ -1,0 +1,41 @@
+{
+  "general": {
+    "system_name": "AgriPricePH",
+    "currency": "PHP",
+    "dark_mode": false,
+    "api_base_url": "http://127.0.0.1:5000",
+    "date_format": "mdy"
+  },
+  "data_sources": {
+    "auto_scrape": true,
+    "scrape_interval_hours": 24,
+    "da_enabled": true,
+    "fuel_enabled": true,
+    "exchange_enabled": true
+  },
+  "model": {
+    "forecast_horizon": 2,
+    "sliding_window": 30,
+    "training_epochs": 100,
+    "train_all_rice_types": true,
+    "auto_retrain": true,
+    "retrain_schedule": "weekly_sunday",
+    "target_rice": "locWellMilled"
+  },
+  "notifications": {
+    "email_alerts": false,
+    "alert_email": "admin@agripriceph.gov.ph",
+    "browser_notifications": true,
+    "alert_check_on_startup": true
+  },
+  "security": {
+    "session_timeout_minutes": 60,
+    "lock_after_idle": false,
+    "admin_display_name": "Admin User",
+    "admin_username": "admin",
+    "password_hash": null,
+    "admin_access_code_hash": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92",
+    "admin_password_hash": "e86f78a8a3caf0b60d8e74e5942aa6d86dc150cd3c03338aef25b7d2d7e3acc7"
+  },
+  "updated_at": "2026-05-25T21:58:54"
+}

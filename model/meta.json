@@ -1,0 +1,198 @@
+{
+  "version": 2,
+  "targets": {
+    "locWellMilled": {
+      "target": "locWellMilled",
+      "features": [
+        "locWellMilled",
+        "fuel_ron95",
+        "fuel_diesel",
+        "stock",
+        "farmgate",
+        "exchange"
+      ],
+      "backend": "tensorflow",
+      "mae_peso": 0.4748,
+      "rmse_peso": 0.6044,
+      "accuracy_pct": 98.93,
+      "train_samples": 3257,
+      "test_samples": 731,
+      "split_policy": "chronological_year_split_2015_2023_train_2024_2025_test",
+      "train_period": "2015-01-01 to 2023-12-31",
+      "test_period": "2024-01-01 to 2025-12-31"
+    },
+    "locRegular": {
+      "target": "locRegular",
+      "features": [
+        "locRegular",
+        "fuel_ron95",
+        "fuel_diesel",
+        "stock",
+        "farmgate",
+        "exchange"
+      ],
+      "backend": "tensorflow",
+      "mae_peso": 0.4634,
+      "rmse_peso": 0.6104,
+      "accuracy_pct": 98.84,
+      "train_samples": 3257,
+      "test_samples": 731,
+      "split_policy": "chronological_year_split_2015_2023_train_2024_2025_test",
+      "train_period": "2015-01-01 to 2023-12-31",
+      "test_period": "2024-01-01 to 2025-12-31"
+    },
+    "locPremium": {
+      "target": "locPremium",
+      "features": [
+        "locPremium",
+        "fuel_ron95",
+        "fuel_diesel",
+        "stock",
+        "farmgate",
+        "exchange"
+      ],
+      "backend": "tensorflow",
+      "mae_peso": 0.5687,
+      "rmse_peso": 0.7933,
+      "accuracy_pct": 98.88,
+      "train_samples": 3257,
+      "test_samples": 731,
+      "split_policy": "chronological_year_split_2015_2023_train_2024_2025_test",
+      "train_period": "2015-01-01 to 2023-12-31",
+      "test_period": "2024-01-01 to 2025-12-31"
+    },
+    "locSpecial": {
+      "target": "locSpecial",
+      "features": [
+        "locSpecial",
+        "fuel_ron95",
+        "fuel_diesel",
+        "stock",
+        "farmgate",
+        "exchange"
+      ],
+      "backend": "tensorflow",
+      "mae_peso": 1.0398,
+      "rmse_peso": 1.3074,
+      "accuracy_pct": 98.16,
+      "train_samples": 3257,
+      "test_samples": 731,
+      "split_policy": "chronological_year_split_2015_2023_train_2024_2025_test",
+      "train_period": "2015-01-01 to 2023-12-31",
+      "test_period": "2024-01-01 to 2025-12-31"
+    },
+    "impWellMilled": {
+      "target": "impWellMilled",
+      "features": [
+        "impWellMilled",
+        "fuel_ron95",
+        "fuel_diesel",
+        "stock",
+        "farmgate",
+        "exchange"
+      ],
+      "backend": "tensorflow",
+      "mae_peso": 0.615,
+      "rmse_peso": 0.7946,
+      "accuracy_pct": 98.56,
+      "train_samples": 3257,
+      "test_samples": 731,
+      "split_policy": "chronological_year_split_2015_2023_train_2024_2025_test",
+      "train_period": "2015-01-01 to 2023-12-31",
+      "test_period": "2024-01-01 to 2025-12-31"
+    },
+    "impRegular": {
+      "target": "impRegular",
+      "features": [
+        "impRegular",
+        "fuel_ron95",
+        "fuel_diesel",
+        "stock",
+        "farmgate",
+        "exchange"
+      ],
+      "backend": "tensorflow",
+      "mae_peso": 0.6539,
+      "rmse_peso": 0.8246,
+      "accuracy_pct": 98.34,
+      "train_samples": 3257,
+      "test_samples": 731,
+      "split_policy": "chronological_year_split_2015_2023_train_2024_2025_test",
+      "train_period": "2015-01-01 to 2023-12-31",
+      "test_period": "2024-01-01 to 2025-12-31"
+    },
+    "impPremium": {
+      "target": "impPremium",
+      "features": [
+        "impPremium",
+        "fuel_ron95",
+        "fuel_diesel",
+        "stock",
+        "farmgate",
+        "exchange"
+      ],
+      "backend": "tensorflow",
+      "mae_peso": 0.6668,
+      "rmse_peso": 0.9505,
+      "accuracy_pct": 98.61,
+      "train_samples": 3257,
+      "test_samples": 731,
+      "split_policy": "chronological_year_split_2015_2023_train_2024_2025_test",
+      "train_period": "2015-01-01 to 2023-12-31",
+      "test_period": "2024-01-01 to 2025-12-31"
+    },
+    "impSpecial": {
+      "target": "impSpecial",
+      "features": [
+        "impSpecial",
+        "fuel_ron95",
+        "fuel_diesel",
+        "stock",
+        "farmgate",
+        "exchange"
+      ],
+      "backend": "tensorflow",
+      "mae_peso": 1.1044,
+      "rmse_peso": 1.411,
+      "accuracy_pct": 97.92,
+      "train_samples": 3257,
+      "test_samples": 731,
+      "split_policy": "chronological_year_split_2015_2023_train_2024_2025_test",
+      "train_period": "2015-01-01 to 2023-12-31",
+      "test_period": "2024-01-01 to 2025-12-31"
+    }
+  },
+  "trained_types": [
+    "locWellMilled",
+    "locRegular",
+    "locPremium",
+    "locSpecial",
+    "impWellMilled",
+    "impRegular",
+    "impPremium",
+    "impSpecial"
+  ],
+  "seq_len": 30,
+  "horizon": 2,
+  "last_date": "2026-05-28",
+  "target": "locWellMilled",
+  "features": [
+    "locWellMilled",
+    "fuel_ron95",
+    "fuel_diesel",
+    "stock",
+    "farmgate",
+    "exchange"
+  ],
+  "backend": "tensorflow",
+  "mae_peso": 0.4748,
+  "rmse_peso": 0.6044,
+  "accuracy_pct": 98.53,
+  "primary_accuracy_pct": 98.93,
+  "avg_accuracy_pct": 98.53,
+  "train_samples": 3257,
+  "test_samples": 731,
+  "split_policy": "chronological_year_split_2015_2023_train_2024_2025_test",
+  "train_period": "2015-01-01 to 2023-12-31",
+  "test_period": "2024-01-01 to 2025-12-31"
+}

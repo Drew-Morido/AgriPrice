@@ -1,0 +1,474 @@
+/* ============================================
+   AgriPricePH - Dashboard Module CSS
+   ============================================ */
+
+/* ── Rice Type Price Row ── */
+.rice-price-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.rice-price-row:last-child { border-bottom: none; }
+
+.rice-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.rice-price-value {
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  min-width: 70px;
+  text-align: right;
+}
+
+.rice-trend {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 52px;
+  justify-content: flex-end;
+  margin-left: 12px;
+}
+
+.rice-trend.up   { color: var(--color-danger); }
+.rice-trend.down { color: var(--color-accent); }
+.rice-trend.flat { color: var(--text-muted); }
+
+/* ── Alert Item ── */
+.alert-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.alert-item:last-child { border-bottom: none; }
+
+.alert-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.alert-dot.red    { background: var(--color-danger); }
+.alert-dot.orange { background: var(--color-warning); }
+.alert-dot.blue   { background: var(--color-info); }
+
+.alert-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.alert-text strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.alert-time {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ── Mini Sparkline ── */
+.sparkline-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sparkline-canvas {
+  flex: 1;
+  height: 36px;
+}
+
+/* ── Correlation Heatmap ── */
+.corr-grid {
+  display: grid;
+  grid-template-columns: auto repeat(5, 1fr);
+  gap: 3px;
+  font-size: 10px;
+}
+
+.corr-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  padding-right: 6px;
+  white-space: nowrap;
+}
+
+.corr-cell {
+  aspect-ratio: 1;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: white;
+  min-height: 30px;
+}
+
+/* ── Prediction Timeline ── */
+.pred-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pred-day {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pred-day-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  min-width: 28px;
+  font-weight: 500;
+}
+
+.pred-bar-wrap {
+  flex: 1;
+  height: 22px;
+  background: var(--bg-input);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.pred-bar {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--color-accent), #2D8A50);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  transition: width 0.6s ease;
+}
+
+.pred-bar-val {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: white;
+  white-space: nowrap;
+}
+
+/* ── Rice Price Trend card header ── */
+.dash-trend-header {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.dash-trend-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 14px;
+  font-size: 11px;
+  color: var(--text-muted);
+  flex: 1;
+  justify-content: center;
+  min-width: 200px;
+}
+
+.dash-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.dash-legend-swatch {
+  width: 10px;
+  height: 3px;
+  border-radius: 2px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.dash-trend-select-wrap {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+  .dash-trend-header {
+    justify-content: space-between;
+  }
+  .dash-trend-legend {
+    order: 3;
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+/* ── Rice price predictions table (dashboard) ── */
+.dash-predictions-card { overflow: hidden; }
+
+.dash-pred-header {
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.dash-pred-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 200px;
+}
+
+.dash-pred-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Segment toggles — same look as outlook dropdown triggers */
+.dash-pred-segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+}
+
+.dash-pred-segment-btn {
+  padding: 5px 12px;
+  border: 1px solid transparent;
+  border-radius: calc(var(--border-radius-sm) - 2px);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast),
+    border-color var(--transition-fast), box-shadow var(--transition-fast);
+  white-space: nowrap;
+}
+
+.dash-pred-segment-btn:hover:not(.active) {
+  color: var(--text-primary);
+  background: var(--bg-body);
+}
+
+.dash-pred-segment-btn.active {
+  color: var(--color-accent);
+  background: var(--color-accent-light);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(76, 175, 110, 0.1);
+}
+
+.dash-pred-segment-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.dash-pred-body { padding: 0 !important; }
+
+.dash-pred-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.dash-pred-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 0.9fr 0.8fr 0.7fr;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 13px;
+}
+
+.dash-pred-row:last-child { border-bottom: none; }
+
+.dash-pred-row-head {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  background: #FAFCFB;
+  pointer-events: none;
+}
+
+html.theme-dark .dash-pred-row-head { background: var(--bg-input); }
+
+.dash-pred-row:hover:not(.dash-pred-row-head) {
+  background: var(--bg-body);
+}
+
+.dash-pred-type {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.dash-pred-type-sub {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+.dash-pred-price {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.dash-pred-change {
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.dash-pred-change.up { color: var(--color-danger); }
+.dash-pred-change.down { color: var(--color-accent); }
+.dash-pred-change.flat { color: var(--text-muted); }
+
+.dash-pred-conf {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+.dash-pred-loading {
+  padding: 24px 20px;
+  font-size: 13px;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .dash-pred-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .dash-pred-row-head { display: none; }
+  .dash-pred-row > span:nth-child(odd) {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
+}
+
+/* ── Dashboard grid layout ── */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.dashboard-col { display: flex; flex-direction: column; gap: 20px; }
+
+/* ── Data source pill strip ── */
+.source-strip {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.source-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.source-pill .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+}
+
+.source-pill .dot.active { background: var(--color-accent); }
+.source-pill .dot.idle   { background: var(--text-muted); }
+
+@media (max-width: 1100px) {
+  .dashboard-grid { grid-template-columns: 1fr; }
+}
+
+.ds-row {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1fr 1fr 1fr;
+  align-items: center;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--border-color);
+  gap: 8px;
+  font-size: 12px;
+  transition: background var(--transition-fast);
+}
+
+.ds-row:hover { background: var(--bg-body); }
+.ds-row:last-child { border-bottom: none; }
+
+.ds-header {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: #FAFCFB;
+  pointer-events: none;
+}
+
+.ds-name {
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.ds-type {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.ds-fetch {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.ds-today {
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.pill-gray {
+  background: var(--bg-input);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}

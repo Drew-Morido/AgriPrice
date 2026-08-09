@@ -1,0 +1,313 @@
+/* ============================================
+   AgriPricePH - Predictions Module CSS
+   ============================================ */
+
+/* ── Hero ── */
+.prediction-hero {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-mid) 100%);
+  border-radius: var(--border-radius-xl);
+  color: white;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  padding: 28px 32px;
+}
+
+.prediction-hero::before {
+  content: '';
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 200px; height: 200px;
+  background: rgba(76,175,110,0.12);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.prediction-hero::after {
+  content: '';
+  position: absolute;
+  bottom: -60px; right: 80px;
+  width: 140px; height: 140px;
+  background: rgba(76,175,110,0.08);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.hero-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(76,175,110,0.25);
+  border: 1px solid rgba(76,175,110,0.4);
+  border-radius: 99px;
+  padding: 4px 12px;
+  font-size: 11px; font-weight: 700;
+  color: #A7F3C0; letter-spacing: 0.5px;
+}
+
+.hero-left { flex-shrink: 0; min-width: 220px; }
+
+.hero-prices {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  flex: 1;
+}
+
+.hero-price-item {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 12px 14px;
+  transition: background 0.2s;
+}
+
+.hero-price-item:hover { background: rgba(255,255,255,0.11); }
+
+.hero-right {
+  flex-shrink: 0;
+  display: flex; flex-direction: column;
+  align-items: flex-end; gap: 12px;
+}
+
+.hero-refresh {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: rgba(255,255,255,0.55);
+  white-space: nowrap;
+}
+
+.hero-price-rice  { font-size: 11px; color: rgba(255,255,255,0.55); margin-bottom: 4px; font-weight: 500; }
+.hero-price-val   { font-size: 22px; font-weight: 700; font-family: var(--font-mono); color: white; letter-spacing: -0.5px; }
+.hero-price-change { font-size: 11px; color: #6EE7A0; font-weight: 600; margin-top: 2px; }
+.hero-price-change.neg { color: #FCA5A5; }
+
+/* ── Local/Imported Toggle ── */
+.hero-toggle {
+  display: flex;
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  padding: 3px; gap: 3px;
+}
+
+.hero-toggle-btn {
+  padding: 6px 16px; border-radius: 6px;
+  font-size: 12px; font-weight: 600;
+  color: rgba(255,255,255,0.5);
+  background: transparent; border: none;
+  cursor: pointer; transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.hero-toggle-btn.active { background: rgba(255,255,255,0.15); color: white; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+.hero-toggle-btn:hover:not(.active) { color: rgba(255,255,255,0.8); }
+
+/* ── Model Status Strip ── */
+.model-status-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.model-status-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 14px 16px;
+  display: flex; align-items: center; gap: 12px;
+}
+
+.model-status-icon {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.model-status-label { font-size: 11px; color: var(--text-muted); font-weight: 500; margin-bottom: 2px; }
+.model-status-val   { font-size: 14px; font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); }
+
+/* ── Predictions Page Layout ── */
+.pred-layout {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 20px;
+  align-items: stretch;
+}
+
+.pred-main  { display: flex; flex-direction: column; gap: 20px; }
+
+.pred-sidebar {
+  display: flex; flex-direction: column; gap: 16px;
+  align-self: stretch;
+}
+
+.pred-slider-card { height: 100%; display: flex; flex-direction: column; }
+
+/* ── Forecast Table ── */
+.forecast-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 90px 90px 90px;
+  align-items: center;
+  padding: 12px 21px;
+  border-bottom: 1px solid var(--border-color);
+  gap: 8px;
+  transition: background var(--transition-fast);
+}
+
+.forecast-row:hover { background: var(--bg-body); }
+.forecast-row:last-child { border-bottom: none; }
+
+.forecast-row.header {
+  font-size: 11px; font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.6px;
+  background: #FAFCFB;
+  pointer-events: none;
+}
+
+.forecast-date    { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+.forecast-chart-cell { height: 28px; }
+.forecast-price   { font-size: 13px; font-weight: 700; font-family: var(--font-mono); }
+.forecast-change  { font-size: 12px; font-weight: 600; }
+.forecast-change.up   { color: var(--color-danger); }
+.forecast-change.down { color: var(--color-accent); }
+.forecast-conf    { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
+
+/* ── Confidence Band Legend ── */
+.conf-legend { display: flex; align-items: center; gap: 16px; font-size: 11px; color: var(--text-muted); }
+.conf-legend-item { display: flex; align-items: center; gap: 5px; }
+.conf-swatch { width: 12px; height: 12px; border-radius: 2px; }
+
+/* ── Confidence Bars (sidebar) ── */
+.pred-conf-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.pred-conf-row:last-child { border-bottom: none; }
+.pred-conf-label { font-size: 11px; color: var(--text-muted); font-weight: 500; min-width: 36px; }
+
+.pred-conf-track { flex: 1; height: 6px; background: var(--bg-input); border-radius: 99px; overflow: hidden; }
+.pred-conf-fill  { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #4CAF6E, #2D8A50); transition: width 0.6s ease; }
+.pred-conf-pct   { font-size: 11px; font-weight: 700; font-family: var(--font-mono); color: var(--text-secondary); min-width: 30px; text-align: right; }
+
+/* ── Forecast Table Panel ── */
+#pred-view-table { flex: 1; display: flex; flex-direction: column; }
+#pred-view-table .card { flex: 1; display: flex; flex-direction: column; }
+#forecast-table-container { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+#forecast-tbody { flex: 1; }
+
+/* ── Custom Outlook Dropdown ── */
+.outlook-select-wrap { position: relative; user-select: none; }
+
+.outlook-select-trigger {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  font-size: 11px; font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.outlook-select-trigger:hover,
+.outlook-select-wrap.open .outlook-select-trigger {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-accent-light);
+}
+
+.outlook-select-wrap.open .outlook-select-trigger {
+  box-shadow: 0 0 0 3px rgba(76,175,110,0.1);
+}
+
+.outlook-chevron {
+  transition: transform 0.25s ease;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.outlook-select-wrap.open .outlook-chevron {
+  transform: rotate(180deg);
+  color: var(--color-accent);
+}
+
+.outlook-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 100%;
+  width: max-content;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-md);
+  z-index: 200;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-6px) scale(0.97);
+  transform-origin: top right;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.outlook-select-wrap.open .outlook-dropdown {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: all;
+}
+
+.outlook-option {
+  padding: 9px 14px;
+  font-size: 12px; font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.outlook-option:hover { background: var(--bg-body); color: var(--text-primary); }
+
+.outlook-option.active {
+  color: var(--color-accent);
+  font-weight: 600;
+  background: var(--color-accent-light);
+}
+
+/* ── Rice Type Tabs (forecast controls) ── */
+.rice-type-tabs {
+  display: flex; gap: 4px;
+  background: var(--bg-input);
+  border-radius: var(--border-radius-sm);
+  padding: 3px;
+  border: 1px solid var(--border-color);
+}
+
+.rice-tab {
+  padding: 5px 12px; border-radius: 5px;
+  font-size: 12px; font-weight: 600;
+  color: var(--text-muted); cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.rice-tab.active { background: var(--bg-card); color: var(--text-primary); box-shadow: var(--shadow-sm); }
+
+@media (max-width: 1200px) {
+  .prediction-hero { flex-wrap: wrap; }
+  .hero-prices { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 1100px) {
+  .hero-prices { grid-template-columns: 1fr 1fr; }
+  .model-status-strip { grid-template-columns: 1fr 1fr; }
+  .pred-layout { grid-template-columns: 1fr; }
+  .pred-sidebar { flex-direction: row; flex-wrap: wrap; }
+  .pred-sidebar .card { flex: 1; min-width: 240px; }
+}

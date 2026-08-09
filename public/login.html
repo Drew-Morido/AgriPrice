@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en" class="public-site">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="js/public-settings.js"></script>
+  <title>Log In — AgriPricePH</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/global.css" />
+  <link rel="stylesheet" href="css/landpage.css" />
+  <link rel="stylesheet" href="css/public.css" />
+  <link rel="stylesheet" href="css/landpage-nav.css" />
+  <link rel="stylesheet" href="css/public-alert.css" />
+</head>
+<body data-page="login" data-layout="auth" data-title="Log In" data-subtitle="Vendor or household account">
+
+<div class="public-auth-wrap" id="public-auth-wrap">
+  <div class="public-auth-box">
+    <h2>Welcome back</h2>
+    <p class="subtitle">
+      Log in to view <strong>price history</strong> and <strong>charts &amp; stats</strong>.
+      Today's prices and the forecast stay free without an account.
+    </p>
+
+    <div id="auth-error" class="auth-error" role="alert" hidden></div>
+
+    <form id="form-login">
+      <div class="lp-form-group">
+        <label for="login-email">Email</label>
+        <input class="form-input" type="email" id="login-email" required autocomplete="email" placeholder="you@email.com" />
+      </div>
+      <div class="lp-form-group">
+        <label for="login-password">Password</label>
+        <input class="form-input" type="password" id="login-password" required autocomplete="current-password" placeholder="Your password" />
+      </div>
+      <button type="submit" class="btn btn-primary btn-lg" style="width:100%">Log in</button>
+    </form>
+
+    <div class="public-auth-footer">
+      No account yet? <a href="signup.html">Create one — it's free</a><br />
+      <a href="landpage.html">← Back to home</a>
+    </div>
+  </div>
+</div>
+
+<script src="js/public-alert.js"></script>
+<script src="js/public-auth.js"></script>
+<script src="js/public-auth-modal.js"></script>
+<script src="js/public-shell.js"></script>
+<script src="js/public-pages.js"></script>
+</body>
+</html>

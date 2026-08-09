@@ -1,0 +1,576 @@
+================================================================================
+  AgriPricePH v3 — BUONG SYSTEM GUIDE
+  Kasama ang detalyadong computation ng Machine Learning Training
+================================================================================
+  Petsa ng dokumento: Mayo 23, 2026
+  Target forecast: Local Well-Milled Rice (PHP/kg), 2 araw ahead
+================================================================================
+
+
+================================================================================
+  1. ANO ANG AgriPricePH?
+================================================================================
+
+AgriPricePH ay isang rice price prediction system para sa Pilipinas. Kinokolekta
+nito ang historical at live data (presyo ng bigas, diesel, USD/PHP, ulan, stock),
+iniimbak sa SQLite database, tina-train ang LSTM (o fallback MLP) model, at
+nagbibigay ng 2-araw na forecast sa web dashboard.
+
+Mga pangunahing layunin:
+  - I-visualize ang presyo ng bigas at related factors (charts)
+  - Mag-scrape ng bagong data mula sa DA, fuel site, at exchange API
+  - Mag-train ng time-series model batay sa merged daily data
+  - Mag-predict ng Local Well-Milled price para sa Day 1 at Day 2
+
+
+================================================================================
+  2. ARKITEKTURA NG BUONG SYSTEM
+================================================================================
+
+  [Data Sources]          [Storage]              [ML]              [UI]
+       |                      |                    |                 |
+  DA PDF/HTML  ----->   SQLite DB  ----->   train.py  ----->   Training page
+  Zigwheels    ----->   (datasets/)      predict.py       Predictions page
+  ER-API       ----->        |              meta.json         Dashboard
+  XLSX 2026    ----->        |              lstm_model.keras  Historical charts
+       |                      |                    |                 |
+       +----------->  api/app.py (Flask) <-------------------------+
+                    port 5000 — REST + SSE + static frontend
+
+DALOY NG DATA (end-to-end):
+
+  1. Koleksyon
+     - Historical CSV/XLSX (2015-2025) → datasets/script.py, setup_db.py
+     - 2026 daily XLSX → datasets/import_2026.py (auto sa app.py startup)
+     - Web scraper → tools/scrap.py → CSV + SQLite tables (WS_*)
+
+  2. Pagsasama (merge)
+     - model/data_pipeline.py → load_merged_frame()
+     - Pinagsasama ang: retail_prices, fuel, USD, weather, rice_stock
+     - Outer merge by Date, ffill/bfill para sa missing days
+
+  3. Training
+     - model/train.py → sequences → MinMaxScaler → LSTM/MLP → save artifacts
+
+  4. Inference
+     - model/predict.py → huling 30 araw ng features → 2 presyo → API
+
+  5. Display
+     - Browser: index.html + pages/*.html + js/*.js
+     - Tumatawag sa http://127.0.0.1:5000/api/*
+
+
+================================================================================
+  3. MGA COMPONENT AT FILE
+================================================================================
+
+FRONTEND (User Interface)
+  index.html          — Main shell, sidebar navigation
+  pages/*.html        — Module views (dashboard, training, predictions, ...)
+  js/router.js        — SPA routing (load HTML fragments)
+  js/api.js           — Base URL ng backend (default :5000)
+  js/training.js      — Live training logs, loss charts, history tabs
+  js/predictions.js   — Forecast cards at charts
+  js/historical.js    — Time-series charts mula sa /api/historical-data
+  js/web-scraper.js   — Scraper controls + SSE logs
+  js/dates.js         — Auto-update ng petsa sa UI
+  css/*.css           — Styling per module
+
+BACKEND (API Server)
+  api/app.py          — Flask server: scraper, training subprocess, predictions
+  run_backend.bat     — Shortcut para patakbuhin ang server
+
+MACHINE LEARNING
+  model/data_pipeline.py  — Load DB, merge tables, make_sequences()
+  model/train.py            — Training script (TensorFlow LSTM o sklearn MLP)
+  model/predict.py          — 2-day inference
+  model/lstm_model.keras    — Saved best LSTM (kung TensorFlow available)
+  model/rice_mlp.joblib     — Fallback model (kung walang TensorFlow)
+  model/scaler.joblib       — MinMaxScaler na ginamit sa training
+  model/meta.json           — Metrics at config ng huling training run
+  model/training_history.json — Log ng mga nakaraang training runs
+
+DATABASE & DATA SCRIPTS
+  datasets/agriprice_database.db — Pangunahing SQLite database
+  datasets/script.py             — Bulk import historical CSV
+  datasets/import_2026.py        — Sync 2026 XLSX (rice, fuel, USD)
+  datasets/setup_db.py           — Individual table imports (e.g. weather)
+
+WEB SCRAPER
+  tools/scrap.py        — fetch_rice_prices, fetch_fuel_prices, fetch_exchange_rates
+  tools/pdfconvrt.py    — PDF parsing para sa DA price bulletins
+  tools/scrapped */     — Backup CSV files
+
+
+================================================================================
+  4. DATABASE — MGA TABLE AT FEATURES
+================================================================================
+
+Pangunahing tables sa agriprice_database.db:
+
+  retail_prices     — 8 rice types (Local/Imported), historical
+  WS_rice_price     — Scraped rice prices (web)
+  fuel_history      — Diesel (historical)
+  WS_fuel           — Scraped fuel (RON_95, etc.)
+  usd_php_rates     — USD to PHP (historical)
+  WS_currency       — Scraped exchange rates
+  weather_data      — Rainfall (mm) mula sa PAGASA dataset
+  rice_stock        — Rice stock inventory (metric tons)
+
+FEATURE COLUMNS (ginagamit ng model — 5 inputs + 1 target):
+
+  Input features (FEATURE_COLUMNS):
+    1. locWellMilled  — Local Well-Milled rice price (PHP/kg)
+    2. locPremium     — Local Premium rice price
+    3. fuel           — Diesel price (proxy sa transport cost)
+    4. exchange       — USD/PHP exchange rate
+    5. rainfall       — Rainfall mm (weather factor)
+
+  Target (TARGET_COLUMN):
+    locWellMilled     — Ito ang ipo-forecast (2 araw ahead)
+
+  Constants (data_pipeline.py):
+    SEQ_LEN  = 30     — 30 araw na window bilang input sequence
+    HORIZON  = 2      — 2 araw na forecast output
+
+
+================================================================================
+  5. DATA PIPELINE — PAGSASAMA BAGO MAG-TRAIN
+================================================================================
+
+Hakbang 1: LOAD (load_merged_frame)
+
+  - Kukunin ang bawat table mula sa SQLite
+  - Rice: pinagsasama ang retail_prices + WS_rice_price (concat, groupby Date, mean)
+  - Fuel: fuel_history.Diesel + WS_fuel.RON_95
+  - Exchange: usd_php_rates + WS_currency.USD_to_PHP
+  - Weather: weather_data."Rainfall (mm)"
+  - Stock: rice_stock (kasama sa merge pero HINDI kasama sa 5 ML features)
+
+Hakbang 2: MERGE BY DATE
+
+  df = rice
+  for each (fuel, usd, weather, stock):
+      df = outer_merge(df, extra, on="Date")
+
+  df = sort by Date
+  df = ffill().bfill()    # punan ang missing values mula sa nakaraan/susunod
+
+Hakbang 3: CLEAN
+
+  - Coerce to numeric, fillna(0) para sa feature columns
+  - dropna kung walang target
+  - filter: locWellMilled > 0 lang
+
+
+================================================================================
+  6. TRAINING — BUONG COMPUTATION (STEP BY STEP)
+================================================================================
+
+Ito ang pinakamahalagang bahagi: eksaktong matematika at proseso mula raw data
+hanggang saved model.
+
+
+--------------------------------------------------------------------------------
+  6.1 NORMALIZATION — MinMaxScaler
+--------------------------------------------------------------------------------
+
+Bawat feature column (5 columns) ay i-scale sa range [0, 1]:
+
+  Formula (per column j):
+    scaled[i,j] = (value[i,j] - min_j) / (max_j - min_j)
+
+  Sa code:
+    scaler = MinMaxScaler()
+    scaled = scaler.fit_transform(df[features].values)
+
+  Bakit: Para pantay ang magnitude ng presyo (40-60 PHP), fuel, exchange (50+),
+         at rainfall — mas stable ang neural network training.
+
+
+--------------------------------------------------------------------------------
+  6.2 SEQUENCE BUILDING — make_sequences()
+--------------------------------------------------------------------------------
+
+Gamit ang scaled matrix (N rows × 5 features), bumubuo ng sliding windows:
+
+  Para sa bawat index i mula 0 hanggang N - SEQ_LEN - HORIZON:
+
+    X[i] = scaled[i : i+30]           # shape: (30, 5) — 30 araw × 5 features
+    y[i] = scaled[i+30 : i+32, target_idx]   # 2 values — target column lang
+
+  Halimbawa kung SEQ_LEN=30, HORIZON=2, target_idx=0 (locWellMilled):
+    - Input: araw 1-30 ng lahat ng features
+    - Output: araw 31 at 32 na locWellMilled (scaled)
+
+  Bilang ng samples:
+    num_sequences = N - SEQ_LEN - HORIZON + 1
+    Minimum required: 50 sequences (kung < 50, ERROR at exit)
+
+  Minimum data rows sa DB:
+    N >= 30 + 2 + 50 - 1 = 81 araw (praktikal: mas marami para sa train/test split)
+
+
+--------------------------------------------------------------------------------
+  6.3 TRAIN / TEST SPLIT
+--------------------------------------------------------------------------------
+
+  split = int(len(X) * 0.8)    # 80% train, 20% test (time-ordered, HINDI shuffle)
+
+  X_train = X[0:split]
+  X_test  = X[split:]
+  y_train = y[0:split]
+  y_test  = y[split:]
+
+  Halimbawa (mula sa meta.json):
+    train_samples = 3304
+    test_samples  = 826
+    Total sequences ≈ 4130
+
+
+--------------------------------------------------------------------------------
+  6.4 MODEL A — TensorFlow LSTM (preferred kung may tensorflow)
+--------------------------------------------------------------------------------
+
+Architecture (Sequential):
+
+  Layer 1: LSTM(64, return_sequences=True)  input=(30, 5)
+  Layer 2: Dropout(0.2)
+  Layer 3: LSTM(32, return_sequences=False)
+  Layer 4: Dropout(0.2)
+  Layer 5: Dense(16, relu)
+  Layer 6: Dense(2)   # HORIZON = 2 outputs
+
+Compile:
+  optimizer = "adam"
+  loss      = "mse"     # Mean Squared Error
+  metrics   = ["mae"]   # Mean Absolute Error (scaled space)
+
+Training loop (bawat epoch, bawat batch):
+
+  LOSS (MSE) — average sa training batch:
+    L = (1/n) * Σ (y_true - y_pred)²
+
+  MAE (metric) — average absolute error sa scaled target:
+    MAE = (1/n) * Σ |y_true - y_pred|
+
+  Validation: same formulas sa X_test, y_test
+
+  Hyperparameters:
+    EPOCHS     = 100 (o AGRIPRICE_EPOCHS env var)
+    BATCH_SIZE = 32
+    EarlyStopping: patience=15, monitor=val_loss, restore_best_weights=True
+    ModelCheckpoint: save best lstm_model.keras kapag bumaba ang val_loss
+
+  Adam optimizer: adaptive learning rate (default Keras settings)
+
+
+--------------------------------------------------------------------------------
+  6.5 MODEL B — sklearn MLPRegressor (fallback kung walang TensorFlow)
+--------------------------------------------------------------------------------
+
+  Input flatten:
+    X_flat = X.reshape(n_samples, 30*5) = (n_samples, 150)
+
+  Architecture:
+    hidden_layer_sizes = (128, 64, 32)
+    max_iter = EPOCHS (100)
+    early_stopping = True, validation_fraction = 0.2
+
+  Training:
+    mlp.fit(X_flat_train, y_train)
+
+  Loss (internal): sklearn's squared loss sa scaled y
+  Validation loss (printed per epoch):
+    val_loss = mean((pred_test - y_test)²)
+    mae      = mean(|pred_test - y_test|)
+
+
+--------------------------------------------------------------------------------
+  6.6 METRICS SA REAL PESO (PHP/kg) — Pag-convert mula scaled
+--------------------------------------------------------------------------------
+
+Ang y_true at y_pred ay nasa scaled space pa. Para sa interpretable error:
+
+  Para sa MinMaxScaler sa target column (index = target_idx):
+    scale_j = scaler.scale_[target_idx]
+    min_j   = scaler.min_[target_idx]
+
+  Inverse (mula scaled value p back to peso):
+    price_peso = (scaled_p - min_j) / scale_j
+
+  MAE sa Peso (ginagamit sa meta.json):
+    mae_peso = mean( | (y_true - y_pred) / scale_j | )
+
+    Equivalent: mean absolute error sa original PHP/kg units
+
+  RMSE sa Peso:
+    rmse_peso = sqrt( mean( ((y_true - y_pred) / scale_j)² ) )
+
+  Test Loss (scaled MSE):
+    test_loss = mean((y_true - y_pred)²)   # sa scaled space
+
+
+--------------------------------------------------------------------------------
+  6.7 ACCURACY PERCENTAGE (estimated)
+--------------------------------------------------------------------------------
+
+  avg_price = mean ng actual locWellMilled sa buong dataset
+  accuracy = max(0, min(99.9, 100 - (mae_peso / max(avg_price, 1) * 100)))
+
+  Halimbawa:
+    mae_peso = 0.2739 PHP/kg
+    avg_price ≈ 44 PHP/kg (hal.)
+    accuracy ≈ 100 - (0.2739/44*100) ≈ 99.38%
+
+  NOTE: Ito ay simplified accuracy metric para sa UI, hindi formal R².
+
+
+--------------------------------------------------------------------------------
+  6.8 OUTPUT FILES PAGKATAPOS NG TRAINING
+--------------------------------------------------------------------------------
+
+  model/scaler.joblib       — MinMaxScaler (kailangan sa predict)
+  model/lstm_model.keras    — Best LSTM weights (TensorFlow path)
+  model/rice_mlp.joblib     — MLP fallback (sklearn path)
+  model/meta.json           — JSON metadata:
+
+    {
+      "target": "locWellMilled",
+      "features": [...],
+      "seq_len": 30,
+      "horizon": 2,
+      "backend": "tensorflow" | "sklearn",
+      "mae_peso": ...,
+      "rmse_peso": ...,
+      "accuracy_pct": ...,
+      "train_samples": ...,
+      "test_samples": ...,
+      "last_date": "YYYY-MM-DD"
+    }
+
+  model/training_history.json — History ng runs (dinadagdagan ng api/app.py)
+
+
+--------------------------------------------------------------------------------
+  6.9 TRAINING VIA WEB UI (api/app.py flow)
+--------------------------------------------------------------------------------
+
+  1. User clicks "Start Training" → POST /api/run-training
+  2. Background thread → _do_training()
+  3. Subprocess: python model/train.py (auto-detect Python with TensorFlow)
+  4. Stdout lines parsed:
+       [EPOCH] 45/100 | loss: 0.0012 | val_loss: 0.0018 | mae: 0.0280
+  5. SSE stream: GET /api/stream-training (live logs)
+  6. Pagkatapos: _append_training_run() → training_history.json
+
+
+================================================================================
+  7. PREDICTION (INFERENCE) — COMPUTATION
+================================================================================
+
+Pagkatapos mag-train, ang predict.py ang tumatakbo sa GET /api/predictions:
+
+Hakbang 1: Load scaler + meta + merged dataframe (same pipeline as training)
+
+Hakbang 2: Transform features
+  scaled = scaler.transform(df[features])   # gamit ang FIT ng training, hindi bagong fit
+
+Hakbang 3: Kukunin ang huling window
+  window = scaled[-30:].reshape(1, 30, 5)   # huling 30 araw
+
+Hakbang 4: Model forward pass
+  TensorFlow: pred_scaled = model.predict(window)[0]   # 2 values
+  sklearn:    pred_scaled = mlp.predict(window.flatten())[0]
+
+Hakbang 5: Inverse scale → presyo sa PHP/kg
+  price_day_k = (pred_scaled[k] - min_j) / scale_j   para k = 0, 1
+
+Hakbang 6: Forecast dates
+  anchor = petsa ngayon (date.today())
+  Day 1 = anchor + 1 araw
+  Day 2 = anchor + 2 araw
+
+Hakbang 7: Change at confidence
+  change[i] = price[i] - previous_price
+  confidence[i] = clamp(0.65, 0.98, 1.0 - (mae_peso / max(price,1) * 0.5))
+
+Response JSON: forecast[], current_prices{}, metrics{}, history{labels, values}
+
+
+================================================================================
+  8. WEB SCRAPER — PAANO KUMOKOLEKTA NG BAGONG DATA
+================================================================================
+
+Tumatakbo sa background kapag naka-start ang api/app.py (auto every 24h), o manual:
+
+  POST /api/run-scraper
+  GET  /api/stream-scrape  (SSE live logs)
+
+Sunod-sunod na scrape (_do_scrape):
+
+  1. fetch_rice_prices()     — DA price monitoring (PDF/HTML)
+  2. fetch_fuel_prices()     — zigwheels.ph fuel prices
+  3. fetch_exchange_rates()  — open.er-api.com USD rates
+
+Data napupunta sa:
+  - tools/scrapped */ CSV backups
+  - SQLite WS_rice_price, WS_fuel, WS_currency
+
+Ang merged pipeline ay automatic na kasama ang WS_* tables sa training data.
+
+
+================================================================================
+  9. API ENDPOINTS (BUONG LISTAHAN)
+================================================================================
+
+  GET  /api/health              — Server status, DB path
+  GET  /api/historical-data     — Chart data (rice + fuel + exchange)
+  GET  /api/data-sources        — Metadata ng bawat source
+  GET  /api/scrape-status       — Scraper logs + stats + CSV preview
+  POST /api/run-scraper         — Manual scrape (optional body: {source: da|doe|api})
+  GET  /api/stream-scrape        — SSE scraper logs
+
+  POST /api/run-training        — Simulan ang LSTM training
+  GET  /api/training-status     — Running flag + logs + history summary
+  GET  /api/training-history    — Lahat ng nakaraang training runs
+  GET  /api/stream-training     — SSE training logs
+  GET  /api/model-status        — May model na ba? meta.json contents
+
+  GET  /api/predictions         — 2-day forecast JSON
+  POST /api/import-2026         — Sync 2026 XLSX files
+  POST /api/save-export         — Save CSV export mula sa frontend
+
+  GET  /                        — Dashboard (same origin, no CORS issue)
+
+
+================================================================================
+  10. PAANO PATAKBUHIN ANG BUONG SYSTEM
+================================================================================
+
+REQUIREMENTS:
+  - Python 3.11 / 3.12 / 3.13 (HUWAG 3.14 para sa TensorFlow)
+  - pip install -r requirements.txt
+  - pip install tensorflow (optional pero recommended para LSTM)
+
+HAKBANG 1 — Database (unang beses):
+  cd datasets
+  py -3.13 script.py
+  py -3.13 import_2026.py
+
+HAKBANG 2 — Backend (HUWAG isara habang ginagamit):
+  cd api
+  py -3.13 app.py
+  → http://127.0.0.1:5000/
+
+HAKBANG 3 — Frontend:
+  Option A: Buksan direkta http://127.0.0.1:5000/ (inirerekomenda — same origin)
+  Option B: Live Server sa index.html (port 5500) + api sa :5000
+
+HAKBANG 4 — Training:
+  UI: Training module → Start Training
+  CLI: cd model && py -3.13 train.py
+
+HAKBANG 5 — Predictions:
+  UI: Predictions module (kailangan may trained model na)
+
+
+================================================================================
+  11. MGA MODULE SA DASHBOARD
+================================================================================
+
+  Dashboard       — Overview metrics, quick stats
+  Predictions     — 2-day live forecast (Local Well-Milled)
+  Historical Data — Charts mula sa /api/historical-data
+  Training        — Start training, loss curves, training history
+  Web Scraper     — Manual/auto scrape, live terminal logs
+  Data Sources    — Status ng DA, DOE, Exchange API sources
+  LSTM Model      — Model architecture info (UI)
+  Correlation     — Feature correlation view
+  Metrics         — Model performance display
+  Alerts          — Price alert rules (UI)
+  Reports         — Export/reporting
+  Logs            — System logs
+  Settings        — App settings
+
+
+================================================================================
+  12. TROUBLESHOOTING
+================================================================================
+
+  "Cannot reach backend"
+    → Patakbuhin: cd api && py -3.13 app.py
+
+  "Model not trained yet"
+    → Training module → Start Training, o: py -3.13 model/train.py
+
+  "Not enough data for training"
+    → Kailangan 50+ sequences; i-import ang datasets at import_2026
+
+  Walang TensorFlow
+    → py -3.13 -m pip install tensorflow
+    → Kung hindi pa rin: gagamit ng sklearn MLP fallback (backend: sklearn)
+
+  Predictions maling petsa
+    → I-sync: py -3.13 datasets/import_2026.py, restart app.py, Ctrl+F5
+
+  Scraper errors
+    → pip install pdfplumber requests beautifulsoup4 (optional sa ML)
+
+
+================================================================================
+  13. FORMULA SUMMARY (QUICK REFERENCE)
+================================================================================
+
+  MinMax scale:     x' = (x - min) / (max - min)
+
+  Sequence X:       scaled[t-30 : t]     (30 days × 5 features)
+  Sequence y:       scaled[t : t+2, target_col]   (2 days target)
+
+  Train/test:       80% / 20% chronological split
+
+  LSTM loss:        MSE = mean((y - ŷ)²)
+  LSTM metric:      MAE = mean(|y - ŷ|)   [scaled]
+
+  MAE peso:         mean(|(y - ŷ) / scale_target|)
+  RMSE peso:        sqrt(mean(((y - ŷ) / scale_target)²))
+
+  Accuracy %:       100 - (mae_peso / avg_price × 100), capped 0–99.9
+
+  Inverse predict:  price = (scaled_pred - min) / scale
+
+  Forecast dates:   Day_k = today + k days  (k = 1, 2)
+
+
+================================================================================
+  14. DATA FLOW DIAGRAM (ASCII)
+================================================================================
+
+  [DA PDF] [Fuel Web] [USD API] [XLSX 2026]
+        \       |         |         /
+         v      v         v         v
+      [tools/scrap.py + import_2026.py]
+                 |
+                 v
+        [agriprice_database.db]
+                 |
+                 v
+        [data_pipeline.load_merged_frame()]
+                 |
+         +-------+-------+
+         v               v
+   [train.py]      [predict.py]
+   MinMaxScaler    same scaler
+   sequences       last 30-day window
+   LSTM/MLP        2-day output
+         |               |
+         v               v
+  lstm_model.keras   /api/predictions
+  meta.json               |
+         |                v
+         +--------> [Browser UI]
+
+
+================================================================================
+  END OF SYSTEM GUIDE
+================================================================================

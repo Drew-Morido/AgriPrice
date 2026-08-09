@@ -1,0 +1,62 @@
+<div class="section-header" style="margin-bottom:20px;">
+  <div>
+    <div class="section-title">Correlation Analysis</div>
+    <div class="section-subtitle">Pearson Correlation · ADF Stationarity Tests</div>
+  </div>
+</div>
+
+<div class="content-grid grid-2" style="margin-bottom:20px;">
+  <div class="card">
+    <div class="card-header"><span class="card-title">Correlation Heatmap</span></div>
+    <div class="card-body">
+      <canvas id="corr-heatmap" style="width:100%;height:320px;display:block;"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">ADF Test Results</span><span class="pill pill-green">All Stationary</span></div>
+    <div class="card-body">
+      <div class="adf-result-cards">
+        <div class="adf-card">
+          <div class="adf-title">Well Milled Rice Price</div>
+          <div class="adf-row"><label>ADF Statistic</label><span class="val">-3.841</span></div>
+          <div class="adf-row"><label>p-value</label><span class="val" style="color:#4CAF6E;">0.0024</span></div>
+          <div class="adf-row"><label>Result</label><span class="val" style="color:#4CAF6E;">Stationary ✓</span></div>
+        </div>
+        <div class="adf-card">
+          <div class="adf-title">Diesel Fuel Price</div>
+          <div class="adf-row"><label>ADF Statistic</label><span class="val">-3.512</span></div>
+          <div class="adf-row"><label>p-value</label><span class="val" style="color:#4CAF6E;">0.0082</span></div>
+          <div class="adf-row"><label>Result</label><span class="val" style="color:#4CAF6E;">Stationary ✓</span></div>
+        </div>
+        <div class="adf-card">
+          <div class="adf-title">USD/PHP Exchange Rate</div>
+          <div class="adf-row"><label>ADF Statistic</label><span class="val">-2.973</span></div>
+          <div class="adf-row"><label>p-value</label><span class="val" style="color:#F59E0B;">0.0381</span></div>
+          <div class="adf-row"><label>Result</label><span class="val" style="color:#4CAF6E;">Stationary ✓</span></div>
+        </div>
+        <div class="adf-card">
+          <div class="adf-title">Rice Stock Level</div>
+          <div class="adf-row"><label>ADF Statistic</label><span class="val">-4.112</span></div>
+          <div class="adf-row"><label>p-value</label><span class="val" style="color:#4CAF6E;">0.0009</span></div>
+          <div class="adf-row"><label>Result</label><span class="val" style="color:#4CAF6E;">Stationary ✓</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><span class="card-title">Correlation Summary</span></div>
+  <div style="overflow-x:auto;">
+    <table class="data-table">
+      <thead><tr><th>Factor</th><th>Pearson r</th><th>Interpretation</th><th>Significance</th><th>Included</th></tr></thead>
+      <tbody>
+        <tr><td>Diesel Fuel Price</td><td class="font-mono">0.85</td><td>Very Strong Positive</td><td><span class="pill pill-green">p &lt; 0.001</span></td><td><span class="pill pill-green">Yes</span></td></tr>
+        <tr><td>USD/PHP Rate</td><td class="font-mono">0.72</td><td>Strong Positive</td><td><span class="pill pill-green">p &lt; 0.001</span></td><td><span class="pill pill-green">Yes</span></td></tr>
+        <tr><td>Rice Stock Level</td><td class="font-mono">-0.63</td><td>Moderate Negative</td><td><span class="pill pill-green">p &lt; 0.001</span></td><td><span class="pill pill-green">Yes</span></td></tr>
+        <tr><td>Rainfall</td><td class="font-mono">0.41</td><td>Moderate Positive</td><td><span class="pill pill-orange">p = 0.012</span></td><td><span class="pill pill-green">Yes</span></td></tr>
+        <tr><td>Month (Seasonality)</td><td class="font-mono">0.33</td><td>Weak Positive</td><td><span class="pill pill-orange">p = 0.028</span></td><td><span class="pill pill-green">Yes</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
