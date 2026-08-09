@@ -31,6 +31,10 @@ META_PATH = os.path.join(MODEL_DIR, "meta.json")
 
 EPOCHS = int(os.environ.get("AGRIPRICE_EPOCHS", "100"))
 BATCH_SIZE = 32
+# Anchored-delta mode: model predicts the price CHANGE from the last observed value in the
+# window (instead of the absolute level). Anchors forecasts to the last price like the naive
+# baseline does, removing level-bias. Toggle with AGRIPRICE_DELTA_MODE=1.
+DELTA_MODE = os.environ.get("AGRIPRICE_DELTA_MODE", "0").strip().lower() in ("1", "true", "yes")
 
 
 def _save_meta(meta: dict) -> None:
@@ -87,6 +91,76 @@ def _adf_pvalue(series) -> float | None:
         return None
 
 
+def _arima_baseline(raw_target, i_va, seq_len, horizon, order=(1, 1, 1)) -> dict | None:
+    """Walk-forward ARIMA multi-step baseline over the test region (raw-peso MAE/RMSE).
+
+    Second baseline the paper's panel expects. Uses append(refit=False) so params are
+    estimated once on train+val and the origin rolls forward one day at a time — fast.
+    """
+    try:
+        from statsmodels.tsa.arima.model import ARIMA
+    except Exception:
+        return None
+    y = np.asarray(raw_target, dtype=float)
+    n = len(y)
+    start = i_va + seq_len  # observations available before the first test forecast origin
+    if start < 30 or start + horizon > n:
+        return None
+    warnings.filterwarnings("ignore")
+    try:
+        res = ARIMA(y[:start], order=order).fit()
+    except Exception:
+        return None
+    errs, origin = [], start
+    while origin + horizon <= n:
+        try:
+            fc = np.asarray(res.forecast(horizon), dtype=float)
+        except Exception:
+            break
+        errs.append(np.abs(fc - y[origin:origin + horizon]))
+        try:
+            res = res.append(y[origin:origin + 1], refit=False)
+        except Exception:
+            break
+        origin += 1
+    if not errs:
+        return None
+    e = np.concatenate(errs)
+    return {
+        "order": list(order),
+        "mae_peso": round(float(np.mean(e)), 4),
+        "rmse_peso": round(float(np.sqrt(np.mean(e ** 2))), 4),
+        "n": int(len(e) // horizon),
+    }
+
+
+def _shock_metrics(y_level_test, level_pred, anchors_test, scaler, target_idx, pct=90) -> dict | None:
+    """LSTM vs persistence on the most volatile test points (where the price actually moved).
+
+    This is the paper's real use case — 'lead-time awareness' before price shocks — where the
+    naive baseline is weakest. All errors in peso.
+    """
+    if len(y_level_test) == 0:
+        return None
+    scale = scaler.scale_[target_idx]
+    move_peso = np.abs(y_level_test - anchors_test[:, None]) / scale
+    sample_move = move_peso.max(axis=1)
+    thr = float(np.percentile(sample_move, pct))
+    mask = sample_move >= thr
+    if int(mask.sum()) < 3:
+        return None
+    lstm = float(np.mean(np.abs(y_level_test[mask] - level_pred[mask]) / scale))
+    base = float(np.mean(np.abs(y_level_test[mask] - anchors_test[mask, None]) / scale))
+    return {
+        "pct": pct,
+        "threshold_peso": round(thr, 4),
+        "count": int(mask.sum()),
+        "lstm_mae_peso": round(lstm, 4),
+        "baseline_mae_peso": round(base, 4),
+        "beats_baseline": bool(lstm < base),
+    }
+
+
 def _train_sklearn(X_train, y_train, X_val, y_val, X_test, y_test, scaler, target_idx, mlp_path, scaler_path):
     import joblib
     from sklearn.neural_network import MLPRegressor
@@ -105,13 +179,8 @@ def _train_sklearn(X_train, y_train, X_val, y_val, X_test, y_test, scaler, targe
     mlp.fit(X_fit.reshape(X_fit.shape[0], -1), y_fit)
     joblib.dump(mlp, mlp_path)
     joblib.dump(scaler, scaler_path)
-    pred = mlp.predict(X_test.reshape(X_test.shape[0], -1))
-    return {
-        "backend": "sklearn",
-        "test_loss": float(np.mean((pred - y_test) ** 2)),
-        "mae_peso": _mae_in_peso(y_test, pred, scaler, target_idx),
-        "rmse_peso": _rmse_in_peso(y_test, pred, scaler, target_idx),
-    }
+    pred = np.atleast_2d(mlp.predict(X_test.reshape(X_test.shape[0], -1)))
+    return {"backend": "sklearn", "pred": pred}
 
 
 def _train_tensorflow(
@@ -179,14 +248,8 @@ def _train_tensorflow(
         verbose=0,
     )
 
-    loss, _ = model.evaluate(X_test, y_test, verbose=0)
     pred = model.predict(X_test, verbose=0)
-    return {
-        "backend": "tensorflow",
-        "test_loss": float(loss),
-        "mae_peso": _mae_in_peso(y_test, pred, scaler, target_idx),
-        "rmse_peso": _rmse_in_peso(y_test, pred, scaler, target_idx),
-    }
+    return {"backend": "tensorflow", "pred": pred}
 
 
 def _train_one_target(df, target: str, use_tensorflow: bool) -> dict | None:
@@ -215,43 +278,52 @@ def _train_one_target(df, target: str, use_tensorflow: bool) -> dict | None:
     train_row_end = i_tr + SEQ_LEN
     scaler = MinMaxScaler().fit(raw[:train_row_end])
     scaled = scaler.transform(raw)
-    X, y = make_sequences(scaled, target_idx, SEQ_LEN, HORIZON)
+    X, y_level = make_sequences(scaled, target_idx, SEQ_LEN, HORIZON)
+
+    # Anchor = last observed (scaled) target value in each input window.
+    anchors = X[:, -1, target_idx]
+    # Model target: absolute level, or delta-from-anchor when DELTA_MODE is on.
+    y = (y_level - anchors[:, None]) if DELTA_MODE else y_level
 
     X_train, y_train = X[:i_tr], y[:i_tr]
     X_val, y_val = X[i_tr:i_va], y[i_tr:i_va]
     X_test, y_test = X[i_va:], y[i_va:]
+    y_level_test = y_level[i_va:]
+    anchors_test = anchors[i_va:]
     split_policy = "chronological_70_15_15"
 
     keras_path, scaler_path, mlp_path = _model_paths(target)
     print(
         f"[INFO] {target}: train={len(X_train)} val={len(X_val)} test={len(X_test)} "
-        f"n_features={len(features)}"
+        f"n_features={len(features)} delta_mode={DELTA_MODE}"
     )
 
     if use_tensorflow:
-        metrics = _train_tensorflow(
-            X_train,
-            y_train,
-            X_val,
-            y_val,
-            X_test,
-            y_test,
-            scaler,
-            target_idx,
-            len(features),
-            keras_path,
-            scaler_path,
-            target_name=target,
+        result = _train_tensorflow(
+            X_train, y_train, X_val, y_val, X_test, y_test, scaler, target_idx,
+            len(features), keras_path, scaler_path, target_name=target,
         )
         print(f"[SAVED] {keras_path}")
     else:
-        metrics = _train_sklearn(
+        result = _train_sklearn(
             X_train, y_train, X_val, y_val, X_test, y_test, scaler, target_idx, mlp_path, scaler_path
         )
         print(f"[SAVED] {mlp_path}")
 
-    baseline = _persistence_baseline(X_test, y_test, target_idx, scaler)
+    # Reconstruct absolute-level predictions (add anchor back in delta mode), then score.
+    pred = np.asarray(result["pred"])
+    level_pred = (anchors_test[:, None] + pred) if DELTA_MODE else pred
+    metrics = {
+        "backend": result["backend"],
+        "mae_peso": _mae_in_peso(y_level_test, level_pred, scaler, target_idx),
+        "rmse_peso": _rmse_in_peso(y_level_test, level_pred, scaler, target_idx),
+    }
+
+    # Naive persistence baseline: forecast every horizon step = last observed value (delta 0).
+    baseline = _persistence_baseline(X_test, y_level_test, target_idx, scaler)
     adf_p = _adf_pvalue(sub[target].values)
+    arima = _arima_baseline(sub[target].values.astype(float), i_va, SEQ_LEN, HORIZON)
+    shock = _shock_metrics(y_level_test, level_pred, anchors_test, scaler, target_idx)
 
     mean_price = float(sub[target].mean())
     accuracy = max(0.0, min(99.9, 100.0 - (metrics["mae_peso"] / max(mean_price, 1) * 100)))
@@ -260,6 +332,7 @@ def _train_one_target(df, target: str, use_tensorflow: bool) -> dict | None:
         "target": target,
         "features": features,
         "backend": metrics["backend"],
+        "delta_mode": DELTA_MODE,
         "mae_peso": round(metrics["mae_peso"], 4),
         "rmse_peso": round(metrics["rmse_peso"], 4),
         "accuracy_pct": round(accuracy, 2),
@@ -267,6 +340,9 @@ def _train_one_target(df, target: str, use_tensorflow: bool) -> dict | None:
         "baseline_rmse_peso": round(baseline["rmse_peso"], 4),
         "baseline_accuracy_pct": round(baseline_acc, 2),
         "beats_baseline": bool(metrics["mae_peso"] < baseline["mae_peso"]),
+        "arima": arima,
+        "beats_arima": (bool(metrics["mae_peso"] < arima["mae_peso"]) if arima else None),
+        "shock": shock,
         "adf_pvalue": (round(adf_p, 4) if adf_p is not None else None),
         "train_samples": len(X_train),
         "val_samples": len(X_val),
@@ -350,6 +426,7 @@ def main():
         "trained_types": list(targets_meta.keys()),
         "seq_len": SEQ_LEN,
         "horizon": HORIZON,
+        "delta_mode": DELTA_MODE,
         "last_date": str(df["Date"].iloc[-1].date()),
         "target": TARGET_COLUMN,
         "features": primary.get("features"),

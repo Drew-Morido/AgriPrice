@@ -42,7 +42,7 @@ from datetime import date, datetime
 
 
 import pandas as pd
-from flask import Flask, Response, abort, jsonify, request, send_from_directory
+from flask import Flask, Response, abort, jsonify, redirect, request, send_from_directory
 from flask_cors import CORS
 
 # ─── Import scraper functions (lazy-safe; errors surface at scrape time) ──────
@@ -2151,14 +2151,17 @@ def serve_frontend(path: str):
     if path.startswith("api"):
         abort(404)
     safe = path.replace("\\", "/").lstrip("/")
+    # Redirect the site root to the public landing page so its relative asset paths
+    # (css/…, js/…) resolve under /public/ — serving it at "/" 404s those assets,
+    # which drops the nav bar and the JS-rendered price widgets.
     if not safe or safe == "index.html":
-        return send_from_directory(os.path.join(PROJECT_ROOT, "public"), "landpage.html")
+        return redirect("/public/landpage.html", code=302)
     full = os.path.join(PROJECT_ROOT, safe)
     if os.path.isfile(full):
         return send_from_directory(PROJECT_ROOT, safe)
     if safe.startswith("admin/") and "." not in os.path.basename(safe):
         return send_from_directory(os.path.join(PROJECT_ROOT, "admin"), "index.html")
-    return send_from_directory(os.path.join(PROJECT_ROOT, "public"), "landpage.html")
+    return redirect("/public/landpage.html", code=302)
 
 
 # ─── CLI entry point ──────────────────────────────────────────────────────────

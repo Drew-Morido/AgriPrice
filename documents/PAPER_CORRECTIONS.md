@@ -82,9 +82,40 @@ rainfall as a feature without updating the Scope.
   validation set (early stopping) with the final 15% held out for reporting. The paper's
   MANDATORY chronological-split requirement is satisfied.
 - **Naive-persistence baseline + ADF.** Every rice type now reports LSTM MAE/RMSE **and** a
-  naive-persistence baseline MAE/RMSE, a `beats_baseline` flag, and an ADF p-value
-  (`model/meta.json`, visible in Admin → Metrics). Cite these numbers in the Statistical
-  Treatment / Testing chapters. (ARIMA is still optional — add if you want a second baseline.)
+  naive-persistence baseline MAE/RMSE, a `beats_baseline` flag, an ADF p-value, an
+  **ARIMA(1,1,1) baseline**, and a **shock-day comparison** (`model/meta.json`, all visible in
+  Admin → Metrics). Cite these numbers in the Statistical Treatment / Testing chapters.
+
+  ⚠️ **IMPORTANT — how to frame the result honestly (defense-critical).**
+  On the held-out test set (clean chronological split), for **Local Well-Milled**:
+
+  | Model | MAE (₱/kg, all test days) |
+  |---|---|
+  | Multivariate LSTM (anchored-delta) | 0.247 |
+  | Naive persistence | 0.229 |
+  | ARIMA(1,1,1) | 0.229 |
+
+  All 8 types look the same: **LSTM ≈ persistence ≈ ARIMA** (LSTM within ₱0.003–0.03).
+  ARIMA(1,1,1) collapses to persistence here because the series is a near random walk
+  (ADF p ≈ 0.07 → cannot reject a unit root). A **shock-day analysis** (top-10% most volatile
+  test days, where price moved ≥ ₱1.0 from the last value) was run specifically to look for LSTM
+  advantage where it should matter most: the LSTM beat persistence on only **2/8** types and by
+  a trivial margin (₱0.001–0.003). So the LSTM does **not** reliably win even during volatility.
+
+  **Defensible framing (do this):**
+  1. Report LSTM, persistence, AND ARIMA side by side — all three tie. (Numbers are in Admin →
+     Metrics and `model/meta.json`.)
+  2. State the honest conclusion: at a 1–3 day horizon, NCR rice retail prices are effectively a
+     random walk, so no model — classical or deep — meaningfully beats "tomorrow ≈ today." This
+     is itself a **valid empirical finding** and matches the efficient-short-horizon literature.
+  3. The LSTM's contribution is a **unified multivariate system**: one pipeline forecasting all
+     8 rice types while incorporating fuel, FX, stock, farmgate, and seasonality — matching
+     classical baselines' accuracy, not a claim of beating them.
+  4. Frame accuracy superiority as **future work** (longer horizons where drivers matter; explicit
+     shock/anomaly features; GARCH for volatility).
+  5. Note the earlier ₱0.47 figure was inflated by test-into-validation leakage.
+  **Do NOT** claim the LSTM outperforms the baselines — the data does not support it and a
+  technical panel will check.
 - **48–72 hour (3-day) horizon.** `HORIZON = 3` (`model/data_pipeline.py`); the API and both
   dashboards now show Day 1/2/3. Matches the "48–72 hour / 2–3 day" claim.
 - **Feature engineering (lag + rolling + seasonality).** Implemented in
@@ -94,8 +125,8 @@ rainfall as a feature without updating the Scope.
 ## Still needs YOUR team's input (unchanged by this audit)
 - Per-stratum UAT headcounts (household / vendor / IT / DA-AMAS) — paper blanks.
 - Sprint count/duration and backlog screenshots.
-- Synthesis Matrix rows + at least one counter-evidence study (DL not beating a baseline).
-- ARIMA baseline (optional but recommended for a stronger defense).
+- Synthesis Matrix rows + at least one counter-evidence study (DL not beating a baseline) — your
+  own results are now a concrete example of this.
 - "Rockets and feathers": current lag features are symmetric. If you want to *model* the
   asymmetry (not just cite it), add separate rising/falling diesel & FX lag features; otherwise
   note it as a limitation.

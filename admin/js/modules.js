@@ -62,23 +62,45 @@ AgriPricePH.Metrics = (function () {
 
     const note = document.getElementById('m-split-note');
     if (note) {
-      note.textContent = `${meta.split_policy || ''} · train ${meta.train_samples ?? '—'} / val ${meta.val_samples ?? '—'} / test ${meta.test_samples ?? '—'} · horizon ${meta.horizon ?? '—'}d`;
+      note.textContent = `${meta.split_policy || ''} · train ${meta.train_samples ?? '—'} / val ${meta.val_samples ?? '—'} / test ${meta.test_samples ?? '—'} · horizon ${meta.horizon ?? '—'}d${meta.delta_mode ? ' · delta mode' : ''}`;
+    }
+
+    // Model-vs-baselines comparison (primary target)
+    set('m-cmp-lstm', peso(primary.mae_peso));
+    set('m-cmp-persist', peso(primary.baseline_mae_peso));
+    const arima = primary.arima;
+    set('m-cmp-arima', arima ? peso(arima.mae_peso) : 'n/a');
+    const arimaOrder = document.getElementById('m-cmp-arima-order');
+    if (arimaOrder) arimaOrder.textContent = arima ? `ARIMA(${(arima.order || []).join(',')}) baseline MAE` : 'ARIMA baseline MAE';
+
+    const shock = primary.shock;
+    if (shock) {
+      set('m-shock-lstm', peso(shock.lstm_mae_peso));
+      const sv = document.getElementById('m-shock-verdict');
+      if (sv) {
+        sv.textContent = shock.beats_baseline
+          ? `beats persistence (${peso(shock.baseline_mae_peso)}) on shock days ✓`
+          : `vs persistence ${peso(shock.baseline_mae_peso)} on shock days`;
+        sv.style.color = shock.beats_baseline ? 'var(--color-accent,#4CAF6E)' : 'var(--text-muted)';
+      }
+      const sn = document.getElementById('m-shock-note');
+      if (sn) sn.textContent = `Shock days = top ${100 - (shock.pct ?? 90)}% most volatile test days (price moved ≥ ${peso(shock.threshold_peso)} from last value); n=${shock.count}. This is the "lead-time awareness" use case where the naive baseline is weakest.`;
     }
 
     const body = document.getElementById('m-per-type');
     if (body) {
       const rows = Object.entries(meta.targets).map(([key, t]) => {
-        const beats = (t.mae_peso != null && t.baseline_mae_peso != null) ? t.mae_peso < t.baseline_mae_peso : null;
-        const verdict = beats == null ? '—'
-          : beats ? '<span style="color:var(--color-accent,#4CAF6E);font-weight:600;">✓ beats baseline</span>'
-                  : '<span style="color:var(--color-danger,#EF4444);font-weight:600;">✗ worse</span>';
+        const shk = t.shock;
+        const shkCell = shk
+          ? `${peso(shk.lstm_mae_peso)} / ${peso(shk.baseline_mae_peso)} ${shk.beats_baseline ? '<span style="color:var(--color-accent,#4CAF6E);">✓</span>' : ''}`
+          : '—';
         return `<tr style="border-top:1px solid var(--border-color,#eee);">
           <td style="padding:6px 8px;">${RICE_LABELS[key] || key}</td>
           <td style="padding:6px 8px;">${peso(t.mae_peso)}</td>
           <td style="padding:6px 8px;">${peso(t.baseline_mae_peso)}</td>
-          <td style="padding:6px 8px;">${peso(t.rmse_peso)}</td>
+          <td style="padding:6px 8px;">${t.arima ? peso(t.arima.mae_peso) : '—'}</td>
+          <td style="padding:6px 8px;">${shkCell}</td>
           <td style="padding:6px 8px;">${t.accuracy_pct != null ? t.accuracy_pct + '%' : '—'}</td>
-          <td style="padding:6px 8px;">${verdict}</td>
         </tr>`;
       }).join('');
       body.innerHTML = rows || '<tr><td colspan="6" style="padding:10px 8px;color:var(--text-muted);">No trained model yet — run Training first.</td></tr>';

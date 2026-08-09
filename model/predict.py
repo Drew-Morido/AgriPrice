@@ -229,6 +229,12 @@ def _run_lstm_inference(
     else:
         return None
 
+    # In delta mode the model predicts change-from-anchor; add the last scaled value back.
+    delta_mode = bool(target_meta.get("delta_mode", (meta or {}).get("delta_mode", False)))
+    if delta_mode:
+        anchor_scaled = float(window[0, -1, target_idx])
+        pred_scaled = anchor_scaled + np.asarray(pred_scaled)
+
     prices = _inverse_target(pred_scaled, scaler, target_idx)
     last_price = float(sub[target].iloc[-1])
     if last_price <= 0:

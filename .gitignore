@@ -12,7 +12,7 @@ env/
 ENV/
 
 # Timestamped model backups
-model/_backup_pretrain_*/
+model/_backup_*/
 
 # Logs
 *.log
@@ -21,3 +21,6 @@ model/_backup_pretrain_*/
 Thumbs.db
 .DS_Store
 *.swp
+
+# Scraper debug artifacts
+tools/debug_fetch/*.pdf
