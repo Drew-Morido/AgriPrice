@@ -130,3 +130,46 @@ rainfall as a feature without updating the Scope.
 - "Rockets and feathers": current lag features are symmetric. If you want to *model* the
   asymmetry (not just cite it), add separate rising/falling diesel & FX lag features; otherwise
   note it as a limitation.
+
+---
+
+# Defense Round 2 — DTI categories, brackets, taxes, ANOVA, Slovin (in progress)
+
+Panel feedback #1–7. Scope decisions: survey/ANOVA done **offline + documented**; price brackets
+are **data/display only** (model still forecasts a point); keep the **8 categories**, add brand/
+market/bracket/tax as new dimensions. **Do not invent DTI/BOC/BIR data — [VERIFY] flags below.**
+
+## Now true in code (cite these)
+- **Sampling — Slovin (e=0.05).** `research/stats.py` implements `n = N/(1+N·e²)`. Key figures:
+  **N=100 → n=80**, N=120 → 92, N=150 → 109, N=200 → 134. So a defined population of **N≈100**
+  justifies the panel's **≥80** minimum. Run `py -3.13 research/stats.py --slovin 100`.
+- **One-Way ANOVA.** `research/stats.py one_way_anova()` compares mean evaluation scores across
+  respondent groups (Households, Distributors, IT, DTI); H₀: all group means equal, H₁: at least
+  one differs; α=0.05; includes Levene/Shapiro checks + Tukey HSD (falls back to Welch/Kruskal
+  guidance if assumptions fail). Feed it your Google-Forms responses CSV.
+- **Accuracy metrics expanded.** `model/train.py` now records per type (in `model/meta.json`,
+  shown in Admin → Metrics): **MAPE** and **R²** on top of MAE/RMSE, plus a **rolling-origin
+  evaluation** (MAE across 5 chronological blocks of the held-out test, mean±std) — alongside the
+  existing naive-persistence + ARIMA + ADF + shock analysis. Current WM: MAE ≈ ₱0.24, MAPE ≈ 0.5%,
+  R² ≈ 0.99. ⚠️ **R² caveat:** it's high because prices trend and the model tracks the level;
+  persistence scores similarly, so keep **MAE-vs-persistence** as the value argument, not R².
+- **Rice catalog schema.** `datasets/catalog_schema.py` adds `dti_category` (8 seeded, mapped to
+  model keys), `rice_brand`, `market`, `rice_price_bracket` (min–max, `CHECK(min≤max)`), and
+  `tax_component`. Additive/non-breaking; the ML time series is untouched.
+
+## Paper edits still to write (Chapter 3)
+- Replace weighted-mean-only treatment with **One-Way ANOVA** (state H₀/H₁, α=0.05, post-hoc).
+  Keep weighted mean + SD as descriptive stats.
+- Add the **Slovin** subsection with the derivation and the N→n table; state your real N.
+- Rewrite **Population & Sampling** for the 4 groups incl. **DTI personnel** (replaces DA-AMAS);
+  recommended allocation summing to 80: Households 30 / Distributors 25 / IT 15 / DTI 10.
+- Add **MAPE/R²** (and rolling-origin evaluation) to the accuracy-testing section.
+- Add **price brackets** (prices reported as ₱min–₱max) and an **imported-rice tax/import-charge**
+  subsection to Scope + Data.
+
+## [VERIFY] before defense — external data, do not invent
+- **[DTI]** confirm the 8 category names/definitions and the **brands** under each.
+- **[DTI]** whether official prices are true **min–max brackets** or must be derived from spread.
+- **[BOC/BIR/DTI]** import charges on imported rice: tariff (Rice Tariffication Act RA 11203; the
+  reduced rate under EO 62 s.2024), VAT, and any other fees — confirm the **current** rates.
+- **[ACTION]** state the target **population N** (≈100 to justify n=80).
