@@ -1,21 +1,49 @@
 <div class="metrics-hero">
   <div class="metric-hero-card">
-    <div class="pill pill-green" style="display:inline-flex;">MAE</div>
-    <div class="metric-hero-value">₱1.32</div>
+    <div class="pill pill-green" style="display:inline-flex;">LSTM MAE</div>
+    <div class="metric-hero-value" id="m-mae">—</div>
     <div class="metric-hero-label">Mean Absolute Error</div>
-    <div class="metric-hero-desc">On average, the LSTM forecast is off by ±₱1.32 per kg</div>
+    <div class="metric-hero-desc">Average forecast error per kg on the held-out test set</div>
   </div>
   <div class="metric-hero-card">
-    <div class="pill pill-blue" style="display:inline-flex;">RMSE</div>
-    <div class="metric-hero-value">₱1.87</div>
+    <div class="pill pill-blue" style="display:inline-flex;">LSTM RMSE</div>
+    <div class="metric-hero-value" id="m-rmse">—</div>
     <div class="metric-hero-label">Root Mean Squared Error</div>
     <div class="metric-hero-desc">Penalizes large outlier errors more heavily than MAE</div>
   </div>
   <div class="metric-hero-card">
-    <div class="pill pill-orange" style="display:inline-flex;">ADF</div>
-    <div class="metric-hero-value">87.4%</div>
-    <div class="metric-hero-label">Directional Accuracy</div>
-    <div class="metric-hero-desc">Correctly predicts price direction 87.4% of the time</div>
+    <div class="pill pill-orange" style="display:inline-flex;">Baseline MAE</div>
+    <div class="metric-hero-value" id="m-baseline-mae">—</div>
+    <div class="metric-hero-label">Naive Persistence</div>
+    <div class="metric-hero-desc" id="m-baseline-verdict">Benchmark: forecast = last observed price</div>
+  </div>
+  <div class="metric-hero-card">
+    <div class="pill pill-green" style="display:inline-flex;">ADF p-value</div>
+    <div class="metric-hero-value" id="m-adf">—</div>
+    <div class="metric-hero-label">Augmented Dickey-Fuller</div>
+    <div class="metric-hero-desc">Stationarity test on the target price series</div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px;">
+  <div class="card-header">
+    <span class="card-title">LSTM vs Naive-Persistence Baseline — per rice type</span>
+    <span id="m-split-note" style="font-size:11px;color:var(--text-muted);"></span>
+  </div>
+  <div class="card-body" style="overflow-x:auto;">
+    <table class="metrics-table" style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="text-align:left;color:var(--text-muted);">
+          <th style="padding:6px 8px;">Rice type</th>
+          <th style="padding:6px 8px;">LSTM MAE (₱)</th>
+          <th style="padding:6px 8px;">Baseline MAE (₱)</th>
+          <th style="padding:6px 8px;">LSTM RMSE (₱)</th>
+          <th style="padding:6px 8px;">Accuracy</th>
+          <th style="padding:6px 8px;">Verdict</th>
+        </tr>
+      </thead>
+      <tbody id="m-per-type"><tr><td colspan="6" style="padding:10px 8px;color:var(--text-muted);">Loading model metrics…</td></tr></tbody>
+    </table>
   </div>
 </div>
 

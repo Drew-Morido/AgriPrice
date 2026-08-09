@@ -134,17 +134,18 @@ AgriPricePH.Landpage = (function () {
   }
 
   function getHowForecast(lastActual) {
+    const fcLabel = (i) => ['Tomorrow', '+2 days', '+3 days'][i] || `+${i + 1} days`;
     const fromApi = _forecastByKey[HOW_RICE_KEY];
     if (Array.isArray(fromApi) && fromApi.length) {
-      return fromApi.slice(0, 2).map((f, i) => ({
-        date: f.date || (i === 0 ? 'Tomorrow' : '+2 days'),
+      return fromApi.slice(0, 3).map((f, i) => ({
+        date: f.date || fcLabel(i),
         date_iso: f.date_iso,
         price: Number(f.price ?? f.wm ?? lastActual),
       }));
     }
     const mock = AgriPricePH.Data?.forecast2d || [];
-    return mock.slice(0, 2).map((f, i) => ({
-      date: f.date || (i === 0 ? 'Tomorrow' : '+2 days'),
+    return mock.slice(0, 3).map((f, i) => ({
+      date: f.date || fcLabel(i),
       price: Number(f.rm ?? f.price ?? lastActual * (1 + 0.005 * (i + 1))),
     }));
   }

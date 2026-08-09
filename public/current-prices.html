@@ -341,28 +341,35 @@ function getHistorySeries(apiKey, fallback) {
   return { values, labels };
 }
 
-function getForecast2Days(tabKey, fallback, today) {
+function getForecastDays(tabKey, fallback, today) {
   const apiKey = TAB_TO_API_KEY[tabKey];
   const rows = apiPredictions?.forecasts_by_key?.[apiKey];
   if (Array.isArray(rows) && rows.length) {
     const d1 = rows[0];
     const d2 = rows[1] || rows[0];
+    const d3 = rows[2] || d2;
     return {
       d1: Number(d1.price),
       d2: Number(d2.price),
+      d3: Number(d3.price),
       conf1: clampConf(Number(d1.confidence ?? 0.85) * 100),
       conf2: clampConf(Number(d2.confidence ?? 0.75) * 100),
+      conf3: clampConf(Number(d3.confidence ?? 0.65) * 100),
       date1: d1.date || formatDateLabel(d1.date_iso || isoPlusDays(1)),
       date2: d2.date || formatDateLabel(d2.date_iso || isoPlusDays(2)),
+      date3: d3.date || formatDateLabel(d3.date_iso || isoPlusDays(3)),
     };
   }
   return {
     d1: fallback.d1,
     d2: fallback.d2,
+    d3: fallback.d3,
     conf1: fallback.conf1,
     conf2: fallback.conf2,
+    conf3: fallback.conf3,
     date1: formatDateLabel(isoPlusDays(1)),
     date2: formatDateLabel(isoPlusDays(2)),
+    date3: formatDateLabel(isoPlusDays(3)),
   };
 }
 
@@ -378,9 +385,9 @@ function initChart(tabKey, data) {
   if (!canvas || typeof Chart === 'undefined') return;
   if (myChart) myChart.destroy();
 
-  const labels = [...data.history.labels, 'Tomorrow', 'Day 2'];
-  const actual = [...data.history.values, null, null];
-  const predicted = [...Array(Math.max(data.history.values.length - 1, 0)).fill(null), data.today, data.d1, data.d2];
+  const labels = [...data.history.labels, 'Tomorrow', 'Day 2', 'Day 3'];
+  const actual = [...data.history.values, null, null, null];
+  const predicted = [...Array(Math.max(data.history.values.length - 1, 0)).fill(null), data.today, data.d1, data.d2, data.d3];
   const upper = predicted.map((v) => (v == null ? null : v + maePeso));
   const lower = predicted.map((v) => (v == null ? null : Math.max(0, v - maePeso)));
 
@@ -400,18 +407,21 @@ function updateUI(key) {
   const fallback = FALLBACK_DATA[key];
   if (!fallback) return;
   const today = getTodayPrice(key, fallback);
-  const fc = getForecast2Days(key, fallback, today);
+  const fc = getForecastDays(key, fallback, today);
   const d = { ...fallback, today, ...fc };
   const history = getHistorySeries(TAB_TO_API_KEY[key], fallback);
 
   const chg1 = d.d1 - d.today;
   const chg2 = d.d2 - d.d1;
+  const chg3 = d.d3 - d.d2;
 
   document.getElementById('kpi-tomorrow').textContent = toPeso(d.d1);
   document.getElementById('kpi-tomorrow-sub').textContent = d.name+' · per kilo';
   document.getElementById('kpi-tomorrow-trend-val').textContent = plusPeso(chg1);
   document.getElementById('kpi-day2').textContent = toPeso(d.d2);
   document.getElementById('kpi-day2-sub').textContent = `Expected to go ${chg2>=0?'up':'down'} ${plusPeso(chg2)} more`;
+  document.getElementById('kpi-day3').textContent = toPeso(d.d3);
+  document.getElementById('kpi-day3-sub').textContent = `Expected to go ${chg3>=0?'up':'down'} ${plusPeso(chg3)} more`;
   document.getElementById('kpi-confidence').textContent = `${Math.round(d.conf1)}%`;
   document.getElementById('kpi-today').textContent = toPeso(d.today);
   document.getElementById('chart-eyebrow').textContent = `Price going up and down · ${d.name}`;
@@ -420,39 +430,49 @@ function updateUI(key) {
   document.getElementById('cb-change-val').textContent = plusPeso(chg1);
   document.getElementById('cb-sub').textContent = `${d.name} · per kilo · ${d.date1}`;
 
-  const maxP = Math.max(d.today, d.d1, d.d2) * 1.02;
+  const maxP = Math.max(d.today, d.d1, d.d2, d.d3) * 1.02;
   const pToday = Math.round((d.today/maxP)*100);
   const pD1 = Math.round((d.d1/maxP)*100);
   const pD2 = Math.round((d.d2/maxP)*100);
+  const pD3 = Math.round((d.d3/maxP)*100);
   document.getElementById('bar-today').style.width = pToday+'%';
   document.getElementById('bar-today').querySelector('.cb-tval').textContent = toPeso(d.today);
   document.getElementById('bar-tomorrow').style.width = pD1+'%';
   document.getElementById('bar-tomorrow').querySelector('.cb-tval').textContent = toPeso(d.d1);
   document.getElementById('bar-dayafter').style.width = pD2+'%';
   document.getElementById('bar-dayafter').querySelector('.cb-tval').textContent = toPeso(d.d2);
+  document.getElementById('bar-day3').style.width = pD3+'%';
+  document.getElementById('bar-day3').querySelector('.cb-tval').textContent = toPeso(d.d3);
 
   document.getElementById('conf1').style.width = `${Math.round(d.conf1)}%`;
   document.getElementById('conf1-pct').textContent = `${Math.round(d.conf1)}%`;
   document.getElementById('conf2').style.width = `${Math.round(d.conf2)}%`;
   document.getElementById('conf2-pct').textContent = `${Math.round(d.conf2)}%`;
+  document.getElementById('conf3').style.width = `${Math.round(d.conf3)}%`;
+  document.getElementById('conf3-pct').textContent = `${Math.round(d.conf3)}%`;
 
   document.getElementById('table-sub').textContent = `${d.name} · per kilo`;
   document.getElementById('row1-price').textContent = toPeso(d.d1);
   document.getElementById('row1-change').textContent = plusPeso(chg1);
   document.getElementById('row2-price').textContent = toPeso(d.d2);
   document.getElementById('row2-change').textContent = plusPeso(chg2);
+  document.getElementById('row3-price').textContent = toPeso(d.d3);
+  document.getElementById('row3-change').textContent = plusPeso(chg3);
   document.getElementById('row1-conf-bar').style.width = `${Math.round(d.conf1)}%`;
   document.getElementById('row1-conf-pct').textContent = `${Math.round(d.conf1)}%`;
   document.getElementById('row2-conf-bar').style.width = `${Math.round(d.conf2)}%`;
   document.getElementById('row2-conf-pct').textContent = `${Math.round(d.conf2)}%`;
+  document.getElementById('row3-conf-bar').style.width = `${Math.round(d.conf3)}%`;
+  document.getElementById('row3-conf-pct').textContent = `${Math.round(d.conf3)}%`;
   document.querySelector('#row1 .date-sub').textContent = d.date1;
   document.querySelector('#row2 .date-sub').textContent = d.date2;
+  document.querySelector('#row3 .date-sub').textContent = d.date3;
 
   const trendWord = chg1 >= 0 ? 'go up' : 'go down';
   const action = chg1 >= 0 ? `buy stock today at ${toPeso(d.today)} before the price goes higher` : 'wait before buying — prices may drop further';
-  document.getElementById('tip-text').innerHTML = `<i class="ti ti-bulb"></i><span><strong>Tip:</strong> ${d.name} prices are expected to ${trendWord} over the next two days. If you sell rice, it may be a good idea to ${action}.</span>`;
+  document.getElementById('tip-text').innerHTML = `<i class="ti ti-bulb"></i><span><strong>Tip:</strong> ${d.name} prices are expected to ${trendWord} over the next three days. If you sell rice, it may be a good idea to ${action}.</span>`;
 
-  initChart(key, { history, today: d.today, d1: d.d1, d2: d.d2 });
+  initChart(key, { history, today: d.today, d1: d.d1, d2: d.d2, d3: d.d3 });
 }
 
 function selectTab(btn){

@@ -207,7 +207,7 @@ AgriPricePH.PublicForecast = (function () {
     const field = MOCK_FIELD[_riceTab] || 'wm';
     const rows = AgriPricePH.Data.forecast2d?.length
       ? AgriPricePH.Data.forecast2d
-      : (AgriPricePH.Data.forecast7d || []).slice(0, 2);
+      : (AgriPricePH.Data.forecast7d || []).slice(0, 3);
     const lastPrice = getLastPrice(riceKey);
     return rows.map((d, i) => {
       const price = Number(d[field] ?? d.price ?? d.wm ?? lastPrice);

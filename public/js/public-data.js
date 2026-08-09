@@ -193,6 +193,7 @@ AgriPricePH.PublicData = (function () {
       mock[key] = [
         { day: 1, date: 'Tomorrow', price: +(last * 1.005).toFixed(2), confidence: 0.75 },
         { day: 2, date: 'Day after tomorrow', price: +(last * 1.01).toFixed(2), confidence: 0.72 },
+        { day: 3, date: 'In 3 days', price: +(last * 1.014).toFixed(2), confidence: 0.66 },
       ];
     });
     return mock;
@@ -255,13 +256,14 @@ AgriPricePH.PublicData = (function () {
     const fallback = [
       { day: 1, date: 'Tomorrow', price: 52.8, confidence: 0.75 },
       { day: 2, date: 'Day after tomorrow', price: 53.1, confidence: 0.72 },
+      { day: 3, date: 'In 3 days', price: 53.35, confidence: 0.66 },
     ];
-    (days.length ? days.slice(0, 2) : fallback).forEach((d, i) => {
+    (days.length ? days.slice(0, 3) : fallback).forEach((d, i) => {
       const card = document.createElement('div');
       card.className = 'lp-forecast-card';
       const conf = d.confidence ?? d.conf;
       const confPct = conf != null ? (conf <= 1 ? conf * 100 : conf) : null;
-      const dayLabel = d.date || (i === 0 ? 'Tomorrow' : 'Day after tomorrow');
+      const dayLabel = d.date || ['Tomorrow', 'Day after tomorrow', 'In 3 days'][i] || `Day ${i + 1}`;
       card.innerHTML = `
         <div class="day-label">${dayLabel}</div>
         <div class="forecast-price">₱${Number(d.price ?? d.wm).toFixed(2)}</div>
@@ -1038,7 +1040,7 @@ AgriPricePH.PublicData = (function () {
       const pct = avg ? (((last - avg) / avg) * 100).toFixed(1) : '0';
       const dir = last >= avg ? 'above' : 'below';
       insight.textContent = isVendor
-        ? `${selectedMeta.label} today is ${Math.abs(pct)}% ${dir} the ${periodLabel} average. Use this with the 2-day forecast when you set prices or order stock.`
+        ? `${selectedMeta.label} today is ${Math.abs(pct)}% ${dir} the ${periodLabel} average. Use this with the 3-day forecast when you set prices or order stock.`
         : `${selectedMeta.label} today is ${Math.abs(pct)}% ${dir} the ${periodLabel} average. You may save money when prices stay below the average.`;
     }
   }

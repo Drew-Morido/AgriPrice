@@ -25,7 +25,67 @@ AgriPricePH.LSTMModel = (function () {
 
 AgriPricePH.Metrics = (function () {
 
-  function init() {
+  const RICE_LABELS = {
+    locWellMilled: 'Local Well-Milled', locRegular: 'Local Regular',
+    locPremium: 'Local Premium', locSpecial: 'Local Special',
+    impWellMilled: 'Imported Well-Milled', impRegular: 'Imported Regular',
+    impPremium: 'Imported Premium', impSpecial: 'Imported Special',
+  };
+
+  function peso(v) { return (v == null || isNaN(v)) ? '—' : `₱${Number(v).toFixed(2)}`; }
+
+  function fillFromMeta(meta) {
+    if (!meta || !meta.targets) return;
+    const primary = meta.targets[meta.target] || Object.values(meta.targets)[0] || {};
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+    set('m-mae', peso(primary.mae_peso ?? meta.mae_peso));
+    set('m-rmse', peso(primary.rmse_peso ?? meta.rmse_peso));
+    set('m-baseline-mae', peso(primary.baseline_mae_peso ?? meta.baseline_mae_peso));
+
+    const lstmMae = primary.mae_peso ?? meta.mae_peso;
+    const baseMae = primary.baseline_mae_peso ?? meta.baseline_mae_peso;
+    if (lstmMae != null && baseMae != null) {
+      const beats = lstmMae < baseMae;
+      const gain = baseMae ? (((baseMae - lstmMae) / baseMae) * 100) : 0;
+      const verdict = document.getElementById('m-baseline-verdict');
+      if (verdict) {
+        verdict.textContent = beats
+          ? `LSTM beats persistence by ${gain.toFixed(1)}% (lower MAE)`
+          : `⚠ LSTM does NOT beat persistence (${gain.toFixed(1)}%)`;
+        verdict.style.color = beats ? 'var(--color-accent, #4CAF6E)' : 'var(--color-danger, #EF4444)';
+      }
+    }
+
+    const adf = primary.adf_pvalue ?? meta.adf_pvalue;
+    set('m-adf', adf == null ? 'n/a' : Number(adf).toFixed(4));
+
+    const note = document.getElementById('m-split-note');
+    if (note) {
+      note.textContent = `${meta.split_policy || ''} · train ${meta.train_samples ?? '—'} / val ${meta.val_samples ?? '—'} / test ${meta.test_samples ?? '—'} · horizon ${meta.horizon ?? '—'}d`;
+    }
+
+    const body = document.getElementById('m-per-type');
+    if (body) {
+      const rows = Object.entries(meta.targets).map(([key, t]) => {
+        const beats = (t.mae_peso != null && t.baseline_mae_peso != null) ? t.mae_peso < t.baseline_mae_peso : null;
+        const verdict = beats == null ? '—'
+          : beats ? '<span style="color:var(--color-accent,#4CAF6E);font-weight:600;">✓ beats baseline</span>'
+                  : '<span style="color:var(--color-danger,#EF4444);font-weight:600;">✗ worse</span>';
+        return `<tr style="border-top:1px solid var(--border-color,#eee);">
+          <td style="padding:6px 8px;">${RICE_LABELS[key] || key}</td>
+          <td style="padding:6px 8px;">${peso(t.mae_peso)}</td>
+          <td style="padding:6px 8px;">${peso(t.baseline_mae_peso)}</td>
+          <td style="padding:6px 8px;">${peso(t.rmse_peso)}</td>
+          <td style="padding:6px 8px;">${t.accuracy_pct != null ? t.accuracy_pct + '%' : '—'}</td>
+          <td style="padding:6px 8px;">${verdict}</td>
+        </tr>`;
+      }).join('');
+      body.innerHTML = rows || '<tr><td colspan="6" style="padding:10px 8px;color:var(--text-muted);">No trained model yet — run Training first.</td></tr>';
+    }
+  }
+
+  function renderCharts() {
     const hist   = (AgriPricePH.Data.historical.locWellMilled || AgriPricePH.Data.historical.wellMilled || []).slice(-30);
     const pred   = hist.map(v => v + (Math.random() - 0.5) * 2.5);
     const labels = AgriPricePH.Data.historicalLabels.slice(-30);
@@ -43,6 +103,15 @@ AgriPricePH.Metrics = (function () {
       [3, 7, 18, 32, 28, 20, 10, 4],
       [3, 7, 18, 32, 28, 20, 10, 4].map((_, i) => i < 3 || i > 4 ? '#EF4444' : '#4CAF6E')
     );
+  }
+
+  function init() {
+    renderCharts();
+    if (AgriPricePH.API?.modelStatus) {
+      AgriPricePH.API.modelStatus()
+        .then(res => fillFromMeta(res?.meta))
+        .catch(() => { /* keep placeholders if backend unreachable */ });
+    }
   }
 
   return { init };

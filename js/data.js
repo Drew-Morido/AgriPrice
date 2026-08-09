@@ -32,10 +32,11 @@ AgriPricePH.Data = (function () {
     'Local Regular':      { price: 55.00, change: +0.50, pct: +0.92 },
   };
 
-  // ── 2-day Forecast (fallback kapag offline ang API) ──
+  // ── 3-day Forecast (fallback kapag offline ang API) ──
   const forecast2d = [
     { day: 1, date: 'Day 1', price: 52.80, wm: 52.80, rm: 48.20, pm: 59.80, sp: 65.10, conf: 0.92 },
     { day: 2, date: 'Day 2', price: 53.10, wm: 53.10, rm: 48.50, pm: 60.10, sp: 65.40, conf: 0.89 },
+    { day: 3, date: 'Day 3', price: 53.35, wm: 53.35, rm: 48.75, pm: 60.35, sp: 65.65, conf: 0.86 },
   ];
 
   const forecast7d = [
