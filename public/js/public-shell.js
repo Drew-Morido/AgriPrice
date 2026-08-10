@@ -12,6 +12,7 @@ AgriPricePH.PublicShell = (function () {
 
   const NAV_ITEMS = [
     { id: 'current', href: 'current-prices.html', label: 'Price Forecast' },
+    { id: 'catalog', href: 'rice-catalog.html', label: 'Rice Catalog' },
     { id: 'historical', href: 'historical.html', label: 'Price History' },
     { id: 'statistics', href: 'statistics.html', label: 'Charts & Stats' },
     { id: 'settings', href: 'settings.html', label: 'Settings' },

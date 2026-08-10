@@ -61,13 +61,18 @@ CREATE TABLE IF NOT EXISTS dti_category (
 );
 
 CREATE TABLE IF NOT EXISTS rice_brand (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    category_id INTEGER NOT NULL REFERENCES dti_category(id),
-    brand_name  TEXT NOT NULL,
-    is_verified INTEGER NOT NULL DEFAULT 0,      -- [VERIFY: DTI]
-    source      TEXT,
-    notes       TEXT,
-    UNIQUE (category_id, brand_name)
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    category_id    INTEGER NOT NULL REFERENCES dti_category(id),
+    brand_name     TEXT NOT NULL,
+    package        TEXT,                          -- actual product/SKU name, e.g. "... Rice 5kg"
+    location       TEXT,                          -- NCR city / store, or "NCR"
+    source         TEXT,                          -- label, e.g. "Official Brand Website"
+    source_url     TEXT,                          -- clickable citation
+    last_verified  TEXT,                          -- YYYY-MM-DD
+    classification_note TEXT,                     -- basis for the 8-category assignment
+    is_verified    INTEGER NOT NULL DEFAULT 0,    -- [VERIFY: DTI]
+    notes          TEXT,
+    UNIQUE (category_id, brand_name, package)
 );
 
 CREATE TABLE IF NOT EXISTS market (
@@ -107,7 +112,27 @@ CREATE TABLE IF NOT EXISTS tax_component (
 """
 
 
+def _ensure_brand_schema(conn: sqlite3.Connection) -> None:
+    """Migrate an older rice_brand table to the extended (package/location/source_url/...) schema."""
+    cur = conn.cursor()
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='rice_brand'")
+    if not cur.fetchone():
+        return
+    cols = [r[1] for r in cur.execute("PRAGMA table_info(rice_brand)")]
+    if "package" in cols:
+        return
+    n = cur.execute("SELECT COUNT(*) FROM rice_brand").fetchone()[0]
+    if n == 0:
+        cur.execute("DROP TABLE rice_brand")  # empty -> safe to recreate with new schema
+    else:
+        for c in ("package", "location", "source_url", "last_verified", "classification_note"):
+            if c not in cols:
+                cur.execute(f"ALTER TABLE rice_brand ADD COLUMN {c} TEXT")
+    conn.commit()
+
+
 def create_catalog_tables(conn: sqlite3.Connection) -> None:
+    _ensure_brand_schema(conn)
     conn.executescript(DDL)
     conn.commit()
 

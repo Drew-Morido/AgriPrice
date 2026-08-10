@@ -167,9 +167,38 @@ market/bracket/tax as new dimensions. **Do not invent DTI/BOC/BIR data — [VERI
 - Add **price brackets** (prices reported as ₱min–₱max) and an **imported-rice tax/import-charge**
   subsection to Scope + Data.
 
-## [VERIFY] before defense — external data, do not invent
-- **[DTI]** confirm the 8 category names/definitions and the **brands** under each.
-- **[DTI]** whether official prices are true **min–max brackets** or must be derived from spread.
-- **[BOC/BIR/DTI]** import charges on imported rice: tariff (Rice Tariffication Act RA 11203; the
-  reduced rate under EO 62 s.2024), VAT, and any other fees — confirm the **current** rates.
+## Verified sources found (2026-08-10) — now seeded with citations
+- **Import tariff (imported rice): 15%**, price-indexed 15–35% under **EO 105 s.2025** & DA
+  Circular 2025-001 (15% for Jan–Mar 2026); reduced from **RA 11203**'s 35% by **EO 62 s.2024**.
+  Sources: USDA FAS RP2026-0004; USDA FAS "EO 62 Modifying Import Duty Rates". Seeded in
+  `tax_component` (verified=1).
+- **VAT: rice is VAT-EXEMPT** — agricultural food product in original state (**NIRC §109**). So
+  **no 12% VAT** on rice; seeded as a 0% component with the exemption note. (Corrects the earlier
+  assumption that VAT applies.)
+- **Price brackets:** DA **Bantay Presyo** publishes prevailing retail **ranges** per category
+  (e.g., imported well-milled ₱46–62). Seeded 3 ranges in `rice_price_bracket` (source cited);
+  refresh from the official DA daily sheets.
+- **Brands:** DA / DA-AMAS monitor rice **by category and price range, NOT by brand** — so brands
+  cannot be sourced from DA/DA-AMAS. Brand membership per category still needs **DTI**. No brands
+  invented.
+
+## Implemented this round (catalog/taxes split + correlation)
+- **Public Rice Catalog** (`public/rice-catalog.html`) — NCR-only, 8 category **tabs** driving ONE
+  reusable table (Brand | Price | Actual Package | Location | Source | Last Update). Price is
+  pulled from the forecast (DA bracket range / latest forecast price), never stored per brand.
+  Verified NCR products seeded with cited sources: **Doña Maria Jasponica & Miponica 5kg**
+  (Local Premium, SL Agritech official) and **Royal Umbrella Thai Hom Mali 5kg** (Imported
+  Premium, NCR retailer). Categories with no verified product show the empty state — consistent
+  with DA's 2018 rule that milled rice is sold by classification, not brand. `rice_brand` schema
+  extended (package/location/source_url/last_verified/classification_note).
+- **Admin "Taxes & Import Charges"** (`admin/pages/taxes.html`): import charges (admin-only) +
+  consumer-price preview (base + tariff; local rice gets no tariff; VAT 0%).
+- **Correlation analysis:** added **Import Tariff** as an imported-rice factor. Computed raw Pearson
+  r vs imported well-milled price (2019–2026) = **−0.03 (negligible)** — a policy step-variable
+  confounded by global prices/FX; included as a contextual cost factor, not a linear predictor.
+
+## Still [VERIFY] / [ACTION]
+- **[DTI]** confirm the 8 category names/definitions and the **brands** under each (DA has none).
+- **[DTI]** whether to keep the DA Bantay Presyo ranges or use official DTI brackets.
+- **[BOC]** any additional customs processing fees beyond the tariff.
 - **[ACTION]** state the target **population N** (≈100 to justify n=80).

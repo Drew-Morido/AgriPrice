@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en" class="public-site">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rice Catalog — AgriPricePH</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/global.css" />
+  <link rel="stylesheet" href="css/landpage.css" />
+  <link rel="stylesheet" href="css/public.css" />
+  <link rel="stylesheet" href="css/landpage-nav.css" />
+  <link rel="stylesheet" href="css/public-alert.css" />
+  <style>
+    .rc-lead { color: var(--text-muted); max-width: 74ch; }
+    .rc-ncr-chip { display:inline-block; font-size:11px; font-weight:600; letter-spacing:.04em;
+      background: var(--accent-soft, #e8f3ec); color: var(--accent, #2d6a4f);
+      padding: 3px 10px; border-radius: 99px; margin-bottom: 6px; }
+    .rc-tabs-group { margin: 14px 0 4px; }
+    .rc-tabs-label { font-size: 11px; text-transform: uppercase; letter-spacing:.05em;
+      color: var(--text-muted); margin: 8px 0 6px; }
+    .rc-tabs { display:flex; flex-wrap:wrap; gap:8px; }
+    .rc-tab { border:1px solid var(--border-color,#e6e3da); background:var(--card-bg,#fff);
+      color:var(--text-primary); border-radius:99px; padding:7px 14px; font-size:13px;
+      cursor:pointer; font-weight:600; }
+    .rc-tab:hover { border-color: var(--accent,#2d6a4f); }
+    .rc-tab.active { background: var(--accent,#2d6a4f); color:#fff; border-color:var(--accent,#2d6a4f); }
+    .rc-table-wrap { overflow-x:auto; margin-top:16px; border:1px solid var(--border-color,#e6e3da);
+      border-radius:14px; }
+    table.rc-table { width:100%; border-collapse:collapse; font-size:13px; min-width:720px; }
+    table.rc-table th, table.rc-table td { padding:10px 12px; text-align:left; white-space:nowrap; }
+    table.rc-table thead th { color:var(--text-muted); font-size:11px; text-transform:uppercase;
+      letter-spacing:.04em; border-bottom:1px solid var(--border-color,#e6e3da); }
+    table.rc-table tbody tr + tr td { border-top:1px solid var(--border-color,#efece4); }
+    table.rc-table td.rc-price { font-family:'JetBrains Mono',monospace; font-weight:600; text-align:right; white-space:nowrap; }
+    .rc-pkg { white-space:normal; }
+    .rc-empty { padding:26px 14px; text-align:center; color:var(--text-muted); }
+    .rc-cat-title { font-family:'DM Serif Display',serif; font-size:20px; margin:16px 0 2px; }
+    .rc-cat-sub { font-size:12px; color:var(--text-muted); }
+    .rc-note { font-size:12px; color:var(--text-muted); margin-top:16px; }
+    a.rc-srclink { color: var(--accent,#2d6a4f); text-decoration: underline; }
+  </style>
+</head>
+<body data-page="catalog" data-title="Rice Catalog" data-subtitle="NCR rice products by category">
+
+<main class="page-content" id="public-page-content">
+  <span class="rc-ncr-chip">NCR / Metro Manila only</span>
+  <p class="rc-lead">
+    Verified rice products available in Metro Manila, organized by the eight official rice
+    categories. Pick a category to see the brands, actual package names, where they're sold, and
+    the source. <strong>Prices come from the Price Forecast page</strong> — the prevailing
+    range/price for that category.
+  </p>
+
+  <div class="rc-tabs-group">
+    <div class="rc-tabs-label">Local</div>
+    <div class="rc-tabs" id="rc-tabs-local"></div>
+  </div>
+  <div class="rc-tabs-group">
+    <div class="rc-tabs-label">Imported</div>
+    <div class="rc-tabs" id="rc-tabs-imported"></div>
+  </div>
+
+  <div class="rc-cat-title" id="rc-active-title">—</div>
+  <div class="rc-cat-sub" id="rc-active-sub"></div>
+
+  <div class="rc-table-wrap">
+    <table class="rc-table">
+      <thead>
+        <tr>
+          <th>Brand</th>
+          <th style="text-align:right;">Price</th>
+          <th>Actual Brand Package</th>
+          <th>Location</th>
+          <th>Source</th>
+          <th>Last Update</th>
+        </tr>
+      </thead>
+      <tbody id="rc-tbody">
+        <tr><td colspan="6" class="rc-empty">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="rc-note" id="rc-note"></p>
+</main>
+
+<script src="../js/data.js"></script>
+<script src="../js/api.js"></script>
+<script src="js/public-alert.js"></script>
+<script src="js/public-auth.js"></script>
+<script src="js/public-auth-modal.js"></script>
+<script src="js/public-shell.js"></script>
+<script src="js/public-pages.js"></script>
+<script src="js/public-catalog.js"></script>
+</body>
+</html>

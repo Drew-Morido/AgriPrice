@@ -65,7 +65,9 @@ def list_catalog() -> dict:
             "FROM dti_category ORDER BY segment,name")]
         brands_by_cat: dict[int, list] = {}
         if _has_table(conn, "rice_brand"):
-            for r in conn.execute("SELECT id,category_id,brand_name,is_verified,source FROM rice_brand ORDER BY brand_name"):
+            for r in conn.execute(
+                "SELECT id,category_id,brand_name,package,location,source,source_url,"
+                "last_verified,classification_note,is_verified FROM rice_brand ORDER BY brand_name,package"):
                 brands_by_cat.setdefault(r["category_id"], []).append(dict(r))
         for c in cats:
             c["brands"] = brands_by_cat.get(c["id"], [])
