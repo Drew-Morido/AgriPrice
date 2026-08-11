@@ -109,6 +109,51 @@ CREATE TABLE IF NOT EXISTS tax_component (
     active         INTEGER NOT NULL DEFAULT 1,
     verified       INTEGER NOT NULL DEFAULT 0    -- 0 until confirmed with BOC/BIR/DTI
 );
+
+-- Rice import tariff is NOT fixed: under EO 105 s.2025 + IAGRTA Circular 2025-001 it is a
+-- quarterly, price-indexed MFN rate bounded to 15%-35% (Vietnam 5% broken rice, FAO, vs a
+-- March-2025 baseline). Each confirmed quarter is one dated row here; consumer_price() picks
+-- the row whose [effective_start, effective_end] covers the query date. Never overwrite a past
+-- quarter — append a new row. If today falls outside every row, the app shows the last confirmed
+-- rate flagged as stale (it does NOT silently roll a past rate forward or invent a new one).
+CREATE TABLE IF NOT EXISTS tariff_schedule (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    rate_pct             REAL NOT NULL,           -- MFN duty %, in-quota = out-quota
+    effective_start      TEXT NOT NULL,           -- YYYY-MM-DD (first day the rate applies)
+    effective_end        TEXT,                    -- YYYY-MM-DD; NULL = open-ended (avoid for quarters)
+    quarter_label        TEXT,                    -- e.g. 'Q1 2026'
+    legal_basis          TEXT,                    -- EO / IAGRTA Circular / BOC CMO number
+    da_certification_url TEXT,                    -- official DA certification / BOC CMO link
+    source               TEXT,
+    verified             INTEGER NOT NULL DEFAULT 0,
+    approved_by          TEXT,                    -- admin who confirmed the rate
+    approved_at          TEXT,                    -- YYYY-MM-DD HH:MM:SS
+    created_at           TEXT DEFAULT (datetime('now')),
+    active               INTEGER NOT NULL DEFAULT 1,
+    notes                TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_tariff_start ON tariff_schedule(effective_start);
+
+-- Append-only audit trail: who changed the tariff, when, and why.
+CREATE TABLE IF NOT EXISTS tariff_audit (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    action          TEXT NOT NULL,               -- add / approve / deactivate / seed
+    rate_pct        REAL,
+    effective_start TEXT,
+    effective_end   TEXT,
+    quarter_label   TEXT,
+    actor           TEXT,                        -- admin client key / identity
+    detail          TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+
+-- Small key/value config for the FAO indicative-rate helper (baseline reference price, etc.).
+CREATE TABLE IF NOT EXISTS tariff_config (
+    key        TEXT PRIMARY KEY,
+    value      TEXT,
+    source     TEXT,
+    updated_at TEXT
+);
 """
 
 
@@ -157,7 +202,8 @@ def seed_categories(conn: sqlite3.Connection) -> int:
 def status(conn: sqlite3.Connection) -> dict:
     cur = conn.cursor()
     out = {}
-    for t in ("dti_category", "rice_brand", "market", "rice_price_bracket", "tax_component"):
+    for t in ("dti_category", "rice_brand", "market", "rice_price_bracket", "tax_component",
+              "tariff_schedule", "tariff_audit", "tariff_config"):
         try:
             cur.execute(f"SELECT COUNT(*) FROM {t}")
             out[t] = cur.fetchone()[0]

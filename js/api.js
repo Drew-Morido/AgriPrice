@@ -112,6 +112,21 @@ AgriPricePH.API = (function () {
     consumerPrice: (category, date) => getLenient(
       '/api/consumer-price?' + new URLSearchParams(date ? { category, date } : { category }).toString(),
       { noCache: true }),
+    tariff: (date) => getLenient(
+      '/api/tariff' + (date ? '?' + new URLSearchParams({ date }).toString() : ''), { noCache: true }),
+    tariffIndicative: (currentPrice, baselinePrice) => getLenient(
+      '/api/tariff/indicative?' + new URLSearchParams(
+        baselinePrice != null && baselinePrice !== ''
+          ? { current_price: currentPrice, baseline_price: baselinePrice }
+          : { current_price: currentPrice }).toString(), { noCache: true }),
+    tariffAdd: (body, token) => fetch(`${BASE}/api/tariff`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(body),
+    }).then(async (r) => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) })),
+    tariffAudit: (token) => fetch(`${BASE}/api/tariff/audit`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}, cache: 'no-store',
+    }).then((r) => r.json().catch(() => ({ audit: [] }))),
     trainingStatus: () => get('/api/training-status'),
     trainingHistory: () => get('/api/training-history', { noCache: true }),
     dashboardMetrics: () => get('/api/dashboard-metrics', { noCache: true }),

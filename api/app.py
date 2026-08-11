@@ -1780,6 +1780,71 @@ def api_consumer_price():
         return jsonify({"ready": False, "error": str(exc)}), 500
 
 
+# ── Rice import tariff (quarterly, price-indexed, effective-date table) ──────────
+@app.route("/api/tariff", methods=["GET"])
+def api_tariff():
+    """Current applicable tariff + full dated schedule + FAO helper config."""
+    try:
+        from catalog_service import tariff_status
+        return jsonify(tariff_status(request.args.get("date")))
+    except Exception as exc:
+        return jsonify({"ready": False, "error": str(exc), "applicable": None, "schedule": []}), 500
+
+
+@app.route("/api/tariff", methods=["POST"])
+def api_tariff_add():
+    """Admin: append a confirmed quarterly tariff rate (from a DA certification / BOC CMO)."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    payload = request.get_json(silent=True) or {}
+    try:
+        from catalog_service import add_tariff_quarter
+        result = add_tariff_quarter(
+            rate_pct=payload.get("rate_pct"),
+            effective_start=(payload.get("effective_start") or "").strip(),
+            effective_end=(payload.get("effective_end") or "").strip() or None,
+            quarter_label=(payload.get("quarter_label") or "").strip() or None,
+            legal_basis=(payload.get("legal_basis") or "").strip() or None,
+            da_certification_url=(payload.get("da_certification_url") or "").strip() or None,
+            source=(payload.get("source") or "").strip() or None,
+            actor=_admin_client_key(),
+        )
+        return jsonify(result), (200 if result.get("ok") else 400)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route("/api/tariff/indicative", methods=["GET"])
+def api_tariff_indicative():
+    """Read-only FAO indicative-rate calculator (decision aid; DA certification is authoritative)."""
+    try:
+        from catalog_service import fao_indicative
+        cur = request.args.get("current_price")
+        base = request.args.get("baseline_price")
+        return jsonify(fao_indicative(
+            current_price=float(cur) if cur not in (None, "") else None,
+            baseline_price=float(base) if base not in (None, "") else None,
+        ))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "current_price must be a number."}), 400
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route("/api/tariff/audit", methods=["GET"])
+def api_tariff_audit():
+    """Admin: tariff change audit log."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    try:
+        from catalog_service import list_tariff_audit
+        return jsonify(list_tariff_audit(int(request.args.get("limit", 50))))
+    except Exception as exc:
+        return jsonify({"ready": False, "error": str(exc), "audit": []}), 500
+
+
 # ── /api/import-2026 ──────────────────────────────────────────────────────────
 @app.route("/api/import-2026", methods=["POST", "GET"])
 def api_import_2026():
@@ -2009,6 +2074,16 @@ def _admin_token_from_request():
     if auth.lower().startswith("bearer "):
         return auth[7:].strip()
     return (request.args.get("token") or request.headers.get("X-Admin-Token") or "").strip()
+
+
+def _require_admin():
+    """Guard for admin write endpoints. Returns (ok, error_response). When admin auth is wired,
+    a valid server-side session token is required; if the auth module is unavailable (dev), allow."""
+    if not _ADMIN_AUTH_AVAILABLE:
+        return True, None
+    if validate_session(_admin_token_from_request()):
+        return True, None
+    return False, (jsonify({"ok": False, "error": "Admin session required."}), 401)
 
 
 @app.route("/api/admin/verify-password", methods=["POST"])

@@ -197,6 +197,31 @@ market/bracket/tax as new dimensions. **Do not invent DTI/BOC/BIR data — [VERI
   r vs imported well-milled price (2019–2026) = **−0.03 (negligible)** — a policy step-variable
   confounded by global prices/FX; included as a contextual cost factor, not a linear predictor.
 
+## Dynamic import tariff (effective-date, source-verified, staleness-aware)
+- **Finding (verified):** the rice import tariff is **not fixed at 15%**. Under **EO 105 s.2025** +
+  **IAGRTA Circular No. 2025-001** (eff. Jan 1, 2026) it is a **quarterly, price-indexed MFN rate
+  bounded to 15%–35%**, indexed to the **Vietnam 5%-broken FOB price (UN-FAO)** vs a **March-2025
+  baseline**, moving ±5 percentage points per 5% price move. Each quarter the **DA issues a
+  certification** (posted on da.gov.ph) and **BOC issues a Customs Memorandum Order**. **Q1 2026 =
+  15%** (increase trigger not breached). Sources: USDA FAS RP2026-0004 (Feb 2026); EO 105
+  (SC E-Library); PCO/PIA; IAGRTA Circular 2025-001.
+- **No official API / machine-readable feed exists** — the binding rate is published only as DA
+  certifications and BOC CMOs. Auto-scraping was rejected (same fragility as the price scraper).
+- **Implementation:** new dated **`tariff_schedule`** table (rate, effective_start/end, quarter,
+  legal_basis, DA certification URL, verified, approved_by/at) + **`tariff_audit`** log +
+  **`tariff_config`** (FAO baseline, left **unset** — not fabricated). `consumer_price()` and
+  `list_taxes()` now select the tariff row **applicable to the query date**; the legacy single
+  `tax_component` tariff row is retired (avoids double-count). New endpoints `/api/tariff` (GET),
+  `/api/tariff` (POST, admin-guarded), `/api/tariff/indicative` (GET, FAO decision aid),
+  `/api/tariff/audit` (GET, admin). Admin **Taxes** page shows the current rate, a **staleness
+  banner**, the full schedule, an **add-quarter form**, and the FAO indicative helper.
+- **Staleness behavior (honest):** today (Aug 2026 = Q3) has **no confirmed rate**, so the app shows
+  the **last confirmed 15% flagged "unconfirmed for current quarter — pending DA certification"** —
+  it never silently rolls a past rate forward or invents a number. Adding the confirmed Q3 rate via
+  the admin form clears the flag automatically. VAT stays a fixed **0%** (rice VAT-exempt, NIRC §109).
+- **[ACTION quarterly]** when the DA posts each quarter's certification, admin adds the rate + CMO
+  link on the Taxes page. **[VERIFY]** set the March-2025 FAO baseline to enable the indicative helper.
+
 ## Still [VERIFY] / [ACTION]
 - **[DTI]** confirm the 8 category names/definitions and the **brands** under each (DA has none).
 - **[DTI]** whether to keep the DA Bantay Presyo ranges or use official DTI brackets.
