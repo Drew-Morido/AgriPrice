@@ -1,4 +1,4 @@
-/* AgriPricePH — Public site auth (vendors & households) */
+/* AgriPricePH — Public site auth (retailers) */
 window.AgriPricePH = window.AgriPricePH || {};
 
 AgriPricePH.PublicAuth = (function () {
@@ -18,9 +18,17 @@ AgriPricePH.PublicAuth = (function () {
     localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
   }
 
+  /* Single public role. Legacy accounts (vendor/household/blank) are coerced to 'retailer' at
+     read time so no existing browser-local account is locked out after the role simplification. */
+  function normalizeRole() {
+    return 'retailer';
+  }
+
   function getSession() {
     try {
-      return JSON.parse(sessionStorage.getItem(STORAGE_SESSION) || 'null');
+      const s = JSON.parse(sessionStorage.getItem(STORAGE_SESSION) || 'null');
+      if (s && typeof s === 'object') s.role = normalizeRole(s.role);
+      return s;
     } catch {
       return null;
     }
@@ -46,7 +54,7 @@ AgriPricePH.PublicAuth = (function () {
 
   function isLoggedIn() {
     const s = getSession();
-    return s && (s.role === 'vendor' || s.role === 'household');
+    return !!(s && s.email && s.role === 'retailer');
   }
 
   function requireLogin() {
@@ -76,7 +84,7 @@ AgriPricePH.PublicAuth = (function () {
     }
   }
 
-  function signup({ name, email, password, role }) {
+  function signup({ name, email, password }) {
     if (!name || !email || !password) {
       return { ok: false, message: 'Please fill in all fields.' };
     }
@@ -87,6 +95,7 @@ AgriPricePH.PublicAuth = (function () {
     if (users.some((u) => u.email === email.toLowerCase())) {
       return { ok: false, message: 'This email is already registered. Try logging in.' };
     }
+    const role = normalizeRole();
     users.push({ name, email: email.toLowerCase(), password, role });
     saveUsers(users);
     setSession({ name, email: email.toLowerCase(), role });
@@ -98,7 +107,7 @@ AgriPricePH.PublicAuth = (function () {
     if (!user) {
       return { ok: false, message: 'Email or password is incorrect.' };
     }
-    setSession({ name: user.name, email: user.email, role: user.role });
+    setSession({ name: user.name, email: user.email, role: normalizeRole(user.role) });
     return { ok: true };
   }
 
@@ -174,8 +183,8 @@ AgriPricePH.PublicAuth = (function () {
       }
       if (nameEl) nameEl.textContent = session.name || session.email || 'User';
       if (roleEl) {
-        roleEl.textContent = session.role === 'vendor' ? 'Vendor' : 'Household';
-        roleEl.className = 'pill ' + (session.role === 'vendor' ? 'pill-blue' : 'pill-green');
+        roleEl.textContent = 'Retailer';
+        roleEl.className = 'pill pill-blue';
       }
       setNavControl(userWrap, true);
       setNavControl(loginBtn, false);

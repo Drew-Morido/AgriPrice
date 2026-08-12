@@ -127,6 +127,13 @@ AgriPricePH.API = (function () {
     tariffAudit: (token) => fetch(`${BASE}/api/tariff/audit`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {}, cache: 'no-store',
     }).then((r) => r.json().catch(() => ({ audit: [] }))),
+    systemLogs: (params = {}, token) => fetch(
+      `${BASE}/api/logs` + (Object.keys(params).length ? '?' + new URLSearchParams(params).toString() : ''),
+      { headers: token ? { Authorization: `Bearer ${token}` } : {}, cache: 'no-store' },
+    ).then((r) => r.json().catch(() => ({ ready: false, logs: [] }))),
+    clearSystemLogs: (token) => fetch(`${BASE}/api/logs/clear`, {
+      method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }).then((r) => ({ ok: r.ok, status: r.status })),
     trainingStatus: () => get('/api/training-status'),
     trainingHistory: () => get('/api/training-history', { noCache: true }),
     dashboardMetrics: () => get('/api/dashboard-metrics', { noCache: true }),

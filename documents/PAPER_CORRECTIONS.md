@@ -222,6 +222,22 @@ market/bracket/tax as new dimensions. **Do not invent DTI/BOC/BIR data — [VERI
 - **[ACTION quarterly]** when the DA posts each quarter's certification, admin adds the rate + CMO
   link on the Taxes page. **[VERIFY]** set the March-2025 FAO baseline to enable the indicative helper.
 
+## UI feedback round: signup / settings / logs / scraper
+- **Public accounts** are **localStorage-only** (`agriprice_public_users`) — no users table, no
+  backend signup/role validation. If the paper implies server-side user accounts/roles, correct it.
+- **Signup role simplified:** removed **Household**; **Vendor → Retailer** (single implicit role;
+  no picker). Legacy vendor/household sessions are normalized to `retailer` at login. If the survey
+  methodology names "vendors"/"households" as user types, align the app-facing term to **Retailer**
+  (the households remain a *guest* audience; the stats view still has a vendor/household data lens).
+- **Public Settings** is now **logged-in only** (guest nav hides it; direct-URL access redirects)
+  and trimmed to **Account + Appearance** (removed Data Connection, Privacy & Storage, About,
+  Preferences — all were client-side only).
+- **System Logs** was a **static mock**; now serves the **real backend log buffer** via a new
+  admin-guarded `GET /api/logs` (+ `POST /api/logs/clear`), with auth-login events recorded. It is
+  **in-memory (resets on restart)** — state that honestly if the paper describes persistent logs.
+- **Web Scraper:** removed the "Live Scraped Data Preview" table (display only); scraping, storage
+  (`WS_*`/CSV), status, stats, and the activity log are unchanged.
+
 ## Still [VERIFY] / [ACTION]
 - **[DTI]** confirm the 8 category names/definitions and the **brands** under each (DA has none).
 - **[DTI]** whether to keep the DA Bantay Presyo ranges or use official DTI brackets.

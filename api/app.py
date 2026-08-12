@@ -154,11 +154,27 @@ class BufferHandler(logging.Handler):
         "DEBUG":    "INFO",
     }
 
+    @staticmethod
+    def _source_from(name: str) -> str:
+        n = (name or "").lower()
+        if "scrap" in n:
+            return "SCRAPER"
+        if "train" in n:
+            return "TRAINING"
+        if "alert" in n:
+            return "ALERTS"
+        return "SYSTEM"
+
     def emit(self, record: logging.LogRecord) -> None:
+        # Skip raw Werkzeug HTTP access lines — they are framework request noise (and carry ANSI
+        # codes), not the semantic app events System Logs / the scraper activity view want to show.
+        if record.name == "werkzeug":
+            return
         entry = {
-            "time":  datetime.now().strftime("%I:%M:%S %p"),
-            "level": self._LEVEL_MAP.get(record.levelname, "INFO"),
-            "msg":   self.format(record),
+            "time":   datetime.now().strftime("%I:%M:%S %p"),
+            "level":  self._LEVEL_MAP.get(record.levelname, "INFO"),
+            "source": self._source_from(record.name),
+            "msg":    self.format(record),
         }
         with _LOG_LOCK:
             _LOG_BUFFER.append(entry)
@@ -203,12 +219,13 @@ def _setup_logging() -> None:
     scraper_log.propagate = True
 
 
-def _add_log(level: str, msg: str) -> None:
+def _add_log(level: str, msg: str, source: str = "SYSTEM") -> None:
     """Manually push a log entry (for events that originate outside the logger)."""
     entry = {
-        "time":  datetime.now().strftime("%I:%M:%S %p"),
-        "level": level,
-        "msg":   msg,
+        "time":   datetime.now().strftime("%I:%M:%S %p"),
+        "level":  level,
+        "source": source,
+        "msg":    msg,
     }
     with _LOG_LOCK:
         _LOG_BUFFER.append(entry)
@@ -421,22 +438,6 @@ def _df_to_json_records(df: pd.DataFrame) -> list[dict]:
     return json.loads(df.to_json(orient="records"))
 
 
-def _read_csv_preview(path: str, n: int = PREVIEW_ROWS) -> list[dict]:
-    """Return the latest `n` rows from a CSV as a list of dicts, newest first."""
-    if not os.path.exists(path):
-        return []
-    try:
-        df = pd.read_csv(path)
-        if df.empty:
-            return []
-        if "Date" in df.columns:
-            df["_sort"] = pd.to_datetime(df["Date"], errors="coerce")
-            df = df.sort_values("_sort", ascending=False).drop(columns=["_sort"])
-        return _df_to_json_records(df.head(n))
-    except Exception:
-        return []
-
-
 def _row_count(path: str) -> int:
     """Fast line count of a CSV (excludes header)."""
     if not os.path.exists(path):
@@ -647,9 +648,6 @@ def api_scrape_status():
     Returns:
       logs          – buffered log lines (newest last)
       stats         – row counts, completeness check, running flag, last run info
-      preview_rice  – latest 10 rows of rice CSV
-      preview_fuel  – latest 10 rows of fuel CSV
-      preview_rates – latest 10 rows of exchange rate CSV
     """
     EXPECTED_RICE  = [
         "Local Special", "Local Premium", "Local Well Milled", "Local Regular Milled",
@@ -683,9 +681,6 @@ def api_scrape_status():
     return jsonify({
         "logs":          logs,
         "stats":         stats,
-        "preview_rice":  _read_csv_preview(PRICE_CSV),
-        "preview_fuel":  _read_csv_preview(FUEL_CSV),
-        "preview_rates": _read_csv_preview(RATE_CSV),
     })
 
 
@@ -1845,6 +1840,43 @@ def api_tariff_audit():
         return jsonify({"ready": False, "error": str(exc), "audit": []}), 500
 
 
+# ── System Logs: expose the live in-memory log buffer to the admin dashboard ────
+@app.route("/api/logs", methods=["GET"])
+def api_logs():
+    """Admin: real system activity from the in-memory buffer (newest first). In-memory only —
+    resets when the server restarts. Optional ?level= and ?limit= filters."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    with _LOG_LOCK:
+        entries = list(_LOG_BUFFER)
+    entries.reverse()  # newest first
+    level = (request.args.get("level") or "").upper().strip()
+    if level and level != "ALL":
+        want = "WARN" if level == "WARNING" else level
+        entries = [e for e in entries if (e.get("level") or "").upper() == want]
+    try:
+        limit = int(request.args.get("limit", 0))
+        if limit > 0:
+            entries = entries[:limit]
+    except (TypeError, ValueError):
+        pass
+    return jsonify({"ready": True, "logs": entries, "count": len(entries),
+                    "note": "" if entries else "No system activity recorded yet."})
+
+
+@app.route("/api/logs/clear", methods=["POST"])
+def api_logs_clear():
+    """Admin: clear the in-memory system-log buffer."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    with _LOG_LOCK:
+        _LOG_BUFFER.clear()
+    _add_log("INFO", "System logs cleared by admin.", source="AUTH")
+    return jsonify({"ok": True})
+
+
 # ── /api/import-2026 ──────────────────────────────────────────────────────────
 @app.route("/api/import-2026", methods=["POST", "GET"])
 def api_import_2026():
@@ -2119,6 +2151,7 @@ def api_admin_verify():
     client_key = _admin_client_key()
     ok_lock, lock_msg = check_lockout(client_key)
     if not ok_lock:
+        _add_log("WARN", f"Admin login blocked (locked out) from {client_key}", source="AUTH")
         return jsonify({"success": False, "error": lock_msg}), 429
 
     payload = request.get_json(silent=True) or {}
@@ -2130,9 +2163,11 @@ def api_admin_verify():
         valid, err = verify_admin_credentials(username, password, access_code)
         if not valid:
             record_failure(client_key)
+            _add_log("WARN", f"Failed admin login for '{username or '?'}' from {client_key}", source="AUTH")
             return jsonify({"success": False, "error": err or "Invalid sign-in details."}), 401
         clear_failures(client_key)
         token, ttl_sec = create_session(client_key)
+        _add_log("INFO", f"Admin '{username}' signed in from {client_key}", source="AUTH")
         return jsonify({
             "success": True,
             "token": token,

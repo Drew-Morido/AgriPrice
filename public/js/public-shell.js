@@ -32,7 +32,10 @@ AgriPricePH.PublicShell = (function () {
 
   /** Only place that defines public navbar markup */
   function buildNavbar(active) {
-    const links = NAV_ITEMS.map((item) => {
+    // Settings is for logged-in users only — hide it from guests (auth-driven, not CSS).
+    const loggedIn = !!AgriPricePH.PublicAuth?.isLoggedIn?.();
+    const items = NAV_ITEMS.filter((item) => item.id !== 'settings' || loggedIn);
+    const links = items.map((item) => {
       const cls = item.id === active ? 'active' : '';
       return `<li><a href="${item.href}" class="${cls}">${item.label}</a></li>`;
     }).join('');
