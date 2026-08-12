@@ -84,7 +84,7 @@ datasets/agriprice_database.db  (SQLite)
    ▼                           ▼
 model/train.py             model/predict.py
 (MinMaxScaler → 30-day      (same fitted scaler → last 30-day
- sequences → LSTM/MLP)       window → 2-day forecast)
+ sequences → LSTM/MLP)       window → 3-day forecast)
    │                           │
    ▼                           ▼
 lstm_model.keras/           /api/predictions
@@ -97,12 +97,20 @@ rice_mlp.joblib, meta.json      │
                     public/*.html + admin/*.html (fetch via js/api.js)
 ```
 
-Key ML constants (`model/data_pipeline.py`): `SEQ_LEN=30` days input window, `HORIZON=2` days
-forecast, 5 input features (`locWellMilled, locPremium, fuel, exchange, rainfall`), single
-target `locWellMilled`. Training does an 80/20 chronological (non-shuffled) split and requires
-≥50 sequences (≥81 rows of merged data) or it errors out. TensorFlow LSTM is preferred;
-if unavailable, `train.py`/`predict.py` transparently fall back to an sklearn `MLPRegressor`
-(flattened 30×5 input) — `meta.json`'s `backend` field records which one produced the current model.
+Key ML constants (`model/data_pipeline.py`): `SEQ_LEN=30` days input window, `HORIZON=3` days
+forecast (48–72h). Raw `FEATURE_COLUMNS = fuel_ron95, fuel_diesel, stock, farmgate, exchange`;
+`add_engineered_features()` adds seasonal sin/cos, 7-day rolling diesel/exchange, and the target's
+lag-1/lag-7/rolling-7 — ~13 features total. A separate model is trained **per rice type** (8 total:
+`locWellMilled, locRegular, locPremium, locSpecial, imp*` — `TARGET_COLUMN` names the default type).
+Training uses a **chronological 70/15/15** split (`i_tr=0.70·n`, `i_va=0.85·n`, no shuffling), fits
+the `MinMaxScaler` on training rows only (leakage guard), and needs ≥50 train sequences or it errors
+out. **Anchored-delta mode is the default** (`AGRIPRICE_DELTA_MODE=1` in `train.py`): the net predicts
+the change from the last price and inference reconstructs the level — opting out silently retrains the
+worse level-mode model. `meta.json` (v3) records per-type MAE/RMSE/MAPE/R², persistence + ARIMA(1,1,1)
+baselines, rolling-origin, shock metrics, and the ADF p-value. TensorFlow LSTM is preferred; if
+unavailable, `train.py`/`predict.py` fall back to an sklearn `MLPRegressor` — `meta.json.backend`
+records which produced the current model. Honest result: LSTM ≈ persistence ≈ ARIMA at this horizon
+(ADF p≈0.07, near-random-walk); do not claim it beats the baseline.
 
 ### Backend — `api/app.py`
 
