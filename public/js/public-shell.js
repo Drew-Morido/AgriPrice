@@ -56,7 +56,6 @@ AgriPricePH.PublicShell = (function () {
             </div>
             <button type="button" class="lp-nav-btn lp-nav-btn--ghost" id="public-btn-login">Log in</button>
             <button type="button" class="lp-nav-btn lp-nav-btn--primary" id="public-btn-signup">Sign up free →</button>
-            <button type="button" class="lp-nav-btn lp-nav-btn--ghost" id="public-btn-logout" hidden>Log out</button>
           </div>
         </div>
       </nav>

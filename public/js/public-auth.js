@@ -174,7 +174,7 @@ AgriPricePH.PublicAuth = (function () {
     const userWrap = document.getElementById('public-topbar-user');
     const loginBtn = document.getElementById('public-btn-login');
     const signupBtn = document.getElementById('public-btn-signup');
-    const logoutBtn = document.getElementById('public-btn-logout');
+    // Logout lives only in Settings → Account (no nav logout button by design).
 
     if (loggedIn && session) {
       if (avatar) {
@@ -189,7 +189,6 @@ AgriPricePH.PublicAuth = (function () {
       setNavControl(userWrap, true);
       setNavControl(loginBtn, false);
       setNavControl(signupBtn, false);
-      setNavControl(logoutBtn, true);
     } else {
       if (avatar) {
         avatar.textContent = 'G';
@@ -203,12 +202,6 @@ AgriPricePH.PublicAuth = (function () {
       setNavControl(userWrap, false);
       setNavControl(loginBtn, true);
       setNavControl(signupBtn, true);
-      setNavControl(logoutBtn, false);
-    }
-
-    if (logoutBtn && !logoutBtn.dataset.bound) {
-      logoutBtn.dataset.bound = '1';
-      logoutBtn.addEventListener('click', logout);
     }
   }
 

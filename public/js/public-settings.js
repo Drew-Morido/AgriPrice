@@ -77,7 +77,7 @@ AgriPricePH.PublicSettings = (function () {
             <p>${session.email || ''} · <span class="pill pill-blue">Retailer</span></p>
           </div>
         </div>
-        <p class="settings-hint">Your account is stored on this device only (demo mode). Use <strong>Log out</strong> in the top bar when you are done.</p>
+        <p class="settings-hint">Your account is stored on this device only (demo mode). Use the <strong>Log out</strong> button below when you are done.</p>
         <div class="settings-account-actions">
           <button type="button" class="btn btn-outline btn-sm" id="settings-btn-logout">Log out</button>
         </div>

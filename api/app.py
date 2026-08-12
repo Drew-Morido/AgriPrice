@@ -1840,6 +1840,27 @@ def api_tariff_audit():
         return jsonify({"ready": False, "error": str(exc), "audit": []}), 500
 
 
+@app.route("/api/tariff/<int:tid>/status", methods=["POST"])
+def api_tariff_status(tid):
+    """Admin: activate/deactivate a tariff row. Inactive rows are kept for history but excluded
+    from applicable-tariff selection and consumer-price calculations."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    payload = request.get_json(silent=True) or {}
+    active = bool(payload.get("active"))
+    try:
+        from catalog_service import set_tariff_active
+        result = set_tariff_active(tid, active, actor=_admin_client_key())
+        if result.get("ok") and not result.get("unchanged"):
+            verb = "activated" if active else "deactivated"
+            _add_log("INFO", f"Tariff #{tid} ({result.get('quarter_label') or '?'}) {verb} "
+                             f"by {_admin_client_key()}", source="TARIFF")
+        return jsonify(result), (200 if result.get("ok") else 400)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
 # ── System Logs: expose the live in-memory log buffer to the admin dashboard ────
 @app.route("/api/logs", methods=["GET"])
 def api_logs():
