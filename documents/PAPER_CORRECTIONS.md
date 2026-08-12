@@ -238,6 +238,29 @@ market/bracket/tax as new dimensions. **Do not invent DTI/BOC/BIR data — [VERI
 - **Web Scraper:** removed the "Live Scraped Data Preview" table (display only); scraping, storage
   (`WS_*`/CSV), status, stats, and the activity log are unchanged.
 
+## Doc↔app cross-check — edits applied to the .docx (2026-08-12)
+Cross-checked the running app against `AgriPrice_Draft_Revised.docx`. Two factual drifts were
+found in the paper body and **corrected directly in the .docx** (backup was taken then removed):
+- **Import tariff sentence (Significance/consumer-price para):** was "15% under EO 105 s.2025"
+  (reads as a fixed value). Updated to **"a quarterly, price-indexed rate within a 15%–35% band
+  under EO 105 s.2025 and IAGRTA Circular No. 2025-001 — 15% for the first quarter of 2026,
+  reduced from the 35% of RA 11203 by EO 62 s.2024."** Now matches the app's dynamic
+  effective-date tariff (see the dynamic-tariff section above).
+- **Data-privacy IP-logging placeholder (Ethical Considerations):** the paper had a `___ [state
+  whether the admin panel logs IP addresses…]` placeholder. The app now records **admin sign-in
+  events with the originating IP + timestamp** in the in-memory System Logs buffer, so the
+  placeholder was replaced with an actual disclosure: public-facing system logs **no** end-user
+  IPs; the admin panel logs **admin** sign-in IP/timestamp for security, **not persisted** across
+  restarts, no evaluator/end-user PII. Aligns with RA 10173.
+
+**Terminology (documented reconciliation, NOT a paper rewrite):** the paper's defended user model
+and UAT strata are **"households and local vendors"** (RQ4/5, Objectives 5/6). The app now labels
+the single account role **"Retailer"** (= the paper's *local vendor*) and serves **households as
+guest users** (today's prices + 3-day forecast are free, no account). This preserves the paper's
+two-audience evaluation while simplifying signup — no defended-methodology text was changed. If the
+panel prefers exact wording parity, either add a one-line note in the paper ("the app labels the
+vendor account 'Retailer'") or revert the app label to "Vendor"; flagged for the team's decision.
+
 ## Still [VERIFY] / [ACTION]
 - **[DTI]** confirm the 8 category names/definitions and the **brands** under each (DA has none).
 - **[DTI]** whether to keep the DA Bantay Presyo ranges or use official DTI brackets.
