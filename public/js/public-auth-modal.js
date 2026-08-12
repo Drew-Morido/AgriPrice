@@ -144,13 +144,6 @@ AgriPricePH.PublicAuthModal = (function () {
                 <label for="public-modal-signup-password">Password</label>
                 <input class="form-input" type="password" id="public-modal-signup-password" required minlength="6" autocomplete="new-password" placeholder="At least 6 characters" />
               </div>
-              <div class="lp-form-group">
-                <label>I am signing up as a…</label>
-                <div class="lp-role-select">
-                  <label><input type="radio" name="public-modal-signup-role" value="vendor" /> Vendor</label>
-                  <label><input type="radio" name="public-modal-signup-role" value="household" checked /> Household</label>
-                </div>
-              </div>
               <button type="submit" class="btn btn-primary btn-lg" style="width:100%">Create account</button>
             </form>
           </div>
@@ -360,7 +353,6 @@ AgriPricePH.PublicAuthModal = (function () {
       name: document.getElementById('public-modal-signup-name')?.value?.trim(),
       email: document.getElementById('public-modal-signup-email')?.value?.trim(),
       password: document.getElementById('public-modal-signup-password')?.value,
-      role: document.querySelector('input[name="public-modal-signup-role"]:checked')?.value || 'household',
     });
     if (!result.ok) {
       Alert()?.authFailure?.(result.message);

@@ -623,16 +623,18 @@ AgriPricePH.PublicData = (function () {
   }
 
   function resolveStatsAudience() {
+    // Account role is now a single 'retailer' (normalized in PublicAuth). The retailer maps to the
+    // seller-oriented ('vendor') stats framing; the household/vendor value here is just the on-page
+    // data lens, not an account role.
     const role = AgriPricePH.PublicAuth?.getSession?.()?.role;
-    if (role === 'vendor' || role === 'household') {
-      statsAudience = role;
-      const roleEl = $('#stats-role-indicator');
-      if (roleEl) roleEl.textContent = `Logged in as: ${role === 'vendor' ? 'Vendor' : 'Household'}`;
+    const roleEl = $('#stats-role-indicator');
+    if (role === 'retailer') {
+      statsAudience = 'vendor';
+      if (roleEl) roleEl.textContent = 'Logged in as: Retailer';
       return;
     }
     statsAudience = 'vendor';
-    const roleEl = $('#stats-role-indicator');
-    if (roleEl) roleEl.textContent = 'Logged in as: Vendor';
+    if (roleEl) roleEl.textContent = '';
   }
 
   function renderStatsCharts() {

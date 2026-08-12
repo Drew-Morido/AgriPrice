@@ -205,25 +205,7 @@ AgriPricePH.Data = (function () {
     { type: 'success', title: 'Forecast Published',    desc: '7-day forecast for Apr 22–28 has been published.', time: '2d ago' },
   ];
 
-  // ── System Logs ───────────────────────────
-
-  const systemLogs = [
-    { time: '14:05:11', source: 'SCHEDULER', level: 'INFO',    msg: 'Cron job triggered: da_scraper.py' },
-    { time: '14:05:12', source: 'SCRAPER',   level: 'INFO',    msg: 'GET https://da.gov.ph/price-monitoring → 200 OK' },
-    { time: '14:05:14', source: 'SCRAPER',   level: 'SUCCESS', msg: '8 records extracted and inserted' },
-    { time: '14:05:14', source: 'DB',        level: 'INFO',    msg: 'INSERT INTO rice_prices: 8 rows committed' },
-    { time: '14:03:00', source: 'API',       level: 'INFO',    msg: 'GET /api/v1/predictions — 200 OK (45ms)' },
-    { time: '14:00:00', source: 'SCHEDULER', level: 'INFO',    msg: 'Hourly health check: all services nominal' },
-    { time: '13:58:10', source: 'SCRAPER',   level: 'INFO',    msg: 'ExchangeRate API fetch: USD/PHP=56.42' },
-    { time: '13:45:04', source: 'SCRAPER',   level: 'WARNING', msg: 'PAGASA station MMWS-12 unavailable' },
-    { time: '13:45:05', source: 'DB',        level: 'INFO',    msg: 'INSERT INTO weather_data: 23 rows' },
-    { time: '12:00:23', source: 'PIPELINE',  level: 'SUCCESS', msg: 'Pre-processing pipeline completed in 23s' },
-    { time: '11:30:04', source: 'LSTM',      level: 'SUCCESS', msg: 'Inference complete. 7-day forecast stored.' },
-    { time: '10:15:33', source: 'AUTH',      level: 'INFO',    msg: 'Admin login: admin@agripriceph.gov.ph' },
-    { time: '09:00:00', source: 'SCHEDULER', level: 'INFO',    msg: 'Daily training pipeline check — skipped (retrain not due)' },
-    { time: '08:30:11', source: 'DB',        level: 'INFO',    msg: 'Backup completed: agripriceph_20260421.sql.gz' },
-    { time: '00:00:01', source: 'SCHEDULER', level: 'INFO',    msg: 'Midnight reset: daily counters cleared' },
-  ];
+  // System Logs are served live from the backend (GET /api/logs) — no mock here.
 
   return {
     riceTypes,
@@ -240,7 +222,6 @@ AgriPricePH.Data = (function () {
     scraperLogs,
     alertRules,
     notifLog,
-    systemLogs,
   };
 
 })();
