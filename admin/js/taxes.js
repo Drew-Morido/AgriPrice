@@ -38,17 +38,57 @@ AgriPricePH.Taxes = (function () {
         else { stale.style.display = 'none'; }
       }
       const rows = d.schedule || [];
-      body.innerHTML = rows.length ? rows.map(r => `
-        <tr style="border-top:1px solid var(--border-color,#eee);${r.active ? '' : 'opacity:.5;'}">
+      body.innerHTML = rows.length ? rows.map(r => {
+        const isActive = !!r.active;
+        const badge = isActive
+          ? '<span style="display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:700;background:rgba(76,175,110,.16);color:#2f9e5f;">ACTIVE</span>'
+          : '<span style="display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:700;background:rgba(130,130,130,.18);color:#8a8a8a;">INACTIVE</span>';
+        return `
+        <tr style="border-top:1px solid var(--border-color,#eee);${isActive ? '' : 'opacity:.55;'}">
           <td style="padding:6px 8px;">${esc(r.quarter_label || '—')}</td>
           <td style="padding:6px 8px;"><strong>${r.rate_pct}%</strong></td>
           <td style="padding:6px 8px;font-size:12px;">${esc(r.effective_start || '?')} → ${esc(r.effective_end || 'open')}</td>
           <td style="padding:6px 8px;font-size:12px;">${esc(r.legal_basis || '—')}</td>
           <td style="padding:6px 8px;font-size:12px;">${srcCell(r.da_certification_url, r.source)}</td>
           <td style="padding:6px 8px;">${r.verified ? '✓' : '[VERIFY]'}</td>
-        </tr>`).join('') : '<tr><td colspan="6" style="padding:10px 8px;color:var(--text-muted);">No tariff schedule loaded.</td></tr>';
+          <td style="padding:6px 8px;">${badge}</td>
+          <td style="padding:6px 8px;">
+            <button type="button" class="tariff-toggle-btn" data-id="${r.id}" data-active="${isActive ? 1 : 0}"
+              data-label="${esc(r.quarter_label || ('#' + r.id))}"
+              style="padding:4px 10px;border-radius:7px;cursor:pointer;font-size:12px;border:1px solid var(--border-color,#ccc);background:var(--card-bg,#fff);color:var(--text-primary);">${isActive ? 'Deactivate' : 'Activate'}</button>
+          </td>
+        </tr>`;
+      }).join('') : '<tr><td colspan="8" style="padding:10px 8px;color:var(--text-muted);">No tariff schedule loaded.</td></tr>';
+      body.querySelectorAll('.tariff-toggle-btn').forEach(btn =>
+        btn.addEventListener('click', () => toggleTariff(btn)));
     } catch (e) {
       if (cur) cur.textContent = 'Backend unreachable.';
+    }
+  }
+
+  async function toggleTariff(btn) {
+    const id = btn.dataset.id;
+    const isActive = btn.dataset.active === '1';
+    const label = btn.dataset.label || ('#' + id);
+    const prompt = isActive
+      ? `Deactivate Tariff (${label})?\n\nThis tariff will no longer be used in current tariff / ` +
+        `import-charge calculations, but the record will remain available for historical reference.`
+      : `Activate Tariff (${label})?\n\nThis tariff may become eligible for current tariff / ` +
+        `import-charge calculations according to its effective dates.`;
+    if (!confirm(prompt)) return;
+    btn.disabled = true;
+    try {
+      const res = await AgriPricePH.API.tariffSetActive(id, !isActive, adminToken());
+      if (res.ok && res.data && res.data.ok) {
+        loadTariff();
+      } else {
+        btn.disabled = false;
+        alert((res.data && res.data.error) ||
+          (res.status === 401 ? 'Admin session required — please re-login.' : 'Could not update tariff status.'));
+      }
+    } catch (e) {
+      btn.disabled = false;
+      alert('Backend unreachable.');
     }
   }
 

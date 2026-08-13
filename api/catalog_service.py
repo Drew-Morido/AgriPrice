@@ -272,6 +272,40 @@ def add_tariff_quarter(rate_pct: float, effective_start: str, effective_end: str
         conn.close()
 
 
+def set_tariff_active(tariff_id: int, active: bool, actor: str = "admin") -> dict:
+    """Activate/deactivate a tariff row (keeps the record for history/audit). An inactive row is
+    never selected by _applicable_tariff()/consumer_price(), so it cannot affect calculations."""
+    try:
+        tid = int(tariff_id)
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "tariff id must be an integer."}
+    active_int = 1 if active else 0
+    conn = _connect()
+    try:
+        if not _has_table(conn, "tariff_schedule"):
+            return {"ok": False, "error": "Tariff schedule not initialized."}
+        row = conn.execute(
+            "SELECT id,rate_pct,effective_start,effective_end,quarter_label,active "
+            "FROM tariff_schedule WHERE id=?", (tid,)).fetchone()
+        if not row:
+            return {"ok": False, "error": f"Tariff #{tid} not found."}
+        if int(row["active"]) == active_int:
+            return {"ok": True, "id": tid, "active": bool(active_int),
+                    "quarter_label": row["quarter_label"], "unchanged": True}
+        conn.execute("UPDATE tariff_schedule SET active=? WHERE id=?", (active_int, tid))
+        conn.execute(
+            "INSERT INTO tariff_audit(action,rate_pct,effective_start,effective_end,quarter_label,"
+            "actor,detail) VALUES (?,?,?,?,?,?,?)",
+            ("activate" if active_int else "deactivate", row["rate_pct"], row["effective_start"],
+             row["effective_end"], row["quarter_label"], actor,
+             f"status {int(row['active'])}->{active_int}"))
+        conn.commit()
+        return {"ok": True, "id": tid, "active": bool(active_int),
+                "quarter_label": row["quarter_label"], "rate_pct": row["rate_pct"]}
+    finally:
+        conn.close()
+
+
 def list_tariff_audit(limit: int = 50) -> dict:
     conn = _connect()
     try:
