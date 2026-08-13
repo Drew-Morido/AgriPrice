@@ -44,9 +44,13 @@ AgriPricePH.Taxes = (function () {
           ? '<span style="display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:700;background:rgba(76,175,110,.16);color:#2f9e5f;">ACTIVE</span>'
           : '<span style="display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:700;background:rgba(130,130,130,.18);color:#8a8a8a;">INACTIVE</span>';
         const isAdmin = String(r.entry_type || 'OFFICIAL').toUpperCase() === 'ADMIN';
-        const typeBadge = isAdmin
+        const addedByLabel = isAdmin
           ? '<span style="display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:700;background:rgba(59,130,246,.16);color:#2f6fd8;">Admin Entry</span>'
-          : '<span style="display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:600;background:rgba(76,175,110,.12);color:#2f9e5f;">Official / Source-Based</span>';
+          : '<span style="display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:600;background:rgba(76,175,110,.12);color:#2f9e5f;">Official / System</span>';
+        const identity = r.approved_by && r.approved_by !== 'seed'
+          ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">${esc(r.approved_by)}${r.approved_at ? ' · ' + esc(String(r.approved_at).slice(0, 10)) : ''}</div>`
+          : '';
+        const typeBadge = addedByLabel + identity;
         return `
         <tr style="border-top:1px solid var(--border-color,#eee);${isActive ? '' : 'opacity:.55;'}">
           <td style="padding:6px 8px;">${esc(r.quarter_label || '—')}</td>

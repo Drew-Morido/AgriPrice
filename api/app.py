@@ -811,6 +811,9 @@ def api_run_scraper():
     """
     Triggers scrape in background. Optional JSON body: {"source": "da"|"doe"|"api"}.
     """
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     payload = request.get_json(silent=True) or {}
     source = (payload.get("source") or "").strip().lower() or None
 
@@ -1644,6 +1647,9 @@ def api_training_status():
 @app.route("/api/run-training", methods=["POST"])
 def api_run_training():
     global _train_running, _train_cancel_requested
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     with _train_lock:
         if _train_running:
             return jsonify({"success": False, "message": "Training already running."}), 409
@@ -1902,6 +1908,9 @@ def api_logs_clear():
 @app.route("/api/import-2026", methods=["POST", "GET"])
 def api_import_2026():
     """I-import / i-sync ang 2026 XLSX files papunta sa database."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     try:
         from import_2026 import import_all
         result = import_all(verbose=False)
@@ -1972,6 +1981,9 @@ def api_alerts():
 def api_alerts_evaluate():
     if not _ALERTS_AVAILABLE:
         return jsonify({"success": False, "error": _ALERTS_IMPORT_ERROR}), 503
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     try:
         result = evaluate_alerts()
         level_map = {"danger": "ERROR", "warning": "WARN", "info": "INFO", "success": "SUCCESS"}
@@ -1997,6 +2009,9 @@ def api_alerts_summary():
 def api_alerts_create_rule():
     if not _ALERTS_AVAILABLE:
         return jsonify({"success": False, "error": _ALERTS_IMPORT_ERROR}), 503
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     payload = request.get_json(silent=True) or {}
     try:
         rule = alerts_create_rule(payload)
@@ -2009,6 +2024,9 @@ def api_alerts_create_rule():
 def api_alerts_update_rule(rule_id: str):
     if not _ALERTS_AVAILABLE:
         return jsonify({"success": False, "error": _ALERTS_IMPORT_ERROR}), 503
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     payload = request.get_json(silent=True) or {}
     try:
         rule = alerts_update_rule(rule_id, payload)
@@ -2023,6 +2041,9 @@ def api_alerts_update_rule(rule_id: str):
 def api_alerts_delete_rule(rule_id: str):
     if not _ALERTS_AVAILABLE:
         return jsonify({"success": False, "error": _ALERTS_IMPORT_ERROR}), 503
+    ok_admin, resp = _require_admin()
+    if not ok_admin:
+        return resp
     ok = alerts_delete_rule(rule_id)
     if not ok:
         return jsonify({"success": False, "error": "Rule not found"}), 404
@@ -2033,6 +2054,9 @@ def api_alerts_delete_rule(rule_id: str):
 def api_alerts_toggle_rule(rule_id: str):
     if not _ALERTS_AVAILABLE:
         return jsonify({"success": False, "error": _ALERTS_IMPORT_ERROR}), 503
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     payload = request.get_json(silent=True) or {}
     active = payload.get("active") if "active" in payload else None
     rule = alerts_toggle_rule(rule_id, active)
@@ -2052,6 +2076,9 @@ def api_alerts_log():
 def api_alerts_clear_log():
     if not _ALERTS_AVAILABLE:
         return jsonify({"success": False, "error": _ALERTS_IMPORT_ERROR}), 503
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     alerts_clear_log()
     return jsonify({"success": True})
 
@@ -2082,6 +2109,9 @@ def api_get_settings():
 def api_put_settings():
     if not _SETTINGS_AVAILABLE:
         return jsonify({"success": False, "error": _SETTINGS_IMPORT_ERROR}), 503
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     payload = request.get_json(silent=True) or {}
     try:
         result = update_settings(payload)
@@ -2094,6 +2124,9 @@ def api_put_settings():
 def api_reset_settings():
     if not _SETTINGS_AVAILABLE:
         return jsonify({"success": False, "error": _SETTINGS_IMPORT_ERROR}), 503
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     try:
         result = reset_to_defaults()
         return jsonify({"success": True, **result})
@@ -2220,6 +2253,9 @@ def api_admin_logout():
 def api_change_password():
     if not _SETTINGS_AVAILABLE:
         return jsonify({"success": False, "error": _SETTINGS_IMPORT_ERROR}), 503
+    ok_admin, resp = _require_admin()
+    if not ok_admin:
+        return resp
     payload = request.get_json(silent=True) or {}
     current = payload.get("current", "")
     new_pw = payload.get("new", "")
@@ -2260,6 +2296,9 @@ def api_reports_history():
 def api_reports_generate():
     if not _REPORTS_AVAILABLE:
         return jsonify({"success": False, "error": _REPORTS_IMPORT_ERROR}), 503
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     payload = request.get_json(silent=True) or {}
     export_type = payload.get("type") or payload.get("export_type")
     if not export_type:
@@ -2289,6 +2328,9 @@ def api_reports_download(filename: str):
 def api_reports_delete_file(filename: str):
     if not _REPORTS_AVAILABLE:
         return jsonify({"success": False, "error": _REPORTS_IMPORT_ERROR}), 503
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     if not reports_delete_file(filename):
         return jsonify({"success": False, "error": "File not found"}), 404
     return jsonify({"success": True})

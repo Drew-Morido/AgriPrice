@@ -293,6 +293,23 @@ vendor account 'Retailer'") or revert the app label to "Vendor"; flagged for the
 - **Icons** — replaced emoji controls (➕/🔎) in the Taxes page with inline SVGs; standardized the
   Web Scraper monitor-card typography.
 
+## Round 3.1 — "Added By" column + admin API authorization (2026-08-12)
+- **Rice Import Tariff table** now has an **"Added By"** column (renamed from "Type"): admin-created
+  rows show **Admin Entry**, seed/source rows show **Official / System**, established server-side by
+  `tariff_schedule.entry_type` (not the UI); the `approved_by`/`approved_at` identity is shown as
+  secondary text. Source/basis validation + Active/Inactive unchanged.
+- **Backend admin authorization (security).** Previously only tariff-writes + `/api/logs` were
+  guarded; now **all state-changing admin endpoints** enforce `_require_admin()` (401 without a valid
+  admin session token): `run-scraper`, `run-training`, `import-2026`, `settings` (PUT/reset/password),
+  `alerts/rules` (POST/PUT/DELETE/toggle) + `alerts/evaluate` + `alerts/log` DELETE, `reports/generate`
+  + `reports/file` DELETE. The shared `js/api.js` client **auto-attaches the admin token** when an
+  admin session exists, so the dashboard keeps working while a normal user (or a direct API call)
+  without a token is denied. Public read endpoints (predictions, tariff GET, consumer-price, catalog,
+  health) stay open. This closes the "admin endpoints unguarded" pre-deployment gap for state changes.
+- **User vs Admin Settings kept separate** (public `settings.html` = Account + Appearance only; admin
+  dashboard has its own Settings + per-area pages). No **User Management** invented (single admin).
+  Admin Settings → Account now also offers **Log Out**.
+
 ## Still [VERIFY] / [ACTION]
 - **[DTI]** confirm the 8 category names/definitions and the **brands** under each (DA has none).
 - **[DTI]** whether to keep the DA Bantay Presyo ranges or use official DTI brackets.

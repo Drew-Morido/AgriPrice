@@ -265,7 +265,11 @@ drops to VAT‑only. Reactivate → the 15% returns. Every toggle is in System L
 
 ## 8. Security & authentication (know these)
 - **Admin:** server‑issued session **token** (not a client flag), 6‑digit code **hashed**
-  server‑side, **5‑attempt / 15‑minute lockout**; admin write endpoints call `_require_admin()`.
+  server‑side, **5‑attempt / 15‑minute lockout**. **All state‑changing admin endpoints enforce
+  `_require_admin()`** (scraper/training control, settings PUT/reset/password, alerts CRUD, reports
+  generate/delete, import, tariff writes, logs) → a call without a valid admin token returns **401**.
+  The shared `js/api.js` auto‑attaches the admin token so the dashboard authenticates every call;
+  public read endpoints stay open. Frontend hiding is **not** the security boundary — the backend is.
 - **Public:** demo accounts in `localStorage` (passwords in plaintext **in the browser** — a
   demo limitation, disclosed). No server user DB.
 - **Exchange API** is keyless (no secret in the repo).
