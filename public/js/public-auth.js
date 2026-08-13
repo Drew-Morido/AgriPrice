@@ -203,6 +203,29 @@ AgriPricePH.PublicAuth = (function () {
       setNavControl(loginBtn, true);
       setNavControl(signupBtn, true);
     }
+
+    bindBurgerMenu();
+  }
+
+  // Secondary-nav burger dropdown (holds Settings). Bound once per navbar render.
+  function bindBurgerMenu() {
+    const burger = document.getElementById('public-btn-burger');
+    const menu = document.getElementById('public-nav-menu');
+    if (!burger || !menu || burger.dataset.bound) return;
+    burger.dataset.bound = '1';
+    const close = () => { menu.setAttribute('hidden', ''); burger.setAttribute('aria-expanded', 'false'); };
+    burger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (menu.hasAttribute('hidden')) {
+        menu.removeAttribute('hidden');
+        burger.setAttribute('aria-expanded', 'true');
+      } else {
+        close();
+      }
+    });
+    menu.addEventListener('click', (e) => e.stopPropagation());
+    document.addEventListener('click', close);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
   }
 
   document.addEventListener('DOMContentLoaded', () => {

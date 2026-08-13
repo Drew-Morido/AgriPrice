@@ -328,7 +328,7 @@ AgriPricePH.PublicAuthModal = (function () {
       if (userResult.ok) {
         hideAuth();
         Alert()?.success?.('Welcome back! You are now logged in.', {
-          onConfirm: () => unlockGatedContent(),
+          onConfirm: () => routeAfterAuth(),
         });
         return;
       }
@@ -360,8 +360,20 @@ AgriPricePH.PublicAuthModal = (function () {
     }
     hideAuth();
     Alert()?.success?.('Your account was created successfully.', {
-      onConfirm: () => unlockGatedContent(),
+      onConfirm: () => routeAfterAuth(),
     });
+  }
+
+  /* After a successful public login/signup, send the user to Price Forecast — unless they logged
+     in on a gated page (then unlock it in place). This is the real post-auth redirect, not a
+     landing-page hack. */
+  function routeAfterAuth() {
+    const wasGated = !!(gatedUnlockCallback || onAuthSuccess);
+    unlockGatedContent();
+    if (!wasGated) {
+      const onForecast = /current-prices\.html$/.test(window.location.pathname);
+      if (!onForecast) window.location.href = 'current-prices.html';
+    }
   }
 
   async function handleAdminPin(e) {

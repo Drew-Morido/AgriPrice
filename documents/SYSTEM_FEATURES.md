@@ -290,6 +290,13 @@ drops to VAT‑only. Reactivate → the 15% returns. Every toggle is in System L
 7. **Tariff activate/deactivate** for auditable, non‑destructive retirement of tariff records.
 8. **Paper synced** — tariff wording + IP‑logging disclosure updated in the `.docx`
    (see `PAPER_CORRECTIONS.md`).
+9. **Round‑3:** post‑login routes to **Price Forecast**; **Settings** removed from the primary nav
+   on every page and moved to a **burger menu**, with a circular **Profile** icon → Settings →
+   Account; tariff **"Admin Entry"** label (server‑set `entry_type`) + a **release‑confirmation**
+   popup; emoji controls replaced with SVGs. **PSA/PAGASA researched → not automated:** no official
+   PAGASA rainfall API (CliMap downloads only; rainfall isn't a model feature); PSA stock is on
+   OpenSTAT but **monthly/aggregated**, so it's a **manual import** (both shown as *Planned* in the
+   Web Scraper). Reliability over forced automation.
 
 ---
 
