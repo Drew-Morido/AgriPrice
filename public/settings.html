@@ -21,7 +21,7 @@
   <div id="settings-toast" class="settings-toast" role="status" aria-live="polite"></div>
 
   <p class="public-page-lead">
-    Your account and appearance preferences. Changes are saved in your browser on this device.
+    Your account, preferences, appearance, and data. Changes are saved in your browser on this device.
   </p>
 
   <section class="public-card settings-section" id="account">
@@ -61,6 +61,45 @@
         <input type="checkbox" id="set-reduce-motion" />
         <span class="settings-switch-ui"></span>
       </label>
+    </div>
+  </section>
+
+  <section class="public-card settings-section">
+    <h3>Preferences</h3>
+    <div class="settings-row">
+      <div class="settings-row-label">
+        <strong>Default page after login</strong>
+        <span>Where you land right after signing in</span>
+      </div>
+      <select class="form-input settings-select" id="set-default-page" aria-label="Default page after login">
+        <option value="current-prices.html">Price Forecast</option>
+        <option value="rice-catalog.html">Rice Catalog</option>
+        <option value="historical.html">Price History</option>
+        <option value="statistics.html">Charts &amp; Stats</option>
+      </select>
+    </div>
+    <div class="settings-row">
+      <div class="settings-row-label">
+        <strong>Date format</strong>
+        <span>How dates appear in tables and charts</span>
+      </div>
+      <select class="form-input settings-select" id="set-date-format" aria-label="Date format">
+        <option value="mdy">MM/DD/YYYY</option>
+        <option value="dmy">DD/MM/YYYY</option>
+        <option value="iso">YYYY-MM-DD</option>
+      </select>
+    </div>
+  </section>
+
+  <section class="public-card settings-section">
+    <h3>Privacy &amp; data</h3>
+    <p class="settings-hint" style="margin-top:0">
+      Your account and preferences are stored only in this browser (demo mode). Nothing is uploaded.
+    </p>
+    <div class="settings-inline-actions" style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button type="button" class="btn btn-outline btn-sm" id="set-export-data">Export my data (JSON)</button>
+      <button type="button" class="btn btn-outline btn-sm" id="set-reset-prefs">Reset preferences</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="set-clear-data" style="color:var(--color-danger,#e0645f);">Clear saved logins</button>
     </div>
   </section>
 

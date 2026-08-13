@@ -354,9 +354,9 @@ AgriPricePH.Landpage = (function () {
   }
 
   async function init() {
-    // Authenticated users never sit on the marketing landing page — send them to Price Forecast.
+    // Authenticated users never sit on the marketing landing page — send them to their default page.
     if (AgriPricePH.PublicAuth?.isLoggedIn?.()) {
-      window.location.replace('current-prices.html');
+      window.location.replace(AgriPricePH.PublicAuth.defaultLandingPage?.() || 'current-prices.html');
       return;
     }
     bindOriginToggle();

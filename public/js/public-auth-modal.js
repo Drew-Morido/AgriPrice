@@ -131,7 +131,7 @@ AgriPricePH.PublicAuthModal = (function () {
             </form>
           </div>
           <div class="public-auth-panel" data-auth-panel="signup" hidden>
-            <form id="public-modal-form-signup" autocomplete="on">
+            <form id="public-modal-form-signup" autocomplete="on" novalidate>
               <div class="lp-form-group">
                 <label for="public-modal-signup-name">Your name</label>
                 <input class="form-input" type="text" id="public-modal-signup-name" required placeholder="e.g. Maria Santos" />
@@ -142,8 +142,32 @@ AgriPricePH.PublicAuthModal = (function () {
               </div>
               <div class="lp-form-group">
                 <label for="public-modal-signup-password">Password</label>
-                <input class="form-input" type="password" id="public-modal-signup-password" required minlength="6" autocomplete="new-password" placeholder="At least 6 characters" />
+                <div style="position:relative;">
+                  <input class="form-input" type="password" id="public-modal-signup-password" required autocomplete="new-password" placeholder="Strong password" style="padding-right:40px;" />
+                  <button type="button" class="pw-toggle" data-pw-target="public-modal-signup-password" aria-label="Show password"
+                    style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted,#8aa);padding:4px;display:inline-flex;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </button>
+                </div>
+                <div id="signup-pw-meter" style="height:5px;border-radius:99px;background:rgba(0,0,0,0.08);margin-top:7px;overflow:hidden;">
+                  <div id="signup-pw-bar" style="height:100%;width:0;background:#e0645f;transition:width .2s,background .2s;"></div>
+                </div>
+                <div id="signup-pw-hint" style="font-size:11px;color:var(--text-muted,#8aa);margin-top:4px;">Use at least 8 characters with uppercase, lowercase, and a number.</div>
               </div>
+              <div class="lp-form-group">
+                <label for="public-modal-signup-confirm">Confirm password</label>
+                <div style="position:relative;">
+                  <input class="form-input" type="password" id="public-modal-signup-confirm" required autocomplete="new-password" placeholder="Re-enter password" style="padding-right:40px;" />
+                  <button type="button" class="pw-toggle" data-pw-target="public-modal-signup-confirm" aria-label="Show password"
+                    style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted,#8aa);padding:4px;display:inline-flex;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </button>
+                </div>
+              </div>
+              <label style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--text-secondary,#365846);margin:4px 0 12px;cursor:pointer;">
+                <input type="checkbox" id="public-modal-signup-terms" style="margin-top:2px;" />
+                <span>I agree to the <strong>Terms &amp; Conditions</strong> and Privacy notice for this demo (accounts are stored on this device only).</span>
+              </label>
               <button type="submit" class="btn btn-primary btn-lg" style="width:100%">Create account</button>
             </form>
           </div>
@@ -163,6 +187,26 @@ AgriPricePH.PublicAuthModal = (function () {
 
     authRoot.querySelector('#public-modal-form-login')?.addEventListener('submit', handleUnifiedLogin);
     authRoot.querySelector('#public-modal-form-signup')?.addEventListener('submit', handleUserSignup);
+
+    // Show/hide password toggles.
+    authRoot.querySelectorAll('.pw-toggle').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const el = document.getElementById(btn.dataset.pwTarget);
+        if (!el) return;
+        const show = el.type === 'password';
+        el.type = show ? 'text' : 'password';
+        btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      });
+    });
+
+    // Live password-strength meter on the signup password.
+    authRoot.querySelector('#public-modal-signup-password')?.addEventListener('input', (e) => {
+      const s = AgriPricePH.PublicAuth.passwordStrength(e.target.value);
+      const bar = document.getElementById('signup-pw-bar');
+      const hint = document.getElementById('signup-pw-hint');
+      if (bar) { bar.style.width = `${s.score * 25}%`; bar.style.background = s.color; }
+      if (hint) hint.textContent = e.target.value ? s.label : 'Use at least 8 characters with uppercase, lowercase, and a number.';
+    });
 
     return authRoot;
   }
@@ -349,11 +393,20 @@ AgriPricePH.PublicAuthModal = (function () {
 
   function handleUserSignup(e) {
     e.preventDefault();
-    const result = Auth().signup({
-      name: document.getElementById('public-modal-signup-name')?.value?.trim(),
-      email: document.getElementById('public-modal-signup-email')?.value?.trim(),
-      password: document.getElementById('public-modal-signup-password')?.value,
-    });
+    const name = document.getElementById('public-modal-signup-name')?.value?.trim();
+    const email = document.getElementById('public-modal-signup-email')?.value?.trim();
+    const password = document.getElementById('public-modal-signup-password')?.value || '';
+    const confirm = document.getElementById('public-modal-signup-confirm')?.value || '';
+    const terms = document.getElementById('public-modal-signup-terms')?.checked;
+
+    if (!name || !email) { Alert()?.invalid?.('Please enter your name and email.'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { Alert()?.invalid?.('Please enter a valid email address.'); return; }
+    const pw = AgriPricePH.PublicAuth.passwordStrength(password);
+    if (!pw.valid) { Alert()?.invalid?.('Password must be at least 8 characters with uppercase, lowercase, and a number.'); return; }
+    if (password !== confirm) { Alert()?.invalid?.('Passwords do not match.'); return; }
+    if (!terms) { Alert()?.invalid?.('Please accept the Terms & Conditions to continue.'); return; }
+
+    const result = Auth().signup({ name, email, password });
     if (!result.ok) {
       Alert()?.authFailure?.(result.message);
       return;
@@ -364,15 +417,16 @@ AgriPricePH.PublicAuthModal = (function () {
     });
   }
 
-  /* After a successful public login/signup, send the user to Price Forecast — unless they logged
-     in on a gated page (then unlock it in place). This is the real post-auth redirect, not a
-     landing-page hack. */
+  /* After a successful public login/signup, send the user to their default page (Preferences) —
+     unless they logged in on a gated page (then unlock it in place). This is the real post-auth
+     redirect, not a landing-page hack. */
   function routeAfterAuth() {
     const wasGated = !!(gatedUnlockCallback || onAuthSuccess);
     unlockGatedContent();
     if (!wasGated) {
-      const onForecast = /current-prices\.html$/.test(window.location.pathname);
-      if (!onForecast) window.location.href = 'current-prices.html';
+      const dest = Auth().defaultLandingPage?.() || 'current-prices.html';
+      const here = window.location.pathname.split('/').pop() || '';
+      if (here !== dest) window.location.href = dest;
     }
   }
 
