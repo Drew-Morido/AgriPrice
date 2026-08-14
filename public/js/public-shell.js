@@ -13,6 +13,7 @@ AgriPricePH.PublicShell = (function () {
   // Primary nav — Settings is intentionally NOT here (it lives in the burger menu for logged-in
   // users). Keeping it out of NAV_ITEMS is what makes it consistently absent on every page.
   const NAV_ITEMS = [
+    { id: 'home', href: 'landpage.html', label: 'Home' },
     { id: 'current', href: 'current-prices.html', label: 'Price Forecast' },
     { id: 'catalog', href: 'rice-catalog.html', label: 'Rice Catalog' },
     { id: 'historical', href: 'historical.html', label: 'Price History' },

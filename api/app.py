@@ -770,7 +770,7 @@ def api_data_sources():
             'SELECT Date FROM "WS_rice_price"',
         ),
         _build_live_source(
-            "doe", "DOE – Dept. of Energy",
+            "doe", "Zigwheels (Fuel)",
             "Web Scraper (BeautifulSoup)",
             "Diesel & Fuel Prices (Weekly)",
             "https://www.zigwheels.ph/fuel-price",

@@ -310,6 +310,20 @@ vendor account 'Retailer'") or revert the app label to "Vendor"; flagged for the
   dashboard has its own Settings + per-area pages). No **User Management** invented (single admin).
   Admin Settings → Account now also offers **Log Out**.
 
+## Round 4 — nav/login/signup UX + data-source label (2026-08-12)
+- **Data source label:** the fuel source display name **"DOE – Dept. of Energy" → "Zigwheels (Fuel)"**
+  across the UI/API (the technical key `doe`/`WS_fuel` is unchanged). This aligns the app with the
+  paper's existing correction that the diesel/fuel source is **Zigwheels, not DOE**.
+- **Terms & Conditions modal:** the signup "Terms & Conditions" is now a real button opening a modal
+  with an **honest demo notice** (capstone/educational; local-only accounts, no PII; data from
+  DA/PSA/FAO; forecasts are estimates; no warranty). **No legal text was fabricated** — formal T&C
+  remain **[ACTION: project owner]** before any real deployment.
+- **UX fixes (not paper claims):** Home button added to the public nav + homepage stays reachable
+  after login (post-login still → Price Forecast); login/signup **password eye** fixed by suppressing
+  the browser's native reveal control (our SVG eye is the only one); real-time (debounced) signup
+  email validation incl. duplicate check; admin nav tidied (Predictions→Price Forecast,
+  Historical→Price History) + responsive burger.
+
 ## Still [VERIFY] / [ACTION]
 - **[DTI]** confirm the 8 category names/definitions and the **brands** under each (DA has none).
 - **[DTI]** whether to keep the DA Bantay Presyo ranges or use official DTI brackets.
