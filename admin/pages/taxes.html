@@ -1,25 +1,33 @@
+<div class="section-header" style="margin-bottom:16px;">
+  <div>
+    <div class="section-title">Taxes &amp; Import Charges</div>
+    <div class="section-subtitle">Import tariff schedule and consumer-price charges for imported rice</div>
+  </div>
+</div>
+
 <div class="card">
   <div class="card-header">
     <span class="card-title">Taxes &amp; Import Charges (imported rice)</span>
-    <span id="tax-note" style="font-size:11px;color:var(--text-muted);"></span>
+    <span id="tax-note" style="font-size:var(--fs-caption);color:var(--text-muted);"></span>
   </div>
-  <div class="card-body" style="overflow-x:auto;">
-    <p style="font-size:12px;color:var(--text-muted);margin-top:0;">
+  <div class="card-body">
+    <p style="font-size:var(--fs-small);color:var(--text-muted);margin-top:0;">
       Import charges apply to <strong>imported</strong> rice and raise the price paid by consumers.
       Rice is <strong>VAT-exempt</strong> (agricultural product in original state, NIRC §109).
       The rice catalog and price ranges shown to the public are on the
       <a href="../public/rice-catalog.html" target="_blank" rel="noopener">public Rice Catalog</a> page.
     </p>
-    <table style="width:100%;border-collapse:collapse;font-size:13px;">
-      <thead>
-        <tr style="text-align:left;color:var(--text-muted);">
-          <th style="padding:6px 8px;">Charge</th><th style="padding:6px 8px;">Kind</th>
-          <th style="padding:6px 8px;">Rate / Flat</th><th style="padding:6px 8px;">Applies to</th>
-          <th style="padding:6px 8px;">Legal basis</th><th style="padding:6px 8px;">Source</th>
-        </tr>
-      </thead>
-      <tbody id="tax-body"><tr><td colspan="6" style="padding:10px 8px;color:var(--text-muted);">Loading…</td></tr></tbody>
-    </table>
+    <div class="table-wrap" style="overflow-x:auto;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Charge</th><th>Kind</th><th>Rate / Flat</th>
+            <th>Applies to</th><th>Legal basis</th><th>Source</th>
+          </tr>
+        </thead>
+        <tbody id="tax-body"><tr><td colspan="6" class="empty-state">Loading…</td></tr></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -41,18 +49,15 @@
     <div id="tariff-stale" style="display:none;font-size:12px;background:#fff4e5;color:#8a5300;
       border:1px solid #f3d9a8;border-radius:8px;padding:8px 10px;margin-bottom:10px;"></div>
 
-    <div style="overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+    <div class="table-wrap" style="overflow-x:auto;">
+      <table class="data-table">
         <thead>
-          <tr style="text-align:left;color:var(--text-muted);">
-            <th style="padding:6px 8px;">Quarter</th><th style="padding:6px 8px;">Rate</th>
-            <th style="padding:6px 8px;">Effective</th><th style="padding:6px 8px;">Legal basis</th>
-            <th style="padding:6px 8px;">Source</th><th style="padding:6px 8px;">Added By</th>
-            <th style="padding:6px 8px;">Verified</th>
-            <th style="padding:6px 8px;">Status</th><th style="padding:6px 8px;">Action</th>
+          <tr>
+            <th>Quarter</th><th>Rate</th><th>Effective</th><th>Legal basis</th>
+            <th>Source</th><th>Added By</th><th>Verified</th><th>Status</th><th>Action</th>
           </tr>
         </thead>
-        <tbody id="tariff-body"><tr><td colspan="9" style="padding:10px 8px;color:var(--text-muted);">Loading…</td></tr></tbody>
+        <tbody id="tariff-body"><tr><td colspan="9" class="empty-state">Loading…</td></tr></tbody>
       </table>
     </div>
 
