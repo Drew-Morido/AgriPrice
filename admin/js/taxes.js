@@ -43,6 +43,14 @@ AgriPricePH.Taxes = (function () {
         const badge = isActive
           ? '<span style="display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:700;background:rgba(76,175,110,.16);color:#2f9e5f;">ACTIVE</span>'
           : '<span style="display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:700;background:rgba(130,130,130,.18);color:#8a8a8a;">INACTIVE</span>';
+        const isAdmin = String(r.entry_type || 'OFFICIAL').toUpperCase() === 'ADMIN';
+        const addedByLabel = isAdmin
+          ? '<span style="display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:700;background:rgba(59,130,246,.16);color:#2f6fd8;">Admin Entry</span>'
+          : '<span style="display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:600;background:rgba(76,175,110,.12);color:#2f9e5f;">Official / System</span>';
+        const identity = r.approved_by && r.approved_by !== 'seed'
+          ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">${esc(r.approved_by)}${r.approved_at ? ' · ' + esc(String(r.approved_at).slice(0, 10)) : ''}</div>`
+          : '';
+        const typeBadge = addedByLabel + identity;
         return `
         <tr style="border-top:1px solid var(--border-color,#eee);${isActive ? '' : 'opacity:.55;'}">
           <td style="padding:6px 8px;">${esc(r.quarter_label || '—')}</td>
@@ -50,6 +58,7 @@ AgriPricePH.Taxes = (function () {
           <td style="padding:6px 8px;font-size:12px;">${esc(r.effective_start || '?')} → ${esc(r.effective_end || 'open')}</td>
           <td style="padding:6px 8px;font-size:12px;">${esc(r.legal_basis || '—')}</td>
           <td style="padding:6px 8px;font-size:12px;">${srcCell(r.da_certification_url, r.source)}</td>
+          <td style="padding:6px 8px;">${typeBadge}</td>
           <td style="padding:6px 8px;">${r.verified ? '✓' : '[VERIFY]'}</td>
           <td style="padding:6px 8px;">${badge}</td>
           <td style="padding:6px 8px;">
@@ -58,7 +67,7 @@ AgriPricePH.Taxes = (function () {
               style="padding:4px 10px;border-radius:7px;cursor:pointer;font-size:12px;border:1px solid var(--border-color,#ccc);background:var(--card-bg,#fff);color:var(--text-primary);">${isActive ? 'Deactivate' : 'Activate'}</button>
           </td>
         </tr>`;
-      }).join('') : '<tr><td colspan="8" style="padding:10px 8px;color:var(--text-muted);">No tariff schedule loaded.</td></tr>';
+      }).join('') : '<tr><td colspan="9" style="padding:10px 8px;color:var(--text-muted);">No tariff schedule loaded.</td></tr>';
       body.querySelectorAll('.tariff-toggle-btn').forEach(btn =>
         btn.addEventListener('click', () => toggleTariff(btn)));
     } catch (e) {
@@ -106,19 +115,34 @@ AgriPricePH.Taxes = (function () {
     if (isNaN(body.rate_pct) || !body.effective_start) {
       msg.style.color = 'var(--color-danger,#EF4444)'; msg.textContent = 'Rate and effective start are required.'; return;
     }
-    msg.style.color = 'var(--text-muted)'; msg.textContent = 'Saving…';
+    // Release confirmation — summarize the actual entry before publishing (backend still validates).
+    const summary =
+      'Release New Tariff Entry?\n\nPlease review before releasing:\n\n' +
+      `  Tariff: Imported rice (MFN import tariff)\n` +
+      `  Rate: ${body.rate_pct}%\n` +
+      `  Entry Type: Admin Entry\n` +
+      `  Effective: ${body.effective_start} → ${body.effective_end || 'open'}\n` +
+      `  Source / Basis: ${body.legal_basis || body.da_certification_url || '(none provided)'}\n\n` +
+      'Once released, this entry may be used by the system according to its activation rules.';
+    if (!confirm(summary)) { msg.style.color = 'var(--text-muted)'; msg.textContent = 'Release cancelled.'; return; }
+    const addBtn = $('tf-add');
+    if (addBtn) addBtn.disabled = true;   // prevent accidental duplicate submissions
+    msg.style.color = 'var(--text-muted)'; msg.textContent = 'Releasing…';
     try {
       const res = await AgriPricePH.API.tariffAdd(body, adminToken());
       if (res.ok && res.data.ok) {
         msg.style.color = 'var(--color-accent,#4CAF6E)';
-        msg.textContent = `Added ${res.data.quarter_label} @ ${res.data.rate_pct}%.`;
+        msg.textContent = `Released ${res.data.quarter_label} @ ${res.data.rate_pct}% (Admin Entry).`;
         ['tf-rate', 'tf-start', 'tf-end', 'tf-label', 'tf-basis', 'tf-url'].forEach(id => { const el = $(id); if (el) el.value = ''; });
+        if (addBtn) addBtn.disabled = false;
         loadTariff();
       } else {
+        if (addBtn) addBtn.disabled = false;
         msg.style.color = 'var(--color-danger,#EF4444)';
         msg.textContent = res.data.error || (res.status === 401 ? 'Admin session required — re-login.' : 'Failed to add rate.');
       }
     } catch (e) {
+      if (addBtn) addBtn.disabled = false;
       msg.style.color = 'var(--color-danger,#EF4444)'; msg.textContent = 'Backend unreachable.';
     }
   }

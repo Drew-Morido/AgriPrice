@@ -7,12 +7,21 @@ AgriPricePH.Dates = (function () {
     return new Date();
   }
 
+  // Respect the user's date-format preference (public Settings → Preferences): mdy | dmy | iso.
+  function _pref() {
+    try { return localStorage.getItem('agriprice_date_format') || 'mdy'; } catch { return 'mdy'; }
+  }
+
   function formatDisplay(d) {
-    return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const f = _pref();
+    if (f === 'iso') return iso(d);
+    return d.toLocaleDateString(f === 'dmy' ? 'en-GB' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   }
 
   function formatShort(d) {
-    return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+    const f = _pref();
+    if (f === 'iso') return iso(d);
+    return d.toLocaleDateString(f === 'dmy' ? 'en-GB' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
   function iso(d) {

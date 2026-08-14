@@ -157,16 +157,36 @@ def _quarter_label(date_str: str) -> str:
     return f"Q{(d.month - 1) // 3 + 1} {d.year}"
 
 
+_ENTRY_TYPE_ENSURED = False
+
+
+def _ensure_entry_type(conn) -> None:
+    """Self-healing migration: add tariff_schedule.entry_type if an older DB lacks it, so the
+    Admin-Entry feature works without requiring the seed script to have run. Runs once per process."""
+    global _ENTRY_TYPE_ENSURED
+    if _ENTRY_TYPE_ENSURED or not _has_table(conn, "tariff_schedule"):
+        return
+    try:
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(tariff_schedule)")]
+        if "entry_type" not in cols:
+            conn.execute("ALTER TABLE tariff_schedule ADD COLUMN entry_type TEXT NOT NULL DEFAULT 'OFFICIAL'")
+            conn.commit()
+        _ENTRY_TYPE_ENSURED = True
+    except sqlite3.OperationalError:
+        pass
+
+
 def _applicable_tariff(conn, date_str: str | None = None) -> dict | None:
     """The tariff row applicable ON date_str. If a dated row covers the date -> not stale.
     If the date falls outside every row (e.g. a new quarter with no confirmed rate yet), return
     the LAST CONFIRMED row flagged stale — never invent a rate, never silently roll forward."""
     if not _has_table(conn, "tariff_schedule"):
         return None
+    _ensure_entry_type(conn)
     date_str = (date_str or _today())[:10]
     rows = [dict(r) for r in conn.execute(
         "SELECT id,rate_pct,effective_start,effective_end,quarter_label,legal_basis,"
-        "da_certification_url,source,verified,approved_by,approved_at "
+        "da_certification_url,source,verified,approved_by,approved_at,entry_type "
         "FROM tariff_schedule WHERE active=1 ORDER BY effective_start DESC")]
     if not rows:
         return None
@@ -209,7 +229,7 @@ def tariff_status(date: str | None = None) -> dict:
         applicable = _applicable_tariff(conn, date)
         schedule = [dict(r) for r in conn.execute(
             "SELECT id,rate_pct,effective_start,effective_end,quarter_label,legal_basis,"
-            "da_certification_url,source,verified,approved_by,approved_at,active "
+            "da_certification_url,source,verified,approved_by,approved_at,active,entry_type "
             "FROM tariff_schedule ORDER BY effective_start DESC")]
         note = ""
         if applicable and applicable.get("stale"):
@@ -250,14 +270,16 @@ def add_tariff_quarter(rate_pct: float, effective_start: str, effective_end: str
     try:
         if not _has_table(conn, "tariff_schedule"):
             return {"ok": False, "error": "Tariff schedule not initialized."}
+        _ensure_entry_type(conn)
         if conn.execute("SELECT 1 FROM tariff_schedule WHERE effective_start=? AND active=1",
                         (effective_start[:10],)).fetchone():
             return {"ok": False, "error": f"A tariff already starts on {effective_start[:10]}."}
         qlabel = quarter_label or _quarter_label(effective_start)
         cur = conn.execute(
             "INSERT INTO tariff_schedule(rate_pct,effective_start,effective_end,quarter_label,"
-            "legal_basis,da_certification_url,source,verified,approved_by,approved_at,active,notes) "
-            "VALUES (?,?,?,?,?,?,?,?,?,datetime('now'),1,?)",
+            "legal_basis,da_certification_url,source,verified,approved_by,approved_at,active,"
+            "entry_type,notes) "
+            "VALUES (?,?,?,?,?,?,?,?,?,datetime('now'),1,'ADMIN',?)",
             (rate, effective_start[:10], (effective_end or None), qlabel, legal_basis,
              da_certification_url, source, int(bool(verified)), actor,
              "Added via admin tariff form."))

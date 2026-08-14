@@ -168,8 +168,12 @@ the copy), separate from the account role.
 
 ### 4.6 Settings (`settings.html`) — logged‑in only
 Shown **only to logged‑in users** (guest nav hides it; visiting the URL directly redirects to the
-landpage — enforced in auth logic, not CSS). Contains **Account** (with the single **Log out**
-action) and **Appearance** (theme/compact/reduce‑motion, stored in `localStorage`).
+landpage — enforced in auth logic, not CSS). Sections: **Account** (edit name/email, **change
+password**, **Log out**), **Preferences** (default page after login → wired into the post‑login
+redirect; date format → wired into `dates.js`), **Appearance** (theme/compact/reduce‑motion), and
+**Privacy & data** (export my data as JSON, reset preferences, clear saved logins). All
+client‑side/`localStorage`. Signup enforces a **strong password** (≥8 with upper/lower/number) with a
+confirm field, show/hide toggle, live strength meter, and a terms checkbox.
 
 ---
 
@@ -265,7 +269,11 @@ drops to VAT‑only. Reactivate → the 15% returns. Every toggle is in System L
 
 ## 8. Security & authentication (know these)
 - **Admin:** server‑issued session **token** (not a client flag), 6‑digit code **hashed**
-  server‑side, **5‑attempt / 15‑minute lockout**; admin write endpoints call `_require_admin()`.
+  server‑side, **5‑attempt / 15‑minute lockout**. **All state‑changing admin endpoints enforce
+  `_require_admin()`** (scraper/training control, settings PUT/reset/password, alerts CRUD, reports
+  generate/delete, import, tariff writes, logs) → a call without a valid admin token returns **401**.
+  The shared `js/api.js` auto‑attaches the admin token so the dashboard authenticates every call;
+  public read endpoints stay open. Frontend hiding is **not** the security boundary — the backend is.
 - **Public:** demo accounts in `localStorage` (passwords in plaintext **in the browser** — a
   demo limitation, disclosed). No server user DB.
 - **Exchange API** is keyless (no secret in the repo).
@@ -290,6 +298,13 @@ drops to VAT‑only. Reactivate → the 15% returns. Every toggle is in System L
 7. **Tariff activate/deactivate** for auditable, non‑destructive retirement of tariff records.
 8. **Paper synced** — tariff wording + IP‑logging disclosure updated in the `.docx`
    (see `PAPER_CORRECTIONS.md`).
+9. **Round‑3:** post‑login routes to **Price Forecast**; **Settings** removed from the primary nav
+   on every page and moved to a **burger menu**, with a circular **Profile** icon → Settings →
+   Account; tariff **"Admin Entry"** label (server‑set `entry_type`) + a **release‑confirmation**
+   popup; emoji controls replaced with SVGs. **PSA/PAGASA researched → not automated:** no official
+   PAGASA rainfall API (CliMap downloads only; rainfall isn't a model feature); PSA stock is on
+   OpenSTAT but **monthly/aggregated**, so it's a **manual import** (both shown as *Planned* in the
+   Web Scraper). Reliability over forced automation.
 
 ---
 

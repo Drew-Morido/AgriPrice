@@ -23,9 +23,22 @@ AgriPricePH.API = (function () {
 
   const BASE = detectBase();
 
+  /* Auto-attach the admin session token when one exists, so the admin dashboard authenticates
+     every call it makes to the now-guarded admin endpoints. Public visitors have no admin session,
+     so no header is sent and public endpoints are unaffected. */
+  function adminAuthHeaders() {
+    try {
+      const s = JSON.parse(sessionStorage.getItem('agriprice_admin_session') || 'null');
+      return s && s.token ? { Authorization: `Bearer ${s.token}` } : {};
+    } catch {
+      return {};
+    }
+  }
+
   async function get(path, opts = {}) {
     const res = await fetch(`${BASE}${path}`, {
       cache: opts.noCache ? 'no-store' : 'default',
+      headers: { ...adminAuthHeaders() },
     });
     if (!res.ok) {
       const err = new Error(`HTTP ${res.status}`);
@@ -39,6 +52,7 @@ AgriPricePH.API = (function () {
   async function getLenient(path, opts = {}) {
     const res = await fetch(`${BASE}${path}`, {
       cache: opts.noCache ? 'no-store' : 'default',
+      headers: { ...adminAuthHeaders() },
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -54,7 +68,7 @@ AgriPricePH.API = (function () {
   async function post(path, body) {
     const res = await fetch(`${BASE}${path}`, {
       method: 'POST',
-      headers: body ? { 'Content-Type': 'application/json' } : {},
+      headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...adminAuthHeaders() },
       body: body ? JSON.stringify(body) : undefined,
     });
     return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
@@ -63,14 +77,14 @@ AgriPricePH.API = (function () {
   async function put(path, body) {
     const res = await fetch(`${BASE}${path}`, {
       method: 'PUT',
-      headers: body ? { 'Content-Type': 'application/json' } : {},
+      headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...adminAuthHeaders() },
       body: body ? JSON.stringify(body) : undefined,
     });
     return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
   }
 
   async function del(path) {
-    const res = await fetch(`${BASE}${path}`, { method: 'DELETE' });
+    const res = await fetch(`${BASE}${path}`, { method: 'DELETE', headers: { ...adminAuthHeaders() } });
     return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
   }
 

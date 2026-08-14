@@ -353,17 +353,12 @@ AgriPricePH.Landpage = (function () {
     });
   }
 
-  /* For logged-in users, the "Create free account" / "Log in" CTAs don't apply — remove them from
-     the landing page (conditional render on real auth state, not a CSS-only hide). The primary
-     "See today's prices" CTAs and authenticated nav are untouched. */
-  function hideAuthCtasIfLoggedIn() {
-    if (!AgriPricePH.PublicAuth?.isLoggedIn?.()) return;
-    document.querySelectorAll('[data-auth-open="signup"], [data-auth-open="login"]')
-      .forEach(el => el.remove());
-  }
-
   async function init() {
-    hideAuthCtasIfLoggedIn();
+    // Authenticated users never sit on the marketing landing page — send them to their default page.
+    if (AgriPricePH.PublicAuth?.isLoggedIn?.()) {
+      window.location.replace(AgriPricePH.PublicAuth.defaultLandingPage?.() || 'current-prices.html');
+      return;
+    }
     bindOriginToggle();
     await loadPrices();
     renderTicker();

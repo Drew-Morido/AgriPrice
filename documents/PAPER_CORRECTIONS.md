@@ -261,6 +261,55 @@ two-audience evaluation while simplifying signup — no defended-methodology tex
 panel prefers exact wording parity, either add a one-line note in the paper ("the app labels the
 vendor account 'Retailer'") or revert the app label to "Vendor"; flagged for the team's decision.
 
+## Round 3 — PSA/PAGASA data-source research + nav/tariff changes (2026-08-12)
+**Research (verified, no source invented):**
+- **PAGASA rainfall → Do NOT automate.** No official public rainfall **API**. PAGASA offers
+  **CliMap v2.0** (interactive download of climate/rainfall data) and archived station datasets;
+  the community "PAGASA Parser" covers **tropical-cyclone bulletins only** and is unaffiliated.
+  Also, **rainfall is not a current model feature** (`FEATURE_COLUMNS` = fuel/stock/farmgate/
+  exchange — no rainfall), so automating it adds little. Recommendation: **manual/none**; the Web
+  Scraper lists PAGASA as **Planned**. Sources: PAGASA CliMap v2.0 (bagong.pagasa.dost.gov.ph),
+  PAGASA climate monitoring (pagasa.dost.gov.ph/climate/climate-monitoring).
+- **PSA rice stock → Manual/admin workflow (not a live scraper).** Official data is on **PSA
+  OpenSTAT** (openstat.psa.gov.ph, a PX-Web platform) — **"Rice and Corn: Monthly Total Stocks
+  Inventory by Sector"** (Total/Household/Commercial/NFA) — but it is **monthly, aggregated**, not
+  a daily feed, and prior scraping failed. Per "reliability over forced automation," recommend a
+  **periodic manual OpenSTAT download + import**; the Web Scraper lists PSA as **Planned**. No
+  fragile scraper was built. Sources: PSA OpenSTAT (openstat.psa.gov.ph), PSA "Rice and Corn Stocks
+  Inventory" (psa.gov.ph/statistics/crops/rice-corn-stocks-inventory).
+
+**App changes (not paper claims, logged for traceability):**
+- **Tariff "Admin Entry" label** — added `tariff_schedule.entry_type` (OFFICIAL | ADMIN,
+  idempotent migration). Seed/source-based rows = **Official / Source-Based**; admin-form additions
+  = **Admin Entry** (set server-side in `add_tariff_quarter`, not inferred from the UI). Shown as a
+  Type badge in the admin Taxes table.
+- **Tariff release confirmation** — the admin add-rate form now shows a summary popup before
+  publishing (category, rate, entry type, effective dates, source/basis) and blocks double-submit;
+  existing band/date/duplicate/`_require_admin` validation is unchanged (confirmation is additive).
+- **Navigation** — Settings removed from the primary public nav on **every** page (was
+  inconsistent) and moved to a **burger menu**; added a circular **Profile** icon → Settings →
+  Account (`settings.html#account`). Post-login now routes to **Price Forecast** (and authenticated
+  users hitting the landing page are redirected there). Logout remains only in Settings → Account.
+- **Icons** — replaced emoji controls (➕/🔎) in the Taxes page with inline SVGs; standardized the
+  Web Scraper monitor-card typography.
+
+## Round 3.1 — "Added By" column + admin API authorization (2026-08-12)
+- **Rice Import Tariff table** now has an **"Added By"** column (renamed from "Type"): admin-created
+  rows show **Admin Entry**, seed/source rows show **Official / System**, established server-side by
+  `tariff_schedule.entry_type` (not the UI); the `approved_by`/`approved_at` identity is shown as
+  secondary text. Source/basis validation + Active/Inactive unchanged.
+- **Backend admin authorization (security).** Previously only tariff-writes + `/api/logs` were
+  guarded; now **all state-changing admin endpoints** enforce `_require_admin()` (401 without a valid
+  admin session token): `run-scraper`, `run-training`, `import-2026`, `settings` (PUT/reset/password),
+  `alerts/rules` (POST/PUT/DELETE/toggle) + `alerts/evaluate` + `alerts/log` DELETE, `reports/generate`
+  + `reports/file` DELETE. The shared `js/api.js` client **auto-attaches the admin token** when an
+  admin session exists, so the dashboard keeps working while a normal user (or a direct API call)
+  without a token is denied. Public read endpoints (predictions, tariff GET, consumer-price, catalog,
+  health) stay open. This closes the "admin endpoints unguarded" pre-deployment gap for state changes.
+- **User vs Admin Settings kept separate** (public `settings.html` = Account + Appearance only; admin
+  dashboard has its own Settings + per-area pages). No **User Management** invented (single admin).
+  Admin Settings → Account now also offers **Log Out**.
+
 ## Still [VERIFY] / [ACTION]
 - **[DTI]** confirm the 8 category names/definitions and the **brands** under each (DA has none).
 - **[DTI]** whether to keep the DA Bantay Presyo ranges or use official DTI brackets.

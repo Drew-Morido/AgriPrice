@@ -130,6 +130,7 @@ CREATE TABLE IF NOT EXISTS tariff_schedule (
     approved_at          TEXT,                    -- YYYY-MM-DD HH:MM:SS
     created_at           TEXT DEFAULT (datetime('now')),
     active               INTEGER NOT NULL DEFAULT 1,
+    entry_type           TEXT NOT NULL DEFAULT 'OFFICIAL',  -- OFFICIAL (source-based) | ADMIN (admin-entered)
     notes                TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_tariff_start ON tariff_schedule(effective_start);
@@ -176,9 +177,23 @@ def _ensure_brand_schema(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def _ensure_tariff_schema(conn: sqlite3.Connection) -> None:
+    """Add tariff_schedule.entry_type to an existing DB (idempotent). Existing rows default to
+    OFFICIAL (source-based); admin-entered rows are marked ADMIN at insert time."""
+    cur = conn.cursor()
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tariff_schedule'")
+    if not cur.fetchone():
+        return
+    cols = [r[1] for r in cur.execute("PRAGMA table_info(tariff_schedule)")]
+    if "entry_type" not in cols:
+        cur.execute("ALTER TABLE tariff_schedule ADD COLUMN entry_type TEXT NOT NULL DEFAULT 'OFFICIAL'")
+    conn.commit()
+
+
 def create_catalog_tables(conn: sqlite3.Connection) -> None:
     _ensure_brand_schema(conn)
     conn.executescript(DDL)
+    _ensure_tariff_schema(conn)
     conn.commit()
 
 
