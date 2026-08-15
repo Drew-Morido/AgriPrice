@@ -280,7 +280,7 @@ AgriPricePH.PublicAuthModal = (function () {
     if (termsRoot) return termsRoot;
     termsRoot = document.createElement('div');
     termsRoot.id = 'public-terms-root';
-    termsRoot.className = 'lp-modal-backdrop';
+    termsRoot.className = 'lp-modal-backdrop public-terms-backdrop';
     termsRoot.style.display = 'none';
     termsRoot.innerHTML = `
       <div class="lp-modal" role="dialog" aria-modal="true" aria-labelledby="public-terms-title" style="max-width:560px;">

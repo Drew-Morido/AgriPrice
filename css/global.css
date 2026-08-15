@@ -2,7 +2,7 @@
    AgriPricePH - Global Styles
    ============================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 
 :root {
   --color-primary:        #1A3A2A;
@@ -24,7 +24,7 @@
   --bg-input:             #F4F6F3;
   --text-primary:         #1C2B1E;
   --text-secondary:       #5A7060;
-  --text-muted:           #8FA896;
+  --text-muted:           #647B6B;
   --text-sidebar:         #C5D9CA;
   --border-color:         #E2EAE4;
   --border-radius-sm:     6px;
@@ -34,13 +34,26 @@
   --shadow-sm:            0 1px 3px rgba(26,58,42,0.06), 0 1px 2px rgba(26,58,42,0.04);
   --shadow-md:            0 4px 12px rgba(26,58,42,0.08), 0 2px 6px rgba(26,58,42,0.05);
   --shadow-lg:            0 8px 24px rgba(26,58,42,0.10), 0 4px 12px rgba(26,58,42,0.06);
+  --color-success:        #2D8A50;
+  --color-success-bg:     rgba(45,138,80,0.12);
   --sidebar-width:        258px;
   --topbar-height:        64px;
   --content-padding:      28px;
-  --font-sans:            'DM Sans', system-ui, sans-serif;
+  --font-sans:            'Plus Jakarta Sans', system-ui, sans-serif;
   --font-mono:            'DM Mono', monospace;
   --transition-fast:      150ms ease;
   --transition:           250ms ease;
+  /* Spacing scale (4px base) */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px;
+  /* Type scale */
+  --fs-caption: 11px; --fs-small: 12px; --fs-body: 13px;
+  --fs-h3: 16px; --fs-h2: 20px; --fs-h1: 24px;
+  /* Pill radius */
+  --radius-pill: 999px;
+  /* Tooltip chip — deliberately dark in BOTH themes for legibility */
+  --tooltip-bg: #1C2B1E;
+  --tooltip-fg: #FFFFFF;
 }
 
 html.theme-dark {
@@ -50,7 +63,7 @@ html.theme-dark {
   --bg-input:             #1a3226;
   --text-primary:         #e8f0eb;
   --text-secondary:       #9bb0a4;
-  --text-muted:           #6d8578;
+  --text-muted:           #849c8e;
   --text-sidebar:         #b8cfc4;
   --border-color:         #243d30;
   --color-accent-light:   rgba(76, 175, 110, 0.18);
@@ -503,6 +516,8 @@ a { text-decoration: none; color: inherit; }
 
 .data-table tr:last-child td { border-bottom: none; }
 .data-table tr:hover td { background: var(--bg-body); }
+/* Dark-mode header (the hardcoded #FAFCFB had no dark override -> white strip on dark cards). */
+html.theme-dark .data-table th { background: var(--bg-input); color: var(--text-muted); }
 
 /* ── Pills ── */
 .pill {
@@ -518,6 +533,16 @@ a { text-decoration: none; color: inherit; }
 .pill-blue   { background: rgba(59,130,246,0.12);  color: #1D4ED8; }
 .pill-red    { background: rgba(239,68,68,0.12);   color: #B91C1C; }
 .pill-gray   { background: rgba(100,116,139,0.10); color: #475569; }
+
+/* Semantic status pills (token-based) — one consistent badge system.
+   Height/padding/radius/typography all inherit from .pill. No emojis. */
+.pill-success { background: var(--color-success-bg); color: var(--color-success); font-weight: 700; }
+.pill-neutral { background: rgba(100,116,139,0.12);  color: #64748B; font-weight: 700; }
+.pill-warning { background: rgba(245,158,11,0.14);   color: #B45309; font-weight: 700; }
+.pill-danger  { background: var(--color-danger-bg);  color: #B91C1C; font-weight: 700; }
+.pill-info    { background: var(--color-info-bg);    color: #1D4ED8; font-weight: 700; }
+.pill-admin   { background: rgba(59,130,246,0.14);   color: #2f6fd8; font-weight: 700; }
+html.theme-dark .pill-neutral { color: #9fb0bd; }
 
 /* ── Buttons ── */
 .btn {
@@ -558,7 +583,9 @@ a { text-decoration: none; color: inherit; }
 .form-input:focus, .form-select:focus, .form-textarea:focus {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px var(--color-accent-light);
-  background: #fff;
+  /* Theme-aware focus surface — was hardcoded #fff, which made near-white text
+     unreadable on a white background in dark theme while typing. */
+  background: var(--bg-card);
 }
 
 .form-textarea { resize: vertical; min-height: 80px; }
@@ -614,7 +641,7 @@ a { text-decoration: none; color: inherit; }
   position: absolute;
   bottom: calc(100% + 6px); left: 50%;
   transform: translateX(-50%);
-  background: var(--text-primary); color: #fff;
+  background: var(--tooltip-bg); color: var(--tooltip-fg);
   font-size: 11px; white-space: nowrap;
   padding: 4px 8px; border-radius: 4px;
   opacity: 0; pointer-events: none;

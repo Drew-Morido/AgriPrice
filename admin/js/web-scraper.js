@@ -216,7 +216,7 @@ AgriPricePH.WebScraper = (function () {
           missingEl.textContent = kind === 'rice'
             ? 'No DA bulletin in database yet. Run scraper.'
             : 'No data for today. Please run scraper.';
-          missingEl.style.color = '#ffb4b4';
+          missingEl.style.color = 'var(--color-danger)';
         }
         return;
       }
@@ -231,25 +231,25 @@ AgriPricePH.WebScraper = (function () {
           if (kind === 'rice' && dataObj.is_estimated) {
             missingEl.textContent =
               `✓ Estimated ${dataObj.latest_date} — papalitan kapag may DA bulletin na`;
-            missingEl.style.color = '#ffd97d';
+            missingEl.style.color = 'var(--color-warning)';
           } else if (kind === 'rice' && dataObj.latest_date && !dataObj.is_today && calToday) {
             missingEl.textContent =
               `✓ Complete — Bulletin ${dataObj.latest_date} (walang ${calToday} sa DA.gov.ph pa)`;
-            missingEl.style.color = '#a8e6cf';
+            missingEl.style.color = 'var(--color-success)';
           } else {
             missingEl.textContent = `✓ Complete${dateLabel ? ' — ' + dateLabel : ''}`;
-            missingEl.style.color = '#a8e6cf'; // Green
+            missingEl.style.color = 'var(--color-success)'; // Green
           }
         } else if (dataObj.count === 0) {
           missingEl.textContent = kind === 'rice'
             ? 'No rice bulletin scraped yet.'
             : 'No data found. Please run scraper.';
-          missingEl.style.color = '#ffb4b4'; // Red
+          missingEl.style.color = 'var(--color-danger)'; // Red
         } else {
           const missingShort = dataObj.missing.map(m => _SHORT_LABELS[m] || m).join(', ');
           const prefix = dateLabel ? `[${dateLabel}] ` : '';
           missingEl.textContent = prefix + 'Missing: ' + missingShort;
-          missingEl.style.color = dataObj.is_today ? '#ffb4b4' : '#ffd97d'; // Red if today, yellow if older
+          missingEl.style.color = dataObj.is_today ? 'var(--color-danger)' : 'var(--color-warning)'; // Red if today, yellow if older
         }
       }
     };
