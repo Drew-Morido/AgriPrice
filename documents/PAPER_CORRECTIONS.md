@@ -324,6 +324,31 @@ vendor account 'Retailer'") or revert the app label to "Vendor"; flagged for the
   email validation incl. duplicate check; admin nav tidied (Predictions→Price Forecast,
   Historical→Price History) + responsive burger.
 
+## Round 5 — dark-mode readability + modal layering (2026-08-15)
+**UI-only theme/contrast/z-index fixes (not paper claims, logged for traceability). No
+model/data/API/routing change; paper source-of-truth invariants re-verified and unchanged
+(HORIZON=3, 70/15/15, Zigwheels fuel, keyless exchange, persistence+ARIMA+ADF+MAPE/R²+rolling+shock
+in `model/meta.json`).**
+- **Terms & Conditions modal layering** — the signup "Terms & Conditions" modal now renders
+  **above** the signup modal (`.lp-modal-backdrop.public-terms-backdrop{z-index:9500}`, a
+  specificity-robust selector that wins regardless of per-page stylesheet order). The modal
+  content/notice is unchanged (still the honest demo notice from Round 4; no legal text fabricated).
+- **Burger menu contrast** — the public nav dropdown/profile/burger used a **non-existent token
+  `--card-bg`** (fell back to white), so "Settings" was white-on-white in dark theme (1.16:1). Now
+  reuses the nav's fixed `--lp-*` palette → readable in both themes (16.45:1) and consistent with the
+  fixed-light nav.
+- **Muted-text contrast (WCAG AA)** — darkened `--text-muted` in both themes so settings/description
+  text meets AA (was 2.56/3.89 → 4.58/5.25). App-wide accessibility improvement; **reinforces** the
+  paper's "responsive, desktop **and** mobile, accessible dashboard" claim (correction #5).
+- **Tooltip readability** — added `--tooltip-bg`/`--tooltip-fg` tokens; the admin notification-bell
+  (and all `[data-tooltip]`) tooltip was white-on-white in dark theme (~1.0:1) → now 14.85:1.
+- **Input focus contrast** — `.form-input:focus` used a hardcoded white background, making near-white
+  text invisible while typing in login/signup (and all fields) in dark theme; now uses the
+  theme-aware `var(--bg-card)`. Light theme unchanged.
+- **Alerts info banner** — swapped an undefined `--color-accent-dark` token for the real
+  `--color-success`. Files: `css/global.css`, `public/css/public.css`, `public/js/public-shell.js`,
+  `public/js/public-auth-modal.js`, `admin/css/modules.css` (commit `1f10ffd`).
+
 ## Still [VERIFY] / [ACTION]
 - **[DTI]** confirm the 8 category names/definitions and the **brands** under each (DA has none).
 - **[DTI]** whether to keep the DA Bantay Presyo ranges or use official DTI brackets.
