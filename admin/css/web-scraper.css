@@ -35,8 +35,26 @@
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
-  padding: 14px;
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
+.scraper-status-item .stat-label {
+  font-size: var(--fs-caption); font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.5px; color: var(--text-muted);
+}
+.scraper-status-item .stat-value {
+  font-size: 32px; font-weight: 700; margin: 6px 0; color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+.scraper-status-item .stat-value.stat-value-sm { font-size: 15px; font-weight: 600; font-family: var(--font-sans); white-space: pre-line; line-height: 1.4; }
+.scraper-status-item .stat-subtext {
+  font-size: var(--fs-caption); color: var(--text-muted); line-height: 1.4; min-height: 30px;
+}
+@media (max-width: 900px) { .scraper-status-bar { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .scraper-status-bar { grid-template-columns: 1fr; } }
 
 .schedule-list {
   display: flex; flex-direction: column; gap: 4px;

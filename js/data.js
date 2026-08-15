@@ -138,7 +138,7 @@ AgriPricePH.Data = (function () {
     },
     {
       id: 'doe',
-      name: 'DOE – Dept. of Energy',
+      name: 'Zigwheels (Fuel)',
       type: 'Web Scraper (Selenium)',
       dataType: 'Diesel Fuel Price (Weekly)',
       status: 'active',

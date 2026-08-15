@@ -35,10 +35,34 @@ AgriPricePH.PublicAuthModal = (function () {
   let unlockRoot = null;
   let authRoot = null;
   let pinRoot = null;
+  let termsRoot = null;
   let pendingAdmin = null;
   let onAuthSuccess = null;
   let authNext = 'historical.html';
   let gatedUnlockCallback = null;
+
+  // Honest demo notice — describes what the app actually does. Not fabricated legal text; official
+  // Terms & Conditions should be provided by the project owner before any real deployment.
+  const TERMS_HTML = `
+    <p><strong>AgriPricePH is an academic capstone demonstration</strong>, provided for educational
+    and evaluation purposes only. By creating an account you acknowledge the following.</p>
+    <ol style="padding-left:18px;display:grid;gap:8px;">
+      <li><strong>Demo accounts are local.</strong> Your public account (name, email, password) is
+      stored only in <em>this browser</em> via localStorage. It is not uploaded to a server, and it is
+      not shared. Clearing your browser data removes it.</li>
+      <li><strong>No personal data collection.</strong> The system does not transmit or store your
+      personal information on a backend. Admin-side security logs may record admin sign-in events only.</li>
+      <li><strong>Data sources.</strong> Prices and indicators are compiled from public sources
+      (Department of Agriculture, PSA, UN-FAO, and public fuel/exchange references). Figures are for
+      guidance and may be delayed, estimated, or incomplete.</li>
+      <li><strong>Forecasts are not guarantees.</strong> Price forecasts are model estimates with a
+      stated error band and must not be used as the sole basis for financial decisions.</li>
+      <li><strong>No warranty.</strong> The system is provided “as is” for the capstone defense,
+      without warranty of any kind.</li>
+    </ol>
+    <p style="color:var(--text-muted,#8aa);font-size:12px;">This is a plain-language summary for the
+    demo. Formal Terms &amp; Conditions and a Privacy Policy would be provided by the project owner
+    prior to any public release.</p>`;
 
   function Auth() {
     return AgriPricePH.PublicAuth;
@@ -125,7 +149,13 @@ AgriPricePH.PublicAuthModal = (function () {
               </div>
               <div class="lp-form-group">
                 <label for="public-modal-login-password">Password</label>
-                <input class="form-input" type="password" id="public-modal-login-password" required autocomplete="current-password" placeholder="Your password" />
+                <div style="position:relative;">
+                  <input class="form-input" type="password" id="public-modal-login-password" required autocomplete="current-password" placeholder="Your password" style="padding-right:40px;" />
+                  <button type="button" class="pw-toggle" data-pw-target="public-modal-login-password" aria-label="Show password"
+                    style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted,#8aa);padding:4px;display:inline-flex;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </button>
+                </div>
               </div>
               <button type="submit" class="btn btn-primary btn-lg" style="width:100%">Log in</button>
             </form>
@@ -139,6 +169,7 @@ AgriPricePH.PublicAuthModal = (function () {
               <div class="lp-form-group">
                 <label for="public-modal-signup-email">Email</label>
                 <input class="form-input" type="email" id="public-modal-signup-email" required autocomplete="email" placeholder="you@email.com" />
+                <div id="signup-email-msg" style="font-size:11px;margin-top:4px;min-height:14px;" aria-live="polite"></div>
               </div>
               <div class="lp-form-group">
                 <label for="public-modal-signup-password">Password</label>
@@ -166,7 +197,7 @@ AgriPricePH.PublicAuthModal = (function () {
               </div>
               <label style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--text-secondary,#365846);margin:4px 0 12px;cursor:pointer;">
                 <input type="checkbox" id="public-modal-signup-terms" style="margin-top:2px;" />
-                <span>I agree to the <strong>Terms &amp; Conditions</strong> and Privacy notice for this demo (accounts are stored on this device only).</span>
+                <span>I agree to the <button type="button" id="signup-terms-link" style="background:none;border:none;padding:0;font:inherit;color:var(--accent,#2d6a4f);font-weight:700;text-decoration:underline;cursor:pointer;">Terms &amp; Conditions</button> and Privacy notice for this demo (accounts are stored on this device only).</span>
               </label>
               <button type="submit" class="btn btn-primary btn-lg" style="width:100%">Create account</button>
             </form>
@@ -208,7 +239,80 @@ AgriPricePH.PublicAuthModal = (function () {
       if (hint) hint.textContent = e.target.value ? s.label : 'Use at least 8 characters with uppercase, lowercase, and a number.';
     });
 
+    // Real-time email validation: debounced while typing + on blur. Not aggressive on incomplete input.
+    const emailEl = authRoot.querySelector('#public-modal-signup-email');
+    let emailTimer = null;
+    emailEl?.addEventListener('input', () => { clearTimeout(emailTimer); emailTimer = setTimeout(() => validateSignupEmail(false), 400); });
+    emailEl?.addEventListener('blur', () => validateSignupEmail(true));
+
+    // Clickable Terms & Conditions → modal (must not submit the signup form).
+    authRoot.querySelector('#signup-terms-link')?.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation(); showTerms();
+    });
+
     return authRoot;
+  }
+
+  function validateSignupEmail(force) {
+    const el = document.getElementById('public-modal-signup-email');
+    const msg = document.getElementById('signup-email-msg');
+    if (!el || !msg) return;
+    const v = (el.value || '').trim();
+    const danger = 'var(--color-danger,#e0645f)';
+    const good = 'var(--accent,#2d6a4f)';
+    if (!v) { msg.textContent = ''; return; }
+    const complete = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+    if (!complete) {
+      // Only flag once it looks complete-ish (has @ and a dotted domain) or when forced (blur).
+      const looksDone = force || (v.includes('@') && (v.split('@')[1] || '').includes('.'));
+      msg.textContent = looksDone ? 'Please enter a valid email address.' : '';
+      msg.style.color = danger;
+      return;
+    }
+    const exists = (AgriPricePH.PublicAuth.getUsers() || []).some((u) => u.email === v.toLowerCase());
+    msg.textContent = exists ? 'This email is already registered.' : 'Email looks good.';
+    msg.style.color = exists ? danger : good;
+  }
+
+  function termsEsc(e) { if (e.key === 'Escape') hideTerms(); }
+
+  function ensureTermsRoot() {
+    if (termsRoot) return termsRoot;
+    termsRoot = document.createElement('div');
+    termsRoot.id = 'public-terms-root';
+    termsRoot.className = 'lp-modal-backdrop public-terms-backdrop';
+    termsRoot.style.display = 'none';
+    termsRoot.innerHTML = `
+      <div class="lp-modal" role="dialog" aria-modal="true" aria-labelledby="public-terms-title" style="max-width:560px;">
+        <div class="lp-modal-header">
+          <div>
+            <h2 id="public-terms-title">Terms &amp; Conditions</h2>
+            <p class="public-auth-modal-sub">Demo notice — please read before creating an account.</p>
+          </div>
+          <button type="button" class="lp-modal-close" id="public-terms-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="lp-modal-body" style="max-height:60vh;overflow-y:auto;font-size:13px;line-height:1.55;">${TERMS_HTML}</div>
+        <div style="padding:12px 16px;text-align:right;border-top:1px solid var(--border-color,#e6e3da);">
+          <button type="button" class="btn btn-primary" id="public-terms-ok">Close</button>
+        </div>
+      </div>`;
+    document.body.appendChild(termsRoot);
+    termsRoot.addEventListener('click', (e) => { if (e.target === termsRoot) hideTerms(); });
+    termsRoot.querySelector('#public-terms-close')?.addEventListener('click', hideTerms);
+    termsRoot.querySelector('#public-terms-ok')?.addEventListener('click', hideTerms);
+    return termsRoot;
+  }
+
+  function showTerms() {
+    const r = ensureTermsRoot();
+    r.style.display = 'flex';
+    document.addEventListener('keydown', termsEsc);
+    setTimeout(() => r.querySelector('#public-terms-close')?.focus(), 0);
+  }
+
+  function hideTerms() {
+    if (termsRoot) termsRoot.style.display = 'none';
+    document.removeEventListener('keydown', termsEsc);
   }
 
   function ensurePinRoot() {

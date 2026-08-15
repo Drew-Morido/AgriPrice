@@ -21,29 +21,29 @@
 </div>
 
 <!-- ── STATS BAR (JS populates: stat-rice, stat-fuel, stat-rates, stat-lastrun) ── -->
-<div class="scraper-status-bar" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; background: transparent; padding: 0; border: none;">
-  
-  <div class="scraper-status-item" style="background: linear-gradient(135deg, #1b3d2b, #12281c); padding: 18px; border-radius: 12px; border: 1px solid #2e5941; box-shadow: 0 4px 10px rgba(0,0,0,0.15); display: flex; flex-direction: column; justify-content: center;">
-    <div class="stat-label" style="color: #a8e6cf; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">DA Rice Bulletin</div>
-    <div class="stat-value" id="stat-rice" style="font-size: 36px; font-weight: 800; margin: 8px 0; color: #ffffff;">0/8</div>
-    <div class="stat-subtext" id="missing-rice" style="font-size: 11px; color: #cfe3d6; line-height: 1.4; min-height: 30px; font-weight: 500;">Loading...</div>
+<div class="scraper-status-bar">
+
+  <div class="scraper-status-item">
+    <div class="stat-label">DA Rice Bulletin</div>
+    <div class="stat-value" id="stat-rice">0/8</div>
+    <div class="stat-subtext" id="missing-rice">Loading...</div>
   </div>
 
-  <div class="scraper-status-item" style="background: linear-gradient(135deg, #224a32, #163322); padding: 18px; border-radius: 12px; border: 1px solid #396f51; box-shadow: 0 4px 10px rgba(0,0,0,0.15); display: flex; flex-direction: column; justify-content: center;">
-    <div class="stat-label" style="color: #a8e6cf; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Fuel Records Today</div>
-    <div class="stat-value" id="stat-fuel" style="font-size: 36px; font-weight: 800; margin: 8px 0; color: #ffffff;">0/8</div>
-    <div class="stat-subtext" id="missing-fuel" style="font-size: 11px; color: #cfe3d6; line-height: 1.4; min-height: 30px; font-weight: 500;">Loading...</div>
+  <div class="scraper-status-item">
+    <div class="stat-label">Fuel Records Today</div>
+    <div class="stat-value" id="stat-fuel">0/8</div>
+    <div class="stat-subtext" id="missing-fuel">Loading...</div>
   </div>
 
-  <div class="scraper-status-item" style="background: linear-gradient(135deg, #2a5a3d, #1c3d29); padding: 18px; border-radius: 12px; border: 1px solid #458561; box-shadow: 0 4px 10px rgba(0,0,0,0.15); display: flex; flex-direction: column; justify-content: center;">
-    <div class="stat-label" style="color: #a8e6cf; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Exchange Rates Today</div>
-    <div class="stat-value" id="stat-rates" style="font-size: 36px; font-weight: 800; margin: 8px 0; color: #ffffff;">0/3</div>
-    <div class="stat-subtext" id="missing-rates" style="font-size: 11px; color: #cfe3d6; line-height: 1.4; min-height: 30px; font-weight: 500;">Loading...</div>
+  <div class="scraper-status-item">
+    <div class="stat-label">Exchange Rates Today</div>
+    <div class="stat-value" id="stat-rates">0/3</div>
+    <div class="stat-subtext" id="missing-rates">Loading...</div>
   </div>
 
-  <div class="scraper-status-item" style="background: linear-gradient(135deg, #336a49, #224a32); padding: 18px; border-radius: 12px; border: 1px solid #529c72; box-shadow: 0 4px 10px rgba(0,0,0,0.15); display: flex; flex-direction: column; justify-content: center;">
-    <div class="stat-label" style="color: #a8e6cf; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Next Auto-Scrape</div>
-    <div class="stat-value" id="stat-lastrun" style="font-size: 16px; font-weight: 600; margin-top: 10px; color: #ffffff; white-space: pre-line; line-height: 1.5;">Calculating...</div>
+  <div class="scraper-status-item">
+    <div class="stat-label">Next Auto-Scrape</div>
+    <div class="stat-value stat-value-sm" id="stat-lastrun">Calculating...</div>
   </div>
 
 </div>
@@ -93,7 +93,7 @@
         </div>
 
         <div class="schedule-item" style="display:grid;grid-template-columns:1fr 110px 160px 90px;gap:8px;align-items:center;padding:11px 12px;border-bottom:1px solid rgba(76,175,110,0.08);">
-          <span class="schedule-name">DOE Fuel Price</span>
+          <span class="schedule-name">Zigwheels Fuel</span>
           <span class="schedule-time" style="font-size:12px;">Weekly Mon</span>
           <span class="schedule-next" id="next-fuel" style="font-size:12px;">Next: —</span>
           <span id="pill-fuel" class="pill pill-green" style="text-align:center;justify-self:center;">Active</span>

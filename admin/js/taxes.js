@@ -40,34 +40,33 @@ AgriPricePH.Taxes = (function () {
       const rows = d.schedule || [];
       body.innerHTML = rows.length ? rows.map(r => {
         const isActive = !!r.active;
-        const badge = isActive
-          ? '<span style="display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:700;background:rgba(76,175,110,.16);color:#2f9e5f;">ACTIVE</span>'
-          : '<span style="display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:700;background:rgba(130,130,130,.18);color:#8a8a8a;">INACTIVE</span>';
+        const statusBadge = isActive
+          ? '<span class="pill pill-success">ACTIVE</span>'
+          : '<span class="pill pill-neutral">INACTIVE</span>';
         const isAdmin = String(r.entry_type || 'OFFICIAL').toUpperCase() === 'ADMIN';
-        const addedByLabel = isAdmin
-          ? '<span style="display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:700;background:rgba(59,130,246,.16);color:#2f6fd8;">Admin Entry</span>'
-          : '<span style="display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:600;background:rgba(76,175,110,.12);color:#2f9e5f;">Official / System</span>';
+        const addedByBadge = isAdmin
+          ? '<span class="pill pill-admin">Admin Entry</span>'
+          : '<span class="pill pill-success">Official / System</span>';
         const identity = r.approved_by && r.approved_by !== 'seed'
-          ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">${esc(r.approved_by)}${r.approved_at ? ' · ' + esc(String(r.approved_at).slice(0, 10)) : ''}</div>`
+          ? `<div style="font-size:var(--fs-caption);color:var(--text-muted);margin-top:3px;">${esc(r.approved_by)}${r.approved_at ? ' · ' + esc(String(r.approved_at).slice(0, 10)) : ''}</div>`
           : '';
-        const typeBadge = addedByLabel + identity;
+        const verifiedBadge = r.verified
+          ? '<span class="pill pill-success">Verified</span>'
+          : '<span class="pill pill-warning">Verify</span>';
         return `
-        <tr style="border-top:1px solid var(--border-color,#eee);${isActive ? '' : 'opacity:.55;'}">
-          <td style="padding:6px 8px;">${esc(r.quarter_label || '—')}</td>
-          <td style="padding:6px 8px;"><strong>${r.rate_pct}%</strong></td>
-          <td style="padding:6px 8px;font-size:12px;">${esc(r.effective_start || '?')} → ${esc(r.effective_end || 'open')}</td>
-          <td style="padding:6px 8px;font-size:12px;">${esc(r.legal_basis || '—')}</td>
-          <td style="padding:6px 8px;font-size:12px;">${srcCell(r.da_certification_url, r.source)}</td>
-          <td style="padding:6px 8px;">${typeBadge}</td>
-          <td style="padding:6px 8px;">${r.verified ? '✓' : '[VERIFY]'}</td>
-          <td style="padding:6px 8px;">${badge}</td>
-          <td style="padding:6px 8px;">
-            <button type="button" class="tariff-toggle-btn" data-id="${r.id}" data-active="${isActive ? 1 : 0}"
-              data-label="${esc(r.quarter_label || ('#' + r.id))}"
-              style="padding:4px 10px;border-radius:7px;cursor:pointer;font-size:12px;border:1px solid var(--border-color,#ccc);background:var(--card-bg,#fff);color:var(--text-primary);">${isActive ? 'Deactivate' : 'Activate'}</button>
-          </td>
+        <tr${isActive ? '' : ' style="opacity:.55;"'}>
+          <td>${esc(r.quarter_label || '—')}</td>
+          <td><strong>${r.rate_pct}%</strong></td>
+          <td>${esc(r.effective_start || '?')} → ${esc(r.effective_end || 'open')}</td>
+          <td>${esc(r.legal_basis || '—')}</td>
+          <td>${srcCell(r.da_certification_url, r.source)}</td>
+          <td>${addedByBadge}${identity}</td>
+          <td>${verifiedBadge}</td>
+          <td>${statusBadge}</td>
+          <td><button type="button" class="btn btn-outline btn-sm tariff-toggle-btn" data-id="${r.id}" data-active="${isActive ? 1 : 0}"
+              data-label="${esc(r.quarter_label || ('#' + r.id))}">${isActive ? 'Deactivate' : 'Activate'}</button></td>
         </tr>`;
-      }).join('') : '<tr><td colspan="9" style="padding:10px 8px;color:var(--text-muted);">No tariff schedule loaded.</td></tr>';
+      }).join('') : '<tr><td colspan="9" class="empty-state">No tariff schedule loaded.</td></tr>';
       body.querySelectorAll('.tariff-toggle-btn').forEach(btn =>
         btn.addEventListener('click', () => toggleTariff(btn)));
     } catch (e) {
@@ -170,16 +169,16 @@ AgriPricePH.Taxes = (function () {
       const taxes = d.taxes || [];
       if (note) note.textContent = d.note || '';
       body.innerHTML = taxes.length ? taxes.map(t => `
-        <tr style="border-top:1px solid var(--border-color,#eee);">
-          <td style="padding:6px 8px;">${t.name}${t.verified ? ' <span style="color:var(--color-accent,#4CAF6E);">✓</span>' : ' <span style="color:var(--color-danger,#EF4444);">[VERIFY]</span>'}</td>
-          <td style="padding:6px 8px;">${t.kind}</td>
-          <td style="padding:6px 8px;">${t.rate_pct != null ? t.rate_pct + '%' : (t.flat_amount != null ? peso(t.flat_amount) + '/kg' : '—')}</td>
-          <td style="padding:6px 8px;">${t.applies_to}</td>
-          <td style="padding:6px 8px;font-size:12px;">${t.legal_basis || '—'}</td>
-          <td style="padding:6px 8px;font-size:12px;">${t.source || '—'}</td>
-        </tr>`).join('') : '<tr><td colspan="6" style="padding:10px 8px;color:var(--text-muted);">No tax components loaded — run datasets/seed_verified_data.py.</td></tr>';
+        <tr>
+          <td>${esc(t.name)} ${t.verified ? '<span class="pill pill-success">Verified</span>' : '<span class="pill pill-warning">Verify</span>'}</td>
+          <td>${esc(t.kind)}</td>
+          <td>${t.rate_pct != null ? t.rate_pct + '%' : (t.flat_amount != null ? peso(t.flat_amount) + '/kg' : '—')}</td>
+          <td>${esc(t.applies_to)}</td>
+          <td>${esc(t.legal_basis || '—')}</td>
+          <td>${esc(t.source || '—')}</td>
+        </tr>`).join('') : '<tr><td colspan="6" class="empty-state">No tax components loaded — run datasets/seed_verified_data.py.</td></tr>';
     } catch (e) {
-      body.innerHTML = `<tr><td colspan="6" style="padding:10px 8px;color:var(--color-danger,#EF4444);">Backend unreachable.</td></tr>`;
+      body.innerHTML = `<tr><td colspan="6" class="empty-state" style="color:var(--color-danger);">Backend unreachable.</td></tr>`;
     }
   }
 
