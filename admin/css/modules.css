@@ -303,7 +303,7 @@
 
 .alerts-status-banner.info {
   background: var(--color-accent-light);
-  color: var(--color-accent-dark, #2D8A50);
+  color: var(--color-success);
   border: 1px solid rgba(76, 175, 110, 0.25);
 }
 

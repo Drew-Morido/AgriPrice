@@ -24,7 +24,7 @@
   --bg-input:             #F4F6F3;
   --text-primary:         #1C2B1E;
   --text-secondary:       #5A7060;
-  --text-muted:           #8FA896;
+  --text-muted:           #647B6B;
   --text-sidebar:         #C5D9CA;
   --border-color:         #E2EAE4;
   --border-radius-sm:     6px;
@@ -51,6 +51,9 @@
   --fs-h3: 16px; --fs-h2: 20px; --fs-h1: 24px;
   /* Pill radius */
   --radius-pill: 999px;
+  /* Tooltip chip — deliberately dark in BOTH themes for legibility */
+  --tooltip-bg: #1C2B1E;
+  --tooltip-fg: #FFFFFF;
 }
 
 html.theme-dark {
@@ -60,7 +63,7 @@ html.theme-dark {
   --bg-input:             #1a3226;
   --text-primary:         #e8f0eb;
   --text-secondary:       #9bb0a4;
-  --text-muted:           #6d8578;
+  --text-muted:           #849c8e;
   --text-sidebar:         #b8cfc4;
   --border-color:         #243d30;
   --color-accent-light:   rgba(76, 175, 110, 0.18);
@@ -580,7 +583,9 @@ html.theme-dark .pill-neutral { color: #9fb0bd; }
 .form-input:focus, .form-select:focus, .form-textarea:focus {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px var(--color-accent-light);
-  background: #fff;
+  /* Theme-aware focus surface — was hardcoded #fff, which made near-white text
+     unreadable on a white background in dark theme while typing. */
+  background: var(--bg-card);
 }
 
 .form-textarea { resize: vertical; min-height: 80px; }
@@ -636,7 +641,7 @@ html.theme-dark .pill-neutral { color: #9fb0bd; }
   position: absolute;
   bottom: calc(100% + 6px); left: 50%;
   transform: translateX(-50%);
-  background: var(--text-primary); color: #fff;
+  background: var(--tooltip-bg); color: var(--tooltip-fg);
   font-size: 11px; white-space: nowrap;
   padding: 4px 8px; border-radius: 4px;
   opacity: 0; pointer-events: none;

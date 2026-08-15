@@ -1033,6 +1033,31 @@ body.public-auth-modal-open {
   color: var(--text-muted);
 }
 
+/* Terms & Conditions modal must sit above the signup (9000) and admin-PIN (9100) modals.
+   Compound selector (the element carries both classes) raises specificity above the base
+   .lp-modal-backdrop{z-index:500}, so this wins regardless of per-page stylesheet order. */
+.lp-modal-backdrop.public-terms-backdrop {
+  z-index: 9500;
+}
+
+/* Burger dropdown menu item — uses the nav's fixed --lp-* palette (never flips with
+   the app theme) so it stays consistent with its light parent nav in light AND dark,
+   with real hover/focus states (was inline-styled with no hover, and used a theme
+   token that inverted to near-white text on a white menu in dark mode). */
+.lp-nav-menu-item {
+  color: var(--lp-text-primary, #0f1e14);
+  transition: background var(--transition-fast, 150ms ease), color var(--transition-fast, 150ms ease);
+}
+.lp-nav-menu-item:hover,
+.lp-nav-menu-item:focus-visible {
+  background: var(--lp-green-50, #edf8f3);
+  color: var(--lp-text-primary, #0f1e14);
+}
+.lp-nav-menu-item:focus-visible {
+  outline: 2px solid var(--lp-green-600, #357350);
+  outline-offset: 1px;
+}
+
 .public-auth-backdrop {
   z-index: 9000;
   opacity: 0;
