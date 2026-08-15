@@ -21,11 +21,10 @@
   <div id="settings-toast" class="settings-toast" role="status" aria-live="polite"></div>
 
   <p class="public-page-lead">
-    Customize how AgriPricePH looks and works on your device.
-    Changes are saved in your browser — no account required for basic options.
+    Your account, preferences, appearance, and data. Changes are saved in your browser on this device.
   </p>
 
-  <section class="public-card settings-section">
+  <section class="public-card settings-section" id="account">
     <h3>Account</h3>
     <div id="settings-account-card"></div>
   </section>
@@ -69,65 +68,39 @@
     <h3>Preferences</h3>
     <div class="settings-row">
       <div class="settings-row-label">
-        <strong>Charts &amp; stats view</strong>
-        <span>Default perspective when you open statistics</span>
+        <strong>Default page after login</strong>
+        <span>Where you land right after signing in</span>
       </div>
-      <select class="form-input settings-select" id="set-stats-view" aria-label="Default statistics view">
-        <option value="vendor">I am a vendor</option>
-        <option value="household">I am a household</option>
+      <select class="form-input settings-select" id="set-default-page" aria-label="Default page after login">
+        <option value="current-prices.html">Price Forecast</option>
+        <option value="rice-catalog.html">Rice Catalog</option>
+        <option value="historical.html">Price History</option>
+        <option value="statistics.html">Charts &amp; Stats</option>
       </select>
     </div>
-    <div class="settings-row settings-row-toggle">
+    <div class="settings-row">
       <div class="settings-row-label">
-        <strong>Sample data when offline</strong>
-        <span>Show example prices if the backend is not running</span>
+        <strong>Date format</strong>
+        <span>How dates appear in tables and charts</span>
       </div>
-      <label class="settings-switch">
-        <input type="checkbox" id="set-sample-fallback" checked />
-        <span class="settings-switch-ui"></span>
-      </label>
+      <select class="form-input settings-select" id="set-date-format" aria-label="Date format">
+        <option value="mdy">MM/DD/YYYY</option>
+        <option value="dmy">DD/MM/YYYY</option>
+        <option value="iso">YYYY-MM-DD</option>
+      </select>
     </div>
   </section>
 
   <section class="public-card settings-section">
-    <h3>Data connection</h3>
+    <h3>Privacy &amp; data</h3>
     <p class="settings-hint" style="margin-top:0">
-      Live prices come from the Flask backend (usually port 5000). If you use XAMPP or Live Server, set the API URL below.
+      Your account and preferences are stored only in this browser (demo mode). Nothing is uploaded.
     </p>
-    <div class="settings-row settings-row-stack">
-      <label for="set-api-base"><strong>Backend URL</strong></label>
-      <input class="form-input" type="url" id="set-api-base" placeholder="http://127.0.0.1:5000" autocomplete="off" />
-      <div class="settings-inline-actions">
-        <button type="button" class="btn btn-primary btn-sm" id="set-api-save">Save URL</button>
-        <button type="button" class="btn btn-outline btn-sm" id="set-api-test">Test connection</button>
-        <button type="button" class="btn btn-ghost btn-sm" id="set-api-reset">Use default</button>
-      </div>
-      <p id="set-api-status" class="settings-api-status"></p>
-      <p class="settings-hint">After changing the URL, <strong>reload this page</strong> so all price pages use the new address.</p>
+    <div class="settings-inline-actions" style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button type="button" class="btn btn-outline btn-sm" id="set-export-data">Export my data (JSON)</button>
+      <button type="button" class="btn btn-outline btn-sm" id="set-reset-prefs">Reset preferences</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="set-clear-data" style="color:var(--color-danger,#e0645f);">Clear saved logins</button>
     </div>
-  </section>
-
-  <section class="public-card settings-section">
-    <h3>Privacy &amp; storage</h3>
-    <p class="settings-hint" style="margin-top:0">
-      Public accounts on this site are stored locally in your browser (demo). Staff admin login uses the server.
-    </p>
-    <div class="settings-inline-actions">
-      <button type="button" class="btn btn-outline btn-sm" id="set-clear-data">Clear saved logins</button>
-      <button type="button" class="btn btn-ghost btn-sm" id="set-reset-prefs">Reset preferences</button>
-    </div>
-  </section>
-
-  <section class="public-card settings-section compact">
-    <h3>About</h3>
-    <p>
-      <strong>AgriPricePH</strong> — Rice price guide for vendors and households in the Philippines.<br />
-      Open pages: today’s prices and 3-day forecast (guest). History and charts (free account).
-    </p>
-    <p class="settings-hint" style="margin-bottom:0">
-      <a href="landpage.html">Back to home</a> ·
-      <a href="#" data-auth-open="login">Admin sign in</a>
-    </p>
   </section>
 
 </main>

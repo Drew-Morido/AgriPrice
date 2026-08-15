@@ -23,9 +23,22 @@ AgriPricePH.API = (function () {
 
   const BASE = detectBase();
 
+  /* Auto-attach the admin session token when one exists, so the admin dashboard authenticates
+     every call it makes to the now-guarded admin endpoints. Public visitors have no admin session,
+     so no header is sent and public endpoints are unaffected. */
+  function adminAuthHeaders() {
+    try {
+      const s = JSON.parse(sessionStorage.getItem('agriprice_admin_session') || 'null');
+      return s && s.token ? { Authorization: `Bearer ${s.token}` } : {};
+    } catch {
+      return {};
+    }
+  }
+
   async function get(path, opts = {}) {
     const res = await fetch(`${BASE}${path}`, {
       cache: opts.noCache ? 'no-store' : 'default',
+      headers: { ...adminAuthHeaders() },
     });
     if (!res.ok) {
       const err = new Error(`HTTP ${res.status}`);
@@ -39,6 +52,7 @@ AgriPricePH.API = (function () {
   async function getLenient(path, opts = {}) {
     const res = await fetch(`${BASE}${path}`, {
       cache: opts.noCache ? 'no-store' : 'default',
+      headers: { ...adminAuthHeaders() },
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -54,7 +68,7 @@ AgriPricePH.API = (function () {
   async function post(path, body) {
     const res = await fetch(`${BASE}${path}`, {
       method: 'POST',
-      headers: body ? { 'Content-Type': 'application/json' } : {},
+      headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...adminAuthHeaders() },
       body: body ? JSON.stringify(body) : undefined,
     });
     return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
@@ -63,14 +77,14 @@ AgriPricePH.API = (function () {
   async function put(path, body) {
     const res = await fetch(`${BASE}${path}`, {
       method: 'PUT',
-      headers: body ? { 'Content-Type': 'application/json' } : {},
+      headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...adminAuthHeaders() },
       body: body ? JSON.stringify(body) : undefined,
     });
     return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
   }
 
   async function del(path) {
-    const res = await fetch(`${BASE}${path}`, { method: 'DELETE' });
+    const res = await fetch(`${BASE}${path}`, { method: 'DELETE', headers: { ...adminAuthHeaders() } });
     return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
   }
 
@@ -104,6 +118,41 @@ AgriPricePH.API = (function () {
     historical: () => get('/api/historical-data'),
     predictions: () => getLenient('/api/predictions', { noCache: true }),
     modelStatus: () => get('/api/model-status'),
+    catalog: () => getLenient('/api/catalog', { noCache: true }),
+    taxes: () => getLenient('/api/taxes', { noCache: true }),
+    priceBrackets: (params = {}) => getLenient(
+      '/api/prices/brackets' + (Object.keys(params).length
+        ? '?' + new URLSearchParams(params).toString() : ''), { noCache: true }),
+    consumerPrice: (category, date) => getLenient(
+      '/api/consumer-price?' + new URLSearchParams(date ? { category, date } : { category }).toString(),
+      { noCache: true }),
+    tariff: (date) => getLenient(
+      '/api/tariff' + (date ? '?' + new URLSearchParams({ date }).toString() : ''), { noCache: true }),
+    tariffIndicative: (currentPrice, baselinePrice) => getLenient(
+      '/api/tariff/indicative?' + new URLSearchParams(
+        baselinePrice != null && baselinePrice !== ''
+          ? { current_price: currentPrice, baseline_price: baselinePrice }
+          : { current_price: currentPrice }).toString(), { noCache: true }),
+    tariffAdd: (body, token) => fetch(`${BASE}/api/tariff`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(body),
+    }).then(async (r) => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) })),
+    tariffAudit: (token) => fetch(`${BASE}/api/tariff/audit`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}, cache: 'no-store',
+    }).then((r) => r.json().catch(() => ({ audit: [] }))),
+    tariffSetActive: (id, active, token) => fetch(`${BASE}/api/tariff/${encodeURIComponent(id)}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ active: !!active }),
+    }).then(async (r) => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) })),
+    systemLogs: (params = {}, token) => fetch(
+      `${BASE}/api/logs` + (Object.keys(params).length ? '?' + new URLSearchParams(params).toString() : ''),
+      { headers: token ? { Authorization: `Bearer ${token}` } : {}, cache: 'no-store' },
+    ).then((r) => r.json().catch(() => ({ ready: false, logs: [] }))),
+    clearSystemLogs: (token) => fetch(`${BASE}/api/logs/clear`, {
+      method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }).then((r) => ({ ok: r.ok, status: r.status })),
     trainingStatus: () => get('/api/training-status'),
     trainingHistory: () => get('/api/training-history', { noCache: true }),
     dashboardMetrics: () => get('/api/dashboard-metrics', { noCache: true }),

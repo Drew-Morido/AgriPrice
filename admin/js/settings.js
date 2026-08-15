@@ -77,6 +77,10 @@ AgriPricePH.Settings = (function () {
       AgriPricePH.Router.navigate('alerts');
     });
     document.getElementById('set-reset-defaults-btn')?.addEventListener('click', resetDefaults);
+    // Admin logout from Settings → Account: reuse the already-wired topbar logout action.
+    document.getElementById('settings-logout-btn')?.addEventListener('click', () => {
+      document.getElementById('admin-logout-btn')?.click();
+    });
     document.getElementById('set-admin-access-code')?.addEventListener('input', (e) => {
       e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
     });

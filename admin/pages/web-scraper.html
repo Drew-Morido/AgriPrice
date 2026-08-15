@@ -21,29 +21,29 @@
 </div>
 
 <!-- ── STATS BAR (JS populates: stat-rice, stat-fuel, stat-rates, stat-lastrun) ── -->
-<div class="scraper-status-bar" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; background: transparent; padding: 0; border: none;">
-  
-  <div class="scraper-status-item" style="background: linear-gradient(135deg, #1b3d2b, #12281c); padding: 18px; border-radius: 12px; border: 1px solid #2e5941; box-shadow: 0 4px 10px rgba(0,0,0,0.15); display: flex; flex-direction: column; justify-content: center;">
-    <div class="stat-label" style="color: #a8e6cf; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">DA Rice Bulletin</div>
-    <div class="stat-value" id="stat-rice" style="font-size: 36px; font-weight: 800; margin: 8px 0; color: #ffffff;">0/8</div>
-    <div class="stat-subtext" id="missing-rice" style="font-size: 11px; color: #ffb4b4; line-height: 1.4; min-height: 30px;">Loading...</div>
+<div class="scraper-status-bar">
+
+  <div class="scraper-status-item">
+    <div class="stat-label">DA Rice Bulletin</div>
+    <div class="stat-value" id="stat-rice">0/8</div>
+    <div class="stat-subtext" id="missing-rice">Loading...</div>
   </div>
 
-  <div class="scraper-status-item" style="background: linear-gradient(135deg, #224a32, #163322); padding: 18px; border-radius: 12px; border: 1px solid #396f51; box-shadow: 0 4px 10px rgba(0,0,0,0.15); display: flex; flex-direction: column; justify-content: center;">
-    <div class="stat-label" style="color: #a8e6cf; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Fuel Records Today</div>
-    <div class="stat-value" id="stat-fuel" style="font-size: 36px; font-weight: 800; margin: 8px 0; color: #ffffff;">0/8</div>
-    <div class="stat-subtext" id="missing-fuel" style="font-size: 11px; color: #ffb4b4; line-height: 1.4; min-height: 30px;">Loading...</div>
+  <div class="scraper-status-item">
+    <div class="stat-label">Fuel Records Today</div>
+    <div class="stat-value" id="stat-fuel">0/8</div>
+    <div class="stat-subtext" id="missing-fuel">Loading...</div>
   </div>
 
-  <div class="scraper-status-item" style="background: linear-gradient(135deg, #2a5a3d, #1c3d29); padding: 18px; border-radius: 12px; border: 1px solid #458561; box-shadow: 0 4px 10px rgba(0,0,0,0.15); display: flex; flex-direction: column; justify-content: center;">
-    <div class="stat-label" style="color: #a8e6cf; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Exchange Rates Today</div>
-    <div class="stat-value" id="stat-rates" style="font-size: 36px; font-weight: 800; margin: 8px 0; color: #ffffff;">0/3</div>
-    <div class="stat-subtext" id="missing-rates" style="font-size: 11px; color: #ffb4b4; line-height: 1.4; min-height: 30px;">Loading...</div>
+  <div class="scraper-status-item">
+    <div class="stat-label">Exchange Rates Today</div>
+    <div class="stat-value" id="stat-rates">0/3</div>
+    <div class="stat-subtext" id="missing-rates">Loading...</div>
   </div>
 
-  <div class="scraper-status-item" style="background: linear-gradient(135deg, #336a49, #224a32); padding: 18px; border-radius: 12px; border: 1px solid #529c72; box-shadow: 0 4px 10px rgba(0,0,0,0.15); display: flex; flex-direction: column; justify-content: center;">
-    <div class="stat-label" style="color: #a8e6cf; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Next Auto-Scrape</div>
-    <div class="stat-value" id="stat-lastrun" style="font-size: 16px; font-weight: 600; margin-top: 10px; color: #ffffff; white-space: pre-line; line-height: 1.5;">Calculating...</div>
+  <div class="scraper-status-item">
+    <div class="stat-label">Next Auto-Scrape</div>
+    <div class="stat-value stat-value-sm" id="stat-lastrun">Calculating...</div>
   </div>
 
 </div>
@@ -93,7 +93,7 @@
         </div>
 
         <div class="schedule-item" style="display:grid;grid-template-columns:1fr 110px 160px 90px;gap:8px;align-items:center;padding:11px 12px;border-bottom:1px solid rgba(76,175,110,0.08);">
-          <span class="schedule-name">DOE Fuel Price</span>
+          <span class="schedule-name">Zigwheels Fuel</span>
           <span class="schedule-time" style="font-size:12px;">Weekly Mon</span>
           <span class="schedule-next" id="next-fuel" style="font-size:12px;">Next: —</span>
           <span id="pill-fuel" class="pill pill-green" style="text-align:center;justify-self:center;">Active</span>
@@ -126,72 +126,3 @@
 
 </div>
 
-<!-- ── LIVE DATA PREVIEW ────────────────────────────────────── -->
-<div style="margin-top:24px;">
-
-  <!-- Tab header -->
-  <div class="section-header" style="margin-bottom:12px;">
-    <div>
-      <div class="card-title">Live Scraped Data Preview</div>
-      <div class="section-subtitle" style="font-size:11px;">
-        Read from scraper CSVs — separate from historical database. Latest 10 rows each.
-      </div>
-    </div>
-
-    <!-- Tab buttons — JS ang mag-a-activate ng tamang tab kapag bumalik sa page -->
-    <div style="display:flex;gap:8px;">
-
-      <button class="btn btn-ghost btn-sm scraper-tab-btn" data-tab="rice" type="button">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
-          style="margin-right:4px;vertical-align:text-bottom;">
-          <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
-          <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
-        </svg>
-        Rice
-      </button>
-
-      <button class="btn btn-ghost btn-sm scraper-tab-btn" data-tab="fuel" type="button">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
-          style="margin-right:4px;vertical-align:text-bottom;">
-          <line x1="3" y1="22" x2="21" y2="22"/>
-          <line x1="4" y1="9" x2="14" y2="9"/>
-          <path d="M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18"/>
-          <path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V9.83a2 2 0 0 0-.59-1.42L18 5"/>
-        </svg>
-        Fuel
-      </button>
-
-      <button class="btn btn-ghost btn-sm scraper-tab-btn" data-tab="rates" type="button">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
-          style="margin-right:4px;vertical-align:text-bottom;">
-          <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-        </svg>
-        Rates
-      </button>
-
-    </div>
-  </div>
-
-  <!-- Table container — JS ang bahala sa lahat ng content dito -->
-  <div id="scraper-table-container">
-    <!-- Placeholder — palalitan ng JS kapag may data na -->
-    <div class="scraper-table-wrapper"
-      style="display:flex;align-items:center;justify-content:center;">
-      <div class="scraper-empty-state">
-        <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-          style="color:var(--text-muted,#8aad99);margin-bottom:12px;">
-          <path d="M22 12h-6l-2 3h-4l-2-3H2"/>
-          <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
-        </svg>
-        <div style="color:var(--text-muted,#8aad99);font-size:13px;">
-          No data yet. Run the scraper to collect records.
-        </div>
-      </div>
-    </div>
-  </div>
-
-</div>

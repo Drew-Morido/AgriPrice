@@ -154,11 +154,27 @@ class BufferHandler(logging.Handler):
         "DEBUG":    "INFO",
     }
 
+    @staticmethod
+    def _source_from(name: str) -> str:
+        n = (name or "").lower()
+        if "scrap" in n:
+            return "SCRAPER"
+        if "train" in n:
+            return "TRAINING"
+        if "alert" in n:
+            return "ALERTS"
+        return "SYSTEM"
+
     def emit(self, record: logging.LogRecord) -> None:
+        # Skip raw Werkzeug HTTP access lines — they are framework request noise (and carry ANSI
+        # codes), not the semantic app events System Logs / the scraper activity view want to show.
+        if record.name == "werkzeug":
+            return
         entry = {
-            "time":  datetime.now().strftime("%I:%M:%S %p"),
-            "level": self._LEVEL_MAP.get(record.levelname, "INFO"),
-            "msg":   self.format(record),
+            "time":   datetime.now().strftime("%I:%M:%S %p"),
+            "level":  self._LEVEL_MAP.get(record.levelname, "INFO"),
+            "source": self._source_from(record.name),
+            "msg":    self.format(record),
         }
         with _LOG_LOCK:
             _LOG_BUFFER.append(entry)
@@ -203,12 +219,13 @@ def _setup_logging() -> None:
     scraper_log.propagate = True
 
 
-def _add_log(level: str, msg: str) -> None:
+def _add_log(level: str, msg: str, source: str = "SYSTEM") -> None:
     """Manually push a log entry (for events that originate outside the logger)."""
     entry = {
-        "time":  datetime.now().strftime("%I:%M:%S %p"),
-        "level": level,
-        "msg":   msg,
+        "time":   datetime.now().strftime("%I:%M:%S %p"),
+        "level":  level,
+        "source": source,
+        "msg":    msg,
     }
     with _LOG_LOCK:
         _LOG_BUFFER.append(entry)
@@ -421,22 +438,6 @@ def _df_to_json_records(df: pd.DataFrame) -> list[dict]:
     return json.loads(df.to_json(orient="records"))
 
 
-def _read_csv_preview(path: str, n: int = PREVIEW_ROWS) -> list[dict]:
-    """Return the latest `n` rows from a CSV as a list of dicts, newest first."""
-    if not os.path.exists(path):
-        return []
-    try:
-        df = pd.read_csv(path)
-        if df.empty:
-            return []
-        if "Date" in df.columns:
-            df["_sort"] = pd.to_datetime(df["Date"], errors="coerce")
-            df = df.sort_values("_sort", ascending=False).drop(columns=["_sort"])
-        return _df_to_json_records(df.head(n))
-    except Exception:
-        return []
-
-
 def _row_count(path: str) -> int:
     """Fast line count of a CSV (excludes header)."""
     if not os.path.exists(path):
@@ -647,9 +648,6 @@ def api_scrape_status():
     Returns:
       logs          – buffered log lines (newest last)
       stats         – row counts, completeness check, running flag, last run info
-      preview_rice  – latest 10 rows of rice CSV
-      preview_fuel  – latest 10 rows of fuel CSV
-      preview_rates – latest 10 rows of exchange rate CSV
     """
     EXPECTED_RICE  = [
         "Local Special", "Local Premium", "Local Well Milled", "Local Regular Milled",
@@ -683,9 +681,6 @@ def api_scrape_status():
     return jsonify({
         "logs":          logs,
         "stats":         stats,
-        "preview_rice":  _read_csv_preview(PRICE_CSV),
-        "preview_fuel":  _read_csv_preview(FUEL_CSV),
-        "preview_rates": _read_csv_preview(RATE_CSV),
     })
 
 
@@ -775,7 +770,7 @@ def api_data_sources():
             'SELECT Date FROM "WS_rice_price"',
         ),
         _build_live_source(
-            "doe", "DOE – Dept. of Energy",
+            "doe", "Zigwheels (Fuel)",
             "Web Scraper (BeautifulSoup)",
             "Diesel & Fuel Prices (Weekly)",
             "https://www.zigwheels.ph/fuel-price",
@@ -816,6 +811,9 @@ def api_run_scraper():
     """
     Triggers scrape in background. Optional JSON body: {"source": "da"|"doe"|"api"}.
     """
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     payload = request.get_json(silent=True) or {}
     source = (payload.get("source") or "").strip().lower() or None
 
@@ -1649,6 +1647,9 @@ def api_training_status():
 @app.route("/api/run-training", methods=["POST"])
 def api_run_training():
     global _train_running, _train_cancel_requested
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     with _train_lock:
         if _train_running:
             return jsonify({"success": False, "message": "Training already running."}), 409
@@ -1736,10 +1737,180 @@ def api_model_status():
     })
 
 
+# ── Rice catalog: DTI categories/brands, price brackets, taxes, consumer price ──
+@app.route("/api/catalog", methods=["GET"])
+def api_catalog():
+    try:
+        from catalog_service import list_catalog
+        return jsonify(list_catalog())
+    except Exception as exc:
+        return jsonify({"ready": False, "error": str(exc), "categories": []}), 500
+
+
+@app.route("/api/taxes", methods=["GET"])
+def api_taxes():
+    try:
+        from catalog_service import list_taxes
+        return jsonify(list_taxes())
+    except Exception as exc:
+        return jsonify({"ready": False, "error": str(exc), "taxes": []}), 500
+
+
+@app.route("/api/prices/brackets", methods=["GET"])
+def api_price_brackets():
+    try:
+        from catalog_service import list_brackets
+        return jsonify(list_brackets(
+            category_key=request.args.get("category"),
+            market=request.args.get("market"),
+            date=request.args.get("date"),
+        ))
+    except Exception as exc:
+        return jsonify({"ready": False, "error": str(exc), "brackets": []}), 500
+
+
+@app.route("/api/consumer-price", methods=["GET"])
+def api_consumer_price():
+    key = request.args.get("category")
+    if not key:
+        return jsonify({"ready": True, "error": "category query param required"}), 400
+    try:
+        from catalog_service import consumer_price
+        return jsonify(consumer_price(key, request.args.get("date")))
+    except Exception as exc:
+        return jsonify({"ready": False, "error": str(exc)}), 500
+
+
+# ── Rice import tariff (quarterly, price-indexed, effective-date table) ──────────
+@app.route("/api/tariff", methods=["GET"])
+def api_tariff():
+    """Current applicable tariff + full dated schedule + FAO helper config."""
+    try:
+        from catalog_service import tariff_status
+        return jsonify(tariff_status(request.args.get("date")))
+    except Exception as exc:
+        return jsonify({"ready": False, "error": str(exc), "applicable": None, "schedule": []}), 500
+
+
+@app.route("/api/tariff", methods=["POST"])
+def api_tariff_add():
+    """Admin: append a confirmed quarterly tariff rate (from a DA certification / BOC CMO)."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    payload = request.get_json(silent=True) or {}
+    try:
+        from catalog_service import add_tariff_quarter
+        result = add_tariff_quarter(
+            rate_pct=payload.get("rate_pct"),
+            effective_start=(payload.get("effective_start") or "").strip(),
+            effective_end=(payload.get("effective_end") or "").strip() or None,
+            quarter_label=(payload.get("quarter_label") or "").strip() or None,
+            legal_basis=(payload.get("legal_basis") or "").strip() or None,
+            da_certification_url=(payload.get("da_certification_url") or "").strip() or None,
+            source=(payload.get("source") or "").strip() or None,
+            actor=_admin_client_key(),
+        )
+        return jsonify(result), (200 if result.get("ok") else 400)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route("/api/tariff/indicative", methods=["GET"])
+def api_tariff_indicative():
+    """Read-only FAO indicative-rate calculator (decision aid; DA certification is authoritative)."""
+    try:
+        from catalog_service import fao_indicative
+        cur = request.args.get("current_price")
+        base = request.args.get("baseline_price")
+        return jsonify(fao_indicative(
+            current_price=float(cur) if cur not in (None, "") else None,
+            baseline_price=float(base) if base not in (None, "") else None,
+        ))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "current_price must be a number."}), 400
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route("/api/tariff/audit", methods=["GET"])
+def api_tariff_audit():
+    """Admin: tariff change audit log."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    try:
+        from catalog_service import list_tariff_audit
+        return jsonify(list_tariff_audit(int(request.args.get("limit", 50))))
+    except Exception as exc:
+        return jsonify({"ready": False, "error": str(exc), "audit": []}), 500
+
+
+@app.route("/api/tariff/<int:tid>/status", methods=["POST"])
+def api_tariff_status(tid):
+    """Admin: activate/deactivate a tariff row. Inactive rows are kept for history but excluded
+    from applicable-tariff selection and consumer-price calculations."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    payload = request.get_json(silent=True) or {}
+    active = bool(payload.get("active"))
+    try:
+        from catalog_service import set_tariff_active
+        result = set_tariff_active(tid, active, actor=_admin_client_key())
+        if result.get("ok") and not result.get("unchanged"):
+            verb = "activated" if active else "deactivated"
+            _add_log("INFO", f"Tariff #{tid} ({result.get('quarter_label') or '?'}) {verb} "
+                             f"by {_admin_client_key()}", source="TARIFF")
+        return jsonify(result), (200 if result.get("ok") else 400)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+# ── System Logs: expose the live in-memory log buffer to the admin dashboard ────
+@app.route("/api/logs", methods=["GET"])
+def api_logs():
+    """Admin: real system activity from the in-memory buffer (newest first). In-memory only —
+    resets when the server restarts. Optional ?level= and ?limit= filters."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    with _LOG_LOCK:
+        entries = list(_LOG_BUFFER)
+    entries.reverse()  # newest first
+    level = (request.args.get("level") or "").upper().strip()
+    if level and level != "ALL":
+        want = "WARN" if level == "WARNING" else level
+        entries = [e for e in entries if (e.get("level") or "").upper() == want]
+    try:
+        limit = int(request.args.get("limit", 0))
+        if limit > 0:
+            entries = entries[:limit]
+    except (TypeError, ValueError):
+        pass
+    return jsonify({"ready": True, "logs": entries, "count": len(entries),
+                    "note": "" if entries else "No system activity recorded yet."})
+
+
+@app.route("/api/logs/clear", methods=["POST"])
+def api_logs_clear():
+    """Admin: clear the in-memory system-log buffer."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    with _LOG_LOCK:
+        _LOG_BUFFER.clear()
+    _add_log("INFO", "System logs cleared by admin.", source="AUTH")
+    return jsonify({"ok": True})
+
+
 # ── /api/import-2026 ──────────────────────────────────────────────────────────
 @app.route("/api/import-2026", methods=["POST", "GET"])
 def api_import_2026():
     """I-import / i-sync ang 2026 XLSX files papunta sa database."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     try:
         from import_2026 import import_all
         result = import_all(verbose=False)
@@ -1810,6 +1981,9 @@ def api_alerts():
 def api_alerts_evaluate():
     if not _ALERTS_AVAILABLE:
         return jsonify({"success": False, "error": _ALERTS_IMPORT_ERROR}), 503
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     try:
         result = evaluate_alerts()
         level_map = {"danger": "ERROR", "warning": "WARN", "info": "INFO", "success": "SUCCESS"}
@@ -1835,6 +2009,9 @@ def api_alerts_summary():
 def api_alerts_create_rule():
     if not _ALERTS_AVAILABLE:
         return jsonify({"success": False, "error": _ALERTS_IMPORT_ERROR}), 503
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     payload = request.get_json(silent=True) or {}
     try:
         rule = alerts_create_rule(payload)
@@ -1847,6 +2024,9 @@ def api_alerts_create_rule():
 def api_alerts_update_rule(rule_id: str):
     if not _ALERTS_AVAILABLE:
         return jsonify({"success": False, "error": _ALERTS_IMPORT_ERROR}), 503
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     payload = request.get_json(silent=True) or {}
     try:
         rule = alerts_update_rule(rule_id, payload)
@@ -1861,6 +2041,9 @@ def api_alerts_update_rule(rule_id: str):
 def api_alerts_delete_rule(rule_id: str):
     if not _ALERTS_AVAILABLE:
         return jsonify({"success": False, "error": _ALERTS_IMPORT_ERROR}), 503
+    ok_admin, resp = _require_admin()
+    if not ok_admin:
+        return resp
     ok = alerts_delete_rule(rule_id)
     if not ok:
         return jsonify({"success": False, "error": "Rule not found"}), 404
@@ -1871,6 +2054,9 @@ def api_alerts_delete_rule(rule_id: str):
 def api_alerts_toggle_rule(rule_id: str):
     if not _ALERTS_AVAILABLE:
         return jsonify({"success": False, "error": _ALERTS_IMPORT_ERROR}), 503
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     payload = request.get_json(silent=True) or {}
     active = payload.get("active") if "active" in payload else None
     rule = alerts_toggle_rule(rule_id, active)
@@ -1890,6 +2076,9 @@ def api_alerts_log():
 def api_alerts_clear_log():
     if not _ALERTS_AVAILABLE:
         return jsonify({"success": False, "error": _ALERTS_IMPORT_ERROR}), 503
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     alerts_clear_log()
     return jsonify({"success": True})
 
@@ -1920,6 +2109,9 @@ def api_get_settings():
 def api_put_settings():
     if not _SETTINGS_AVAILABLE:
         return jsonify({"success": False, "error": _SETTINGS_IMPORT_ERROR}), 503
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     payload = request.get_json(silent=True) or {}
     try:
         result = update_settings(payload)
@@ -1932,6 +2124,9 @@ def api_put_settings():
 def api_reset_settings():
     if not _SETTINGS_AVAILABLE:
         return jsonify({"success": False, "error": _SETTINGS_IMPORT_ERROR}), 503
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     try:
         result = reset_to_defaults()
         return jsonify({"success": True, **result})
@@ -1967,6 +2162,16 @@ def _admin_token_from_request():
     return (request.args.get("token") or request.headers.get("X-Admin-Token") or "").strip()
 
 
+def _require_admin():
+    """Guard for admin write endpoints. Returns (ok, error_response). When admin auth is wired,
+    a valid server-side session token is required; if the auth module is unavailable (dev), allow."""
+    if not _ADMIN_AUTH_AVAILABLE:
+        return True, None
+    if validate_session(_admin_token_from_request()):
+        return True, None
+    return False, (jsonify({"ok": False, "error": "Admin session required."}), 401)
+
+
 @app.route("/api/admin/verify-password", methods=["POST"])
 def api_admin_verify_password():
     """Verify admin username/password only (step 1 before access code)."""
@@ -2000,6 +2205,7 @@ def api_admin_verify():
     client_key = _admin_client_key()
     ok_lock, lock_msg = check_lockout(client_key)
     if not ok_lock:
+        _add_log("WARN", f"Admin login blocked (locked out) from {client_key}", source="AUTH")
         return jsonify({"success": False, "error": lock_msg}), 429
 
     payload = request.get_json(silent=True) or {}
@@ -2011,9 +2217,11 @@ def api_admin_verify():
         valid, err = verify_admin_credentials(username, password, access_code)
         if not valid:
             record_failure(client_key)
+            _add_log("WARN", f"Failed admin login for '{username or '?'}' from {client_key}", source="AUTH")
             return jsonify({"success": False, "error": err or "Invalid sign-in details."}), 401
         clear_failures(client_key)
         token, ttl_sec = create_session(client_key)
+        _add_log("INFO", f"Admin '{username}' signed in from {client_key}", source="AUTH")
         return jsonify({
             "success": True,
             "token": token,
@@ -2045,6 +2253,9 @@ def api_admin_logout():
 def api_change_password():
     if not _SETTINGS_AVAILABLE:
         return jsonify({"success": False, "error": _SETTINGS_IMPORT_ERROR}), 503
+    ok_admin, resp = _require_admin()
+    if not ok_admin:
+        return resp
     payload = request.get_json(silent=True) or {}
     current = payload.get("current", "")
     new_pw = payload.get("new", "")
@@ -2085,6 +2296,9 @@ def api_reports_history():
 def api_reports_generate():
     if not _REPORTS_AVAILABLE:
         return jsonify({"success": False, "error": _REPORTS_IMPORT_ERROR}), 503
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     payload = request.get_json(silent=True) or {}
     export_type = payload.get("type") or payload.get("export_type")
     if not export_type:
@@ -2114,6 +2328,9 @@ def api_reports_download(filename: str):
 def api_reports_delete_file(filename: str):
     if not _REPORTS_AVAILABLE:
         return jsonify({"success": False, "error": _REPORTS_IMPORT_ERROR}), 503
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     if not reports_delete_file(filename):
         return jsonify({"success": False, "error": "File not found"}), 404
     return jsonify({"success": True})

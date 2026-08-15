@@ -1,4 +1,4 @@
-/* AgriPricePH — Public site auth (vendors & households) */
+/* AgriPricePH — Public site auth (retailers) */
 window.AgriPricePH = window.AgriPricePH || {};
 
 AgriPricePH.PublicAuth = (function () {
@@ -18,9 +18,37 @@ AgriPricePH.PublicAuth = (function () {
     localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
   }
 
+  /* Single public role. Legacy accounts (vendor/household/blank) are coerced to 'retailer' at
+     read time so no existing browser-local account is locked out after the role simplification. */
+  function normalizeRole() {
+    return 'retailer';
+  }
+
+  /* Standard strong-password check + strength scoring (0–4) for the signup meter. Valid requires
+     >=8 chars with uppercase, lowercase, and a number. */
+  function passwordStrength(pw) {
+    pw = pw || '';
+    const len8 = pw.length >= 8;
+    const upper = /[A-Z]/.test(pw);
+    const lower = /[a-z]/.test(pw);
+    const num = /[0-9]/.test(pw);
+    const special = /[^A-Za-z0-9]/.test(pw);
+    const valid = len8 && upper && lower && num;
+    let score = 0;
+    if (pw.length >= 6) score = 1;
+    if (len8 && upper && lower) score = 2;
+    if (valid) score = 3;
+    if (valid && (special || pw.length >= 12)) score = 4;
+    const labels = ['Very weak', 'Weak', 'Fair', 'Strong', 'Very strong'];
+    const colors = ['#e0645f', '#e0645f', '#e0a95f', '#4CAF6E', '#2f9e5f'];
+    return { score, valid, label: labels[score], color: colors[score] };
+  }
+
   function getSession() {
     try {
-      return JSON.parse(sessionStorage.getItem(STORAGE_SESSION) || 'null');
+      const s = JSON.parse(sessionStorage.getItem(STORAGE_SESSION) || 'null');
+      if (s && typeof s === 'object') s.role = normalizeRole(s.role);
+      return s;
     } catch {
       return null;
     }
@@ -46,7 +74,19 @@ AgriPricePH.PublicAuth = (function () {
 
   function isLoggedIn() {
     const s = getSession();
-    return s && (s.role === 'vendor' || s.role === 'household');
+    return !!(s && s.email && s.role === 'retailer');
+  }
+
+  /* The page a logged-in user is sent to (post-login + when they hit the landing page). Sourced
+     from the user's saved preference (public Settings → Preferences); defaults to Price Forecast. */
+  function defaultLandingPage() {
+    const allowed = ['current-prices.html', 'rice-catalog.html', 'historical.html', 'statistics.html'];
+    try {
+      const p = JSON.parse(localStorage.getItem('agriprice_public_prefs') || 'null') || {};
+      return allowed.includes(p.defaultPage) ? p.defaultPage : 'current-prices.html';
+    } catch {
+      return 'current-prices.html';
+    }
   }
 
   function requireLogin() {
@@ -76,20 +116,59 @@ AgriPricePH.PublicAuth = (function () {
     }
   }
 
-  function signup({ name, email, password, role }) {
+  function signup({ name, email, password }) {
     if (!name || !email || !password) {
       return { ok: false, message: 'Please fill in all fields.' };
     }
-    if (password.length < 6) {
-      return { ok: false, message: 'Use a password with at least 6 characters.' };
+    if (!passwordStrength(password).valid) {
+      return { ok: false, message: 'Password must be at least 8 characters with uppercase, lowercase, and a number.' };
     }
     const users = getUsers();
     if (users.some((u) => u.email === email.toLowerCase())) {
       return { ok: false, message: 'This email is already registered. Try logging in.' };
     }
+    const role = normalizeRole();
     users.push({ name, email: email.toLowerCase(), password, role });
     saveUsers(users);
     setSession({ name, email: email.toLowerCase(), role });
+    return { ok: true };
+  }
+
+  /* Update the signed-in account's name/email (localStorage account + session). Email is the
+     login id, so a changed email must not collide with another account. */
+  function updateProfile({ name, email }) {
+    const session = getSession();
+    if (!session || !session.email) return { ok: false, message: 'You are not logged in.' };
+    name = (name || '').trim();
+    email = (email || '').trim().toLowerCase();
+    if (!name || !email) return { ok: false, message: 'Name and email are required.' };
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, message: 'Please enter a valid email address.' };
+    const users = getUsers();
+    const idx = users.findIndex((u) => u.email === session.email.toLowerCase());
+    if (idx === -1) return { ok: false, message: 'Account not found on this device.' };
+    if (email !== session.email.toLowerCase() && users.some((u) => u.email === email)) {
+      return { ok: false, message: 'That email is already used by another account.' };
+    }
+    users[idx].name = name;
+    users[idx].email = email;
+    saveUsers(users);
+    setSession({ name, email, role: normalizeRole() });
+    return { ok: true };
+  }
+
+  /* Change the signed-in account's password (verify current, enforce strong new). */
+  function changeUserPassword({ current, next }) {
+    const session = getSession();
+    if (!session || !session.email) return { ok: false, message: 'You are not logged in.' };
+    const users = getUsers();
+    const idx = users.findIndex((u) => u.email === session.email.toLowerCase());
+    if (idx === -1) return { ok: false, message: 'Account not found on this device.' };
+    if (users[idx].password !== current) return { ok: false, message: 'Your current password is incorrect.' };
+    if (!passwordStrength(next).valid) {
+      return { ok: false, message: 'New password must be at least 8 characters with uppercase, lowercase, and a number.' };
+    }
+    users[idx].password = next;
+    saveUsers(users);
     return { ok: true };
   }
 
@@ -98,7 +177,7 @@ AgriPricePH.PublicAuth = (function () {
     if (!user) {
       return { ok: false, message: 'Email or password is incorrect.' };
     }
-    setSession({ name: user.name, email: user.email, role: user.role });
+    setSession({ name: user.name, email: user.email, role: normalizeRole(user.role) });
     return { ok: true };
   }
 
@@ -165,7 +244,7 @@ AgriPricePH.PublicAuth = (function () {
     const userWrap = document.getElementById('public-topbar-user');
     const loginBtn = document.getElementById('public-btn-login');
     const signupBtn = document.getElementById('public-btn-signup');
-    const logoutBtn = document.getElementById('public-btn-logout');
+    // Logout lives only in Settings → Account (no nav logout button by design).
 
     if (loggedIn && session) {
       if (avatar) {
@@ -174,13 +253,12 @@ AgriPricePH.PublicAuth = (function () {
       }
       if (nameEl) nameEl.textContent = session.name || session.email || 'User';
       if (roleEl) {
-        roleEl.textContent = session.role === 'vendor' ? 'Vendor' : 'Household';
-        roleEl.className = 'pill ' + (session.role === 'vendor' ? 'pill-blue' : 'pill-green');
+        roleEl.textContent = 'Retailer';
+        roleEl.className = 'pill pill-blue';
       }
       setNavControl(userWrap, true);
       setNavControl(loginBtn, false);
       setNavControl(signupBtn, false);
-      setNavControl(logoutBtn, true);
     } else {
       if (avatar) {
         avatar.textContent = 'G';
@@ -194,13 +272,30 @@ AgriPricePH.PublicAuth = (function () {
       setNavControl(userWrap, false);
       setNavControl(loginBtn, true);
       setNavControl(signupBtn, true);
-      setNavControl(logoutBtn, false);
     }
 
-    if (logoutBtn && !logoutBtn.dataset.bound) {
-      logoutBtn.dataset.bound = '1';
-      logoutBtn.addEventListener('click', logout);
-    }
+    bindBurgerMenu();
+  }
+
+  // Secondary-nav burger dropdown (holds Settings). Bound once per navbar render.
+  function bindBurgerMenu() {
+    const burger = document.getElementById('public-btn-burger');
+    const menu = document.getElementById('public-nav-menu');
+    if (!burger || !menu || burger.dataset.bound) return;
+    burger.dataset.bound = '1';
+    const close = () => { menu.setAttribute('hidden', ''); burger.setAttribute('aria-expanded', 'false'); };
+    burger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (menu.hasAttribute('hidden')) {
+        menu.removeAttribute('hidden');
+        burger.setAttribute('aria-expanded', 'true');
+      } else {
+        close();
+      }
+    });
+    menu.addEventListener('click', (e) => e.stopPropagation());
+    document.addEventListener('click', close);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
   }
 
   document.addEventListener('DOMContentLoaded', () => {
@@ -218,5 +313,9 @@ AgriPricePH.PublicAuth = (function () {
     adminLogin,
     logout,
     updateTopbarUser,
+    passwordStrength,
+    updateProfile,
+    changeUserPassword,
+    defaultLandingPage,
   };
 })();

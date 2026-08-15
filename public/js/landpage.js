@@ -354,6 +354,12 @@ AgriPricePH.Landpage = (function () {
   }
 
   async function init() {
+    // The homepage stays reachable for everyone (Home button / logo). For logged-in users we just
+    // hide the "Create free account" / "Log in" CTAs — no forced redirect (post-login routing to
+    // Price Forecast lives in the auth handler, not here).
+    if (AgriPricePH.PublicAuth?.isLoggedIn?.()) {
+      document.querySelectorAll('[data-auth-open="signup"], [data-auth-open="login"]').forEach(el => el.remove());
+    }
     bindOriginToggle();
     await loadPrices();
     renderTicker();

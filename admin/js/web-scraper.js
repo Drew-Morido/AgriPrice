@@ -30,9 +30,7 @@ AgriPricePH.WebScraper = (function () {
   let _logs      = [];      // [{ time, level, msg }] — nananatili sa memory
   let _logCount  = 0;       // ilang logs na ang nakuha natin — para incremental lang
 
-  let _cache      = { rice: null, fuel: null, rates: null };
   let _cachedStats = {};   // ← FIX: i-cache ang stats para agad ma-render sa _restoreUI
-  let _activeTab = 'rice';
   let _nextRun   = null;
   let _backendOk = true;
 
@@ -45,7 +43,6 @@ AgriPricePH.WebScraper = (function () {
     _mounted = true;
     _restoreUI();
     _bindRunBtn();
-    _bindTabs();
     _poll();
   }
 
@@ -70,14 +67,6 @@ AgriPricePH.WebScraper = (function () {
         logEl.scrollTop = logEl.scrollHeight;
       }
     }
-
-    // Tab active state
-    document.querySelectorAll('.scraper-tab-btn').forEach(b => {
-      b.classList.toggle('active', b.dataset.tab === _activeTab);
-    });
-
-    // Table
-    _renderTable(_activeTab);
 
     // Button
     _syncBtn();
@@ -130,14 +119,6 @@ AgriPricePH.WebScraper = (function () {
       // ── Stats ──
       _cachedStats = data.stats || {};
       _renderStats(_cachedStats);
-
-      // ── CSV preview cache ──
-      _cache = {
-        rice:  data.preview_rice  || null,
-        fuel:  data.preview_fuel  || null,
-        rates: data.preview_rates || null,
-      };
-      _renderTable(_activeTab);
 
       // ── Schedule ──
       _updateSchedule();
@@ -209,19 +190,6 @@ AgriPricePH.WebScraper = (function () {
     }
   }
 
-  // ─── TABS ──────────────────────────────────────────────────────────────────
-  function _bindTabs() {
-    document.querySelectorAll('.scraper-tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        _activeTab = btn.dataset.tab;
-        document.querySelectorAll('.scraper-tab-btn').forEach(b =>
-          b.classList.toggle('active', b === btn)
-        );
-        _renderTable(_activeTab);
-      });
-    });
-  }
-
   // ─── STATS ─────────────────────────────────────────────────────────────────
   function _renderStats(stats) {
     // Pinaikli natin yung pangalan ng types para mag-kasya sa text sa ilalim ng card
@@ -248,7 +216,7 @@ AgriPricePH.WebScraper = (function () {
           missingEl.textContent = kind === 'rice'
             ? 'No DA bulletin in database yet. Run scraper.'
             : 'No data for today. Please run scraper.';
-          missingEl.style.color = '#ffb4b4';
+          missingEl.style.color = 'var(--color-danger)';
         }
         return;
       }
@@ -263,25 +231,25 @@ AgriPricePH.WebScraper = (function () {
           if (kind === 'rice' && dataObj.is_estimated) {
             missingEl.textContent =
               `✓ Estimated ${dataObj.latest_date} — papalitan kapag may DA bulletin na`;
-            missingEl.style.color = '#ffd97d';
+            missingEl.style.color = 'var(--color-warning)';
           } else if (kind === 'rice' && dataObj.latest_date && !dataObj.is_today && calToday) {
             missingEl.textContent =
               `✓ Complete — Bulletin ${dataObj.latest_date} (walang ${calToday} sa DA.gov.ph pa)`;
-            missingEl.style.color = '#a8e6cf';
+            missingEl.style.color = 'var(--color-success)';
           } else {
             missingEl.textContent = `✓ Complete${dateLabel ? ' — ' + dateLabel : ''}`;
-            missingEl.style.color = '#a8e6cf'; // Green
+            missingEl.style.color = 'var(--color-success)'; // Green
           }
         } else if (dataObj.count === 0) {
           missingEl.textContent = kind === 'rice'
             ? 'No rice bulletin scraped yet.'
             : 'No data found. Please run scraper.';
-          missingEl.style.color = '#ffb4b4'; // Red
+          missingEl.style.color = 'var(--color-danger)'; // Red
         } else {
           const missingShort = dataObj.missing.map(m => _SHORT_LABELS[m] || m).join(', ');
           const prefix = dateLabel ? `[${dateLabel}] ` : '';
           missingEl.textContent = prefix + 'Missing: ' + missingShort;
-          missingEl.style.color = dataObj.is_today ? '#ffb4b4' : '#ffd97d'; // Red if today, yellow if older
+          missingEl.style.color = dataObj.is_today ? 'var(--color-danger)' : 'var(--color-warning)'; // Red if today, yellow if older
         }
       }
     };
@@ -390,72 +358,6 @@ AgriPricePH.WebScraper = (function () {
     };
     tick();
     _cdTimer = setInterval(tick, 1000);
-  }
-
-  // ─── TABLE ─────────────────────────────────────────────────────────────────
-  const _SHORT = {
-    'Local Special':           'L-Special',
-    'Local Premium':           'L-Premium',
-    'Local Well Milled':       'L-Well',
-    'Local Regular Milled':    'L-Regular',
-    'Imported Special':        'I-Special',
-    'Imported Premium':        'I-Premium',
-    'Imported Well Milled':    'I-Well',
-    'Imported Regular Milled': 'I-Regular',
-    'USD_to_PHP':              'USD→PHP',
-    'THB_to_PHP':              'THB→PHP',
-    'VND_to_PHP':              'VND→PHP',
-  };
-
-  const _COLS = {
-    rice:  ['Date','Local Special','Local Premium','Local Well Milled','Local Regular Milled',
-            'Imported Special','Imported Premium','Imported Well Milled','Imported Regular Milled'],
-    fuel:  ['Date','Gasoline','RON_100','RON_97','RON_95','RON_91','Diesel','Diesel_Plus','Kerosene'],
-    rates: ['Date','USD_to_PHP','THB_to_PHP','VND_to_PHP'],
-  };
-
-  const _EMPTY_SVG = `<svg width="42" height="42" viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-    style="color:var(--text-muted,#8aad99);margin-bottom:12px;">
-    <path d="M22 12h-6l-2 3h-4l-2-3H2"/>
-    <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
-  </svg>`;
-
-  function _renderTable(tab) {
-    const el = document.getElementById('scraper-table-container');
-    if (!el) return;
-    const rows = _cache[tab];
-    if (!rows || !rows.length) {
-      el.innerHTML = `
-        <div class="scraper-table-wrapper"
-          style="display:flex;align-items:center;justify-content:center;">
-          <div class="scraper-empty-state">${_EMPTY_SVG}
-            <div style="color:var(--text-muted,#8aad99);font-size:13px;">
-              No ${tab} data yet. Run the scraper to collect records.
-            </div>
-          </div>
-        </div>`;
-      return;
-    }
-    const keys  = Object.keys(rows[0]);
-    const cols  = (_COLS[tab] || keys).filter(k => keys.includes(k));
-    // Backend already sorts newest-first — take top 10 directly, no reverse needed.
-    const top10 = rows.slice(0, 10);
-    el.innerHTML = `
-      <div class="scraper-table-wrapper">
-        <table class="scraper-data-table">
-          <thead><tr>${cols.map(c =>
-            `<th>${_esc(_SHORT[c] || c)}</th>`).join('')}</tr></thead>
-          <tbody>${top10.map((r, i) => {
-            const hl = i === 0 ? ' style="font-weight:700;color:var(--accent,#4caf6e);"' : '';
-            return `<tr${hl}>${cols.map(c => `<td>${_esc(r[c] ?? '')}</td>`).join('')}</tr>`;
-          }).join('')}</tbody>
-        </table>
-      </div>
-      <div style="padding:10px 12px;font-size:11px;font-family:var(--font-mono);
-        color:#3D6B4F;border-top:1px solid rgba(76,175,110,0.15);">
-        Showing latest ${top10.length} of ${rows.length} records — live from CSV
-      </div>`;
   }
 
   // ─── LOG HELPERS ───────────────────────────────────────────────────────────

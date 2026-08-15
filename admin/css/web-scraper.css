@@ -35,8 +35,26 @@
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
-  padding: 14px;
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
+.scraper-status-item .stat-label {
+  font-size: var(--fs-caption); font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.5px; color: var(--text-muted);
+}
+.scraper-status-item .stat-value {
+  font-size: 32px; font-weight: 700; margin: 6px 0; color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+.scraper-status-item .stat-value.stat-value-sm { font-size: 15px; font-weight: 600; font-family: var(--font-sans); white-space: pre-line; line-height: 1.4; }
+.scraper-status-item .stat-subtext {
+  font-size: var(--fs-caption); color: var(--text-muted); line-height: 1.4; min-height: 30px;
+}
+@media (max-width: 900px) { .scraper-status-bar { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .scraper-status-bar { grid-template-columns: 1fr; } }
 
 .schedule-list {
   display: flex; flex-direction: column; gap: 4px;
@@ -53,106 +71,6 @@
 .schedule-name { font-weight: 600; color: var(--text-primary); }
 .schedule-time { color: var(--text-muted); font-family: var(--font-mono); }
 .schedule-next { color: var(--color-info); font-weight: 500; }
-
-/* ---- Live Data Preview Table ---- */
-
-/* BAGONG WRAPPER PARA UNIFORM ANG HEIGHT */
-.scraper-table-wrapper {
-  width: 100%;
-  min-height: 350px; /* I-lo-lock nito yung height para hindi tumalon ang UI */
-  overflow-x: auto;
-}
-
-.scraper-data-table {
-  width: 100%;
-  min-width: max-content; /* Pipilitin niyang mag-scroll imbes na paliitin ang text ng Rice */
-  border-collapse: collapse;
-  font-size: 12px;
-  font-family: var(--font-mono);
-}
-
-.scraper-data-table thead th {
-  background: rgba(76, 175, 110, 0.08);
-  color: #4CAF6E;
-  font-weight: 700;
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  padding: 8px 12px;
-  text-align: left;
-  border-bottom: 1px solid rgba(76, 175, 110, 0.15);
-  white-space: nowrap;
-}
-
-.scraper-data-table tbody tr {
-  border-bottom: 1px solid rgba(255,255,255,0.04);
-  transition: background 0.1s;
-}
-
-.scraper-data-table tbody tr:last-child {
-  border-bottom: none;
-}
-
-.scraper-data-table tbody tr:hover {
-  background: rgba(76, 175, 110, 0.05);
-}
-
-.scraper-data-table tbody td {
-  padding: 7px 12px;
-  color: var(--text-secondary, #c5d9ca);
-  white-space: nowrap;
-}
-
-.scraper-data-table tbody td:first-child {
-  color: #3D6B4F;
-  font-size: 11px;
-}
-
-.scraper-data-table tbody tr:first-child td {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.scraper-data-table tbody tr:first-child td:first-child {
-  color: #60D4A0;
-}
-
-.scraper-empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 48px 24px;
-  text-align: center;
-}
-
-.scraper-tab-btn {
-  font-size: 11px;
-  padding: 5px 12px;
-  border-radius: var(--border-radius-sm);
-  border: 1px solid var(--border-color);
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.scraper-tab-btn.active,
-.scraper-tab-btn:hover {
-  background: rgba(76, 175, 110, 0.12);
-  border-color: rgba(76, 175, 110, 0.4);
-  color: #4CAF6E;
-}
-
-.scraper-table-loading {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 24px 16px;
-  font-size: 12px;
-  font-family: var(--font-mono);
-  color: #3D6B4F;
-}
 
 @keyframes scraper-blink {
   0%, 100% { opacity: 1; }

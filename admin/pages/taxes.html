@@ -1,0 +1,109 @@
+<div class="section-header" style="margin-bottom:16px;">
+  <div>
+    <div class="section-title">Taxes &amp; Import Charges</div>
+    <div class="section-subtitle">Import tariff schedule and consumer-price charges for imported rice</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Taxes &amp; Import Charges (imported rice)</span>
+    <span id="tax-note" style="font-size:var(--fs-caption);color:var(--text-muted);"></span>
+  </div>
+  <div class="card-body">
+    <p style="font-size:var(--fs-small);color:var(--text-muted);margin-top:0;">
+      Import charges apply to <strong>imported</strong> rice and raise the price paid by consumers.
+      Rice is <strong>VAT-exempt</strong> (agricultural product in original state, NIRC §109).
+      The rice catalog and price ranges shown to the public are on the
+      <a href="../public/rice-catalog.html" target="_blank" rel="noopener">public Rice Catalog</a> page.
+    </p>
+    <div class="table-wrap" style="overflow-x:auto;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Charge</th><th>Kind</th><th>Rate / Flat</th>
+            <th>Applies to</th><th>Legal basis</th><th>Source</th>
+          </tr>
+        </thead>
+        <tbody id="tax-body"><tr><td colspan="6" class="empty-state">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px;">
+  <div class="card-header">
+    <span class="card-title">Rice Import Tariff (quarterly, price-indexed)</span>
+    <span id="tariff-quarter" style="font-size:11px;color:var(--text-muted);"></span>
+  </div>
+  <div class="card-body">
+    <p style="font-size:12px;color:var(--text-muted);margin-top:0;">
+      The MFN rice tariff is <strong>not fixed</strong>. Under <strong>EO 105 s.2025</strong> and
+      <strong>IAGRTA Circular No. 2025-001</strong> it is reviewed <strong>every quarter</strong> and
+      moves within a <strong>15%–35%</strong> band based on the Vietnam 5%-broken price (FAO) vs a
+      March-2025 baseline. The DA posts a certification each quarter and BOC issues a Customs
+      Memorandum Order — enter that confirmed rate below when published.
+    </p>
+
+    <div id="tariff-current" style="font-size:13px;margin-bottom:10px;">Loading…</div>
+    <div id="tariff-stale" style="display:none;font-size:12px;background:#fff4e5;color:#8a5300;
+      border:1px solid #f3d9a8;border-radius:8px;padding:8px 10px;margin-bottom:10px;"></div>
+
+    <div class="table-wrap" style="overflow-x:auto;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Quarter</th><th>Rate</th><th>Effective</th><th>Legal basis</th>
+            <th>Source</th><th>Added By</th><th>Verified</th><th>Status</th><th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="tariff-body"><tr><td colspan="9" class="empty-state">Loading…</td></tr></tbody>
+      </table>
+    </div>
+
+    <details style="margin-top:14px;">
+      <summary style="cursor:pointer;font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add a confirmed quarter's rate (from DA certification / BOC CMO)</summary>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-top:10px;">
+        <label style="font-size:12px;">Rate % (15–35)
+          <input id="tf-rate" type="number" min="15" max="35" step="0.5" style="width:100%;padding:6px 8px;border-radius:8px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-color);"></label>
+        <label style="font-size:12px;">Effective start (YYYY-MM-DD)
+          <input id="tf-start" type="date" style="width:100%;padding:6px 8px;border-radius:8px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-color);"></label>
+        <label style="font-size:12px;">Effective end (YYYY-MM-DD)
+          <input id="tf-end" type="date" style="width:100%;padding:6px 8px;border-radius:8px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-color);"></label>
+        <label style="font-size:12px;">Quarter label (optional)
+          <input id="tf-label" type="text" placeholder="Q3 2026" style="width:100%;padding:6px 8px;border-radius:8px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-color);"></label>
+        <label style="font-size:12px;grid-column:1/-1;">Legal basis (EO / Circular / BOC CMO no.)
+          <input id="tf-basis" type="text" placeholder="e.g. BOC CMO No. XX-2026 per DA certification" style="width:100%;padding:6px 8px;border-radius:8px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-color);"></label>
+        <label style="font-size:12px;grid-column:1/-1;">DA certification / source URL
+          <input id="tf-url" type="url" placeholder="https://www.da.gov.ph/..." style="width:100%;padding:6px 8px;border-radius:8px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-color);"></label>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
+        <button id="tf-add" class="btn" style="padding:6px 14px;border-radius:8px;cursor:pointer;">Add rate</button>
+        <span id="tf-msg" style="font-size:12px;color:var(--text-muted);"></span>
+      </div>
+    </details>
+
+    <details style="margin-top:12px;">
+      <summary style="cursor:pointer;font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>FAO indicative-rate helper (decision aid — DA certification is authoritative)</summary>
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-top:10px;">
+        <label style="font-size:12px;">Current FAO Vietnam-5%-broken price
+          <input id="fao-current" type="number" step="0.01" style="width:180px;padding:6px 8px;border-radius:8px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-color);"></label>
+        <label style="font-size:12px;">Baseline (Mar-2025, optional)
+          <input id="fao-base" type="number" step="0.01" style="width:180px;padding:6px 8px;border-radius:8px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-color);"></label>
+        <button id="fao-go" class="btn" style="padding:6px 14px;border-radius:8px;cursor:pointer;">Compute indicative</button>
+      </div>
+      <div id="fao-result" style="font-size:12px;color:var(--text-muted);margin-top:8px;"></div>
+    </details>
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px;">
+  <div class="card-header"><span class="card-title">Consumer-Price Preview (base + import charges)</span></div>
+  <div class="card-body">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+      <select id="cp-category" style="padding:6px 10px;border-radius:8px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-color);"></select>
+      <button id="cp-go" class="btn" style="padding:6px 14px;border-radius:8px;cursor:pointer;">Compute</button>
+    </div>
+    <div id="cp-result" style="font-size:13px;color:var(--text-muted);">Pick a rice category and press Compute.</div>
+  </div>
+</div>

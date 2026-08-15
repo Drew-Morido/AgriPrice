@@ -136,6 +136,46 @@ def _arima_baseline(raw_target, i_va, seq_len, horizon, order=(1, 1, 1)) -> dict
     }
 
 
+def _to_peso(scaled_vals, scaler, target_idx):
+    """Inverse-transform scaled target values back to PHP/kg."""
+    scale = scaler.scale_[target_idx]
+    mn = scaler.min_[target_idx]
+    return (np.asarray(scaled_vals) - mn) / scale
+
+
+def _extra_metrics(y_level_test, level_pred, scaler, target_idx) -> dict:
+    """MAPE (%) and R^2 in peso space, complementing MAE/RMSE."""
+    yt = _to_peso(y_level_test, scaler, target_idx).ravel()
+    yp = _to_peso(level_pred, scaler, target_idx).ravel()
+    mask = np.abs(yt) > 1e-9
+    mape = float(np.mean(np.abs((yt[mask] - yp[mask]) / yt[mask])) * 100.0) if mask.any() else None
+    ss_res = float(np.sum((yt - yp) ** 2))
+    ss_tot = float(np.sum((yt - np.mean(yt)) ** 2))
+    r2 = (1.0 - ss_res / ss_tot) if ss_tot > 1e-12 else None
+    return {
+        "mape_pct": round(mape, 4) if mape is not None else None,
+        "r2": round(r2, 4) if r2 is not None else None,
+    }
+
+
+def _rolling_eval(y_level_test, level_pred, scaler, target_idx, k: int = 5) -> dict | None:
+    """Rolling-origin evaluation: MAE across K chronological blocks of the held-out test set
+    (fixed model, no refit) — a cheap temporal-robustness check. Reports per-block MAE + mean/std."""
+    scale = scaler.scale_[target_idx]
+    per_sample = (np.abs(y_level_test - level_pred) / scale).mean(axis=1)  # peso MAE per test point
+    n = len(per_sample)
+    if n < 4:
+        return None
+    k = min(k, n)
+    blocks = np.array_split(per_sample, k)
+    maes = [round(float(b.mean()), 4) for b in blocks if len(b)]
+    return {
+        "method": "blocked rolling-origin over held-out test (no refit)",
+        "k": len(maes), "block_mae": maes,
+        "mean": round(float(np.mean(maes)), 4), "std": round(float(np.std(maes)), 4),
+    }
+
+
 def _shock_metrics(y_level_test, level_pred, anchors_test, scaler, target_idx, pct=90) -> dict | None:
     """LSTM vs persistence on the most volatile test points (where the price actually moved).
 
@@ -326,6 +366,8 @@ def _train_one_target(df, target: str, use_tensorflow: bool) -> dict | None:
     adf_p = _adf_pvalue(sub[target].values)
     arima = _arima_baseline(sub[target].values.astype(float), i_va, SEQ_LEN, HORIZON)
     shock = _shock_metrics(y_level_test, level_pred, anchors_test, scaler, target_idx)
+    extra = _extra_metrics(y_level_test, level_pred, scaler, target_idx)
+    rolling = _rolling_eval(y_level_test, level_pred, scaler, target_idx)
 
     mean_price = float(sub[target].mean())
     accuracy = max(0.0, min(99.9, 100.0 - (metrics["mae_peso"] / max(mean_price, 1) * 100)))
@@ -337,6 +379,9 @@ def _train_one_target(df, target: str, use_tensorflow: bool) -> dict | None:
         "delta_mode": DELTA_MODE,
         "mae_peso": round(metrics["mae_peso"], 4),
         "rmse_peso": round(metrics["rmse_peso"], 4),
+        "mape_pct": extra["mape_pct"],
+        "r2": extra["r2"],
+        "rolling_eval": rolling,
         "accuracy_pct": round(accuracy, 2),
         "baseline_mae_peso": round(baseline["mae_peso"], 4),
         "baseline_rmse_peso": round(baseline["rmse_peso"], 4),
@@ -435,6 +480,9 @@ def main():
         "backend": primary.get("backend"),
         "mae_peso": primary.get("mae_peso"),
         "rmse_peso": primary.get("rmse_peso"),
+        "mape_pct": primary.get("mape_pct"),
+        "r2": primary.get("r2"),
+        "rolling_eval": primary.get("rolling_eval"),
         "accuracy_pct": avg_accuracy,
         "primary_accuracy_pct": primary.get("accuracy_pct"),
         "avg_accuracy_pct": avg_accuracy,

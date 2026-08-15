@@ -87,6 +87,16 @@ AgriPricePH.Metrics = (function () {
       if (sn) sn.textContent = `Shock days = top ${100 - (shock.pct ?? 90)}% most volatile test days (price moved ≥ ${peso(shock.threshold_peso)} from last value); n=${shock.count}. This is the "lead-time awareness" use case where the naive baseline is weakest.`;
     }
 
+    const extra = document.getElementById('m-extra');
+    if (extra) {
+      const re = primary.rolling_eval;
+      const bits = [];
+      if (primary.mape_pct != null) bits.push(`MAPE ${primary.mape_pct}%`);
+      if (primary.r2 != null) bits.push(`R² ${Number(primary.r2).toFixed(3)} (high because prices trend — persistence scores similarly; judge value by MAE vs baseline)`);
+      if (re) bits.push(`rolling-origin MAE ${re.mean}±${re.std} over ${re.k} test blocks`);
+      extra.textContent = bits.join('  ·  ');
+    }
+
     const body = document.getElementById('m-per-type');
     if (body) {
       const rows = Object.entries(meta.targets).map(([key, t]) => {
@@ -99,11 +109,13 @@ AgriPricePH.Metrics = (function () {
           <td style="padding:6px 8px;">${peso(t.mae_peso)}</td>
           <td style="padding:6px 8px;">${peso(t.baseline_mae_peso)}</td>
           <td style="padding:6px 8px;">${t.arima ? peso(t.arima.mae_peso) : '—'}</td>
+          <td style="padding:6px 8px;">${t.mape_pct != null ? t.mape_pct + '%' : '—'}</td>
+          <td style="padding:6px 8px;">${t.r2 != null ? Number(t.r2).toFixed(3) : '—'}</td>
           <td style="padding:6px 8px;">${shkCell}</td>
           <td style="padding:6px 8px;">${t.accuracy_pct != null ? t.accuracy_pct + '%' : '—'}</td>
         </tr>`;
       }).join('');
-      body.innerHTML = rows || '<tr><td colspan="6" style="padding:10px 8px;color:var(--text-muted);">No trained model yet — run Training first.</td></tr>';
+      body.innerHTML = rows || '<tr><td colspan="8" style="padding:10px 8px;color:var(--text-muted);">No trained model yet — run Training first.</td></tr>';
     }
   }
 
@@ -169,36 +181,125 @@ AgriPricePH.Correlation = (function () {
    ════════════════════════════════════════════ */
 
 AgriPricePH.SystemLogs = (function () {
+  // Real system activity from the backend in-memory buffer (GET /api/logs). In-memory only, so it
+  // resets when the server restarts. No mock data.
+  let _logs = [];
+  let _filter = 'ALL';
+  let _text = '';
+  let _loading = false;
+  let _error = '';
+  let _timer = null;
+
+  const EMPTY_STYLE = 'padding:22px 14px;text-align:center;color:var(--text-muted,#8aa0a8);font-size:13px;';
+
+  function adminToken() {
+    try { return JSON.parse(sessionStorage.getItem('agriprice_admin_session') || 'null')?.token || ''; }
+    catch { return ''; }
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  }
+
+  // Buffer levels are INFO/WARN/ERROR; the UI uses WARNING. Map for display + filtering.
+  function dispLevel(l) {
+    const v = String(l || '').toUpperCase();
+    return v === 'WARN' ? 'WARNING' : v;
+  }
+
+  function render() {
+    const body = document.getElementById('log-viewer-body');
+    if (!body) return;
+    if (_loading && !_logs.length) { body.innerHTML = `<div style="${EMPTY_STYLE}">Loading logs…</div>`; return; }
+    if (_error) { body.innerHTML = `<div style="${EMPTY_STYLE}">${esc(_error)}</div>`; return; }
+
+    const q = _text.toLowerCase();
+    const cls = { INFO: 'le-level-INFO', WARNING: 'le-level-WARNING', ERROR: 'le-level-ERROR', SUCCESS: 'le-level-SUCCESS' };
+    const rows = _logs.filter(l => {
+      const lv = dispLevel(l.level);
+      if (_filter !== 'ALL' && lv !== _filter) return false;
+      if (q && !(`${l.msg || ''} ${l.source || ''}`.toLowerCase().includes(q))) return false;
+      return true;
+    });
+    if (!rows.length) {
+      const msg = _logs.length ? 'No logs match the current filter.' : 'No system activity recorded yet.';
+      body.innerHTML = `<div style="${EMPTY_STYLE}">${msg}</div>`;
+      return;
+    }
+    body.innerHTML = rows.map(l => {
+      const lv = dispLevel(l.level);
+      return `
+        <div class="log-entry">
+          <span class="le-time">${esc(l.time)}</span>
+          <span class="le-source">[${esc(l.source || 'SYSTEM')}]</span>
+          <span class="${cls[lv] || 'le-level-INFO'}">${lv}</span>
+          <span class="le-msg">${esc(l.msg)}</span>
+        </div>`;
+    }).join('');
+  }
+
+  async function load() {
+    _loading = true; _error = ''; render();
+    try {
+      const d = await AgriPricePH.API.systemLogs({}, adminToken());
+      if (d && d.ready) { _logs = d.logs || []; _error = ''; }
+      else { _error = 'Couldn’t load logs — admin session required, or the backend returned an error.'; }
+    } catch {
+      _error = 'Couldn’t load logs — backend unreachable.';
+    }
+    _loading = false; render();
+  }
+
+  function exportLogs() {
+    const blob = new Blob([JSON.stringify(_logs, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `system-logs-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function clearLogs() {
+    if (!confirm('Clear all system logs? This cannot be undone.')) return;
+    try {
+      const res = await AgriPricePH.API.clearSystemLogs(adminToken());
+      if (res.ok) { _logs = []; render(); }
+      else { alert(res.status === 401 ? 'Admin session required — please re-login.' : 'Could not clear logs.'); }
+    } catch { alert('Backend unreachable.'); }
+  }
 
   function init() {
-    renderLogs('ALL');
+    _filter = 'ALL'; _text = '';
     // Scoped to #page-outlet — router injects pages here, no per-page IDs
     document.querySelectorAll('#page-outlet .log-filter-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('#page-outlet .log-filter-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        renderLogs(btn.dataset.filter);
+        _filter = btn.dataset.filter || 'ALL';
+        render();
       });
     });
+    const search = document.getElementById('log-search');
+    if (search) search.addEventListener('input', () => { _text = search.value || ''; render(); });
+    document.getElementById('log-export-btn')?.addEventListener('click', exportLogs);
+    document.getElementById('log-clear-btn')?.addEventListener('click', clearLogs);
+
+    load();
+    // Light auto-refresh; self-cancels once the page is navigated away (element gone).
+    clearInterval(_timer);
+    _timer = setInterval(() => {
+      if (!document.getElementById('log-viewer-body')) { clearInterval(_timer); _timer = null; return; }
+      load();
+    }, 10000);
   }
 
-  function renderLogs(filter) {
-    const body = document.getElementById('log-viewer-body');
-    if (!body) return;
-    const cls = { INFO: 'le-level-INFO', WARNING: 'le-level-WARNING', ERROR: 'le-level-ERROR', SUCCESS: 'le-level-SUCCESS' };
-    body.innerHTML = AgriPricePH.Data.systemLogs
-      .filter(l => filter === 'ALL' || l.level === filter)
-      .map(l => `
-        <div class="log-entry">
-          <span class="le-time">${l.time}</span>
-          <span class="le-source">[${l.source}]</span>
-          <span class="${cls[l.level] || 'le-level-INFO'}">${l.level}</span>
-          <span class="le-msg">${l.msg}</span>
-        </div>
-      `).join('');
+  function destroy() {
+    clearInterval(_timer); _timer = null;
   }
 
-  return { init };
+  return { init, destroy };
 })();
 
 

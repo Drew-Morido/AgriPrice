@@ -10,11 +10,14 @@ AgriPricePH.PublicShell = (function () {
     <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
   </svg>`;
 
+  // Primary nav — Settings is intentionally NOT here (it lives in the burger menu for logged-in
+  // users). Keeping it out of NAV_ITEMS is what makes it consistently absent on every page.
   const NAV_ITEMS = [
+    { id: 'home', href: 'landpage.html', label: 'Home' },
     { id: 'current', href: 'current-prices.html', label: 'Price Forecast' },
+    { id: 'catalog', href: 'rice-catalog.html', label: 'Rice Catalog' },
     { id: 'historical', href: 'historical.html', label: 'Price History' },
     { id: 'statistics', href: 'statistics.html', label: 'Charts & Stats' },
-    { id: 'settings', href: 'settings.html', label: 'Settings' },
   ];
 
   function isAdminPath() {
@@ -47,12 +50,26 @@ AgriPricePH.PublicShell = (function () {
             ${links}
           </ul>
           <div class="nav-actions" id="public-auth-buttons">
-            <div class="lp-nav-user" id="public-topbar-user" hidden>
+            <div class="lp-nav-user" id="public-topbar-user" hidden style="display:flex;align-items:center;gap:10px;position:relative;">
               <span class="lp-nav-user-name" id="public-user-name">Guest</span>
+              <a href="settings.html#account" class="lp-nav-profile" id="public-btn-profile" title="Account settings" aria-label="Account settings"
+                 style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;border:1px solid var(--lp-border-md,#cfe0d4);background:var(--lp-green-50,#e8f3ec);color:var(--lp-green-600,#2d6a4f);text-decoration:none;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+              </a>
+              <button type="button" class="lp-nav-burger" id="public-btn-burger" aria-label="Menu" aria-haspopup="true" aria-expanded="false"
+                 style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;border:1px solid var(--lp-border-md,#cfe0d4);background:var(--lp-bg,#fff);color:var(--lp-text-primary,#1f3d2c);cursor:pointer;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+              </button>
+              <div class="lp-nav-menu" id="public-nav-menu" hidden
+                 style="position:absolute;top:44px;right:0;min-width:170px;background:var(--lp-bg,#fff);border:1px solid var(--lp-border-md,#cfe0d4);border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,0.14);padding:6px;z-index:60;">
+                <a href="settings.html" id="public-menu-settings" class="lp-nav-menu-item" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;text-decoration:none;font-size:13px;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                  Settings
+                </a>
+              </div>
             </div>
             <button type="button" class="lp-nav-btn lp-nav-btn--ghost" id="public-btn-login">Log in</button>
             <button type="button" class="lp-nav-btn lp-nav-btn--primary" id="public-btn-signup">Sign up free →</button>
-            <button type="button" class="lp-nav-btn lp-nav-btn--ghost" id="public-btn-logout" hidden>Log out</button>
           </div>
         </div>
       </nav>

@@ -4,15 +4,16 @@ AgriPricePH.Router = (function () {
 
   const routes = {
     'dashboard':    { title: 'Dashboard Overview',       module: 'Dashboard' },
-    'predictions':  { title: 'Live Predictions',         module: 'Predictions' },
+    'predictions':  { title: 'Price Forecast',           module: 'Predictions' },
     'data-sources': { title: 'Data Sources',             module: 'DataSources' },
-    'historical':   { title: 'Historical Data',          module: 'HistoricalData' },
+    'historical':   { title: 'Price History',            module: 'HistoricalData' },
     'web-scraper':  { title: 'Web Scraper',              module: 'WebScraper' },
     'lstm-model':   { title: 'LSTM Model',               module: 'LSTMModel' },
     'training':     { title: 'Model Training',           module: 'Training' },
     'metrics':      { title: 'Performance Metrics',      module: 'Metrics' },
     'correlation':  { title: 'Correlation Analysis',     module: 'Correlation' },
     'reports':      { title: 'Reports & Export',         module: 'Reports' },
+    'taxes':        { title: 'Taxes & Import Charges',     module: 'Taxes' },
     'alerts':       { title: 'Price Alerts',             module: 'Alerts' },
     'settings':     { title: 'System Settings',          module: 'Settings' },
     'logs':         { title: 'System Logs',              module: 'SystemLogs' },
@@ -111,8 +112,27 @@ AgriPricePH.Router = (function () {
   }
 
   function init() {
+    const sidebar = document.querySelector('.sidebar');
+    const burger = document.getElementById('admin-burger');
+    const closeSidebar = () => {
+      sidebar?.classList.remove('open');
+      burger?.setAttribute('aria-expanded', 'false');
+    };
+    if (burger && sidebar) {
+      burger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const open = sidebar.classList.toggle('open');
+        burger.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      document.addEventListener('click', (e) => {
+        if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && !burger.contains(e.target)) {
+          closeSidebar();
+        }
+      });
+    }
+
     document.querySelectorAll('.nav-item[data-route]').forEach(el => {
-      el.addEventListener('click', () => navigate(el.dataset.route));
+      el.addEventListener('click', () => { navigate(el.dataset.route); closeSidebar(); });
     });
 
     const hash    = window.location.hash.replace('#', '');
