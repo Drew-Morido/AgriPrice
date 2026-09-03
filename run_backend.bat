@@ -2,6 +2,16 @@
 title AgriPricePH Backend
 cd /d "%~dp0"
 
+REM Optional first argument = URL to open once the server is ready.
+REM Example: run_backend.bat http://127.0.0.1:5000/public/landpage.html
+if not "%~1"=="" (
+  set "OPEN_URL=%~1"
+) else if not "%OPEN_URL%"=="" (
+  REM keep env override
+) else (
+  set "OPEN_URL=http://127.0.0.1:5000/admin/login.html"
+)
+
 echo.
 echo ========================================
 echo   AgriPricePH - Start Backend (API)
@@ -32,6 +42,18 @@ if not exist "api\app.py" (
   exit /b 1
 )
 
+REM --- If backend is already up, just open the browser ---
+powershell -NoProfile -Command "try { $r = Invoke-WebRequest -Uri 'http://127.0.0.1:5000/api/health' -UseBasicParsing -TimeoutSec 2; if ($r.StatusCode -eq 200) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
+if %errorlevel%==0 (
+  echo Backend is already running on port 5000.
+  echo Opening %OPEN_URL%
+  start "" "%OPEN_URL%"
+  echo.
+  echo You can use the app now. Close this window if you did not start the server here.
+  pause
+  exit /b 0
+)
+
 cd api
 
 echo Starting server... (first start may take 10-30 seconds)
@@ -40,9 +62,13 @@ echo   Public site:  http://127.0.0.1:5000/public/landpage.html
 echo   Admin login:  http://127.0.0.1:5000/admin/login.html
 echo   Health check: http://127.0.0.1:5000/api/health
 echo.
+echo The browser will open automatically when the server is ready.
 echo Keep this window OPEN while using the app.
 echo Press Ctrl+C to stop the server.
 echo.
+
+REM Wait for /api/health, then open the browser (runs in parallel with app.py below).
+start "AgriPricePH Browser" /MIN cmd /c "powershell -NoProfile -Command "$url='%OPEN_URL%'; while ($true) { try { $r = Invoke-WebRequest -Uri 'http://127.0.0.1:5000/api/health' -UseBasicParsing -TimeoutSec 2; if ($r.StatusCode -eq 200) { Start-Process $url; exit 0 } } catch { Start-Sleep -Seconds 2 } }""
 
 %PY% app.py
 if errorlevel 1 (

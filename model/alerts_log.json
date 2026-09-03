@@ -180,5 +180,57 @@
     "condition": "change_up",
     "created_at": "2026-08-12T01:29:15",
     "read": false
+  },
+  {
+    "id": "log-ae7303ac847a",
+    "rule_id": "rule-spike",
+    "type": "warning",
+    "title": "Price Alert: Large 3-Day Price Spike",
+    "desc": "Imported Well-Milled 3-day change is +7.94% — exceeds +5.0% threshold.",
+    "rice_key": "impWellMilled",
+    "price": 51.81,
+    "threshold": 5.0,
+    "condition": "change_up",
+    "created_at": "2026-09-01T22:07:40",
+    "read": false
+  },
+  {
+    "id": "log-65f09bcc77e2",
+    "rule_id": "rule-spike",
+    "type": "warning",
+    "title": "Price Alert: Large 3-Day Price Spike",
+    "desc": "Imported Regular 3-day change is +12.42% — exceeds +5.0% threshold.",
+    "rice_key": "impRegular",
+    "price": 47.78,
+    "threshold": 5.0,
+    "condition": "change_up",
+    "created_at": "2026-09-01T22:07:40",
+    "read": false
+  },
+  {
+    "id": "log-a2ed024d6e86",
+    "rule_id": "rule-spike",
+    "type": "warning",
+    "title": "Price Alert: Large 3-Day Price Spike",
+    "desc": "Imported Premium 3-day change is +16.23% — exceeds +5.0% threshold.",
+    "rice_key": "impPremium",
+    "price": 59.74,
+    "threshold": 5.0,
+    "condition": "change_up",
+    "created_at": "2026-09-01T22:07:40",
+    "read": false
+  },
+  {
+    "id": "log-94aa3f231fca",
+    "rule_id": "rule-spike",
+    "type": "warning",
+    "title": "Price Alert: Large 3-Day Price Spike",
+    "desc": "Imported Regular 3-day change is +6.47% — exceeds +5.0% threshold.",
+    "rice_key": "impRegular",
+    "price": 45.25,
+    "threshold": 5.0,
+    "condition": "change_up",
+    "created_at": "2026-09-02T18:55:51",
+    "read": false
   }
 ]

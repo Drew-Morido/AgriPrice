@@ -161,7 +161,10 @@ def _get_keras(path: str):
         if path not in _KERAS_CACHE:
             import tensorflow as tf
 
+            from keras_compat import apply_keras_load_compat
+
             os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
+            apply_keras_load_compat()
             _KERAS_CACHE[path] = tf.keras.models.load_model(path)
         return _KERAS_CACHE[path]
 
