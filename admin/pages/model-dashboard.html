@@ -1,0 +1,136 @@
+<div class="mdl-view">
+
+  <div class="mdl-page-header" style="justify-content:flex-end;">
+    <div class="mdl-header-actions">
+      <span class="mdl-chip mdl-tooltip" id="mdl-health-chip" tabindex="0">
+        <span class="mdl-pulse-dot"></span> <span id="mdl-health-text">Checking model…</span>
+        <span class="mdl-tooltip-text" id="mdl-health-pop">Loading model status…</span>
+      </span>
+      <button class="mdl-btn-ghost" onclick="window.print()"><i class="ti ti-printer"></i> Export report</button>
+    </div>
+  </div>
+
+  <!-- METRICS -->
+  <div class="mdl-metrics-grid">
+    <div class="mdl-metric-card">
+      <div class="mdl-metric-title mdl-tooltip">
+        Average Forecast Error
+        <i class="ti ti-info-circle mdl-tooltip-icon"></i>
+        <span class="mdl-tooltip-text"><strong>LSTM MAE:</strong> average forecast error per kg on the held-out test set for the primary classification (Local Well-Milled). Represents normal day-to-day accuracy.</span>
+      </div>
+      <div class="mdl-metric-value" id="mdl-mae">—</div>
+      <div class="mdl-metric-delta flat" id="mdl-mae-delta">Loading…</div>
+    </div>
+    <div class="mdl-metric-card">
+      <div class="mdl-metric-title mdl-tooltip">
+        Outlier Sensitivity
+        <i class="ti ti-info-circle mdl-tooltip-icon"></i>
+        <span class="mdl-tooltip-text"><strong>LSTM RMSE:</strong> penalizes large outlier errors more heavily than MAE. A much higher RMSE than MAE means occasional big misses.</span>
+      </div>
+      <div class="mdl-metric-value" id="mdl-rmse">—</div>
+      <div class="mdl-metric-delta flat" id="mdl-rmse-delta">Loading…</div>
+    </div>
+    <div class="mdl-metric-card">
+      <div class="mdl-metric-title mdl-tooltip">
+        vs. Naive Baseline
+        <i class="ti ti-info-circle mdl-tooltip-icon"></i>
+        <span class="mdl-tooltip-text"><strong>Baseline MAE (persistence):</strong> the error if we simply guessed tomorrow's price would equal today's price. At this 3-day horizon the LSTM tracks this baseline closely rather than beating it outright.</span>
+      </div>
+      <div class="mdl-metric-value" id="mdl-baseline">—</div>
+      <div class="mdl-metric-delta flat" id="mdl-baseline-delta">Loading…</div>
+    </div>
+    <div class="mdl-metric-card">
+      <div class="mdl-metric-title mdl-tooltip">
+        Trend Stability
+        <i class="ti ti-info-circle mdl-tooltip-icon"></i>
+        <span class="mdl-tooltip-text"><strong>ADF p-value:</strong> Augmented Dickey-Fuller stationarity test on the target price series. p &lt; 0.05 means a reliable, stable trend; higher means the series is close to a random walk.</span>
+      </div>
+      <div class="mdl-metric-value" id="mdl-adf">—</div>
+      <div class="mdl-metric-delta flat" id="mdl-adf-delta">Loading…</div>
+    </div>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="mdl-content-grid">
+    <div class="mdl-card">
+      <div class="mdl-card-header" style="margin-bottom:14px;">Forecast vs Actual Prices</div>
+      <div class="mdl-chart-controls">
+        <div class="mdl-chart-select-group">
+          <label for="mdl-class-select" class="mdl-chart-select-lbl">Classification</label>
+          <select id="mdl-class-select" class="mdl-chart-select">
+            <option value="locSpecial">Local Special</option>
+            <option value="locPremium">Local Premium</option>
+            <option value="locWellMilled" selected>Local Well-Milled</option>
+            <option value="locRegular">Local Regular</option>
+            <option value="impSpecial">Imported Special</option>
+            <option value="impPremium">Imported Premium</option>
+            <option value="impWellMilled">Imported Well-Milled</option>
+            <option value="impRegular">Imported Regular</option>
+          </select>
+        </div>
+        <div class="mdl-seg" id="mdl-range-seg">
+          <button type="button" data-range="7">7D</button>
+          <button type="button" data-range="30" class="active">30D</button>
+          <button type="button" data-range="90">90D</button>
+        </div>
+      </div>
+      <div class="mdl-subtitle" id="mdl-chart-sub" style="margin-bottom:14px;">Local Well-Milled · last 30 days</div>
+      <div><canvas id="mdl-forecast-chart" height="230"></canvas></div>
+      <p class="mdl-chart-note"><i class="ti ti-info-circle"></i> The dashed line simulates typical deviation using this classification's known MAE — the backend doesn't persist a day-by-day prediction log to plot literal historical forecasts.</p>
+      <div class="mdl-chart-click-summary" id="mdl-chart-summary">
+        <i class="ti ti-hand-click"></i> Hover a point for a quick look, or click it to pin the summary here.
+      </div>
+    </div>
+    <div class="mdl-card">
+      <div class="mdl-card-header">
+        <span class="mdl-tooltip">
+          Error Distribution (₱)
+          <i class="ti ti-info-circle mdl-tooltip-icon"></i>
+          <span class="mdl-tooltip-text">Modeled from this classification's known MAE/RMSE — the backend doesn't log individual day-by-day residuals, so this estimates the shape rather than showing a measured histogram.</span>
+        </span>
+      </div>
+      <div><canvas id="mdl-error-chart" height="230"></canvas></div>
+      <div class="mdl-err-stats-grid" id="mdl-err-stats"></div>
+      <div class="mdl-err-insight" id="mdl-err-insight"></div>
+    </div>
+  </div>
+
+  <!-- CLASSIFICATION TABLE -->
+  <div class="mdl-card">
+    <div class="mdl-table-toolbar">
+      <div class="mdl-card-header" style="margin-bottom:0;">Granular Accuracy by Rice Classification</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <div class="mdl-seg" id="mdl-status-seg">
+          <button type="button" data-filter="all" class="active">All</button>
+          <button type="button" data-filter="optimal">Optimal</button>
+          <button type="button" data-filter="review">Needs review</button>
+        </div>
+        <div class="mdl-search-box">
+          <i class="ti ti-search"></i>
+          <input type="text" id="mdl-table-search" placeholder="Search classification…">
+        </div>
+      </div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th data-key="name">Classification <i class="ti ti-arrows-sort mdl-sort-arrow"></i></th>
+            <th data-key="err">Avg Error (₱) <i class="ti ti-arrows-sort mdl-sort-arrow"></i></th>
+            <th data-key="bench">Benchmark (₱) <i class="ti ti-arrows-sort mdl-sort-arrow"></i></th>
+            <th data-key="mape">MAPE % <i class="ti ti-arrows-sort mdl-sort-arrow"></i></th>
+            <th data-key="acc">Accuracy <i class="ti ti-arrows-sort mdl-sort-arrow"></i></th>
+            <th data-key="status">
+              <span class="mdl-tooltip" tabindex="0">Status <i class="ti ti-arrows-sort mdl-sort-arrow"></i>
+                <i class="ti ti-info-circle mdl-tooltip-icon"></i>
+                <span class="mdl-tooltip-text" style="text-transform:none;font-weight:400;">"Optimal" means MAE is within 10% of the naive baseline; "Needs review" means it's tracking more than 10% behind — a candidate to retrain first.</span>
+              </span>
+            </th>
+          </tr>
+        </thead>
+        <tbody id="mdl-class-tbody"><tr><td colspan="6" style="text-align:center;color:var(--mdl-ink4);padding:26px;">Loading model metrics…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>

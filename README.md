@@ -59,7 +59,7 @@ AgriPricePH/
 
 ```bash
 py -3.13 -m pip install -r requirements.txt
-py -3.13 -m pip install tensorflow   # optional — without it, the sklearn MLP fallback is used
+py -3.13 -m pip install tensorflow==2.20.0   # optional, version-pinned — without it, the sklearn MLP fallback is used
 ```
 
 ### 2. Build the database (first-time setup)
@@ -86,15 +86,16 @@ Or double-click `run_backend.bat`. Then verify: <http://127.0.0.1:5000/api/healt
 ### 4. Open the app
 
 - **Recommended (same-origin, no CORS):** <http://127.0.0.1:5000/> once the backend is running — Flask serves both sites.
-- **Via XAMPP / Live Server:** `public/landpage.html` (public) and `admin/login.html` (admin), with the Flask API still running on port 5000.
+- **Via XAMPP / Live Server:** `public/landpage.html` for both public and admin — there's no separate admin login page; sign in from its "Log in" button — with the Flask API still running on port 5000.
 
 ---
 
 ## Admin sign-in
 
+Admin sign-in shares the public site's unified login modal (click **Log in** on `public/landpage.html`). Enter the admin username/password; a 6-digit access-code prompt follows automatically before you're redirected into `admin/index.html`.
+
 | Field | Default |
 |-------|---------|
-| URL | `admin/login.html` |
 | Username | `admin` |
 | Password | `Admin@123` |
 | Security code | `123456` |

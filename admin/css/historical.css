@@ -72,3 +72,200 @@
   width: 10px; height: 10px;
   border-radius: 2px;
 }
+
+#hist-main-chart { cursor: pointer; }
+
+/* ---- Table caption (mirrors the category + date range currently selected above) ---- */
+.hist-table-sub { font-size: 11.5px; color: var(--text-muted); margin: 2px 0 0; }
+
+/* ---- Click-to-compare summary below the chart ---- */
+.hist-click-summary-wrap {
+  border-top: 1px solid var(--border-color);
+  padding-top: 16px;
+}
+.hist-click-hint { font-size: 12px; color: var(--text-muted); margin: 0; }
+.hist-click-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+.hist-click-date { font-weight: 700; font-size: 14px; color: var(--text-primary); }
+.hist-click-sub { font-size: 11px; color: var(--text-muted); }
+.hist-click-rows { display: flex; flex-direction: column; gap: 6px; }
+.hist-click-row {
+  display: grid;
+  grid-template-columns: 10px 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  padding: 7px 12px;
+  border-radius: var(--border-radius-sm);
+  background: var(--bg-input);
+}
+.hist-click-dot { width: 8px; height: 8px; border-radius: 50%; }
+.hist-click-name { color: var(--text-secondary); }
+.hist-click-val { font-family: var(--font-mono); font-weight: 600; color: var(--text-primary); }
+.hist-click-diff {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 99px;
+  white-space: nowrap;
+}
+.hist-click-diff.up   { color: #B45309; background: rgba(245,158,11,0.14); }
+.hist-click-diff.down { color: #2D8A50; background: rgba(45,138,80,0.12); }
+.hist-click-diff.flat { color: var(--text-muted); background: var(--bg-input); border: 1px solid var(--border-color); }
+
+/* ============================================
+   View switcher — "Chart & Data Table" vs "Statistics"
+   ============================================ */
+.hist-mode-tabs {
+  display: flex; gap: 3px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  padding: 3px;
+}
+.hist-mode-tab {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: none; background: none;
+  font-family: var(--font-sans);
+  font-size: 12.5px; font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer; white-space: nowrap;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.hist-mode-tab svg { flex-shrink: 0; }
+.hist-mode-tab:hover:not(.active) { background: var(--bg-card); color: var(--text-primary); }
+.hist-mode-tab.active { background: var(--color-accent); color: #fff; }
+
+.hist-view { display: none; }
+.hist-view.active { display: block; }
+
+/* ============================================
+   Statistics view
+   ============================================ */
+.hist-type-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.hist-chip {
+  font-family: var(--font-sans); font-size: 12.5px; font-weight: 600;
+  padding: 6px 14px; border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card); color: var(--text-secondary);
+  cursor: pointer; transition: all var(--transition-fast);
+}
+.hist-chip:hover:not(.active) { background: var(--bg-input); color: var(--text-primary); }
+.hist-chip.active { background: var(--color-accent); color: #fff; border-color: var(--color-accent); }
+
+.hist-stat-cards { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+.hist-stat-card {
+  background: var(--bg-input); border: 1px solid var(--border-color);
+  border-radius: var(--border-radius); padding: 13px 14px;
+}
+.hist-stat-card .hist-stat-label { font-size: 11.5px; color: var(--text-muted); margin: 0 0 5px; font-weight: 500; }
+.hist-stat-card .hist-stat-value { font-size: 19px; font-weight: 700; margin: 0; color: var(--text-primary); font-family: var(--font-mono); }
+.hist-stat-card.highlight { background: var(--color-accent-light); border-color: transparent; }
+.hist-stat-card.highlight .hist-stat-value { color: var(--color-accent-hover); }
+.hist-stat-card.highlight .hist-stat-label { color: var(--color-accent-hover); opacity: 0.85; }
+
+/* ---- Insight callout — short, plain-language read of the stat cards above (2 short lines
+   instead of one dense run-on sentence), with a small icon so it reads as a distinct callout. ---- */
+.hist-insight {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--border-color);
+}
+.hist-insight-icon {
+  flex-shrink: 0; width: 26px; height: 26px; margin-top: 1px;
+  border-radius: 8px; background: var(--color-accent-light); color: var(--color-accent-hover);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.hist-insight-text { font-size: 12.5px; line-height: 1.65; color: var(--text-secondary); }
+.hist-insight-text p { margin: 0 0 4px; }
+.hist-insight-text p:last-child { margin-bottom: 0; }
+.hist-insight-text strong { color: var(--text-primary); font-family: var(--font-mono); font-weight: 700; }
+.hist-insight-tag {
+  font-family: var(--font-sans); font-weight: 700; font-size: 10.5px;
+  text-transform: uppercase; letter-spacing: 0.03em;
+  padding: 2px 8px; border-radius: 99px; white-space: nowrap;
+}
+.hist-insight-tag.low      { background: var(--color-accent-light); color: var(--color-accent-hover); }
+.hist-insight-tag.moderate { background: rgba(245,158,11,0.14); color: #B45309; }
+.hist-insight-tag.high     { background: var(--color-danger-bg); color: var(--color-danger); }
+
+/* ---- Info icon + hover popover (pure-CSS: no clipping ancestor on this page, so no need for
+   taxes.css's body-append/fixed-position JS trick — :hover/:focus-within is enough here). ---- */
+.hist-info { position: relative; display: inline-flex; align-items: center; vertical-align: middle; margin-left: 5px; }
+.hist-info-icon {
+  width: 15px; height: 15px; border-radius: 50%; flex-shrink: 0;
+  border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-secondary);
+  display: inline-flex; align-items: center; justify-content: center; cursor: help;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+.hist-info-icon svg { pointer-events: none; }
+.hist-info:hover .hist-info-icon, .hist-info:focus-within .hist-info-icon {
+  background: var(--color-accent-light); color: var(--color-accent-hover); border-color: var(--color-accent);
+}
+.hist-info-pop {
+  display: none; position: absolute; z-index: 40; width: 210px;
+  bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+  background: var(--tooltip-bg); color: var(--tooltip-fg);
+  border-radius: 8px; padding: 9px 11px; font-size: 11.5px; line-height: 1.5; font-weight: 400;
+  box-shadow: var(--shadow-lg); text-align: left; pointer-events: none;
+}
+.hist-info-pop::after {
+  content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+  border: 5px solid transparent; border-top-color: var(--tooltip-bg);
+}
+.hist-info:hover .hist-info-pop, .hist-info:focus-within .hist-info-pop { display: block; }
+/* Keep the popover on-screen for the cards nearest each edge of the 6-column stat grid. */
+.hist-stat-card:first-child .hist-info-pop { left: 0; transform: translateX(0); }
+.hist-stat-card:first-child .hist-info-pop::after { left: 14px; transform: translateX(0); }
+.hist-stat-card:last-child .hist-info-pop { left: auto; right: 0; transform: translateX(0); }
+.hist-stat-card:last-child .hist-info-pop::after { left: auto; right: 14px; transform: translateX(0); }
+
+/* ---- Data Table pagination ---- */
+.hist-pagination {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  gap: 10px; padding: 14px 4px 2px; border-top: 1px solid var(--border-color); margin-top: 12px;
+}
+.hist-pagination-info { font-size: 12px; color: var(--text-muted); }
+.hist-pagination-controls { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.hist-page-btn {
+  min-width: 28px; height: 28px; padding: 0 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 6px; border: 1px solid var(--border-color);
+  background: var(--bg-card); color: var(--text-secondary);
+  font-family: var(--font-sans); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all var(--transition-fast);
+}
+.hist-page-btn:hover:not(:disabled):not(.active) { background: var(--bg-input); color: var(--text-primary); }
+.hist-page-btn.active { background: var(--color-accent); color: #fff; border-color: var(--color-accent); }
+.hist-page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.hist-page-ellipsis { padding: 0 4px; color: var(--text-muted); font-size: 12px; }
+
+.hist-two-col { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; }
+
+.hist-range-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.hist-range-table th {
+  text-align: left; font-size: 11.5px; color: var(--text-muted); font-weight: 500;
+  padding: 7px 10px; border-bottom: 1px solid var(--border-color);
+}
+.hist-range-table td { padding: 10px; border-bottom: 1px solid var(--border-color); color: var(--text-primary); }
+.hist-range-table tr:last-child td { border-bottom: none; }
+.hist-range-table th:last-child, .hist-range-table td:last-child { text-align: right; white-space: nowrap; }
+.hist-range-bar-wrap { display: flex; align-items: center; gap: 8px; }
+.hist-range-track {
+  position: relative; height: 5px; flex: 1; border-radius: 999px;
+  background: var(--bg-input); box-shadow: inset 0 1px 1px rgba(0,0,0,0.06);
+}
+.hist-range-fill { position: absolute; top: 0; height: 5px; border-radius: 999px; }
+.hist-range-marker {
+  position: absolute; top: 50%; width: 9px; height: 9px; margin-top: -4.5px; margin-left: -4.5px;
+  border-radius: 50%; border: 2px solid var(--bg-card);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+}
+.hist-range-minmax { font-size: 11px; color: var(--text-muted); min-width: 42px; }
+.hist-range-table td:last-child .hist-range-minmax:last-child { text-align: right; }
+
+@media (max-width: 900px) {
+  .hist-stat-cards { grid-template-columns: repeat(3, 1fr); }
+  .hist-two-col { grid-template-columns: 1fr; }
+}

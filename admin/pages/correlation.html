@@ -1,77 +1,106 @@
-<div class="section-header" style="margin-bottom:20px;">
-  <div>
-    <div class="section-title">Correlation Analysis</div>
-    <div class="section-subtitle">Pearson Correlation · ADF Stationarity Tests</div>
-  </div>
-</div>
+<div class="corr-view">
 
-<div class="content-grid grid-2" style="margin-bottom:20px;">
-  <div class="card">
-    <div class="card-header"><span class="card-title">Correlation Heatmap</span></div>
-    <div class="card-body">
-      <canvas id="corr-heatmap" style="width:100%;height:320px;display:block;"></canvas>
-    </div>
+  <div class="corr-page-header">
+    <span class="corr-chip" id="corr-health-chip"><span class="corr-dot"></span> <span id="corr-health-text">Checking signals…</span></span>
+    <button class="corr-btn-ghost" onclick="window.print()"><i class="ti ti-printer"></i> Export report</button>
   </div>
-  <div class="card">
-    <div class="card-header"><span class="card-title">ADF Test Results</span><span class="pill pill-green">All Stationary</span></div>
-    <div class="card-body">
-      <div class="adf-result-cards">
-        <div class="adf-card">
-          <div class="adf-title">Well Milled Rice Price</div>
-          <div class="adf-row"><label>ADF Statistic</label><span class="val">-3.841</span></div>
-          <div class="adf-row"><label>p-value</label><span class="val" style="color:#4CAF6E;">0.0024</span></div>
-          <div class="adf-row"><label>Result</label><span class="val" style="color:#4CAF6E;">Stationary ✓</span></div>
-        </div>
-        <div class="adf-card">
-          <div class="adf-title">Diesel Fuel Price</div>
-          <div class="adf-row"><label>ADF Statistic</label><span class="val">-3.512</span></div>
-          <div class="adf-row"><label>p-value</label><span class="val" style="color:#4CAF6E;">0.0082</span></div>
-          <div class="adf-row"><label>Result</label><span class="val" style="color:#4CAF6E;">Stationary ✓</span></div>
-        </div>
-        <div class="adf-card">
-          <div class="adf-title">USD/PHP Exchange Rate</div>
-          <div class="adf-row"><label>ADF Statistic</label><span class="val">-2.973</span></div>
-          <div class="adf-row"><label>p-value</label><span class="val" style="color:#F59E0B;">0.0381</span></div>
-          <div class="adf-row"><label>Result</label><span class="val" style="color:#4CAF6E;">Stationary ✓</span></div>
-        </div>
-        <div class="adf-card">
-          <div class="adf-title">Rice Stock Level</div>
-          <div class="adf-row"><label>ADF Statistic</label><span class="val">-4.112</span></div>
-          <div class="adf-row"><label>p-value</label><span class="val" style="color:#4CAF6E;">0.0009</span></div>
-          <div class="adf-row"><label>Result</label><span class="val" style="color:#4CAF6E;">Stationary ✓</span></div>
+
+  <!-- STAT STRIP -->
+  <div class="corr-stat-strip" id="corr-stat-strip"></div>
+
+  <!-- MAIN GRID -->
+  <div class="corr-main-grid">
+
+    <!-- LEFT: trend chart -->
+    <div class="corr-panel">
+      <div class="corr-panel-top">
+        <div>
+          <div class="corr-panel-title">Diesel vs. retail price trend</div>
+          <div class="corr-panel-sub" id="corr-chart-sub">Local · Well-Milled — last 8 weeks</div>
         </div>
       </div>
+
+      <div class="corr-chart-controls">
+        <select id="corr-class-select" class="corr-select">
+          <optgroup label="Local Rice">
+            <option value="locRegular">Local · Regular-Milled</option>
+            <option value="locWellMilled" selected>Local · Well-Milled</option>
+            <option value="locPremium">Local · Premium</option>
+            <option value="locSpecial">Local · Special</option>
+          </optgroup>
+          <optgroup label="Imported Rice">
+            <option value="impRegular">Imported · Regular-Milled</option>
+            <option value="impWellMilled">Imported · Well-Milled</option>
+            <option value="impPremium">Imported · Premium</option>
+            <option value="impSpecial">Imported · Special</option>
+          </optgroup>
+        </select>
+        <select id="corr-range-select" class="corr-select">
+          <option value="8w" selected>Last 8 Weeks</option>
+          <option value="90d">Last 90 Days</option>
+          <option value="all">All-Time</option>
+        </select>
+      </div>
+
+      <div><canvas id="corr-trend-chart" height="230"></canvas></div>
+
+      <div class="corr-chart-legend">
+        <span class="corr-legend-item"><span class="corr-legend-swatch" style="background:#1c3d28;"></span> Diesel Fuel Price</span>
+        <span class="corr-legend-item"><span class="corr-legend-swatch" style="background:#72c98d;"></span> Retail Rice Price</span>
+      </div>
+
+      <div class="corr-insight-bar" id="corr-insight-bar">
+        <i class="ti ti-alert-triangle"></i>
+        <span id="corr-insight-text">Loading…</span>
+      </div>
+    </div>
+
+    <!-- RIGHT: driver ranked list -->
+    <div class="corr-panel">
+      <div class="corr-panel-title">Driver strength</div>
+      <div class="corr-panel-sub">Relative pull on retail price, 0–100</div>
+      <div class="corr-driver-list" id="corr-driver-list"></div>
+
+      <div class="corr-sub-heading">Data signal reliability</div>
+      <div class="corr-chip-row" id="corr-signal-chips"></div>
     </div>
   </div>
-</div>
 
-<div class="card">
-  <div class="card-header"><span class="card-title">Correlation Summary</span></div>
-  <div style="overflow-x:auto;">
-    <table class="data-table">
-      <thead><tr><th>Factor</th><th>Pearson r</th><th>Interpretation</th><th>Significance</th><th>Included</th></tr></thead>
-      <tbody>
-        <tr><td>Diesel Fuel Price</td><td class="font-mono">0.85</td><td>Very Strong Positive</td><td><span class="pill pill-green">p &lt; 0.001</span></td><td><span class="pill pill-green">Yes</span></td></tr>
-        <tr><td>USD/PHP Rate</td><td class="font-mono">0.72</td><td>Strong Positive</td><td><span class="pill pill-green">p &lt; 0.001</span></td><td><span class="pill pill-green">Yes</span></td></tr>
-        <tr><td>Rice Stock Level</td><td class="font-mono">-0.63</td><td>Moderate Negative</td><td><span class="pill pill-green">p &lt; 0.001</span></td><td><span class="pill pill-green">Yes</span></td></tr>
-        <tr><td>Rainfall</td><td class="font-mono">0.41</td><td>Moderate Positive</td><td><span class="pill pill-orange">p = 0.012</span></td><td><span class="pill pill-green">Yes</span></td></tr>
-        <tr><td>Month (Seasonality)</td><td class="font-mono">0.33</td><td>Weak Positive</td><td><span class="pill pill-orange">p = 0.028</span></td><td><span class="pill pill-green">Yes</span></td></tr>
-        <tr><td>Import Tariff <span class="pill pill-orange">imported rice</span></td><td class="font-mono">-0.03</td><td>Negligible (policy step-variable)</td><td><span class="pill">n.s.</span></td><td><span class="pill pill-green">Yes (imported)</span></td></tr>
-      </tbody>
-    </table>
-    <p style="font-size:12px;color:var(--text-muted);padding:10px 12px 4px;">
-      <strong>Import tariff (imported rice only).</strong> The MFN rice tariff is <em>not fixed</em>:
-      it is reviewed <strong>quarterly</strong> and price-indexed within a <strong>15–35%</strong> band
-      under EO 105 s.2025 &amp; IAGRTA Circular 2025-001 (reduced from RA 11203's 35% by EO 62 s.2024;
-      15% for Q1 2026). The system tracks each confirmed quarter on the admin
-      <strong>Taxes &amp; Import Charges</strong> page (effective-date schedule), so this factor uses the
-      rate applicable to each date. It raises the landed cost of imported rice. Measured against retail imported well-milled price
-      (2019–2026), the raw Pearson correlation is <strong>−0.03 (negligible)</strong>: the tariff is
-      a policy <em>step-variable</em> whose retail effect is confounded by global prices and the
-      USD/PHP rate (mean price was even slightly higher at 15% than at 35%, during 2024–25
-      inflation). It is therefore included as a <strong>contextual cost factor for imported rice
-      only</strong>, not as a strong linear predictor. Rice is VAT-exempt (NIRC §109), so no VAT is
-      applied. Sources: USDA FAS RP2026-0004; EO 62 s.2024; RA 11203.
-    </p>
+  <!-- SUMMARY TABLE -->
+  <div class="corr-panel" style="margin-top:14px;">
+    <div class="corr-panel-top">
+      <div class="corr-panel-title">Market drivers summary</div>
+    </div>
+    <div class="corr-table-toolbar">
+      <div class="corr-search-box">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="corr-table-search" placeholder="Search market factor…">
+      </div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Market Factor</th>
+            <th><span class="corr-tt" tabindex="0">Impact Strength <i class="ti ti-info-circle corr-tt-icon"></i><span class="corr-tt-text">Pearson r value: a higher magnitude means this factor has a bigger pull on the final price of rice.</span></span></th>
+            <th>Operational Behavior</th>
+            <th><span class="corr-tt" tabindex="0">Data Confidence <i class="ti ti-info-circle corr-tt-icon"></i><span class="corr-tt-text">Statistical significance: "Verified" means this relationship is unlikely to be a coincidence (|t| &gt; 1.96, ≈p &lt; 0.05).</span></span></th>
+          </tr>
+        </thead>
+        <tbody id="corr-table-body"></tbody>
+      </table>
+      <p class="corr-tariff-note">
+        <strong>Import tariff (imported rice only).</strong> The MFN rice tariff is <em>not fixed</em>:
+        it is reviewed quarterly and price-indexed within a 15–35% band under EO 105 s.2025 &amp;
+        IAGRTA Circular 2025-001 (reduced from RA 11203's 35% by EO 62 s.2024; 15% for Q1 2026). The
+        system tracks each confirmed quarter on the admin <strong>Taxes &amp; Import Charges</strong>
+        page. Measured against retail imported well-milled price (2019–2026), the raw correlation is
+        negligible — the tariff is a policy step-variable whose retail effect is confounded by global
+        prices and the USD/PHP rate. It's included as a contextual cost factor for imported rice only,
+        not as a strong linear predictor. Rice is VAT-exempt (NIRC §109). Sources: USDA FAS RP2026-0004;
+        EO 62 s.2024; RA 11203.
+      </p>
+    </div>
   </div>
+
 </div>

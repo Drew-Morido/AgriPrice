@@ -38,7 +38,7 @@ All Python commands need `py -3.13` (project standard; avoid 3.14 — TensorFlow
 ```bash
 # Install deps
 py -3.13 -m pip install -r requirements.txt
-py -3.13 -m pip install tensorflow   # optional; without it, sklearn MLP is used as fallback
+py -3.13 -m pip install tensorflow==2.20.0   # optional, version-pinned (see requirements.txt); without it, sklearn MLP is used as fallback
 
 # Build/refresh the SQLite database (first-time setup, or to pull in new 2026 data)
 cd datasets && py -3.13 script.py && py -3.13 import_2026.py
@@ -64,8 +64,8 @@ There is no test suite, linter, or JS build step in this repo — frontend is pl
 ### Opening the app
 
 - Same-origin (recommended, avoids CORS): `http://127.0.0.1:5000/` once `api/app.py` is running — Flask serves both the public site and the admin dashboard itself.
-- Via XAMPP/Live Server instead: `public/landpage.html` (public) and `admin/login.html` (admin), with the Flask API still running separately on :5000.
-- Admin login: `admin/login.html` — username `admin`, password `Admin@123`, 6-digit code `123456` (see README.txt for lockout/security behavior).
+- Via XAMPP/Live Server instead: `public/landpage.html` for both public and admin — there is no separate admin login page — with the Flask API still running separately on :5000.
+- Admin login: shares the public site's unified login modal (`public/js/public-auth-modal.js` — click "Log in", the form auto-detects admin credentials and follows up with a 6-digit code prompt). Username `admin`, password `Admin@123`, 6-digit code `123456` (see README.txt for lockout/security behavior). `admin/js/admin-auth.js` redirects any unauthenticated visit to `admin/*` out to `public/landpage.html?auth=login`, which auto-opens that modal.
 
 ## Architecture
 

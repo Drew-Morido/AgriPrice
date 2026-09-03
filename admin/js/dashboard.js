@@ -512,7 +512,7 @@ AgriPricePH.Dashboard = (function () {
       : '';
     const lstmNote = isLstmOnline()
       ? `LSTM · hold-out test${acc != null ? ` avg ${Number(acc).toFixed(1)}%` : ''}${lstmCount ? ` · ${lstmCount} models` : ''}${runNote}`
-      : (_predApi?.error ? `unavailable — ${_predApi.error}` : 'estimates unavailable');
+      : (_predApi?.error ? `unavailable — ${friendlyPredError(_predApi.error)}` : 'estimates unavailable');
     el.textContent = `${origin} rice · Day ${_predDay} (${dayLabel}) · Live · ${lstmNote}`;
   }
 
@@ -556,7 +556,7 @@ AgriPricePH.Dashboard = (function () {
     const originKeys = types.map(t => t.key);
     const hasAnyRow = originKeys.some(k => (_allForecasts[k] || []).length);
     if (!hasAnyRow) {
-      const err = _predApi?.error ? ` — ${_predApi.error}` : '';
+      const err = _predApi?.error ? ` — ${escapeHtml(friendlyPredError(_predApi.error))}` : '';
       container.innerHTML = `<div class="dash-pred-loading text-muted">No LSTM forecasts returned${err}. Restart API and hard-refresh (Ctrl+Shift+R).</div>`;
       return;
     }
@@ -673,6 +673,15 @@ AgriPricePH.Dashboard = (function () {
   function escapeHtml(s) {
     if (s == null) return '';
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // Backend errors (e.g. a raw Keras/TensorFlow exception) shouldn't be dumped verbatim
+  // into the dashboard — trim it to a short, readable line instead.
+  function friendlyPredError(raw) {
+    const msg = String(raw || '').trim();
+    if (!msg) return 'unknown error';
+    const oneLine = msg.split('\n')[0];
+    return oneLine.length > 140 ? `${oneLine.slice(0, 140)}…` : oneLine;
   }
 
   function _setStat(id, value) {

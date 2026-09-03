@@ -324,6 +324,24 @@ vendor account 'Retailer'") or revert the app label to "Vendor"; flagged for the
   email validation incl. duplicate check; admin nav tidied (Predictions→Price Forecast,
   Historical→Price History) + responsive burger.
 
+## Round 5 — Model Dashboard merge + stale admin-page numbers (2026-09-04)
+- **Admin nav:** "LSTM Model" and "Performance Metrics" merged into one **Model Dashboard** page
+  (`admin/pages/model-dashboard.html`, `admin/js/model-dashboard.js`); Training is untouched. Real
+  numbers still come from `/api/model-status` (`model/meta.json`) — same source as before, just one
+  page instead of two, restyled with honest baseline-comparison language (see below).
+- **Stale architecture numbers fixed** (the old LSTM Model page pre-dated this reconciliation pass):
+  input feature count corrected **5 → 13** (`model/data_pipeline.py`'s 5 raw exogenous drivers plus
+  the 8 engineered seasonality/rolling/lag columns — matches `model/meta.json`'s per-target
+  `features` list and this doc's item 1 above); LSTM units corrected **128/64 → 64/32**, Dense
+  **32 → 16**, early-stop patience **10 → 8** (`model/train.py`); the Input Features table's fuel-price
+  source corrected **DOE → Zigwheels** (matches item 2 above) and its fictional "Rainfall/Weather
+  (PAGASA)" row removed (not an actual input — replaced with the real farmgate/seasonal/rolling/lag
+  rows that were missing).
+- **No new "beats the baseline" claims:** the merged dashboard's metric cards and per-classification
+  table deliberately avoid the framing "beats baseline by X%" for cases where it doesn't (current
+  `meta.json`: `beats_baseline: false` for all 8 targets) — they instead report "within X% of the
+  naive baseline," consistent with this doc's standing honest-evaluation guidance.
+
 ## Still [VERIFY] / [ACTION]
 - **[DTI]** confirm the 8 category names/definitions and the **brands** under each (DA has none).
 - **[DTI]** whether to keep the DA Bantay Presyo ranges or use official DTI brackets.

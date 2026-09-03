@@ -67,21 +67,27 @@ AgriPricePH/
     http://localhost/AgriPricePH/public/landpage.html
     or:  http://localhost/AgriPricePH/          (root redirects)
 
-  ADMIN (staff, after login)
-    http://localhost/AgriPricePH/admin/login.html
-    then: http://localhost/AgriPricePH/admin/index.html
+  ADMIN (staff)
+    Admin sign-in shares the public site's login — there is no separate admin login page.
+    http://localhost/AgriPricePH/public/landpage.html  → click "Log in", use your admin account
+    then: http://localhost/AgriPricePH/admin/index.html   (redirected there automatically)
 
   Via Flask only (port 5000):
-    http://127.0.0.1:5000/                    → public home
-    http://127.0.0.1:5000/admin/index.html    → admin dashboard
-    http://127.0.0.1:5000/admin/login.html    → admin sign-in
+    http://127.0.0.1:5000/                              → public home
+    http://127.0.0.1:5000/admin/index.html               → admin dashboard (redirects to login if signed out)
+    http://127.0.0.1:5000/public/landpage.html?auth=login → public home with the login modal pre-opened
 
 
 ================================================================================
   ADMIN SIGN-IN
 ================================================================================
 
-  URL:      admin/login.html
+  There is no separate admin login page — sign in from the same "Log in" button as retailer
+  accounts (public site nav, or the public-auth-modal.js unified login/signup modal). Enter your
+  admin username + password there; a 6-digit access-code prompt follows automatically once the
+  username/password are recognized as an admin account, then you're redirected into
+  admin/index.html.
+
   Username: admin
   Password: Admin@123
   Code:     123456  (change in Admin → Settings → Security)
@@ -114,7 +120,7 @@ AgriPricePH/
 1. Install Python packages:
      cd C:\xampp\htdocs\AgriPricePH
      py -3.13 -m pip install -r requirements.txt
-     py -3.13 -m pip install tensorflow
+     py -3.13 -m pip install tensorflow==2.20.0
 
 2. Database (first time + 2026 data):
      cd datasets
@@ -134,7 +140,7 @@ AgriPricePH/
 
 5. Open frontend:
      Public:  public/landpage.html  (Live Server or XAMPP)
-     Admin:   admin/login.html
+     Admin:   same as Public — click "Log in" and sign in with your admin account
 
 
 ================================================================================
@@ -198,7 +204,8 @@ AgriPricePH/
 
   Admin cannot sign in
     → Backend must run on port 5000
-    → Use admin/login.html (not old root paths)
+    → Sign in from the public site's "Log in" button (public/landpage.html) — there is no
+      separate admin/login.html page anymore
 
   Styles or scripts missing after move
     → Use paths under public/ and admin/ as in this README

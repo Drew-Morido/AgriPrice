@@ -1,0 +1,169 @@
+/* ============================================
+   AgriPricePH - Model Dashboard CSS
+   ============================================
+   Ports the provided "Model Dashboard" mockup's visual design as closely as possible:
+   Fraunces serif headings, Plus Jakarta Sans body, JetBrains Mono numerals, Tabler icon
+   webfont, the mockup's own card/tooltip/segmented-control/table language and color palette.
+
+   Everything is scoped so it can't leak into the rest of the admin app (which has its own
+   .card/.btn-primary/.content-grid etc. already): every class here is mdl-prefixed, and the
+   mockup's own CSS custom properties are declared on .mdl-view (not :root), so they only
+   apply inside this page's content and never override the app's global tokens.
+   ============================================ */
+
+.mdl-view {
+  --g950:#050f0a; --g900:#0b1d14; --g800:#13291c; --g700:#1c3d28; --g600:#265438;
+  --g500:#316b47; --g400:#4a9e67; --g300:#72c98d; --g200:#a8e2bc; --g100:#d3f2e0;
+  --mdl-ink:#081510; --mdl-ink2:#243b2d; --mdl-ink3:#527060; --mdl-ink4:#8aaa97;
+  --mdl-card:#fff; --mdl-bg:#f6f9f6; --mdl-bd:rgba(38,84,56,0.13);
+  --mdl-good:#2f9b57; --mdl-bad:#c0392b; --mdl-amber:#b45309;
+  --mdl-shadow:0 2px 10px rgba(8,34,18,0.08),0 1px 3px rgba(8,34,18,0.05);
+  --mdl-shadow-lg:0 12px 36px rgba(8,34,18,0.12),0 4px 12px rgba(8,34,18,0.06);
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  color: var(--mdl-ink);
+}
+html.theme-dark .mdl-view {
+  --mdl-card:#13291c; --mdl-bg:#0b1d14; --mdl-bd:rgba(168,226,188,0.14);
+  --mdl-ink:#eaf6ee; --mdl-ink2:#d3f2e0; --mdl-ink3:#a8e2bc; --mdl-ink4:#72c98d;
+}
+.mdl-view a { text-decoration: none; color: inherit; }
+.mdl-view button { font-family: inherit; }
+.mdl-view * { box-sizing: border-box; }
+
+/* ---------- Page header ---------- */
+.mdl-page-header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 26px; }
+.mdl-page-header h1 { font-family: 'Fraunces', serif; font-size: 27px; font-weight: 400; color: var(--mdl-ink2); margin: 0; }
+.mdl-page-header h1 em { font-style: italic; color: var(--g500); }
+.mdl-subtitle { font-size: 13px; color: var(--mdl-ink3); margin-top: 5px; }
+.mdl-header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+.mdl-btn-primary { background: var(--g700); color: #fff; border: none; padding: 10px 18px; border-radius: 99px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; transition: background .15s; }
+.mdl-btn-primary:hover { background: var(--g600); }
+.mdl-btn-ghost { background: var(--mdl-card); color: var(--mdl-ink2); border: 1px solid var(--mdl-bd); padding: 10px 18px; border-radius: 99px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; transition: border-color .15s; }
+.mdl-btn-ghost:hover { border-color: rgba(38,84,56,.35); }
+
+.mdl-chip { display: inline-flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 700; color: var(--g600); background: #eef8f1; border: 1px solid rgba(38,84,56,.16); border-radius: 99px; padding: 6px 12px 6px 10px; }
+html.theme-dark .mdl-chip { background: rgba(76,175,110,.14); }
+.mdl-chip.stale { color: var(--mdl-amber); background: rgba(180,83,9,.10); border-color: rgba(180,83,9,.22); }
+.mdl-pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mdl-good); flex-shrink: 0; position: relative; }
+.mdl-pulse-dot::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; background: var(--mdl-good); opacity: .45; animation: mdlPulseRing 1.8s ease-out infinite; }
+.mdl-chip.stale .mdl-pulse-dot, .mdl-chip.stale .mdl-pulse-dot::after { background: var(--mdl-amber); animation: none; opacity: 1; }
+@keyframes mdlPulseRing { 0%{transform:scale(.6);opacity:.5} 70%{transform:scale(1.9);opacity:0} 100%{opacity:0} }
+
+/* ---------- Tooltips (mockup's own hover-info component) ---------- */
+.mdl-tooltip { position: relative; display: inline-flex; align-items: center; gap: 6px; cursor: help; }
+.mdl-tooltip-icon { color: var(--mdl-ink4); font-size: 14px; transition: color .15s; }
+.mdl-tooltip:hover .mdl-tooltip-icon { color: var(--g500); }
+.mdl-tooltip-text {
+  visibility: hidden; opacity: 0; width: 230px; background: var(--g900); color: #fff;
+  text-align: left; border-radius: 10px; padding: 12px 13px; position: absolute; z-index: 20;
+  bottom: 130%; left: 50%; transform: translateX(-50%); transition: opacity .15s;
+  font-size: 11.5px; font-weight: 400; line-height: 1.55; box-shadow: var(--mdl-shadow-lg); pointer-events: none;
+}
+.mdl-tooltip-text strong { color: var(--g200); }
+.mdl-tooltip-text::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -5px; border: 5px solid transparent; border-top-color: var(--g900); }
+.mdl-tooltip:hover .mdl-tooltip-text { visibility: visible; opacity: 1; }
+/* Edge cards would clip a centered popover — bias the two outer metric cards inward. */
+.mdl-metric-card:first-child .mdl-tooltip-text { left: 0; transform: translateX(0); }
+.mdl-metric-card:first-child .mdl-tooltip-text::after { left: 16px; margin-left: 0; }
+.mdl-metric-card:last-child .mdl-tooltip-text { left: auto; right: 0; transform: translateX(0); }
+.mdl-metric-card:last-child .mdl-tooltip-text::after { left: auto; right: 16px; margin-left: 0; }
+
+/* ---------- Metric cards ---------- */
+.mdl-metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+.mdl-metric-card { background: var(--mdl-card); padding: 22px; border-radius: 18px; border: 1px solid var(--mdl-bd); box-shadow: var(--mdl-shadow); }
+.mdl-metric-title { font-size: 12px; font-weight: 700; color: var(--mdl-ink3); margin-bottom: 10px; letter-spacing: .2px; }
+.mdl-metric-value { font-family: 'JetBrains Mono', monospace; font-size: 27px; font-weight: 700; color: var(--mdl-ink2); }
+.mdl-metric-delta { font-size: 11.5px; font-weight: 700; margin-top: 9px; display: inline-flex; align-items: center; gap: 4px; }
+.mdl-metric-delta.good { color: var(--mdl-good); }
+.mdl-metric-delta.bad { color: var(--mdl-bad); }
+.mdl-metric-delta.flat { color: var(--mdl-ink4); }
+
+/* ---------- Cards / grids ---------- */
+.mdl-content-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 22px; margin-bottom: 24px; }
+.mdl-card { background: var(--mdl-card); border-radius: 20px; border: 1px solid var(--mdl-bd); padding: 24px; box-shadow: var(--mdl-shadow); margin-bottom: 24px; }
+.mdl-content-grid .mdl-card, .mdl-two-col .mdl-card { margin-bottom: 0; }
+.mdl-card-header { font-size: 15.5px; font-weight: 700; color: var(--mdl-ink2); margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mdl-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-bottom: 24px; }
+
+.mdl-seg { display: inline-flex; background: #edf8f3; border: 1px solid rgba(38,84,56,.16); border-radius: 99px; padding: 3px; gap: 2px; }
+html.theme-dark .mdl-seg { background: rgba(76,175,110,.10); }
+.mdl-seg button { font-family: inherit; font-size: 12px; font-weight: 700; color: var(--mdl-ink3); background: transparent; border: 0; border-radius: 99px; padding: 7px 13px; cursor: pointer; transition: background .15s, color .15s; }
+.mdl-seg button.active { background: var(--g700); color: #fff; }
+
+.mdl-chart-controls { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+.mdl-chart-select-group { display: flex; align-items: center; gap: 9px; }
+.mdl-chart-select-lbl { font-size: 11px; font-weight: 700; color: var(--mdl-ink4); text-transform: uppercase; letter-spacing: .4px; }
+.mdl-chart-select {
+  padding: 8px 30px 8px 12px; border: 1px solid var(--mdl-bd); border-radius: 10px; font-size: 13px; font-weight: 600;
+  font-family: inherit; background: #fbfdfb url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23527060' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 10px center;
+  appearance: none; -webkit-appearance: none; color: var(--mdl-ink2); cursor: pointer;
+}
+html.theme-dark .mdl-chart-select { background-color: var(--mdl-bg); }
+.mdl-chart-select:focus { outline: none; border-color: var(--g400); }
+
+.mdl-chart-click-summary { margin-top: 14px; padding: 12px 16px; border-radius: 12px; background: #f7fbf8; border: 1px dashed var(--mdl-bd); font-size: 12.5px; color: var(--mdl-ink3); display: flex; align-items: center; gap: 8px; }
+html.theme-dark .mdl-chart-click-summary { background: rgba(255,255,255,.03); }
+.mdl-chart-click-summary i { font-size: 15px; color: var(--mdl-ink4); }
+.mdl-chart-click-summary.pinned { background: #eef8f1; border: 1px solid rgba(38,84,56,.2); flex-wrap: wrap; gap: 6px 22px; }
+html.theme-dark .mdl-chart-click-summary.pinned { background: rgba(76,175,110,.10); }
+.mdl-ccs-item { display: flex; flex-direction: column; gap: 2px; }
+.mdl-ccs-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--mdl-ink4); }
+.mdl-ccs-val { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: var(--mdl-ink2); }
+.mdl-ccs-val.good { color: var(--mdl-good); }
+.mdl-ccs-val.bad { color: var(--mdl-bad); }
+
+.mdl-chart-note { font-size: 11px; color: var(--mdl-ink4); margin-top: 10px; display: flex; align-items: flex-start; gap: 6px; line-height: 1.5; }
+
+.mdl-err-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 18px; }
+.mdl-err-stat { background: #f7fbf8; border: 1px solid var(--mdl-bd); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; }
+html.theme-dark .mdl-err-stat { background: rgba(255,255,255,.03); }
+/* Fixed-height label row (some wrap to 2 lines, e.g. "Est. within ±₱0.50") so every cell's
+   value starts on the same baseline regardless of how many lines its own label took. */
+.mdl-err-stat-lbl {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--mdl-ink4);
+  margin-bottom: 6px; display: flex; align-items: flex-start; gap: 4px; min-height: 26px; line-height: 1.3;
+}
+.mdl-err-stat-val { font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 700; color: var(--mdl-ink2); font-variant-numeric: tabular-nums; margin-top: auto; }
+/* Keep the popover on-screen for the cells nearest each edge of the 3-column grid. */
+.mdl-err-stat:first-child .mdl-tooltip-text { left: 0; transform: translateX(0); }
+.mdl-err-stat:first-child .mdl-tooltip-text::after { left: 16px; margin-left: 0; }
+.mdl-err-stat:last-child .mdl-tooltip-text { left: auto; right: 0; transform: translateX(0); }
+.mdl-err-stat:last-child .mdl-tooltip-text::after { left: auto; right: 16px; margin-left: 0; }
+.mdl-err-insight { margin-top: 12px; padding: 12px 15px; border-radius: 12px; background: #fff7e6; border: 1px solid rgba(180,83,9,.18); font-size: 12.5px; color: #8a5a12; line-height: 1.55; display: flex; gap: 9px; align-items: flex-start; }
+.mdl-err-insight.positive { background: #eef8f1; border-color: rgba(38,84,56,.18); color: var(--g600); }
+html.theme-dark .mdl-err-insight { background: rgba(180,83,9,.12); color: #f0c48a; }
+html.theme-dark .mdl-err-insight.positive { background: rgba(76,175,110,.12); color: var(--g200); }
+.mdl-err-insight i { font-size: 15px; margin-top: 1px; flex-shrink: 0; }
+
+/* ---------- Table ---------- */
+.mdl-table-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.mdl-search-box { position: relative; flex-shrink: 0; }
+.mdl-search-box i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--mdl-ink4); font-size: 14px; }
+.mdl-search-box input { padding: 9px 12px 9px 32px; border: 1px solid var(--mdl-bd); border-radius: 10px; font-size: 13px; font-family: inherit; width: 220px; background: #fbfdfb; color: var(--mdl-ink); }
+html.theme-dark .mdl-search-box input { background: var(--mdl-bg); }
+.mdl-search-box input:focus { outline: none; border-color: var(--g400); }
+
+.mdl-view table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.mdl-view th { text-align: left; padding: 12px 14px; color: var(--mdl-ink4); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; background: #f7fbf8; border-bottom: 1px solid var(--mdl-bd); cursor: pointer; user-select: none; white-space: nowrap; }
+html.theme-dark .mdl-view th { background: rgba(255,255,255,.03); }
+.mdl-view th:hover { color: var(--g600); }
+.mdl-sort-arrow { margin-left: 4px; opacity: .5; font-size: 11px; }
+.mdl-view th.sorted .mdl-sort-arrow { opacity: 1; color: var(--g600); }
+.mdl-view td { padding: 13px 14px; border-bottom: 1px solid var(--mdl-bd); color: var(--mdl-ink2); }
+.mdl-view tr:last-child td { border-bottom: none; }
+.mdl-view tbody tr:hover { background: #f7fbf8; }
+html.theme-dark .mdl-view tbody tr:hover { background: rgba(255,255,255,.03); }
+.mdl-td-name { font-weight: 700; }
+.mdl-td-num { font-family: 'JetBrains Mono', monospace; }
+
+.mdl-status-pill { display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; border-radius: 99px; font-size: 11px; font-weight: 700; background: #eef8f1; color: var(--g600); }
+html.theme-dark .mdl-status-pill { background: rgba(76,175,110,.14); }
+.mdl-status-warning { background: #fff6e6; color: var(--mdl-amber); }
+html.theme-dark .mdl-status-warning { background: rgba(180,83,9,.14); color: #f0c48a; }
+
+@media (max-width: 1000px) {
+  .mdl-content-grid, .mdl-two-col { grid-template-columns: 1fr; }
+  .mdl-metrics-grid { grid-template-columns: 1fr 1fr; }
+  .mdl-err-stats-grid { grid-template-columns: 1fr; }
+}

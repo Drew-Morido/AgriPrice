@@ -132,17 +132,24 @@
     window.location.href = '../public/landpage.html';
   }
 
+  // Admin sign-in now happens through the same unified login modal as retailer accounts
+  // (public/js/public-auth-modal.js — the login form auto-detects admin credentials and, on a
+  // correct username/password, follows up with the 6-digit access code prompt before redirecting
+  // back into admin/index.html). The old standalone admin/login.html page has been retired, so an
+  // unauthenticated visit here bounces out to the public site with that modal pre-opened.
+  const PUBLIC_LOGIN_URL = '../public/landpage.html?auth=login';
+
   document.addEventListener('DOMContentLoaded', async () => {
     const ok = await enforceSessionOrRedirect();
     if (!ok) {
-      window.location.replace('login.html');
+      window.location.replace(PUBLIC_LOGIN_URL);
       return;
     }
     document.getElementById('admin-logout-btn')?.addEventListener('click', logout);
 
     setInterval(async () => {
       if (!(await enforceSessionOrRedirect())) {
-        window.location.replace('login.html');
+        window.location.replace(PUBLIC_LOGIN_URL);
       }
     }, 5 * 60 * 1000);
   });

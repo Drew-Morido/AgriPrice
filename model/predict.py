@@ -165,7 +165,24 @@ def _get_keras(path: str):
 
             os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
             apply_keras_load_compat()
-            _KERAS_CACHE[path] = tf.keras.models.load_model(path)
+            try:
+                _KERAS_CACHE[path] = tf.keras.models.load_model(path)
+            except Exception:
+                # Usually a TensorFlow/Keras version mismatch between the environment
+                # that trained/saved this file and the one loading it now (e.g. after
+                # `git pull` onto a machine with a different `pip install tensorflow`).
+                # Don't let this raise out to the API — cache the miss so callers fall
+                # back to the MLP model or the trend forecaster instead of erroring.
+                import traceback
+
+                print(
+                    f"[predict] WARNING: could not load Keras model '{path}' — likely a "
+                    "TensorFlow/Keras version mismatch with the environment that trained "
+                    "it. Pin the same tensorflow version as requirements.txt, or retrain "
+                    "via Admin > Training. Falling back to MLP/trend forecast."
+                )
+                traceback.print_exc()
+                _KERAS_CACHE[path] = None
         return _KERAS_CACHE[path]
 
 
@@ -187,8 +204,7 @@ def warm_cache(targets: list[str] | None = None) -> int:
         if not scaler_path:
             continue
         _get_scaler(scaler_path)
-        if keras_path:
-            _get_keras(keras_path)
+        if keras_path and _get_keras(keras_path) is not None:
             loaded += 1
         elif mlp_path:
             _get_mlp(mlp_path)
@@ -223,8 +239,8 @@ def _run_lstm_inference(
     scaled = scaler.transform(sub[features].values.astype(float))
     window = scaled[-SEQ_LEN:].reshape(1, SEQ_LEN, len(features))
 
-    if keras_path:
-        model = _get_keras(keras_path)
+    model = _get_keras(keras_path) if keras_path else None
+    if model is not None:
         pred_scaled = model.predict(window, verbose=0)[0]
     elif mlp_path:
         mlp = _get_mlp(mlp_path)

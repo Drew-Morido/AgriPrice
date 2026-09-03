@@ -1,0 +1,185 @@
+/* ============================================
+   AgriPricePH - Taxes & Import Charges Module CSS
+   ============================================
+   Restyle of the "Taxes & Import Charges" page: less text-heavy (long always-visible legal
+   paragraphs become click-to-open info popovers), a compact stat strip up top, and a slide-down
+   add-rate form instead of an old details block.
+
+   Reuses the app's shared theme tokens and components from css/global.css (cards, data table,
+   pills, buttons, form fields, tooltip colors) so this page tracks the app's light/dark theme
+   toggle automatically; nothing here is a hardcoded light-only color. Only genuinely new
+   structural pieces (info popovers, status and countdown chips, the slide-down form, small
+   row-action buttons, the trend and calculator layout, the stat strip and reference chips) get
+   classes here, all tx-prefixed to avoid colliding with similarly-named global classes that look
+   different (e.g. global .icon-btn is the 36px circular topbar button; ours is a small 26px
+   square row action).
+   ============================================ */
+
+/* ---- Info button + popover ----
+   A small round SVG-icon button, sized to be easy to spot and to tap. Its popover starts as a
+   child of the button (for easy authoring) but on first open, taxes.js moves it to <body> and
+   switches it to position:fixed with JS-computed coordinates — the only reliable way to keep it
+   from being clipped by a horizontally-scrolling ancestor (e.g. the tariff table's .table-wrap;
+   overflow-x:auto implicitly clips overflow-y too, cutting the popover off). Opens on hover and
+   pins open on click/tap; both paths call the same functions in taxes.js. */
+.tx-info-btn {
+  width: 21px;
+  height: 21px;
+  flex-grow: 0;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  position: relative;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+.tx-info-btn svg { width: 12px; height: 12px; flex: 0 0 12px; display: block; pointer-events: none; }
+.tx-info-btn:hover, .tx-info-btn.open {
+  background: var(--color-accent-light); color: var(--color-accent-hover); border-color: var(--color-accent);
+}
+.tx-info-pop {
+  display: none; position: fixed; z-index: 500; width: 300px;
+  background: var(--tooltip-bg); color: var(--tooltip-fg); border-radius: 8px; padding: 12px 14px;
+  font-size: 12.5px; line-height: 1.55; font-weight: 400; box-shadow: var(--shadow-lg);
+  text-align: left; cursor: default;
+}
+.tx-info-pop.is-open { display: block; animation: txPopIn 0.12s ease-out; }
+.tx-info-pop a { color: #7FD9B8; }
+@keyframes txPopIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: translateY(0); } }
+/* One consistent internal layout for every popover's content, however it's triggered — a short
+   uppercase label, the explanation, and an optional muted footer line (source / caveat). Before
+   this every popover had its own ad-hoc mix of plain paragraphs and bolded fragments. */
+.tx-pop-title { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #8FE6C4; margin-bottom: 6px; }
+.tx-pop-body { font-size: 12.5px; line-height: 1.6; }
+.tx-pop-meta { font-size: 11.5px; line-height: 1.5; opacity: 0.7; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.14); }
+
+/* ---- Stat strip (mockup-faithful: one thin horizontal bar, no icons/pills/badges) ---- */
+.tx-stat-strip { display: flex; flex-wrap: wrap; gap: 0; margin-bottom: 16px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
+.tx-stat { flex: 1; min-width: 150px; padding: 14px 20px; border-right: 1px solid var(--border-color); }
+.tx-stat:last-child { border-right: none; }
+.tx-stat-label { font-size: 11.5px; color: var(--text-muted); margin: 0 0 4px; }
+.tx-stat-value { font-size: 19px; font-weight: 600; margin: 0; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.tx-stat-value.accent { color: var(--color-accent-hover); }
+.tx-stat-value small { font-size: 12px; font-weight: 400; color: var(--text-muted); }
+
+/* ---- Panel header (icon + title/subtitle/meta on the left, status chips on the right) ---- */
+.tx-panel-header { align-items: center; gap: 16px; row-gap: 10px; flex-wrap: wrap; }
+.tx-panel-heading { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.tx-panel-icon {
+  width: 38px; height: 38px; flex-shrink: 0; border-radius: 10px;
+  background: var(--color-accent-light); color: var(--color-accent-hover);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.tx-panel-heading .card-title { font-size: 15.5px; letter-spacing: -0.1px; }
+.tx-panel-heading .tx-panel-sub { margin-top: 3px; }
+
+/* ---- "Default" badge — marks the standing/baseline charges (VAT, the currently-applicable
+   tariff row) inside the table, distinct from .pill-admin ("who added this entry"). ---- */
+.tx-pill-default { background: var(--color-accent-light); color: var(--color-accent-hover); }
+
+/* ---- Status / countdown chips ---- */
+.tx-chip-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; flex-shrink: 0; }
+.tx-status-chip {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
+  padding: 6px 12px; border-radius: 999px; background: rgba(245,158,11,0.14); color: #B45309; white-space: nowrap;
+}
+html.theme-dark .tx-status-chip { background: rgba(245,158,11,0.16); color: #F5C069; }
+.tx-pulse-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; animation: txPulse 2s infinite; }
+@keyframes txPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.tx-countdown-chip {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12px; white-space: nowrap;
+  padding: 6px 12px; border-radius: 999px; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-secondary);
+}
+.tx-countdown-chip b { color: var(--text-primary); }
+
+/* ---- Stale-rate banner — full width, left accent bar, clearly a system notice rather than a
+   decorative chip (short text; the full reason lives in its info popover). ---- */
+.tx-alert-banner {
+  display: flex; align-items: center; gap: 10px; font-size: 12.5px; font-weight: 600;
+  background: var(--color-danger-bg); border: 1px solid rgba(220,38,38,0.22); border-left: 3px solid var(--color-danger);
+  color: var(--color-danger); border-radius: var(--border-radius-sm); padding: 10px 14px; margin: 12px 0;
+}
+.tx-alert-banner svg { flex-shrink: 0; }
+.tx-alert-banner .tx-info-btn { margin-left: auto; }
+
+.tx-intro-line { display: flex; align-items: flex-start; gap: 6px; font-size: 13px; color: var(--text-secondary); margin: 10px 0 0; }
+
+/* ---- Toolbar ---- */
+.tx-toolbar { display: flex; align-items: center; gap: 8px; margin: 14px 0; flex-wrap: wrap; }
+.tx-search-box { position: relative; flex: 1; min-width: 200px; }
+.tx-search-box svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
+.tx-search-box input.form-input { padding-left: 32px; }
+.tx-toggle-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-secondary); cursor: pointer; user-select: none; white-space: nowrap; }
+.tx-toggle-label input { accent-color: var(--color-accent); }
+.tx-result-count { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+
+/* ---- Table extras ---- */
+.tx-charge-name { font-weight: 600; }
+.tx-pill-row { display: flex; gap: 6px; margin-top: 5px; flex-wrap: wrap; }
+.tx-legal-cell { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); }
+.tx-legal-tag { white-space: nowrap; }
+.tx-source-cell { color: var(--text-muted); font-size: 12.5px; }
+.tx-row-actions { display: flex; gap: 4px; }
+.tx-icon-btn {
+  width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--border-color); background: var(--bg-card);
+  color: var(--text-secondary); display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+.tx-icon-btn:hover { background: var(--color-accent-light); color: var(--color-accent-hover); border-color: var(--color-accent); }
+.tx-icon-btn.danger:hover { background: var(--color-danger-bg); color: var(--color-danger); border-color: var(--color-danger); }
+tr.tx-inactive-row { opacity: 0.55; }
+tr.tx-just-added { animation: txRowIn 0.6s ease-out; }
+@keyframes txRowIn { from { background: var(--color-accent-light); } to { background: transparent; } }
+
+/* ---- Add-rate slide-down form (replaces the old <details> disclosure) ---- */
+.tx-form-panel {
+  display: none; background: var(--bg-input); border: 1px solid var(--color-accent); border-radius: var(--border-radius);
+  padding: 16px 18px; margin: 14px 0; animation: txFormIn 0.18s ease-out;
+}
+.tx-form-panel.open { display: block; }
+@keyframes txFormIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+.tx-form-title { font-size: 13.5px; font-weight: 600; margin: 0 0 12px; display: flex; align-items: center; gap: 6px; }
+.tx-form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 12px; }
+.tx-field { display: flex; flex-direction: column; gap: 4px; }
+.tx-field.span-2 { grid-column: span 2; }
+.tx-field.span-3 { grid-column: 1 / -1; }
+.tx-field label { font-size: 11.5px; color: var(--text-muted); }
+.tx-form-actions { display: flex; gap: 8px; margin-top: 14px; align-items: center; flex-wrap: wrap; }
+.tx-form-msg { font-size: 12px; color: var(--text-muted); }
+.tx-form-msg.error { color: var(--color-danger); }
+.tx-form-msg.ok { color: var(--color-accent); }
+
+@media (max-width: 720px) {
+  .tx-form-grid { grid-template-columns: 1fr 1fr; }
+  .tx-field.span-3 { grid-column: 1 / -1; }
+}
+@media (max-width: 480px) {
+  .tx-form-grid { grid-template-columns: 1fr; }
+  .tx-field.span-2, .tx-field.span-3 { grid-column: 1; }
+}
+
+/* ---- Two column: trend + calculator ---- */
+.tx-two-col { display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; margin-top: 16px; }
+@media (max-width: 860px) { .tx-two-col { grid-template-columns: 1fr; } }
+.tx-trend-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.tx-trend-period { width: auto; padding: 6px 28px 6px 10px; font-size: 12px; flex-shrink: 0; }
+.tx-trend-box { height: 170px; position: relative; margin-top: 10px; }
+.tx-band-note { font-size: 12px; color: var(--text-muted); margin: 10px 0 0; }
+
+.tx-calc-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.tx-calc-select { flex: 1; min-width: 140px; }
+.tx-calc-input { width: 110px; flex-shrink: 0; }
+.tx-calc-result { background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 12px 14px; }
+.tx-calc-result .tx-row { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; color: var(--text-secondary); }
+.tx-calc-result .tx-row.total { color: var(--text-primary); font-weight: 600; font-size: 14px; padding-top: 7px; margin-top: 4px; border-top: 1px solid var(--border-color); }
+.tx-calc-empty { font-size: 12.5px; color: var(--text-muted); padding: 6px 2px; }
+.tx-vat-note { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--color-accent); margin-top: 8px; }
+
+/* ---- Panel sub-title (reuses .card-title's sizing convention at one step down) ---- */
+.tx-panel-sub { font-size: 12.5px; color: var(--text-muted); margin: 2px 0 0; }

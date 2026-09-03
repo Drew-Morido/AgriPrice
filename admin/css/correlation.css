@@ -1,0 +1,141 @@
+/* ============================================
+   AgriPricePH - Correlation Analysis ("Market Drivers") CSS
+   ============================================
+   Layout/content ported from the provided "Market Drivers" mockup, but themed with the exact
+   same design tokens/fonts/components as Model Dashboard (admin/css/model-dashboard.css) — same
+   Fraunces/Plus Jakarta Sans/JetBrains Mono stack, same Tabler icon webfont, same scoped-custom-
+   property approach (here under .corr-view instead of .mdl-view) so it can't leak into the rest
+   of the admin app. Every class is corr-prefixed.
+   ============================================ */
+
+.corr-view {
+  --g950:#050f0a; --g900:#0b1d14; --g800:#13291c; --g700:#1c3d28; --g600:#265438;
+  --g500:#316b47; --g400:#4a9e67; --g300:#72c98d; --g200:#a8e2bc; --g100:#d3f2e0;
+  --c-ink:#081510; --c-ink2:#243b2d; --c-ink3:#527060; --c-ink4:#8aaa97;
+  --c-card:#fff; --c-bg:#f6f9f6; --c-bd:rgba(38,84,56,0.13);
+  --c-good:#2f9b57; --c-bad:#c0392b; --c-amber:#b45309;
+  --c-shadow:0 2px 10px rgba(8,34,18,0.08),0 1px 3px rgba(8,34,18,0.05);
+  --c-shadow-lg:0 12px 36px rgba(8,34,18,0.12),0 4px 12px rgba(8,34,18,0.06);
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  color: var(--c-ink);
+}
+html.theme-dark .corr-view {
+  --c-card:#13291c; --c-bg:#0b1d14; --c-bd:rgba(168,226,188,0.14);
+  --c-ink:#eaf6ee; --c-ink2:#d3f2e0; --c-ink3:#a8e2bc; --c-ink4:#72c98d;
+}
+.corr-view a { text-decoration: none; color: inherit; }
+.corr-view button, .corr-view select, .corr-view input { font-family: inherit; }
+.corr-view * { box-sizing: border-box; }
+
+/* ---------- Page header ---------- */
+.corr-page-header { display: flex; justify-content: flex-end; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+.corr-chip { display: inline-flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 700; color: var(--g600); background: #eef8f1; border: 1px solid rgba(38,84,56,.16); border-radius: 99px; padding: 6px 12px 6px 10px; }
+html.theme-dark .corr-chip { background: rgba(76,175,110,.14); }
+.corr-chip.warn { color: var(--c-amber); background: rgba(180,83,9,.10); border-color: rgba(180,83,9,.22); }
+.corr-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--g600); flex-shrink: 0; }
+.corr-chip.warn .corr-dot { background: var(--c-amber); }
+.corr-btn-ghost { background: var(--c-card); color: var(--c-ink2); border: 1px solid var(--c-bd); padding: 10px 16px; border-radius: 99px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; transition: border-color .15s; }
+.corr-btn-ghost:hover { border-color: rgba(38,84,56,.35); }
+
+/* ---------- Tooltips (identical component to Model Dashboard's .mdl-tooltip) ---------- */
+.corr-tt { position: relative; display: inline-flex; align-items: center; gap: 6px; cursor: help; }
+.corr-tt-icon { color: var(--c-ink4); font-size: 13px; transition: color .15s; }
+.corr-tt:hover .corr-tt-icon { color: var(--g500); }
+.corr-tt-text {
+  visibility: hidden; opacity: 0; width: 220px; background: var(--g900); color: #fff;
+  text-align: left; border-radius: 10px; padding: 10px 12px; position: absolute; z-index: 20;
+  bottom: 135%; left: 50%; transform: translateX(-50%); transition: opacity .15s;
+  font-size: 11.5px; font-weight: 400; line-height: 1.55; box-shadow: var(--c-shadow-lg); pointer-events: none;
+  text-transform: none; letter-spacing: normal;
+}
+.corr-tt:hover .corr-tt-text { visibility: visible; opacity: 1; }
+.corr-tt-text::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -5px; border: 5px solid transparent; border-top-color: var(--g900); }
+
+/* ---------- Stat strip (dark cards, per mockup) ---------- */
+.corr-stat-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 22px; }
+.corr-stat-card { background: var(--g800); border: 1px solid var(--g900); border-radius: 12px; padding: 14px 16px; color: #fff; display: flex; flex-direction: column; justify-content: space-between; }
+.corr-stat-card .corr-slabel { font-size: 10.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--g100); display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.corr-stat-card .corr-tt-icon { color: rgba(255,255,255,.55); }
+.corr-stat-card .corr-tt:hover .corr-tt-icon { color: var(--g200); }
+.corr-sval { font-family: 'JetBrains Mono', monospace; font-size: 21px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
+.corr-sdelta { font-size: 11.5px; font-weight: 500; display: flex; align-items: center; gap: 3px; margin-top: 4px; color: var(--g300); }
+.corr-sdelta.bad { color: #f0b199; }
+.corr-sdelta.flat { color: var(--c-ink4); }
+
+/* ---------- Main grid: chart panel + driver-list panel ---------- */
+.corr-main-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; margin-bottom: 14px; align-items: start; }
+.corr-panel { background: var(--c-card); border: 1px solid var(--c-bd); border-radius: 14px; padding: 20px 22px; box-shadow: var(--c-shadow); }
+.corr-panel-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 4px; flex-wrap: wrap; }
+.corr-panel-title { font-size: 14.5px; font-weight: 700; color: var(--c-ink2); }
+.corr-panel-sub { font-size: 12px; color: var(--c-ink4); margin-top: 2px; }
+
+.corr-chart-controls { display: flex; gap: 8px; margin: 14px 0 8px; flex-wrap: wrap; }
+.corr-select {
+  padding: 8px 30px 8px 12px; border: 1px solid var(--c-bd); border-radius: 10px; font-size: 12.5px; font-weight: 600;
+  background: #fbfdfb url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23527060' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 10px center;
+  appearance: none; -webkit-appearance: none; color: var(--c-ink2); cursor: pointer;
+}
+html.theme-dark .corr-select { background-color: var(--c-bg); }
+.corr-select:focus { outline: none; border-color: var(--g400); }
+
+.corr-chart-legend { display: flex; gap: 16px; margin-top: 8px; flex-wrap: wrap; }
+.corr-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--c-ink3); }
+.corr-legend-swatch { width: 14px; height: 3px; border-radius: 2px; }
+
+.corr-insight-bar { display: flex; gap: 9px; align-items: flex-start; background: #fff7e6; border: 1px solid rgba(180,83,9,.18); border-radius: 9px; padding: 10px 13px; margin-top: 14px; font-size: 12px; color: var(--c-amber); line-height: 1.55; }
+html.theme-dark .corr-insight-bar { background: rgba(180,83,9,.12); color: #f0c48a; }
+.corr-insight-bar.calm { background: #eef8f1; border-color: rgba(38,84,56,.18); color: var(--g600); }
+html.theme-dark .corr-insight-bar.calm { background: rgba(76,175,110,.12); color: var(--g200); }
+.corr-insight-bar svg { flex-shrink: 0; margin-top: 1px; }
+
+/* ---- driver ranked list ---- */
+.corr-driver-row { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--c-bd); }
+.corr-driver-row:last-child { border-bottom: none; padding-bottom: 4px; }
+.corr-drank { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--c-ink4); width: 16px; flex-shrink: 0; }
+.corr-dinfo { flex: 1; min-width: 0; }
+.corr-dtop { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 5px; }
+.corr-dname { font-size: 12.5px; font-weight: 700; display: flex; align-items: center; gap: 6px; color: var(--c-ink2); }
+.corr-drift-tag { font-size: 9px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--c-amber); background: #f3dfb2; padding: 1px 6px; border-radius: 4px; }
+html.theme-dark .corr-drift-tag { background: rgba(180,83,9,.28); color: #f5d9ab; }
+.corr-dscore { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 700; color: var(--c-ink2); font-variant-numeric: tabular-nums; }
+.corr-dbar-track { height: 5px; background: var(--c-bg); border-radius: 3px; overflow: hidden; }
+.corr-dbar-fill { height: 100%; border-radius: 3px; background: var(--g700); transition: width .6s cubic-bezier(.22,1,.36,1); }
+.corr-driver-row.flagged .corr-dbar-fill { background: var(--c-amber); }
+
+.corr-sub-heading { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--c-ink4); margin: 18px 0 10px; padding-top: 14px; border-top: 1px dashed var(--c-bd); }
+.corr-chip-row { display: flex; flex-wrap: wrap; gap: 7px; }
+.corr-signal-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; padding: 6px 10px; border-radius: 99px; background: #eef8f1; border: 1px solid rgba(38,84,56,.16); color: var(--g600); }
+html.theme-dark .corr-signal-chip { background: rgba(76,175,110,.12); }
+.corr-signal-chip .corr-cdot { width: 6px; height: 6px; border-radius: 50%; background: var(--g600); flex-shrink: 0; }
+.corr-signal-chip.warn { background: #fff7e6; border-color: rgba(180,83,9,.18); color: var(--c-amber); }
+html.theme-dark .corr-signal-chip.warn { background: rgba(180,83,9,.12); color: #f0c48a; }
+.corr-signal-chip.warn .corr-cdot { background: var(--c-amber); }
+
+/* ---------- Summary table panel ---------- */
+.corr-table-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; flex-wrap: wrap; }
+.corr-search-box { position: relative; flex: 1; min-width: 180px; }
+.corr-search-box svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--c-ink4); }
+.corr-search-box input { width: 100%; font-size: 12.5px; padding: 9px 10px 9px 32px; border-radius: 10px; border: 1px solid var(--c-bd); background: #fbfdfb; color: var(--c-ink); }
+html.theme-dark .corr-search-box input { background: var(--c-bg); }
+.corr-search-box input:focus { outline: none; border-color: var(--g400); }
+
+.corr-view table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 14px; }
+.corr-view th { text-align: left; padding: 0 12px 12px; color: var(--c-ink4); font-weight: 600; font-size: 11px; letter-spacing: .03em; text-transform: uppercase; border-bottom: 1px solid var(--c-bd); }
+.corr-view td { padding: 13px 12px; border-bottom: 1px solid var(--c-bd); vertical-align: top; line-height: 1.5; color: var(--c-ink2); }
+.corr-view tbody tr { border-left: 2px solid transparent; transition: background .12s ease, border-color .12s ease; }
+.corr-view tbody tr:hover { background: var(--c-bg); border-left-color: var(--g300); }
+.corr-view tbody tr:last-child td { border-bottom: none; }
+.corr-factor-row { display: flex; align-items: center; gap: 9px; font-weight: 700; }
+.corr-factor-icon { width: 26px; height: 26px; border-radius: 7px; background: #eef8f1; color: var(--g700); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+html.theme-dark .corr-factor-icon { background: rgba(76,175,110,.14); }
+.corr-impact-cell { display: flex; align-items: center; gap: 7px; font-weight: 600; }
+.corr-impact-cell.up { color: var(--g600); }
+.corr-impact-cell.down { color: var(--c-amber); }
+.corr-status-pill { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; background: var(--g100); color: var(--g800); }
+html.theme-dark .corr-status-pill { background: rgba(76,175,110,.18); color: var(--g200); }
+.corr-status-pill.ns { background: var(--c-bg); color: var(--c-ink4); }
+.corr-tariff-note { font-size: 12px; color: var(--c-ink3); padding: 10px 12px 4px; line-height: 1.6; }
+.corr-tariff-note strong { color: var(--c-ink2); }
+
+@media (max-width: 980px) { .corr-main-grid { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .corr-stat-strip { grid-template-columns: repeat(2, 1fr); } }

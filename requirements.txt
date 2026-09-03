@@ -11,5 +11,11 @@ flask-cors>=4.0
 requests>=2.28
 beautifulsoup4>=4.12
 pdfplumber>=0.11
-# TensorFlow (LSTM) — install with Python 3.11–3.13 only:
-# py -3.13 -m pip install tensorflow
+# TensorFlow (LSTM) — optional, install separately with Python 3.11–3.13 only (not
+# pulled in by `pip install -r requirements.txt`; without it, sklearn MLP is used as
+# fallback). Pinned to an exact version so the Keras build that loads the committed
+# .keras model files matches the one that saved them — unpinned installs across
+# machines/dates can grab different Keras minor versions whose serialized layer
+# configs aren't cross-compatible, breaking model loading after `git pull`.
+# Retrain (Admin > Training) and update this pin if you deliberately upgrade it.
+# py -3.13 -m pip install tensorflow==2.20.0

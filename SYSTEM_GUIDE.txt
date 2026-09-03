@@ -451,7 +451,8 @@ Ang merged pipeline ay automatic na kasama ang WS_* tables sa training data.
 REQUIREMENTS:
   - Python 3.11 / 3.12 / 3.13 (HUWAG 3.14 para sa TensorFlow)
   - pip install -r requirements.txt
-  - pip install tensorflow (optional pero recommended para LSTM)
+  - pip install tensorflow==2.20.0 (optional pero recommended para LSTM; i-pin ang version
+    para tugma sa Keras build na nag-save ng committed .keras model files)
 
 HAKBANG 1 — Database (unang beses):
   cd datasets
@@ -508,8 +509,18 @@ HAKBANG 5 — Predictions:
     → Kailangan 50+ sequences; i-import ang datasets at import_2026
 
   Walang TensorFlow
-    → py -3.13 -m pip install tensorflow
+    → py -3.13 -m pip install tensorflow==2.20.0
     → Kung hindi pa rin: gagamit ng sklearn MLP fallback (backend: sklearn)
+
+  "Predictions" error/blangko pagkatapos ng git pull (may nakalimbag na internal
+  error text sa halip na forecast)
+    → Karaniwang sanhi: naiibang Keras/TensorFlow version ang naka-install kaysa sa
+      version na gumawa/nag-save ng committed .keras files (bawat isa ay may sariling
+      paraan ng pag-serialize). Ayusin: `pip install tensorflow==2.20.0` (tugma sa
+      requirements.txt), o i-retrain ang model (Admin > Training) gamit ang kasalukuyang
+      TensorFlow. Hindi na dapat mag-crash ang dashboard sa ganitong error — awtomatikong
+      babalik ito sa MLP/trend estimate habang naka-log ang tunay na error sa terminal
+      kung saan tumatakbo ang `api/app.py`.
 
   Predictions maling petsa
     → I-sync: py -3.13 datasets/import_2026.py, restart app.py, Ctrl+F5

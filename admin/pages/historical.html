@@ -1,20 +1,32 @@
 <div class="section-header" style="margin-bottom:16px;">
   <div>
     <div class="section-title">Historical Price Data</div>
-    <div class="section-subtitle">2015–2026 · 36,500+ records</div>
+    <div class="section-subtitle" id="hist-record-count">Loading records…</div>
   </div>
   <div class="filter-bar">
-    <button class="btn btn-outline btn-sm">
+    <div class="hist-mode-tabs" id="hist-mode-tabs" role="tablist">
+      <button type="button" class="hist-mode-tab active" data-mode="chart" role="tab" aria-selected="true">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="14 7 21 7 21 14"/></svg>
+        Chart &amp; Data Table
+      </button>
+      <button type="button" class="hist-mode-tab" data-mode="stats" role="tab" aria-selected="false">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>
+        Statistics
+      </button>
+    </div>
+    <button class="btn btn-outline btn-sm" id="hist-export-btn">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       Export CSV
     </button>
   </div>
 </div>
 
+<!-- ============ VIEW 1: CHART + DATA TABLE ============ -->
+<div class="hist-view active" id="hist-view-chart">
 <div class="card" style="margin-bottom:20px;">
   <!-- IISANG LINE ALIGNMENT: Legends (Left) | Dropdown + Filters (Right) -->
   <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
-    
+
     <!-- KALIWA: Dynamic Legends -->
     <div class="chart-legend" id="dynamic-chart-legend" style="margin: 0; flex: 1;">
         <!-- Dito papasok yung dynamic legends mula sa JS -->
@@ -24,14 +36,17 @@
     <div style="display: flex; align-items: center; gap: 16px;">
       <div class="outlook-select-wrap" id="rice-category-wrap">
         <div class="outlook-select-trigger" id="rice-category-trigger">
-          <span id="rice-category-label">Local Rice</span>
+          <span id="rice-category-label">All</span>
           <svg class="outlook-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
         <div class="outlook-dropdown">
-          <div class="outlook-option active" data-value="local">Local Rice</div>
+          <div class="outlook-option active" data-value="all">All</div>
+          <div class="outlook-option" data-value="local">Local Rice</div>
           <div class="outlook-option" data-value="imported">Imported Rice</div>
+          <div class="outlook-option" data-value="gas">Gas</div>
+          <div class="outlook-option" data-value="currency">Currency</div>
         </div>
-        <input type="hidden" id="rice-category" value="local">
+        <input type="hidden" id="rice-category" value="all">
       </div>
 
       <div class="period-tabs" style="margin:0; height:32px; display:flex; align-items:center;">
@@ -48,27 +63,22 @@
   <div class="card-body">
     <canvas id="hist-main-chart" class="big-chart-container" style="width:100%;height:320px;display:block;"></canvas>
   </div>
+  <!-- Click a point on the chart to see it here — populated by historical.js, idle until then. -->
+  <div class="card-body hist-click-summary-wrap" id="hist-click-summary">
+    <p class="hist-click-hint">Click a point on the chart to compare it with the point before it.</p>
+  </div>
 </div>
 
 <div class="card">
   <!-- IISANG LINE ALIGNMENT PARA SA TABLE HEADER (Tinanggal ang Date Range) -->
   <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
-    
-    <span class="card-title" style="margin: 0;">Data Table</span>
-    
+
+    <div>
+      <span class="card-title" style="margin: 0;">Data Table</span>
+      <p class="hist-table-sub" id="hist-table-sub">Follows the category and date range selected above</p>
+    </div>
+
     <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-      
-      <div class="outlook-select-wrap" id="table-category-wrap">
-        <div class="outlook-select-trigger" id="table-category-trigger">
-          <span id="table-category-label">Local Rice</span>
-          <svg class="outlook-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-        </div>
-        <div class="outlook-dropdown">
-          <div class="outlook-option active" data-value="local">Local Rice</div>
-          <div class="outlook-option" data-value="imported">Imported Rice</div>
-        </div>
-        <input type="hidden" id="table-category" value="local">
-      </div>
 
       <div class="outlook-select-wrap" id="table-rice-type-wrap">
         <div class="outlook-select-trigger" id="table-rice-type-trigger">
@@ -102,10 +112,9 @@
 
   <div style="overflow-x:auto;">
     <table class="data-table">
-      <thead>
+      <thead id="historical-thead">
         <tr>
-          <th>Date / Period</th><th>Rice Type</th><th>Avg Price (₱/kg)</th><th>Avg Fuel</th>
-          <th>Avg USD/PHP</th><th>Change</th>
+          <th>Date / Period</th><th>Rice Type</th><th>Avg Price (₱/kg)</th><th>Change</th>
         </tr>
       </thead>
       <tbody id="historical-tbody">
@@ -113,7 +122,83 @@
       </tbody>
     </table>
   </div>
+
+  <div class="hist-pagination" id="hist-table-pagination">
+    <span class="hist-pagination-info" id="hist-pagination-info"></span>
+    <div class="hist-pagination-controls" id="hist-pagination-controls"></div>
+  </div>
+</div>
 </div>
 
+<!-- ============ VIEW 2: STATISTICS ============ -->
+<div class="hist-view" id="hist-view-stats">
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+      <div>
+        <span class="card-title" style="margin:0;">Price Statistics</span>
+        <p class="hist-table-sub" id="hist-stats-sub">Summary across the selected range, per rice grade</p>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <div class="outlook-select-wrap" id="stats-category-wrap">
+          <div class="outlook-select-trigger" id="stats-category-trigger">
+            <span id="stats-category-label">Local Rice</span>
+            <svg class="outlook-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="outlook-dropdown">
+            <div class="outlook-option active" data-value="local">Local Rice</div>
+            <div class="outlook-option" data-value="imported">Imported Rice</div>
+            <div class="outlook-option" data-value="gas">Gas (Diesel Fuel)</div>
+            <div class="outlook-option" data-value="currency">Currency (USD/PHP)</div>
+          </div>
+          <input type="hidden" id="stats-category" value="local">
+        </div>
+        <div class="period-tabs" id="hist-srange-tabs">
+          <div class="period-tab" data-srange="90">3M</div>
+          <div class="period-tab" data-srange="180">6M</div>
+          <div class="period-tab active" data-srange="365">1Y</div>
+          <div class="period-tab" data-srange="all">All</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="hist-type-chips" id="hist-type-chips"></div>
+      <div class="hist-stat-cards" id="hist-stat-cards"></div>
+      <div class="hist-insight" id="hist-stats-insight"></div>
+    </div>
+  </div>
 
-
+  <div class="hist-two-col">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <span class="card-title">Price Distribution
+            <span class="hist-info" tabindex="0">
+              <span class="hist-info-icon"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><line x1="12" y1="11" x2="12" y2="17"/><circle cx="12" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg></span>
+              <span class="hist-info-pop">A histogram of daily prices — taller bars mean that price range occurred more often in the selected period. Hover a bar for its exact range and day count.</span>
+            </span>
+          </span>
+          <p class="hist-table-sub" style="margin-bottom:0;">Histogram of daily prices, selected grade &amp; range</p>
+        </div>
+      </div>
+      <div class="card-body">
+        <canvas id="hist-dist-chart" role="img" aria-label="Histogram of daily prices for the selected grade and range." style="width:100%;height:240px;display:block;"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <span class="card-title">Range by Grade
+            <span class="hist-info" tabindex="0">
+              <span class="hist-info-icon"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><line x1="12" y1="11" x2="12" y2="17"/><circle cx="12" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg></span>
+              <span class="hist-info-pop">Each bar spans the lowest-to-highest price for that grade, with a dot marking its average — useful for comparing how grades are priced relative to each other.</span>
+            </span>
+          </span>
+          <p class="hist-table-sub" style="margin-bottom:0;">Min–max range with average marker</p>
+        </div>
+      </div>
+      <div class="card-body" style="overflow-x:auto;">
+        <table class="hist-range-table" id="hist-range-table"></table>
+      </div>
+    </div>
+  </div>
+</div>
