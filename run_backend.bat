@@ -9,7 +9,7 @@ if not "%~1"=="" (
 ) else if not "%OPEN_URL%"=="" (
   REM keep env override
 ) else (
-  set "OPEN_URL=http://127.0.0.1:5000/public/landpage.html?auth=login"
+  set "OPEN_URL=http://127.0.0.1:5000/public/login.html"
 )
 
 echo.
@@ -59,7 +59,7 @@ cd api
 echo Starting server... (first start may take 10-30 seconds)
 echo.
 echo   Public site:  http://127.0.0.1:5000/public/landpage.html
-echo   Admin login:  http://127.0.0.1:5000/public/landpage.html?auth=login  (click Log in, sign in with your admin account)
+echo   Login page:   http://127.0.0.1:5000/public/login.html  (admin username here also works, then enter the 6-digit code)
 echo   Health check: http://127.0.0.1:5000/api/health
 echo.
 echo The browser will open automatically when the server is ready.

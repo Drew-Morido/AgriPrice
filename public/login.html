@@ -3,52 +3,164 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <script src="js/public-settings.js"></script>
+  <!-- No public-settings.js here on purpose: this page is always the light card +
+       dark photo look, regardless of the visitor's saved site-wide dark-mode
+       preference (public-settings.js is what applies the html.theme-dark class). -->
   <title>Log In — AgriPricePH</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300;1,9..144,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/global.css" />
-  <link rel="stylesheet" href="css/landpage.css" />
   <link rel="stylesheet" href="css/public.css" />
-  <link rel="stylesheet" href="css/landpage-nav.css" />
   <link rel="stylesheet" href="css/public-alert.css" />
+  <link rel="stylesheet" href="css/auth-hero.css" />
 </head>
-<body data-page="login" data-layout="auth" data-title="Log In" data-subtitle="Retailer account">
+<body data-page="login">
 
-<div class="public-auth-wrap" id="public-auth-wrap">
-  <div class="public-auth-box">
-    <h2>Welcome back</h2>
-    <p class="subtitle">
-      Log in to view <strong>price history</strong> and <strong>charts &amp; stats</strong>.
-      Today's prices and the forecast stay free without an account.
-    </p>
-
-    <div id="auth-error" class="auth-error" role="alert" hidden></div>
-
-    <form id="form-login">
-      <div class="lp-form-group">
-        <label for="login-email">Email</label>
-        <input class="form-input" type="email" id="login-email" required autocomplete="email" placeholder="you@email.com" />
-      </div>
-      <div class="lp-form-group">
-        <label for="login-password">Password</label>
-        <input class="form-input" type="password" id="login-password" required autocomplete="current-password" placeholder="Your password" />
-      </div>
-      <button type="submit" class="btn btn-primary btn-lg" style="width:100%">Log in</button>
-    </form>
-
-    <div class="public-auth-footer">
-      No account yet? <a href="signup.html">Create one — it's free</a><br />
-      <a href="landpage.html">← Back to home</a>
+<div class="ah-stage">
+  <div class="ah-hero-zone">
+    <div class="ah-slideshow" id="ah-slideshow">
+      <img class="ah-slide is-active" src="assets/img/login-hero-1.jpg" alt=""
+           data-credit="Photo: Patrickroque01 — Wikimedia Commons (CC BY-SA 4.0)"
+           data-credit-href="https://commons.wikimedia.org/wiki/File:Banaue_Rice_Terraces_main_south_sunset_(Banaue,_Ifugao;_11-25-2022).jpg" />
+      <img class="ah-slide" src="assets/img/login-hero-2.jpg" alt=""
+           data-credit="Photo: Jophel Botero Ybiosa — Wikimedia Commons (CC BY-SA 4.0)"
+           data-credit-href="https://commons.wikimedia.org/wiki/File:SPLENDOR_OF_BATAD_RICE_TERRACES.jpg" />
+      <img class="ah-slide" src="assets/img/login-hero-3.jpg" alt=""
+           data-credit="Photo: Bien02 — Wikimedia Commons (CC BY 4.0)"
+           data-credit-href="https://commons.wikimedia.org/wiki/File:Batad_Rice_Terraces_(aerial).jpg" />
+      <img class="ah-slide" src="assets/img/login-hero-4.jpg" alt=""
+           data-credit="Photo: Tyrel Fang-asan Faniswa — Wikimedia Commons (CC BY-SA 4.0)"
+           data-credit-href="https://commons.wikimedia.org/wiki/File:Payew_Rice_Terraces_of_Besao.jpg" />
+      <img class="ah-slide" src="assets/img/login-hero-5.jpg" alt=""
+           data-credit="Photo: Jsinglador — Wikimedia Commons (CC BY-SA 3.0)"
+           data-credit-href="https://commons.wikimedia.org/wiki/File:Early_Morning_Scene_at_Banaue_Rice_Terraces.jpg" />
     </div>
+    <div class="ah-overlay"></div>
+
+    <div class="ah-hero">
+      <a href="landpage.html" class="ah-topbar">
+        <span class="ah-logo-tile">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
+            <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+          </svg>
+        </span>
+        <span class="ah-brand-text">
+          <span class="ah-brand-name">AgriPricePH</span>
+        </span>
+      </a>
+
+      <div class="ah-hero-mid">
+        <h1>Rice prices shouldn't be a guessing game — see today's price, and where it's headed, before you buy or sell.</h1>
+        <p>Track today's price and a 3-day forecast across all 8 rice types — local and imported — plus fuel and the USD/PHP rate, in one place.</p>
+
+        <div class="ah-stat-row">
+          <div class="ah-stat-item">
+            <span class="ah-stat-label">Local · Well Milled</span>
+            <span class="ah-stat-value" id="ah-stat-locWellMilled-value">—</span>
+            <span class="ah-stat-change" id="ah-stat-locWellMilled-change"></span>
+          </div>
+          <div class="ah-stat-item">
+            <span class="ah-stat-label">Imported · Premium</span>
+            <span class="ah-stat-value" id="ah-stat-impPremium-value">—</span>
+            <span class="ah-stat-change" id="ah-stat-impPremium-change"></span>
+          </div>
+          <div class="ah-stat-item">
+            <span class="ah-stat-label">Fuel</span>
+            <span class="ah-stat-value" id="ah-stat-fuel-value">—</span>
+            <span class="ah-stat-change" id="ah-stat-fuel-change"></span>
+          </div>
+          <div class="ah-stat-item">
+            <span class="ah-stat-label">USD/PHP</span>
+            <span class="ah-stat-value" id="ah-stat-exchange-value">—</span>
+            <span class="ah-stat-change" id="ah-stat-exchange-change"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="ah-slide-bar">
+        <div class="ah-slide-dots" id="ah-slide-dots" role="tablist" aria-label="Background photo selector">
+          <button type="button" class="ah-slide-dot is-active" data-slide-index="0" role="tab" aria-selected="true" aria-label="Photo 1 of 5"></button>
+          <button type="button" class="ah-slide-dot" data-slide-index="1" role="tab" aria-selected="false" aria-label="Photo 2 of 5"></button>
+          <button type="button" class="ah-slide-dot" data-slide-index="2" role="tab" aria-selected="false" aria-label="Photo 3 of 5"></button>
+          <button type="button" class="ah-slide-dot" data-slide-index="3" role="tab" aria-selected="false" aria-label="Photo 4 of 5"></button>
+          <button type="button" class="ah-slide-dot" data-slide-index="4" role="tab" aria-selected="false" aria-label="Photo 5 of 5"></button>
+        </div>
+        <p class="ah-slide-credit" id="ah-slide-credit"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="ah-form-panel">
+    <div class="ah-card">
+      <div class="ah-card-body" id="ah-login-panel">
+        <h2>Welcome back</h2>
+        <p class="ah-sub">Log in to view price history and charts &amp; stats. Today's prices and the forecast stay free without an account.</p>
+
+        <form id="form-login" autocomplete="on">
+          <div class="ah-field">
+            <label for="login-email">Email or username</label>
+            <div class="ah-input-wrap">
+              <svg class="ah-icon-left" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+              <input class="form-input" type="text" id="login-email" required autocomplete="username" placeholder="you@email.com or admin username" />
+            </div>
+          </div>
+
+          <div class="ah-field">
+            <label for="login-password">Password</label>
+            <div class="ah-input-wrap">
+              <svg class="ah-icon-left" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+              <input class="form-input ah-pw-input" type="password" id="login-password" required autocomplete="current-password" placeholder="Your password" />
+              <button type="button" class="ah-pw-toggle" data-pw-toggle="login-password" aria-label="Show password">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="ah-row">
+            <label class="ah-remember">
+              <input type="checkbox" id="login-remember" />
+              Remember me
+            </label>
+            <button type="button" class="ah-forgot" id="ah-forgot-link">Forgot password?</button>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-lg" style="width:100%">Log in</button>
+        </form>
+
+        <div class="ah-divider"></div>
+
+        <div class="ah-foot">
+          No account yet? <a href="signup.html">Create one — it's free</a>
+          <a href="landpage.html" class="ah-foot-back">← Back to home</a>
+        </div>
+      </div>
+
+      <div class="ah-card-body" id="ah-pin-panel" hidden>
+        <h2>Admin access code</h2>
+        <p class="ah-sub">Enter your 6-digit PIN to open the admin dashboard.</p>
+
+        <form id="form-admin-pin" autocomplete="off">
+          <div class="ah-field">
+            <label for="admin-pin">6-digit PIN</label>
+            <input class="form-input" type="password" id="admin-pin" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="••••••" required />
+          </div>
+          <button type="submit" class="btn btn-primary btn-lg" style="width:100%">Sign in to dashboard</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="ah-pin-back" style="width:100%;margin-top:10px">← Back to log in</button>
+        </form>
+      </div>
+    </div>
+
+    <p class="ah-footer">© 2026 AgriPricePH</p>
   </div>
 </div>
 
+<script src="../js/data.js"></script>
+<script src="../js/api.js"></script>
 <script src="js/public-alert.js"></script>
 <script src="js/public-auth.js"></script>
-<script src="js/public-auth-modal.js"></script>
-<script src="js/public-shell.js"></script>
 <script src="js/public-pages.js"></script>
+<script src="js/auth-hero.js"></script>
 </body>
 </html>

@@ -136,8 +136,8 @@
   // (public/js/public-auth-modal.js — the login form auto-detects admin credentials and, on a
   // correct username/password, follows up with the 6-digit access code prompt before redirecting
   // back into admin/index.html). The old standalone admin/login.html page has been retired, so an
-  // unauthenticated visit here bounces out to the public site with that modal pre-opened.
-  const PUBLIC_LOGIN_URL = '../public/landpage.html?auth=login';
+  // unauthenticated visit here bounces out to the real public login page.
+  const PUBLIC_LOGIN_URL = '../public/login.html';
 
   document.addEventListener('DOMContentLoaded', async () => {
     const ok = await enforceSessionOrRedirect();

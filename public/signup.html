@@ -3,59 +3,206 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <script src="js/public-settings.js"></script>
+  <!-- No public-settings.js here on purpose: this page is always the light card +
+       dark photo look, regardless of the visitor's saved site-wide dark-mode
+       preference (public-settings.js is what applies the html.theme-dark class). -->
   <title>Create Account — AgriPricePH</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300;1,9..144,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/global.css" />
-  <link rel="stylesheet" href="css/landpage.css" />
   <link rel="stylesheet" href="css/public.css" />
-  <link rel="stylesheet" href="css/landpage-nav.css" />
   <link rel="stylesheet" href="css/public-alert.css" />
+  <link rel="stylesheet" href="css/auth-hero.css" />
 </head>
-<body data-page="signup" data-layout="auth" data-title="Create Account" data-subtitle="Free registration">
+<body data-page="signup">
 
-<div class="public-auth-wrap" id="public-auth-wrap">
-  <div class="public-auth-box">
-    <h2>Create your account</h2>
-    <p class="subtitle">
-      Create a free <strong>retailer</strong> account to unlock price history and charts.
-    </p>
+<div class="ah-stage">
+  <div class="ah-hero-zone">
+    <div class="ah-slideshow" id="ah-slideshow">
+      <img class="ah-slide is-active" src="assets/img/login-hero-1.jpg" alt=""
+           data-credit="Photo: Patrickroque01 — Wikimedia Commons (CC BY-SA 4.0)"
+           data-credit-href="https://commons.wikimedia.org/wiki/File:Banaue_Rice_Terraces_main_south_sunset_(Banaue,_Ifugao;_11-25-2022).jpg" />
+      <img class="ah-slide" src="assets/img/login-hero-2.jpg" alt=""
+           data-credit="Photo: Jophel Botero Ybiosa — Wikimedia Commons (CC BY-SA 4.0)"
+           data-credit-href="https://commons.wikimedia.org/wiki/File:SPLENDOR_OF_BATAD_RICE_TERRACES.jpg" />
+      <img class="ah-slide" src="assets/img/login-hero-3.jpg" alt=""
+           data-credit="Photo: Bien02 — Wikimedia Commons (CC BY 4.0)"
+           data-credit-href="https://commons.wikimedia.org/wiki/File:Batad_Rice_Terraces_(aerial).jpg" />
+      <img class="ah-slide" src="assets/img/login-hero-4.jpg" alt=""
+           data-credit="Photo: Tyrel Fang-asan Faniswa — Wikimedia Commons (CC BY-SA 4.0)"
+           data-credit-href="https://commons.wikimedia.org/wiki/File:Payew_Rice_Terraces_of_Besao.jpg" />
+      <img class="ah-slide" src="assets/img/login-hero-5.jpg" alt=""
+           data-credit="Photo: Jsinglador — Wikimedia Commons (CC BY-SA 3.0)"
+           data-credit-href="https://commons.wikimedia.org/wiki/File:Early_Morning_Scene_at_Banaue_Rice_Terraces.jpg" />
+    </div>
+    <div class="ah-overlay"></div>
 
-    <div id="auth-error" class="auth-error" role="alert" hidden></div>
+    <div class="ah-hero">
+      <a href="landpage.html" class="ah-topbar">
+        <span class="ah-logo-tile">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
+            <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+          </svg>
+        </span>
+        <span class="ah-brand-text">
+          <span class="ah-brand-name">AgriPricePH</span>
+        </span>
+      </a>
 
-    <form id="form-signup">
-      <div class="lp-form-group">
-        <label for="signup-name">Your name</label>
-        <input class="form-input" type="text" id="signup-name" required placeholder="e.g. Maria Santos" />
+      <div class="ah-hero-mid">
+        <h1>Rice prices shouldn't be a guessing game — see today's price, and where it's headed, before you buy or sell.</h1>
+        <p>Track today's price and a 3-day forecast across all 8 rice types — local and imported — plus fuel and the USD/PHP rate, in one place.</p>
+
+        <div class="ah-stat-row">
+          <div class="ah-stat-item">
+            <span class="ah-stat-label">Local · Well Milled</span>
+            <span class="ah-stat-value" id="ah-stat-locWellMilled-value">—</span>
+            <span class="ah-stat-change" id="ah-stat-locWellMilled-change"></span>
+          </div>
+          <div class="ah-stat-item">
+            <span class="ah-stat-label">Imported · Premium</span>
+            <span class="ah-stat-value" id="ah-stat-impPremium-value">—</span>
+            <span class="ah-stat-change" id="ah-stat-impPremium-change"></span>
+          </div>
+          <div class="ah-stat-item">
+            <span class="ah-stat-label">Fuel</span>
+            <span class="ah-stat-value" id="ah-stat-fuel-value">—</span>
+            <span class="ah-stat-change" id="ah-stat-fuel-change"></span>
+          </div>
+          <div class="ah-stat-item">
+            <span class="ah-stat-label">USD/PHP</span>
+            <span class="ah-stat-value" id="ah-stat-exchange-value">—</span>
+            <span class="ah-stat-change" id="ah-stat-exchange-change"></span>
+          </div>
+        </div>
       </div>
-      <div class="lp-form-group">
-        <label for="signup-email">Email</label>
-        <input class="form-input" type="email" id="signup-email" required autocomplete="email" placeholder="you@email.com" />
-      </div>
-      <div class="lp-form-group">
-        <label for="signup-password">Password</label>
-        <input class="form-input" type="password" id="signup-password" required minlength="6" autocomplete="new-password" placeholder="At least 6 characters" />
-      </div>
-      <button type="submit" class="btn btn-primary btn-lg" style="width:100%">Create account</button>
-    </form>
 
-    <p class="form-hint" style="margin-top:20px;text-align:center">
-      For this demo, your account is saved on this device only.
-    </p>
+      <div class="ah-slide-bar">
+        <div class="ah-slide-dots" id="ah-slide-dots" role="tablist" aria-label="Background photo selector">
+          <button type="button" class="ah-slide-dot is-active" data-slide-index="0" role="tab" aria-selected="true" aria-label="Photo 1 of 5"></button>
+          <button type="button" class="ah-slide-dot" data-slide-index="1" role="tab" aria-selected="false" aria-label="Photo 2 of 5"></button>
+          <button type="button" class="ah-slide-dot" data-slide-index="2" role="tab" aria-selected="false" aria-label="Photo 3 of 5"></button>
+          <button type="button" class="ah-slide-dot" data-slide-index="3" role="tab" aria-selected="false" aria-label="Photo 4 of 5"></button>
+          <button type="button" class="ah-slide-dot" data-slide-index="4" role="tab" aria-selected="false" aria-label="Photo 5 of 5"></button>
+        </div>
+        <p class="ah-slide-credit" id="ah-slide-credit"></p>
+      </div>
+    </div>
+  </div>
 
-    <div class="public-auth-footer">
-      Already registered? <a href="login.html">Log in</a><br />
-      <a href="landpage.html">← Back to home</a>
+  <div class="ah-form-panel">
+    <div class="ah-card">
+      <div class="ah-card-body">
+        <h2>Create your account</h2>
+        <p class="ah-sub">Free forever — track price history and charts &amp; stats across all 8 rice types. For this demo, your account is saved on this device only.</p>
+
+        <form id="form-signup" autocomplete="on" novalidate>
+          <div class="ah-field-row">
+            <div class="ah-field">
+              <label for="signup-firstname">First name</label>
+              <div class="ah-input-wrap">
+                <svg class="ah-icon-left" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+                <input class="form-input" type="text" id="signup-firstname" required placeholder="Maria" autocomplete="given-name" />
+              </div>
+              <p class="ah-field-error" id="signup-firstname-error" hidden></p>
+            </div>
+            <div class="ah-field">
+              <label for="signup-lastname">Last name</label>
+              <div class="ah-input-wrap">
+                <svg class="ah-icon-left" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+                <input class="form-input" type="text" id="signup-lastname" required placeholder="Santos" autocomplete="family-name" />
+              </div>
+              <p class="ah-field-error" id="signup-lastname-error" hidden></p>
+            </div>
+          </div>
+
+          <div class="ah-field">
+            <label for="signup-email">Email</label>
+            <div class="ah-input-wrap">
+              <svg class="ah-icon-left" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+              <input class="form-input" type="email" id="signup-email" required autocomplete="email" placeholder="you@email.com" />
+            </div>
+            <p class="ah-field-error" id="signup-email-error" hidden></p>
+          </div>
+
+          <div class="ah-field">
+            <label for="signup-password">Password</label>
+            <div class="ah-input-wrap">
+              <svg class="ah-icon-left" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+              <input class="form-input ah-pw-input" type="password" id="signup-password" required autocomplete="new-password" placeholder="Strong password" />
+              <button type="button" class="ah-pw-toggle" data-pw-toggle="signup-password" aria-label="Show password">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+            <div class="ah-pw-meter"><div class="ah-pw-meter-bar" id="signup-pw-bar"></div></div>
+            <div class="ah-pw-hint" id="signup-pw-hint">Use at least 8 characters with uppercase, lowercase, and a number.</div>
+            <p class="ah-field-error" id="signup-password-error" hidden></p>
+          </div>
+
+          <div class="ah-field">
+            <label for="signup-confirm">Confirm password</label>
+            <div class="ah-input-wrap">
+              <svg class="ah-icon-left" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+              <input class="form-input ah-pw-input" type="password" id="signup-confirm" required autocomplete="new-password" placeholder="Re-enter password" />
+              <button type="button" class="ah-pw-toggle" data-pw-toggle="signup-confirm" aria-label="Show password">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+            <p class="ah-field-error" id="signup-confirm-error" hidden></p>
+          </div>
+
+          <label class="ah-terms">
+            <input type="checkbox" id="signup-terms" />
+            <span>I agree to the <button type="button" class="ah-terms-link" id="ah-terms-link">Terms &amp; Conditions</button> and Privacy notice for this demo (accounts are stored on this device only).</span>
+          </label>
+          <p class="ah-field-error ah-terms-error" id="signup-terms-error" hidden></p>
+
+          <button type="submit" class="btn btn-primary btn-lg" style="width:100%">Create account</button>
+        </form>
+
+        <div class="ah-divider"></div>
+
+        <div class="ah-foot">
+          Already registered? <a href="login.html">Log in</a>
+          <a href="landpage.html" class="ah-foot-back">← Back to home</a>
+        </div>
+      </div>
+    </div>
+
+    <p class="ah-footer">© 2026 AgriPricePH</p>
+  </div>
+</div>
+
+<div class="ah-modal-backdrop" id="ah-terms-modal">
+  <div class="ah-modal" role="dialog" aria-modal="true" aria-labelledby="ah-terms-title">
+    <div class="ah-modal-head">
+      <h3 id="ah-terms-title">Terms &amp; Conditions</h3>
+      <button type="button" class="ah-modal-x" id="ah-terms-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="ah-modal-body">
+      <p><strong>AgriPricePH is an academic capstone demonstration</strong>, provided for educational and evaluation purposes only. By creating an account you acknowledge the following.</p>
+      <ol>
+        <li><strong>Demo accounts are local.</strong> Your account (name, email, password) is stored only in <em>this browser</em> via localStorage. It is not uploaded to a server, and it is not shared. Clearing your browser data removes it.</li>
+        <li><strong>No personal data collection.</strong> The system does not transmit or store your personal information on a backend. Admin-side security logs may record admin sign-in events only.</li>
+        <li><strong>Data sources.</strong> Prices and indicators are compiled from public sources (Department of Agriculture, PSA, UN-FAO, and public fuel/exchange references). Figures are for guidance and may be delayed, estimated, or incomplete.</li>
+        <li><strong>Forecasts are not guarantees.</strong> Price forecasts are model estimates with a stated error band and must not be used as the sole basis for financial decisions.</li>
+        <li><strong>No warranty.</strong> The system is provided "as is" for the capstone defense, without warranty of any kind.</li>
+      </ol>
+      <p style="font-size:12px;">This is a plain-language summary for the demo. Formal Terms &amp; Conditions and a Privacy Policy would be provided by the project owner prior to any public release.</p>
+    </div>
+    <div class="ah-modal-foot">
+      <button type="button" class="btn btn-primary" id="ah-terms-ok">Close</button>
     </div>
   </div>
 </div>
 
+<script src="../js/data.js"></script>
+<script src="../js/api.js"></script>
 <script src="js/public-alert.js"></script>
 <script src="js/public-auth.js"></script>
-<script src="js/public-auth-modal.js"></script>
-<script src="js/public-shell.js"></script>
 <script src="js/public-pages.js"></script>
+<script src="js/auth-hero.js"></script>
 </body>
 </html>
