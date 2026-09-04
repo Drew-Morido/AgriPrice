@@ -28,12 +28,13 @@
   position: relative;
   z-index: 1;
   width: 100%;
-  max-width: 400px;
-  background: #fff;
-  border-radius: 16px;
-  padding: 28px 26px 22px;
-  text-align: center;
-  box-shadow: 0 20px 50px rgba(21, 55, 35, 0.22), 0 4px 14px rgba(21, 55, 35, 0.1);
+  max-width: 380px;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-color, #E2EAE4);
+  border-radius: var(--border-radius-xl, 20px);
+  padding: 24px 24px 20px;
+  text-align: left;
+  box-shadow: 0 24px 56px rgba(21, 55, 35, 0.22), 0 6px 16px rgba(21, 55, 35, 0.1);
   animation: publicAlertIn 0.22s ease;
 }
 
@@ -48,19 +49,35 @@
   }
 }
 
+.public-alert-x {
+  position: absolute; top: 14px; right: 14px;
+  width: 28px; height: 28px; border: none; border-radius: 99px;
+  background: transparent; color: var(--text-muted, #849C8E);
+  font-size: 17px; line-height: 1; cursor: pointer;
+}
+.public-alert-x:hover { background: var(--bg-input, #F4F6F3); color: var(--text-primary, #1C2B1E); }
+
+.public-alert-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 10px;
+  padding-right: 26px;
+}
+
 .public-alert-icon {
-  width: 52px;
-  height: 52px;
-  margin: 0 auto 14px;
-  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--border-radius, 10px);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .public-alert-icon svg {
-  width: 26px;
-  height: 26px;
+  width: 18px;
+  height: 18px;
 }
 
 .public-alert--success .public-alert-icon {
@@ -84,41 +101,49 @@
 }
 
 .public-alert-title {
-  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-family: 'Fraunces', 'Plus Jakarta Sans', system-ui, serif;
   font-size: 18px;
   font-weight: 700;
-  color: #0f1e14;
-  margin: 0 0 8px;
+  color: var(--text-primary, #0f1e14);
+  margin: 0;
 }
 
+/* Indented to align under the title (past the icon), not under the icon —
+   the small deliberate offset is what keeps this from reading as a plain
+   centered icon/title/text/button stack. */
 .public-alert-message {
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-  font-size: 14px;
+  font-size: 13.5px;
   line-height: 1.55;
-  color: #3a5045;
+  color: var(--text-secondary, #3a5045);
   margin: 0 0 22px;
+  padding-left: 48px;
+}
+
+.public-alert-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .public-alert-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 120px;
-  height: 40px;
-  padding: 0 24px;
+  height: 38px;
+  padding: 0 22px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--border-radius-sm, 8px);
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
   color: #fff;
-  background: #2a5c3f;
+  background: var(--color-accent, #2a5c3f);
   cursor: pointer;
   transition: background 0.18s, transform 0.12s;
 }
 
 .public-alert-btn:hover {
-  background: #357350;
+  background: var(--color-accent-hover, #357350);
   transform: translateY(-1px);
 }
 
@@ -131,11 +156,23 @@
 }
 
 .public-alert--error .public-alert-btn {
-  background: #b91c1c;
+  background: var(--color-danger, #b91c1c);
 }
 
 .public-alert--error .public-alert-btn:hover {
   background: #dc2626;
+}
+
+.public-alert--warning .public-alert-btn {
+  background: #1d4ed8;
+}
+
+.public-alert--warning .public-alert-btn:hover {
+  background: #2563eb;
+}
+
+@media (max-width: 420px) {
+  .public-alert-message { padding-left: 0; }
 }
 
 body.public-alert-open {

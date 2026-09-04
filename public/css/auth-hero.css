@@ -1,0 +1,300 @@
+/* ============================================
+   AgriPricePH — Login / Sign up hero page
+   70/30 split: a rice-terraces photo slideshow (with credited HD sources)
+   on the left, a plain-color panel holding the login/sign-up card on the
+   right. The photo side deliberately keeps one fixed dark/gold look in
+   both the light and dark app themes; the form side already uses the
+   app's real light tokens, so it matches either theme automatically.
+   ============================================ */
+
+.ah-stage {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 100svh;
+}
+
+/* ---------------- 70% — photo slideshow + brand storytelling ---------------- */
+.ah-hero-zone {
+  position: relative;
+  flex: 1 1 70%;
+  min-width: 0;
+  overflow: hidden;
+  background: #101b13;
+}
+
+.ah-slideshow { position: absolute; inset: 0; }
+.ah-slide {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; object-position: 50% 38%;
+  opacity: 0; transition: opacity 1400ms ease;
+}
+.ah-slide.is-active { opacity: 1; }
+
+.ah-overlay {
+  position: absolute; inset: 0; z-index: 1;
+  background:
+    linear-gradient(90deg, rgba(6,14,10,0.66) 0%, rgba(6,14,10,0.5) 40%, rgba(6,14,10,0.4) 100%),
+    linear-gradient(180deg, rgba(6,14,10,0.4) 0%, rgba(6,14,10,0.05) 20%, rgba(6,14,10,0.08) 68%, rgba(6,14,10,0.55) 100%);
+}
+
+.ah-topbar { display: flex; align-items: center; gap: 12px; margin-bottom: 40px; text-decoration: none; }
+.ah-logo-tile {
+  width: 44px; height: 44px; border-radius: var(--border-radius, 10px);
+  /* Matches the public site's real nav logo tile exactly (--lp-green-700
+     in landpage-nav.css), not the brighter --color-accent used elsewhere
+     on this page. */
+  background: #2a5c3f;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.28);
+}
+.ah-brand-text { display: flex; flex-direction: column; line-height: 1.25; }
+.ah-brand-name { font-size: 19px; font-weight: 700; color: #ffffff; letter-spacing: 0.2px; }
+
+/* .ah-hero and .ah-form-panel share the exact same top/bottom padding
+   (48px / 40px) and both use justify-content:space-between across three
+   (hero) or two (form) stacked groups — so the logo lines up with the top
+   of the card, and the slide-bar lines up with the footer at the bottom,
+   regardless of how tall the card gets (login vs. sign-up vs. PIN step). */
+.ah-hero {
+  position: absolute; z-index: 3; top: 0; bottom: 0; left: 0; right: 0;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between;
+  text-align: left; padding: 48px clamp(28px, 5vw, 64px) 40px;
+}
+.ah-hero-mid { display: flex; flex-direction: column; align-items: flex-start; }
+.ah-hero h1 {
+  margin: 0; font-family: 'Fraunces', serif; font-weight: 700;
+  font-size: clamp(26px, 2.6vw, 40px); line-height: 1.15; color: #ffffff;
+  text-wrap: balance; text-shadow: 0 2px 20px rgba(0,0,0,0.4); max-width: 600px;
+  animation: ah-fade-in 700ms ease both;
+}
+.ah-hero p {
+  margin: 16px 0 0; font-family: var(--font-sans); font-size: 15px; line-height: 1.65;
+  color: rgba(255,255,255,0.8); max-width: 480px;
+  animation: ah-fade-in 700ms ease 120ms both;
+}
+
+@keyframes ah-fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ah-hero h1, .ah-hero p, .ah-card { animation: none; }
+}
+
+.ah-stat-row {
+  margin-top: 34px; display: flex; align-items: stretch;
+  background: rgba(255,255,255,0.09);
+  border: 1px solid rgba(255,255,255,0.16);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  border-radius: var(--border-radius-lg, 16px);
+  box-shadow: 0 14px 34px rgba(0,0,0,0.24);
+  overflow: hidden;
+}
+.ah-stat-item {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 16px 22px;
+  border-right: 1px solid rgba(255,255,255,0.14);
+  min-width: 88px;
+}
+.ah-stat-item:last-child { border-right: none; }
+.ah-stat-label { font-size: 11.5px; font-weight: 500; color: rgba(255,255,255,0.66); white-space: nowrap; }
+.ah-stat-value { font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 700; color: #ffffff; letter-spacing: -0.3px; }
+.ah-stat-value .unit { font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.6); }
+.ah-stat-change { font-size: 11.5px; font-weight: 600; }
+.ah-stat-change.up { color: var(--color-accent, #4CAF6E); }
+.ah-stat-change.down { color: var(--color-danger, #EF4444); }
+.ah-stat-change.flat { color: rgba(255,255,255,0.6); }
+
+/* ---------------- slideshow controls: bullets + running photo credit ---------------- */
+.ah-slide-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  width: 100%;
+}
+.ah-slide-dots { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.ah-slide-dot {
+  width: 8px; height: 8px; border-radius: 99px; padding: 0; border: none;
+  background: rgba(255,255,255,0.4); cursor: pointer;
+  transition: background 150ms ease, width 150ms ease;
+}
+.ah-slide-dot:hover { background: rgba(255,255,255,0.7); }
+.ah-slide-dot.is-active { width: 22px; background: #ffffff; }
+.ah-slide-credit {
+  font-size: 10px; color: rgba(255,255,255,0.55); text-align: right;
+  flex: 1 1 auto; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ah-slide-credit a { color: rgba(255,255,255,0.72); }
+.ah-slide-credit a:hover { color: #ffffff; }
+
+/* ---------------- 30% — plain panel holding the card ---------------- */
+.ah-form-panel {
+  flex: 1 1 30%; min-width: 340px;
+  background: var(--bg-body, #F4F6F3);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-direction: column;
+  padding: 48px 32px 40px;
+}
+
+.ah-card {
+  width: 100%; max-width: 448px;
+  max-height: calc(100svh - 80px);
+  display: flex; flex-direction: column;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #E2EAE4);
+  border-radius: var(--border-radius-xl, 20px);
+  box-shadow: var(--shadow-lg, 0 8px 24px rgba(26,58,42,0.10));
+  animation: ah-fade-in 700ms ease 200ms both;
+}
+
+.ah-card-body .btn { justify-content: center; }
+
+/* The scrollable region — kept separate from .ah-card so a tall sign-up form
+   scrolls inside its own padding instead of a bare scrollbar hugging the
+   card's rounded edge. */
+.ah-card-body {
+  min-height: 0; overflow-y: auto;
+  padding: 38px 48px 30px;
+  scrollbar-width: thin; scrollbar-color: var(--border-color, #CBD8CE) transparent;
+}
+.ah-card-body::-webkit-scrollbar { width: 6px; }
+.ah-card-body::-webkit-scrollbar-track { background: transparent; }
+.ah-card-body::-webkit-scrollbar-thumb { background: var(--border-color, #CBD8CE); border-radius: 99px; }
+.ah-card-body::-webkit-scrollbar-thumb:hover { background: var(--text-muted, #9AAAA1); }
+
+.ah-card h2 { margin: 0 0 8px; font-family: 'Fraunces', serif; font-size: var(--fs-h1, 24px); font-weight: 700; color: var(--text-primary, #1C2B1E); }
+.ah-card .ah-sub { margin: 0 0 26px; font-size: 14px; line-height: 1.6; color: var(--text-secondary, #5A7060); }
+
+.ah-footer {
+  margin-top: 22px; font-size: 11.5px; color: var(--text-muted, #849C8E); text-align: center;
+}
+
+/* ---------------- form fields — reuse the site's .form-input, just add icon room ---------------- */
+.ah-field { margin-bottom: 16px; }
+.ah-field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary, #5A7060); margin-bottom: 6px; }
+.ah-field-row { display: flex; gap: 12px; }
+.ah-field-row .ah-field { flex: 1; min-width: 0; }
+.ah-input-wrap { position: relative; }
+.ah-input-wrap svg.ah-icon-left {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--text-muted, #849C8E); pointer-events: none;
+}
+.ah-input-wrap input.form-input { padding-left: 38px; }
+.ah-input-wrap input.ah-pw-input { padding-right: 38px; }
+.ah-input-wrap input.form-input.has-error { border-color: var(--color-danger, #EF4444); }
+.ah-input-wrap input.form-input.has-error:focus { box-shadow: 0 0 0 3px rgba(239,68,68,0.14); }
+.ah-field-error { font-size: 11px; color: var(--color-danger, #EF4444); margin: 5px 0 0; line-height: 1.4; }
+.ah-field-error[hidden] { display: none; }
+.ah-pw-toggle {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; padding: 6px;
+  display: inline-flex; color: var(--text-muted, #849C8E); border-radius: var(--border-radius-sm, 6px);
+}
+.ah-pw-toggle:hover { color: var(--text-secondary, #5A7060); }
+
+.ah-row { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 22px; }
+.ah-remember { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-secondary, #5A7060); cursor: pointer; user-select: none; }
+.ah-remember input { width: 15px; height: 15px; accent-color: var(--color-accent, #4CAF6E); cursor: pointer; }
+.ah-forgot { font-size: 12.5px; font-weight: 700; color: var(--color-primary-mid, #2D5A3E); background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; }
+.ah-forgot:hover { color: var(--color-accent, #4CAF6E); }
+
+.ah-divider { height: 1px; background: var(--border-color, #E2EAE4); margin: 24px 0 18px; }
+
+.ah-foot { text-align: center; font-size: 13.5px; color: var(--text-secondary, #5A7060); line-height: 1.9; }
+.ah-foot a { font-weight: 700; }
+.ah-foot-back { display: block; margin-top: 2px; font-size: 12.5px; color: var(--text-muted, #849C8E); }
+.ah-foot-back:hover { color: var(--text-secondary, #5A7060); }
+
+.ah-terms { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; color: var(--text-secondary, #5A7060); line-height: 1.5; margin: 2px 0 6px; cursor: pointer; }
+.ah-terms input { width: 15px; height: 15px; margin-top: 2px; accent-color: var(--color-accent, #4CAF6E); flex-shrink: 0; cursor: pointer; }
+.ah-terms-link {
+  font-weight: 700; color: var(--color-primary-mid, #2D5A3E);
+  background: none; border: none; padding: 0; margin: 0;
+  font: inherit; text-decoration: underline; cursor: pointer;
+}
+.ah-terms-link:hover { color: var(--color-accent, #4CAF6E); }
+.ah-field-error.ah-terms-error { margin: 0 0 16px; }
+
+/* ---------------- Terms & Conditions modal ---------------- */
+.ah-modal-backdrop {
+  position: fixed; inset: 0; z-index: 10001;
+  background: rgba(13,33,23,0.52);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  display: none; align-items: center; justify-content: center; padding: 24px;
+}
+.ah-modal-backdrop.is-open { display: flex; }
+.ah-modal {
+  width: 100%; max-width: 560px; max-height: 80vh;
+  display: flex; flex-direction: column;
+  background: var(--bg-card, #fff);
+  border-radius: var(--border-radius-xl, 20px);
+  box-shadow: 0 24px 56px rgba(21,55,35,0.22), 0 6px 16px rgba(21,55,35,0.1);
+  animation: ah-modal-in 0.22s ease;
+}
+@keyframes ah-modal-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.ah-modal-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 26px 28px 0;
+}
+.ah-modal-head h3 { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 700; color: var(--text-primary, #1C2B1E); margin: 0; }
+.ah-modal-x {
+  width: 30px; height: 30px; flex-shrink: 0; border: none; border-radius: 99px;
+  background: var(--bg-input, #F4F6F3); color: var(--text-muted, #849C8E);
+  font-size: 18px; line-height: 1; cursor: pointer;
+}
+.ah-modal-x:hover { background: var(--border-color, #E2EAE4); color: var(--text-primary, #1C2B1E); }
+.ah-modal-body {
+  padding: 16px 28px 24px; overflow-y: auto;
+  font-size: 13px; line-height: 1.6; color: var(--text-secondary, #5A7060);
+}
+.ah-modal-body p { margin: 0 0 12px; }
+.ah-modal-body ol { padding-left: 18px; display: grid; gap: 8px; margin: 0 0 12px; }
+.ah-modal-body strong { color: var(--text-primary, #1C2B1E); }
+.ah-modal-foot { padding: 0 28px 24px; text-align: right; }
+
+.ah-pw-meter { height: 5px; border-radius: 99px; background: var(--border-color, #E2EAE4); margin-top: 7px; overflow: hidden; }
+.ah-pw-meter-bar { height: 100%; width: 0%; background: var(--color-danger, #EF4444); transition: width 150ms ease, background 150ms ease; }
+.ah-pw-hint { font-size: 11px; color: var(--text-muted, #849C8E); margin-top: 5px; line-height: 1.4; }
+
+/* ---------------- admin PIN step (shown in place of the login form) ---------------- */
+#ah-pin-panel[hidden], #ah-login-panel[hidden] { display: none; }
+
+/* ================= tablet: keep the split, narrow the photo side a bit ================= */
+@media (max-width: 1080px) and (min-width: 761px) {
+  .ah-hero-zone { flex-basis: 60%; }
+  .ah-form-panel { flex-basis: 40%; }
+}
+
+/* ================= mobile: photo recedes to a top band, panel stacks full-width ================= */
+@media (max-width: 760px) {
+  .ah-stage { flex-direction: column; min-height: 100svh; }
+
+  .ah-hero-zone { flex: 0 0 auto; min-height: 380px; }
+
+  .ah-logo-tile { width: 38px; height: 38px; border-radius: 10px; }
+  .ah-brand-name { font-size: 16px; }
+  .ah-topbar { margin-bottom: 22px; }
+
+  .ah-hero { position: relative; inset: auto; justify-content: flex-start; padding: 26px 20px 20px; }
+  .ah-hero h1 { font-size: 25px; }
+  .ah-hero p { font-size: 13.5px; }
+
+  .ah-slide-bar { margin-top: 18px; flex-wrap: wrap; }
+
+  .ah-stat-row {
+    margin-top: 24px; display: grid; grid-template-columns: 1fr 1fr;
+    width: 100%; max-width: 360px;
+  }
+  .ah-stat-item { padding: 13px 10px; border-right: 1px solid rgba(255,255,255,0.14); border-bottom: 1px solid rgba(255,255,255,0.14); }
+  .ah-stat-item:nth-child(2n) { border-right: none; }
+  .ah-stat-item:nth-last-child(-n+2) { border-bottom: none; }
+  .ah-stat-value { font-size: 16px; }
+
+  .ah-form-panel { flex: 1; min-width: 0; width: 100%; justify-content: flex-start; padding: 30px 22px 32px; border-radius: 26px 26px 0 0; margin-top: -20px; box-shadow: 0 -14px 40px rgba(5,16,10,0.18); position: relative; z-index: 2; }
+  .ah-card { max-height: none; box-shadow: none; border: none; }
+  .ah-card-body { overflow-y: visible; padding: 0; }
+  .ah-card h2 { font-size: 22px; }
+}

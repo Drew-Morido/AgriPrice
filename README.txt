@@ -75,7 +75,7 @@ AgriPricePH/
   Via Flask only (port 5000):
     http://127.0.0.1:5000/                              → public home
     http://127.0.0.1:5000/admin/index.html               → admin dashboard (redirects to login if signed out)
-    http://127.0.0.1:5000/public/landpage.html?auth=login → public home with the login modal pre-opened
+    http://127.0.0.1:5000/public/login.html               → login page (admin sign-in works here too)
 
 
 ================================================================================

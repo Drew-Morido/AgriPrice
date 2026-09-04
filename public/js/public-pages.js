@@ -40,22 +40,19 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (page === 'login') {
+    // login.html is now a real, standalone page (see auth-hero.js for the form
+    // wiring) — only bounce away a visitor who is already signed in.
     if (A?.isLoggedIn?.()) {
-      const next = new URLSearchParams(window.location.search).get('next') || 'historical.html';
+      const next = new URLSearchParams(window.location.search).get('next') || A?.defaultLandingPage?.() || 'current-prices.html';
       window.location.replace(next);
-      return;
     }
-    const next = new URLSearchParams(window.location.search).get('next') || 'historical.html';
-    window.location.replace(`${next}?auth=login&next=${encodeURIComponent(next)}`);
     return;
   }
 
   if (page === 'signup') {
     if (A?.isLoggedIn?.()) {
-      window.location.replace('historical.html');
-      return;
+      window.location.replace(A?.defaultLandingPage?.() || 'current-prices.html');
     }
-    window.location.replace('historical.html?auth=signup');
     return;
   }
 

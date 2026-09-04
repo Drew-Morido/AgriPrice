@@ -38,15 +38,21 @@ AgriPricePH.PublicAlert = (function () {
     root.innerHTML = `
       <div class="public-alert-backdrop" data-alert-close tabindex="-1"></div>
       <div class="public-alert-dialog" role="alertdialog" aria-modal="true" aria-labelledby="public-alert-title" aria-describedby="public-alert-message" hidden>
-        <div class="public-alert-icon" id="public-alert-icon"></div>
-        <h2 class="public-alert-title" id="public-alert-title"></h2>
+        <button type="button" class="public-alert-x" id="public-alert-x" aria-label="Close">&times;</button>
+        <div class="public-alert-head">
+          <div class="public-alert-icon" id="public-alert-icon"></div>
+          <h2 class="public-alert-title" id="public-alert-title"></h2>
+        </div>
         <p class="public-alert-message" id="public-alert-message"></p>
-        <button type="button" class="public-alert-btn" id="public-alert-ok">OK</button>
+        <div class="public-alert-actions">
+          <button type="button" class="public-alert-btn" id="public-alert-ok">OK</button>
+        </div>
       </div>
     `;
     document.body.appendChild(root);
 
     root.querySelector('[data-alert-close]')?.addEventListener('click', close);
+    root.querySelector('#public-alert-x')?.addEventListener('click', close);
     root.querySelector('#public-alert-ok')?.addEventListener('click', confirm);
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && root.classList.contains('is-open')) close();

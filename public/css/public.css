@@ -943,13 +943,15 @@ body.public-auth-modal-open {
 
 .public-unlock-card {
   position: relative;
-  width: min(440px, 100%);
-  background: linear-gradient(160deg, #ffffff 0%, #f3fbf6 100%);
-  border: 1px solid rgba(38, 84, 56, 0.16);
-  border-radius: 22px;
-  padding: 28px 26px 24px;
+  width: min(420px, 100%);
+  /* Theme-reactive (was a hardcoded white gradient with theme-reactive text —
+     that mismatch is what made the title/body go invisible in dark mode). */
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 24px 24px 22px;
   box-shadow: 0 24px 60px rgba(8, 34, 18, 0.22);
-  text-align: center;
+  text-align: left;
   transform: translateY(12px) scale(0.98);
   transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -970,55 +972,62 @@ body.public-auth-modal-open {
   cursor: pointer;
 }
 
+/* Solid fill + white text, not a translucent tint + dark text — a tint's
+   contrast against the card depends on which theme is active, a solid
+   accent fill reads the same (and stays legible) in both. */
 .public-unlock-badge {
   display: inline-block;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.8px;
   text-transform: uppercase;
-  color: var(--color-primary-mid);
-  background: rgba(114, 201, 141, 0.18);
-  border: 1px solid rgba(38, 84, 56, 0.18);
+  color: #ffffff;
+  background: var(--color-accent);
   border-radius: 99px;
   padding: 5px 12px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
+}
+
+/* Icon + title sit in one row (not a big centered icon over a centered
+   title) — the same layout the redesigned success/error popup uses. */
+.public-unlock-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
 }
 
 .public-unlock-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 14px;
-  color: var(--color-primary-mid, #27613c);
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--border-radius, 10px);
+  background: var(--color-accent);
+  color: #ffffff;
 }
 
 .public-unlock-icon svg {
-  width: 56px;
-  height: 56px;
-}
-
-.public-unlock-lead {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: 6px;
+  width: 22px;
+  height: 22px;
 }
 
 .public-unlock-title {
-  font-family: var(--font-serif, Georgia, serif);
-  font-size: 24px;
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-size: 21px;
   color: var(--text-primary);
-  margin-bottom: 10px;
-  line-height: 1.2;
+  margin: 0;
+  line-height: 1.25;
 }
 
 .public-unlock-body {
   font-size: 14px;
-  line-height: 1.65;
+  line-height: 1.6;
   color: var(--text-secondary);
-  margin-bottom: 22px;
+  margin: 0 0 22px;
+  padding-left: 52px;
 }
 
 .public-unlock-actions {
@@ -1031,6 +1040,7 @@ body.public-auth-modal-open {
   margin-top: 16px;
   font-size: 12px;
   color: var(--text-muted);
+  text-align: center;
 }
 
 /* Terms & Conditions modal must sit above the signup (9000) and admin-PIN (9100) modals.
@@ -1138,4 +1148,12 @@ body.public-auth-modal-open {
   .public-unlock-actions .btn {
     flex: 1;
   }
+}
+
+.public-unlock-actions .btn {
+  justify-content: center;
+}
+
+@media (max-width: 380px) {
+  .public-unlock-body { padding-left: 0; }
 }

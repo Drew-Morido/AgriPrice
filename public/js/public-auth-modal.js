@@ -19,14 +19,12 @@ AgriPricePH.PublicAuthModal = (function () {
     historical: {
       iconSvg: ICON_HISTORY,
       title: 'Unlock Price History',
-      lead: 'Do you want to open this feature?',
       body: 'View daily rice prices from 2015 to today across all 8 rice types — free with a quick account.',
       badge: 'Members only',
     },
     statistics: {
       iconSvg: ICON_STATS,
       title: 'Unlock Charts & Stats',
-      lead: 'Do you want to open this feature?',
       body: 'Explore trends, comparisons, and market insights over the last 90 days — free with a quick account.',
       badge: 'Members only',
     },
@@ -85,13 +83,20 @@ AgriPricePH.PublicAuthModal = (function () {
       <div class="public-unlock-card" role="dialog" aria-modal="true" aria-labelledby="public-unlock-title">
         <button type="button" class="public-unlock-close" aria-label="Close">&times;</button>
         <div class="public-unlock-badge" id="public-unlock-badge"></div>
-        <div class="public-unlock-icon" id="public-unlock-icon" aria-hidden="true"></div>
-        <p class="public-unlock-lead" id="public-unlock-lead"></p>
-        <h2 class="public-unlock-title" id="public-unlock-title"></h2>
+        <div class="public-unlock-head">
+          <div class="public-unlock-icon" id="public-unlock-icon" aria-hidden="true"></div>
+          <h2 class="public-unlock-title" id="public-unlock-title"></h2>
+        </div>
         <p class="public-unlock-body" id="public-unlock-body"></p>
         <div class="public-unlock-actions">
-          <button type="button" class="btn btn-primary btn-lg" id="public-unlock-login">Log in</button>
-          <button type="button" class="btn btn-outline btn-lg" id="public-unlock-signup">Sign up free</button>
+          <button type="button" class="btn btn-primary btn-lg" id="public-unlock-login">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+            Log in
+          </button>
+          <button type="button" class="btn btn-outline btn-lg" id="public-unlock-signup">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+            Sign up free
+          </button>
         </div>
         <p class="public-unlock-foot">Price forecast stays free — no account needed.</p>
       </div>
@@ -102,24 +107,26 @@ AgriPricePH.PublicAuthModal = (function () {
       if (e.target === unlockRoot) dismissUnlockToHome();
     });
     unlockRoot.querySelector('.public-unlock-close')?.addEventListener('click', dismissUnlockToHome);
+    // Send these straight to the real login/signup pages (not the old modal),
+    // and bring the visitor back to the page they were trying to unlock.
     unlockRoot.querySelector('#public-unlock-login')?.addEventListener('click', () => {
-      hideUnlock();
-      showAuth({ mode: 'login', next: authNext, onSuccess: onAuthSuccess });
+      const next = authNext || 'historical.html';
+      window.location.href = `login.html?next=${encodeURIComponent(next)}`;
     });
     unlockRoot.querySelector('#public-unlock-signup')?.addEventListener('click', () => {
-      hideUnlock();
-      showAuth({ mode: 'signup', next: authNext, onSuccess: onAuthSuccess });
+      const next = authNext || 'historical.html';
+      window.location.href = `signup.html?next=${encodeURIComponent(next)}`;
     });
 
     return unlockRoot;
   }
 
   function dismissUnlockToHome() {
+    // Escape, the × button, and clicking the backdrop are all the same "leave
+    // this locked feature" action — always back to home, unconditionally
+    // (this modal only ever opens on the gated pages in the first place).
     hideUnlock();
-    const page = document.body.dataset.page;
-    if (page === 'historical' || page === 'statistics') {
-      window.location.href = 'landpage.html';
-    }
+    window.location.href = 'landpage.html';
   }
 
   function ensureAuthRoot() {
@@ -383,7 +390,6 @@ AgriPricePH.PublicAuthModal = (function () {
     const root = ensureUnlockRoot();
     root.querySelector('#public-unlock-badge').textContent = cfg.badge;
     root.querySelector('#public-unlock-icon').innerHTML = cfg.iconSvg;
-    root.querySelector('#public-unlock-lead').textContent = cfg.lead;
     root.querySelector('#public-unlock-title').textContent = cfg.title;
     root.querySelector('#public-unlock-body').textContent = cfg.body;
 
@@ -583,14 +589,18 @@ AgriPricePH.PublicAuthModal = (function () {
 
   function bindGlobalTriggers() {
     document.addEventListener('click', (e) => {
+      // The topbar nav's Log in / Sign up go to the real standalone pages
+      // (public/login.html, public/signup.html) instead of the modal — the
+      // gated-content unlock prompts below still use the modal in place.
       if (e.target.closest('#public-btn-login')) {
         e.preventDefault();
-        showAuth({ mode: 'login' });
+        const here = window.location.pathname.split('/').pop() || '';
+        window.location.href = here ? `login.html?next=${encodeURIComponent(here)}` : 'login.html';
         return;
       }
       if (e.target.closest('#public-btn-signup')) {
         e.preventDefault();
-        showAuth({ mode: 'signup' });
+        window.location.href = 'signup.html';
         return;
       }
       const trigger = e.target.closest('[data-auth-open]');
