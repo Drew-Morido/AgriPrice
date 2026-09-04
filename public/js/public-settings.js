@@ -96,7 +96,7 @@ AgriPricePH.PublicSettings = (function () {
           <p>${esc(session.email || '')} · <span class="pill pill-blue">Retailer</span></p>
         </div>
       </div>
-      <p class="settings-hint">Your account is stored on this device only (demo mode).</p>
+      <p class="settings-hint">Your account is stored on the AgriPricePH server; your password is hashed and never stored in plain text.</p>
 
       <details class="settings-account-details" style="margin-top:6px;">
         <summary style="cursor:pointer;font-weight:600;font-size:13px;">Edit profile</summary>
@@ -140,10 +140,10 @@ AgriPricePH.PublicSettings = (function () {
     document.getElementById('acc-save-password')?.addEventListener('click', savePassword);
   }
 
-  function saveProfile() {
+  async function saveProfile() {
     const name = document.getElementById('acc-name')?.value;
     const email = document.getElementById('acc-email')?.value;
-    const res = AgriPricePH.PublicAuth?.updateProfile?.({ name, email });
+    const res = await AgriPricePH.PublicAuth?.updateProfile?.({ name, email });
     if (res?.ok) {
       renderAccountCard();
       AgriPricePH.PublicAuth?.updateTopbarUser?.();
@@ -153,12 +153,12 @@ AgriPricePH.PublicSettings = (function () {
     }
   }
 
-  function savePassword() {
+  async function savePassword() {
     const current = document.getElementById('acc-pw-current')?.value || '';
     const next = document.getElementById('acc-pw-new')?.value || '';
     const confirm = document.getElementById('acc-pw-confirm')?.value || '';
     if (next !== confirm) { AgriPricePH.PublicAlert?.invalid?.('New passwords do not match.'); return; }
-    const res = AgriPricePH.PublicAuth?.changeUserPassword?.({ current, next });
+    const res = await AgriPricePH.PublicAuth?.changeUserPassword?.({ current, next });
     if (res?.ok) {
       ['acc-pw-current', 'acc-pw-new', 'acc-pw-confirm'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
       showSavedToast('Password updated.');

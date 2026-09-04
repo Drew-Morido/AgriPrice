@@ -58,6 +58,16 @@ os.environ.setdefault(
     _DATASETS_DB_EARLY if os.path.exists(_DATASETS_DB_EARLY) else _API_DB_EARLY,
 )
 
+# Load .env from the project root (not cwd — run_backend.bat cd's into api/
+# before running, so a bare load_dotenv() would look in api/.env and miss a
+# root-level .env). Optional: degrades silently if python-dotenv isn't
+# installed yet; AGRIPRICE_GMAIL_APP_PASSWORD can still be set another way.
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
+except ImportError:
+    pass
+
 if TOOLS_DIR not in sys.path:
     sys.path.insert(0, TOOLS_DIR)
 
@@ -2263,6 +2273,193 @@ def api_change_password():
     if not ok:
         return jsonify({"success": False, "error": msg}), 400
     return jsonify({"success": True, "message": msg})
+
+
+# ══════════════════════════════════════════════
+# PUBLIC / VENDOR USER ACCOUNTS (server-side — see model/user_auth.py)
+# ══════════════════════════════════════════════
+
+try:
+    # Aliased — user_auth's check_lockout/clear_failures/record_failure take a
+    # (bucket, client_key) pair, not admin_auth's single client_key (imported
+    # above, same names). Importing them under the bare names here would
+    # silently rebind the module-global name Python resolves at CALL time —
+    # which broke every admin-auth call site (they'd suddenly be invoked with
+    # the wrong arity and 500, since admin_auth's own call sites only pass
+    # one argument) even though admin_auth's functions were imported first.
+    from user_auth import (
+        LOGIN_ATTEMPTS,
+        RESET_REQUEST_ATTEMPTS,
+        RESET_VERIFY_ATTEMPTS,
+        change_password_for_user,
+        check_lockout as user_check_lockout,
+        clear_failures as user_clear_failures,
+        login_user,
+        record_failure as user_record_failure,
+        request_reset,
+        reset_password_with_ticket,
+        signup_user,
+        verify_reset_code,
+    )
+    from user_store import update_profile as user_update_profile
+    from mailer import is_configured as mailer_is_configured
+    _USER_AUTH_AVAILABLE = True
+except ImportError as _user_auth_err:
+    _USER_AUTH_AVAILABLE = False
+    _USER_AUTH_IMPORT_ERROR = str(_user_auth_err)
+
+
+@app.route("/api/auth/signup", methods=["POST"])
+def api_auth_signup():
+    if not _USER_AUTH_AVAILABLE:
+        return jsonify({"success": False, "error": _USER_AUTH_IMPORT_ERROR}), 503
+    payload = request.get_json(silent=True) or {}
+    try:
+        ok, msg = signup_user(payload.get("name"), payload.get("email"), payload.get("password"))
+        if not ok:
+            return jsonify({"success": False, "error": msg}), 400
+        return jsonify({"success": True})
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 500
+
+
+@app.route("/api/auth/login", methods=["POST"])
+def api_auth_login():
+    if not _USER_AUTH_AVAILABLE:
+        return jsonify({"success": False, "error": _USER_AUTH_IMPORT_ERROR}), 503
+    client_key = _admin_client_key()
+    ok_lock, lock_msg = user_check_lockout(LOGIN_ATTEMPTS, client_key)
+    if not ok_lock:
+        return jsonify({"success": False, "error": lock_msg}), 429
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        ok, msg, user = login_user(payload.get("email"), payload.get("password"))
+        if not ok:
+            user_record_failure(LOGIN_ATTEMPTS, client_key)
+            return jsonify({"success": False, "error": msg}), 401
+        user_clear_failures(LOGIN_ATTEMPTS, client_key)
+        return jsonify({"success": True, "user": user})
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 500
+
+
+@app.route("/api/auth/forgot-password", methods=["POST"])
+def api_auth_forgot_password():
+    """Step 1 of 3. By design (see model/user_auth.py's docstring) this
+    reveals whether the email is registered, rather than a generic response —
+    an explicit "email verified" vs "no account found" popup, at the user's
+    request. "already_sent" (a valid code from a recent request is still
+    active) is reported too, instead of silently emailing a second code that
+    would invalidate the first one in the visitor's inbox."""
+    if not _USER_AUTH_AVAILABLE:
+        return jsonify({"success": False, "error": _USER_AUTH_IMPORT_ERROR}), 503
+    if not mailer_is_configured():
+        return jsonify({"success": False, "error": "Email service is not configured on the server."}), 503
+    client_key = _admin_client_key()
+    ok_lock, lock_msg = user_check_lockout(RESET_REQUEST_ATTEMPTS, client_key)
+    if not ok_lock:
+        return jsonify({"success": False, "error": lock_msg}), 429
+
+    payload = request.get_json(silent=True) or {}
+    email = (payload.get("email") or "").strip().lower()
+    try:
+        status, message = request_reset(email)
+    except Exception as exc:
+        _add_log("ERROR", f"Password reset request failed: {exc}", source="AUTH")
+        return jsonify({"success": False, "error": "Could not process that request."}), 500
+
+    _add_log(
+        "INFO" if status in ("sent", "already_sent") else "WARN",
+        f"Password reset requested for '{email or '?'}' from {client_key} ({status})",
+        source="AUTH",
+    )
+    if status == "not_found":
+        # Only "no such account" counts toward the lockout — it's the one
+        # response shape that rewards an attacker for probing many emails;
+        # legitimate requests (sent/already_sent) shouldn't cost the visitor
+        # their remaining attempts.
+        user_record_failure(RESET_REQUEST_ATTEMPTS, client_key)
+        return jsonify({"success": False, "error": message}), 404
+    if status == "mail_error":
+        return jsonify({"success": False, "error": "Could not send the code right now. Try again shortly."}), 502
+    user_clear_failures(RESET_REQUEST_ATTEMPTS, client_key)
+    return jsonify({"success": True, "status": status, "message": message})
+
+
+@app.route("/api/auth/verify-reset-code", methods=["POST"])
+def api_auth_verify_reset_code():
+    """Step 2 of 3: check the emailed code on its own. Returns a one-time
+    'ticket' on success — the client holds onto it and sends it back (not the
+    code) to actually change the password in step 3."""
+    if not _USER_AUTH_AVAILABLE:
+        return jsonify({"success": False, "error": _USER_AUTH_IMPORT_ERROR}), 503
+    client_key = _admin_client_key()
+    ok_lock, lock_msg = user_check_lockout(RESET_VERIFY_ATTEMPTS, client_key)
+    if not ok_lock:
+        return jsonify({"success": False, "error": lock_msg}), 429
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        ok, msg, ticket = verify_reset_code(payload.get("email"), payload.get("code"))
+        if not ok:
+            user_record_failure(RESET_VERIFY_ATTEMPTS, client_key)
+            return jsonify({"success": False, "error": msg}), 400
+        user_clear_failures(RESET_VERIFY_ATTEMPTS, client_key)
+        return jsonify({"success": True, "message": msg, "ticket": ticket})
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 500
+
+
+@app.route("/api/auth/reset-password", methods=["POST"])
+def api_auth_reset_password():
+    """Step 3 of 3: set the new password, gated on the ticket from step 2 (not
+    the original code)."""
+    if not _USER_AUTH_AVAILABLE:
+        return jsonify({"success": False, "error": _USER_AUTH_IMPORT_ERROR}), 503
+    client_key = _admin_client_key()
+    ok_lock, lock_msg = user_check_lockout(RESET_VERIFY_ATTEMPTS, client_key)
+    if not ok_lock:
+        return jsonify({"success": False, "error": lock_msg}), 429
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        ok, msg = reset_password_with_ticket(payload.get("email"), payload.get("ticket"), payload.get("new_password"))
+        if not ok:
+            user_record_failure(RESET_VERIFY_ATTEMPTS, client_key)
+            return jsonify({"success": False, "error": msg}), 400
+        user_clear_failures(RESET_VERIFY_ATTEMPTS, client_key)
+        return jsonify({"success": True, "message": msg})
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 500
+
+
+@app.route("/api/auth/profile", methods=["PUT"])
+def api_auth_update_profile():
+    if not _USER_AUTH_AVAILABLE:
+        return jsonify({"success": False, "error": _USER_AUTH_IMPORT_ERROR}), 503
+    payload = request.get_json(silent=True) or {}
+    try:
+        ok, msg = user_update_profile(payload.get("email"), payload.get("name"), payload.get("new_email"))
+        if not ok:
+            return jsonify({"success": False, "error": msg}), 400
+        return jsonify({"success": True, "message": msg})
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 500
+
+
+@app.route("/api/auth/change-password", methods=["POST"])
+def api_auth_change_password():
+    if not _USER_AUTH_AVAILABLE:
+        return jsonify({"success": False, "error": _USER_AUTH_IMPORT_ERROR}), 503
+    payload = request.get_json(silent=True) or {}
+    try:
+        ok, msg = change_password_for_user(payload.get("email"), payload.get("current"), payload.get("new"))
+        if not ok:
+            return jsonify({"success": False, "error": msg}), 400
+        return jsonify({"success": True, "message": msg})
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 500
 
 
 # ══════════════════════════════════════════════

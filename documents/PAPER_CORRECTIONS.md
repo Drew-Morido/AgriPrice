@@ -225,6 +225,7 @@ market/bracket/tax as new dimensions. **Do not invent DTI/BOC/BIR data — [VERI
 ## UI feedback round: signup / settings / logs / scraper
 - **Public accounts** are **localStorage-only** (`agriprice_public_users`) — no users table, no
   backend signup/role validation. If the paper implies server-side user accounts/roles, correct it.
+  ⚠️ **Superseded by Round 6 below (2026-09-04)** — public accounts moved server-side.
 - **Signup role simplified:** removed **Household**; **Vendor → Retailer** (single implicit role;
   no picker). Legacy vendor/household sessions are normalized to `retailer` at login. If the survey
   methodology names "vendors"/"households" as user types, align the app-facing term to **Retailer**
@@ -341,6 +342,33 @@ vendor account 'Retailer'") or revert the app label to "Vendor"; flagged for the
   table deliberately avoid the framing "beats baseline by X%" for cases where it doesn't (current
   `meta.json`: `beats_baseline: false` for all 8 targets) — they instead report "within X% of the
   naive baseline," consistent with this doc's standing honest-evaluation guidance.
+
+## Round 6 — public accounts moved server-side + email password reset (2026-09-04)
+- **Public/vendor accounts are no longer localStorage-only.** This directly supersedes the "UI
+  feedback round" bullet above. Signup/login (`public/js/public-auth.js`) now call real backend
+  endpoints (`POST /api/auth/signup`, `POST /api/auth/login`) that check a new SQLite table
+  (`model/agriprice_users.db`, via `model/user_store.py`), with passwords hashed using
+  werkzeug's salted PBKDF2 (`model/user_auth.py`) — not plaintext. `sessionStorage`'s
+  "who's currently logged in" display state (`agriprice_public_session`) is unchanged; only the
+  credential itself moved server-side.
+- **Real email-based "Forgot password?"** now exists on `public/login.html`: a 6-digit code is
+  emailed from `agripriceph@gmail.com` via Gmail SMTP (`model/mailer.py`) and verified against a
+  15-minute, single-use, rate-limited code (`POST /api/auth/forgot-password`,
+  `POST /api/auth/reset-password`). The response is deliberately generic regardless of whether the
+  email exists (anti-enumeration) — see `model/user_auth.py`'s `request_reset()`.
+- **Legacy localStorage accounts (created before this change) migrate on next login, from the same
+  browser only.** `login()` tries the server first; on a miss it falls back to the old
+  `agriprice_public_users` array, and a match is silently re-registered server-side and removed
+  from the legacy array. An account that never logs in again from that same browser cannot be
+  recovered — this is a genuine, stated limitation, not a bug to paper over if asked about it
+  during defense.
+- **If the paper describes accounts as demo/local-only/no-real-backend** (the exact claim the
+  superseded bullet above was flagging), that section now needs the opposite correction: accounts
+  **are** server-side, with hashed passwords and a real (if lightweight, single-server, in-memory
+  rate-limiting) auth backend. Cite `model/user_auth.py`, `model/user_store.py`, `model/mailer.py`.
+  Do **not** claim this is a production-grade auth system (no email verification on signup, no
+  password complexity beyond the existing 8-char/upper/lower/digit rule, single SQLite file, no
+  admin-account email/reset yet) — frame it as "real for the capstone's scope," not enterprise-ready.
 
 ## Still [VERIFY] / [ACTION]
 - **[DTI]** confirm the 8 category names/definitions and the **brands** under each (DA has none).

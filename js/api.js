@@ -179,6 +179,17 @@ AgriPricePH.API = (function () {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       }).then((r) => r.json()),
+    // Server-side public/vendor accounts (see model/user_auth.py).
+    authSignup: (name, email, password) => post('/api/auth/signup', { name, email, password }),
+    authLogin: (email, password) => post('/api/auth/login', { email, password }),
+    forgotPassword: (email) => post('/api/auth/forgot-password', { email }),
+    verifyResetCode: (email, code) => post('/api/auth/verify-reset-code', { email, code }),
+    resetPassword: (email, ticket, newPassword) =>
+      post('/api/auth/reset-password', { email, ticket, new_password: newPassword }),
+    authUpdateProfile: (email, name, newEmail) =>
+      put('/api/auth/profile', { email, name, new_email: newEmail }),
+    authChangePassword: (email, current, next) =>
+      post('/api/auth/change-password', { email, current, new: next }),
     reportsHistory: () => getLenient('/api/reports/history', { noCache: true }),
     reportsGenerate: (type) => post('/api/reports/generate', { type }),
     reportsDelete: (filename) => del(`/api/reports/file/${encodeURIComponent(filename)}`),

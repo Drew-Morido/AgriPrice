@@ -588,6 +588,21 @@ html.theme-dark .pill-neutral { color: #9fb0bd; }
   background: var(--bg-card);
 }
 
+/* Browser autofill (saved logins/addresses) paints its own background straight
+   into the input — regular `background` can't touch it — clashing with the
+   site's --bg-input tone (shows as a mismatched pale blue/yellow fill). The
+   inset box-shadow trick is the only way to override it; the long transition
+   delay stops the browser's own fade-in flash from sneaking through first. */
+.form-input:-webkit-autofill,
+.form-input:-webkit-autofill:hover,
+.form-input:-webkit-autofill:focus,
+.form-input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--text-primary);
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-input) inset;
+  box-shadow: 0 0 0 1000px var(--bg-input) inset;
+  transition: background-color 5000s ease-in-out 0s, color 5000s ease-in-out 0s;
+}
+
 .form-textarea { resize: vertical; min-height: 80px; }
 .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
 .form-group { margin-bottom: 16px; }

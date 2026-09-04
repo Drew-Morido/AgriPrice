@@ -136,8 +136,11 @@ hashes the 6-digit security code server-side, and locks out after 5 failed attem
 - `js/` — shared across both sites: `api.js` (backend base URL/client), `data.js` (fallback
   mock data when the backend is unreachable), `charts.js`, `dates.js`.
 - `public/js/` — vendor/household-facing: `public-shell.js` (layout), `public-auth.js` /
-  `public-auth-modal.js` (login/signup — demo accounts live only in browser `localStorage`,
-  there's no real user DB), `public-data.js` / `public-forecast.js` (charts + forecast cards),
+  `public-auth-modal.js` (login/signup — accounts are server-side: `model/user_store.py`
+  (SQLite, `model/agriprice_users.db`, gitignored) + `model/user_auth.py` (werkzeug-hashed
+  passwords, email-based password reset via `model/mailer.py`/Gmail SMTP); pre-existing
+  browser-`localStorage` demo accounts migrate over automatically on next login from the same
+  browser — see `public-auth.js`'s `login()`), `public-data.js` / `public-forecast.js` (charts + forecast cards),
   `public-rice.js` (defines the 8 rice type keys used everywhere: `imp/loc` ×
   `Special/Premium/WellMilled/Regular`).
 - `admin/js/` — staff dashboard, built as a lightweight SPA: `router.js` loads HTML fragments

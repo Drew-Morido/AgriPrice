@@ -39,20 +39,8 @@
     <div class="ah-overlay"></div>
 
     <div class="ah-hero">
-      <a href="landpage.html" class="ah-topbar">
-        <span class="ah-logo-tile">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
-            <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
-          </svg>
-        </span>
-        <span class="ah-brand-text">
-          <span class="ah-brand-name">AgriPricePH</span>
-        </span>
-      </a>
-
       <div class="ah-hero-mid">
-        <h1>Rice prices shouldn't be a guessing game — see today's price, and where it's headed, before you buy or sell.</h1>
+        <h1>Know today's rice price. See where it's headed.</h1>
         <p>Track today's price and a 3-day forecast across all 8 rice types — local and imported — plus fuel and the USD/PHP rate, in one place.</p>
 
         <div class="ah-stat-row">
@@ -87,16 +75,35 @@
           <button type="button" class="ah-slide-dot" data-slide-index="3" role="tab" aria-selected="false" aria-label="Photo 4 of 5"></button>
           <button type="button" class="ah-slide-dot" data-slide-index="4" role="tab" aria-selected="false" aria-label="Photo 5 of 5"></button>
         </div>
-        <p class="ah-slide-credit" id="ah-slide-credit"></p>
+        <div class="ah-slide-credit" id="ah-slide-credit">
+          <button type="button" class="ah-credit-trigger" id="ah-credit-trigger" aria-haspopup="true" aria-expanded="false">
+            <svg class="ah-credit-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9.5"/>
+              <line x1="12" y1="11" x2="12" y2="16.5"/>
+              <circle cx="12" cy="7.6" r="0.9" fill="currentColor" stroke="none"/>
+            </svg>
+            <span id="ah-credit-name">Photo credit</span>
+          </button>
+          <div class="ah-credit-popover" id="ah-credit-popover" role="tooltip"></div>
+        </div>
       </div>
     </div>
   </div>
 
   <div class="ah-form-panel">
     <div class="ah-card">
+      <a href="landpage.html" class="ah-card-logo">
+        <span class="ah-logo-tile">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
+            <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+          </svg>
+        </span>
+        <span class="ah-brand-name">AgriPricePH</span>
+      </a>
       <div class="ah-card-body">
         <h2>Create your account</h2>
-        <p class="ah-sub">Free forever — track price history and charts &amp; stats across all 8 rice types. For this demo, your account is saved on this device only.</p>
+        <p class="ah-sub">Free forever — track price history and charts &amp; stats across all 8 rice types. Your password is never stored in plain text.</p>
 
         <form id="form-signup" autocomplete="on" novalidate>
           <div class="ah-field-row">
@@ -127,35 +134,36 @@
             <p class="ah-field-error" id="signup-email-error" hidden></p>
           </div>
 
-          <div class="ah-field">
-            <label for="signup-password">Password</label>
-            <div class="ah-input-wrap">
-              <svg class="ah-icon-left" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
-              <input class="form-input ah-pw-input" type="password" id="signup-password" required autocomplete="new-password" placeholder="Strong password" />
-              <button type="button" class="ah-pw-toggle" data-pw-toggle="signup-password" aria-label="Show password">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
-              </button>
+          <div class="ah-field-row">
+            <div class="ah-field">
+              <label for="signup-password">Password</label>
+              <div class="ah-input-wrap">
+                <svg class="ah-icon-left" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+                <input class="form-input ah-pw-input" type="password" id="signup-password" required autocomplete="new-password" placeholder="Strong password" />
+                <button type="button" class="ah-pw-toggle" data-pw-toggle="signup-password" aria-label="Show password">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+              <div class="ah-pw-meter"><div class="ah-pw-meter-bar" id="signup-pw-bar"></div></div>
+              <div class="ah-pw-hint" id="signup-pw-hint">8+ chars, upper, lower &amp; a number.</div>
+              <p class="ah-field-error" id="signup-password-error" hidden></p>
             </div>
-            <div class="ah-pw-meter"><div class="ah-pw-meter-bar" id="signup-pw-bar"></div></div>
-            <div class="ah-pw-hint" id="signup-pw-hint">Use at least 8 characters with uppercase, lowercase, and a number.</div>
-            <p class="ah-field-error" id="signup-password-error" hidden></p>
-          </div>
-
-          <div class="ah-field">
-            <label for="signup-confirm">Confirm password</label>
-            <div class="ah-input-wrap">
-              <svg class="ah-icon-left" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
-              <input class="form-input ah-pw-input" type="password" id="signup-confirm" required autocomplete="new-password" placeholder="Re-enter password" />
-              <button type="button" class="ah-pw-toggle" data-pw-toggle="signup-confirm" aria-label="Show password">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
-              </button>
+            <div class="ah-field">
+              <label for="signup-confirm">Confirm password</label>
+              <div class="ah-input-wrap">
+                <svg class="ah-icon-left" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+                <input class="form-input ah-pw-input" type="password" id="signup-confirm" required autocomplete="new-password" placeholder="Re-enter password" />
+                <button type="button" class="ah-pw-toggle" data-pw-toggle="signup-confirm" aria-label="Show password">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+              <p class="ah-field-error" id="signup-confirm-error" hidden></p>
             </div>
-            <p class="ah-field-error" id="signup-confirm-error" hidden></p>
           </div>
 
           <label class="ah-terms">
             <input type="checkbox" id="signup-terms" />
-            <span>I agree to the <button type="button" class="ah-terms-link" id="ah-terms-link">Terms &amp; Conditions</button> and Privacy notice for this demo (accounts are stored on this device only).</span>
+            <span>I agree to the <button type="button" class="ah-terms-link" id="ah-terms-link">Terms &amp; Conditions</button> and Privacy notice for this demo (your password is hashed and never stored in plain text).</span>
           </label>
           <p class="ah-field-error ah-terms-error" id="signup-terms-error" hidden></p>
 
@@ -184,8 +192,8 @@
     <div class="ah-modal-body">
       <p><strong>AgriPricePH is an academic capstone demonstration</strong>, provided for educational and evaluation purposes only. By creating an account you acknowledge the following.</p>
       <ol>
-        <li><strong>Demo accounts are local.</strong> Your account (name, email, password) is stored only in <em>this browser</em> via localStorage. It is not uploaded to a server, and it is not shared. Clearing your browser data removes it.</li>
-        <li><strong>No personal data collection.</strong> The system does not transmit or store your personal information on a backend. Admin-side security logs may record admin sign-in events only.</li>
+        <li><strong>Account storage.</strong> Your name, email, and a securely hashed password (never the password itself) are stored on the AgriPricePH server for this demo/capstone deployment. It is not shared with any third party.</li>
+        <li><strong>Limited personal data.</strong> Only what's needed to sign you in and, if requested, email you a password-reset code is stored. Admin-side security logs may separately record admin sign-in events.</li>
         <li><strong>Data sources.</strong> Prices and indicators are compiled from public sources (Department of Agriculture, PSA, UN-FAO, and public fuel/exchange references). Figures are for guidance and may be delayed, estimated, or incomplete.</li>
         <li><strong>Forecasts are not guarantees.</strong> Price forecasts are model estimates with a stated error band and must not be used as the sole basis for financial decisions.</li>
         <li><strong>No warranty.</strong> The system is provided "as is" for the capstone defense, without warranty of any kind.</li>

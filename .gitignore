@@ -14,6 +14,13 @@ ENV/
 # Timestamped model backups
 model/_backup_*/
 
+# Public/vendor user accounts (real emails + password hashes from actual use —
+# unlike the committed market-data DB in datasets/, this is runtime-generated PII)
+model/agriprice_users.db
+
+# Secrets (Gmail SMTP app password, etc.) — see .env.example
+.env
+
 # Logs
 *.log
 
