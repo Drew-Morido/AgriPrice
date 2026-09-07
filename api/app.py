@@ -950,7 +950,11 @@ def get_historical_data():
     df_fuel_hist = pd.read_sql("SELECT Date, Diesel AS fuel FROM fuel_history", conn)
 
     try:
-        df_fuel_ws = pd.read_sql('SELECT Date, RON_95 AS fuel FROM "WS_fuel"', conn)
+        # Must stay Diesel, matching `fuel_history`'s Diesel column above: this single "fuel"
+        # series is charted/labelled as "Diesel Price" on the admin dashboard. Reading RON_95
+        # here spliced gasoline onto the tail of a diesel series (two different commodities in
+        # one line, off by ~PHP 1.40 at the join) — the scraped table has Diesel, so use it.
+        df_fuel_ws = pd.read_sql('SELECT Date, Diesel AS fuel FROM "WS_fuel"', conn)
     except Exception:
         df_fuel_ws = pd.DataFrame()
 
@@ -1643,12 +1647,42 @@ def api_training_status():
     with _train_log_lock:
         logs = list(_train_log_buffer)
     runs = _load_training_history()
+
+    # `_last_train_ts`/`_last_saved_run` are process-local, so after a server restart the admin
+    # Training page showed "Last Run: — Never" even with a full run history on disk. Fall back to
+    # the newest completed run recorded in that history.
+    last_run_ts = _last_train_ts.isoformat() if _last_train_ts else None
+    last_saved_run = _last_saved_run
+    last_result = _last_train_result
+    if last_run_ts is None or last_saved_run is None or last_result is None:
+        newest = None
+        for run in runs:
+            completed = run.get("completed_at")
+            if not completed:
+                continue
+            if newest is None or completed > newest.get("completed_at", ""):
+                newest = run
+        if newest is not None:
+            if last_run_ts is None:
+                last_run_ts = newest.get("completed_at")
+            if last_saved_run is None:
+                last_saved_run = newest
+            if last_result is None:
+                # Without this the admin page read `ok` off a null result and rendered a
+                # successful run as "Failed" after any server restart.
+                last_result = {
+                    "ok": bool(newest.get("ok")),
+                    "cancelled": bool(newest.get("cancelled")),
+                    "duration": newest.get("duration"),
+                    "run_id": newest.get("id"),
+                }
+
     return jsonify({
         "running":      _train_running,
         "logs":         logs,
-        "last_run":     _last_train_ts.isoformat() if _last_train_ts else None,
-        "last_result":  _last_train_result,
-        "last_saved_run": _last_saved_run,
+        "last_run":     last_run_ts,
+        "last_result":  last_result,
+        "last_saved_run": last_saved_run,
         "history":      {"runs": list(reversed(runs)), "total": len(runs)},
     })
 
@@ -1752,7 +1786,8 @@ def api_model_status():
 def api_catalog():
     try:
         from catalog_service import list_catalog
-        return jsonify(list_catalog())
+        include_inactive = request.args.get("include_inactive") in ("1", "true", "yes")
+        return jsonify(list_catalog(include_inactive=include_inactive))
     except Exception as exc:
         return jsonify({"ready": False, "error": str(exc), "categories": []}), 500
 
@@ -1789,6 +1824,157 @@ def api_consumer_price():
         return jsonify(consumer_price(key, request.args.get("date")))
     except Exception as exc:
         return jsonify({"ready": False, "error": str(exc)}), 500
+
+
+# ── Rice Brand module Phase 2: per-brand variance weight ("patong") ──────────────
+# Public-safe read: each brand's price = base category price × (1 + weight_pct/100), falling
+# back to the plain category price when a brand has no canvassed weight yet. No category param
+# returns all 8 categories at once (mirrors /api/catalog's shape).
+@app.route("/api/brand-prices", methods=["GET"])
+def api_brand_prices():
+    try:
+        from catalog_service import brand_price, list_catalog
+        key = request.args.get("category")
+        include_inactive = request.args.get("include_inactive") in ("1", "true", "yes")
+        if key:
+            return jsonify(brand_price(key, include_inactive=include_inactive))
+        cats = list_catalog(include_inactive=include_inactive)
+        if not cats.get("ready"):
+            return jsonify({"ready": False, "categories": [], "note": cats.get("note", "")})
+        return jsonify({"ready": True, "categories": [
+            brand_price(c["canonical_key"], include_inactive=include_inactive)
+            for c in cats.get("categories", [])
+        ]})
+    except Exception as exc:
+        return jsonify({"ready": False, "error": str(exc), "categories": [], "brands": []}), 500
+
+
+@app.route("/api/brand-prices/<int:brand_id>/weight", methods=["POST"])
+def api_brand_weight_set(brand_id):
+    """Admin: set (or clear, with weight_pct omitted/null) one brand's canvassed variance weight."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    payload = request.get_json(silent=True) or {}
+    try:
+        from catalog_service import set_brand_weight
+        result = set_brand_weight(
+            brand_id=brand_id,
+            weight_pct=payload.get("weight_pct"),
+            sample_date=(payload.get("sample_date") or "").strip() or None,
+            sample_locations=(payload.get("sample_locations") or "").strip() or None,
+            sample_n=payload.get("sample_n"),
+            source_notes=(payload.get("source_notes") or "").strip() or None,
+            actor=_admin_client_key(),
+        )
+        return jsonify(result), (200 if result.get("ok") else 400)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route("/api/brand-prices/weight-audit", methods=["GET"])
+def api_brand_weight_audit():
+    """Admin: audit trail of who changed a brand's weight, when, and to what."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    try:
+        from catalog_service import list_brand_weight_audit
+        brand_id = request.args.get("brand_id")
+        return jsonify(list_brand_weight_audit(int(brand_id) if brand_id else None))
+    except Exception as exc:
+        return jsonify({"ready": False, "error": str(exc), "audit": []}), 500
+
+
+# ── Rice Brand module Phase 3: full CRUD + governance ────────────────────────────
+# add_brand/update_brand/deactivate_brand are the only ways the brand catalog record changes;
+# every one of them is admin-only and writes a brand_audit row (see /api/brands/<id>/audit).
+def _brand_payload_kwargs(payload: dict) -> dict:
+    """Shared arg-extraction for add/update — only keys the caller actually sent are included,
+    so update_brand()'s "only change what's passed" semantics work from the same payload shape."""
+    kwargs = {}
+    for key in ("category_key", "brand_name", "package", "location", "source", "source_url",
+                "last_verified", "classification_note", "notes", "verification_status"):
+        if key in payload:
+            v = payload.get(key)
+            kwargs[key] = v.strip() if isinstance(v, str) else v
+    return kwargs
+
+
+@app.route("/api/brands", methods=["POST"])
+def api_brand_add():
+    """Admin: add a new brand. Requires brand_name, category_key, source; blocks an exact
+    (category, brand_name, package) duplicate."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    payload = request.get_json(silent=True) or {}
+    try:
+        from catalog_service import add_brand
+        kwargs = _brand_payload_kwargs(payload)
+        kwargs.setdefault("verification_status", "unverified")
+        result = add_brand(actor=_admin_client_key(), **kwargs)
+        return jsonify(result), (200 if result.get("ok") else 400)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route("/api/brands/<int:brand_id>", methods=["PUT"])
+def api_brand_update(brand_id):
+    """Admin: edit an existing brand's fields and/or verification status. Only fields present in
+    the JSON body are changed; the same required-fields/no-duplicate rules apply as on add."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    payload = request.get_json(silent=True) or {}
+    try:
+        from catalog_service import update_brand
+        kwargs = _brand_payload_kwargs(payload)
+        result = update_brand(brand_id, actor=_admin_client_key(), **kwargs)
+        return jsonify(result), (200 if result.get("ok") else 400)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route("/api/brands/<int:brand_id>", methods=["DELETE"])
+def api_brand_deactivate(brand_id):
+    """Admin: soft-delete a brand (active=0). History (weights, audit) is kept."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    try:
+        from catalog_service import deactivate_brand
+        result = deactivate_brand(brand_id, active=False, actor=_admin_client_key())
+        return jsonify(result), (200 if result.get("ok") else 400)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route("/api/brands/<int:brand_id>/reactivate", methods=["POST"])
+def api_brand_reactivate(brand_id):
+    """Admin: restore a previously deactivated brand."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    try:
+        from catalog_service import deactivate_brand
+        result = deactivate_brand(brand_id, active=True, actor=_admin_client_key())
+        return jsonify(result), (200 if result.get("ok") else 400)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route("/api/brands/<int:brand_id>/audit", methods=["GET"])
+def api_brand_audit(brand_id):
+    """Admin: per-brand change-history (add/update/verify/deactivate/reactivate)."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    try:
+        from catalog_service import list_brand_audit
+        return jsonify(list_brand_audit(brand_id))
+    except Exception as exc:
+        return jsonify({"ready": False, "error": str(exc), "audit": []}), 500
 
 
 # ── Rice import tariff (quarterly, price-indexed, effective-date table) ──────────

@@ -42,3 +42,32 @@ try:
     import_all(verbose=True)
 except Exception as e:
     print(f"2026 import skipped: {e}")
+
+# Apply verified DA bulletin prices (2023-12-25 to 2025-12-31, partial — see the script's
+# docstring for exactly what's covered and why) on top of the raw historical import above.
+try:
+    from apply_da_corrections import apply_corrections
+    print("Applying verified DA bulletin corrections...")
+    apply_corrections(verbose=True)
+except Exception as e:
+    print(f"DA corrections skipped: {e}")
+
+# Apply the DA-AMAS weekly-file corrections (2021-01-04 to 2023-12-24 — the window the
+# per-bulletin correction above deliberately left untouched; see the script's docstring).
+try:
+    from apply_da_amas_weekly_corrections import apply_corrections as apply_amas_corrections
+    print("Applying DA-AMAS weekly-file corrections (2021-2023)...")
+    apply_amas_corrections(verbose=True, backup=False)
+except Exception as e:
+    print(f"DA-AMAS weekly corrections skipped: {e}")
+
+# Apply the DA Bantay Presyo/Price Watch/Price Monitoring bulletin PDF corrections (110
+# individual days, 2019-10-01 to 2021-10-22 — extends coverage into the previously-untouched
+# pre-2021 window; runs after the weekly-file correction above so these higher-resolution daily
+# bulletins take precedence on the 2021 dates the two windows share — see the script's docstring).
+try:
+    from apply_da_bantay_presyo_corrections import apply_corrections as apply_bantay_presyo_corrections
+    print("Applying DA Bantay Presyo bulletin PDF corrections (2019-2021)...")
+    apply_bantay_presyo_corrections(verbose=True, backup=False)
+except Exception as e:
+    print(f"DA Bantay Presyo corrections skipped: {e}")

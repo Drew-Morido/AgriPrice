@@ -60,6 +60,8 @@ AgriPricePH.PublicAuth = (function () {
 
   function logout() {
     sessionStorage.removeItem(STORAGE_SESSION);
+    // Price Forecast's dismissible tip should come back after logout (Price Forecast page feedback).
+    try { localStorage.removeItem('agriprice_forecast_tip_dismissed'); } catch {}
     const Alert = AgriPricePH.PublicAlert;
     if (Alert?.success) {
       Alert.success('You have been logged out.', {

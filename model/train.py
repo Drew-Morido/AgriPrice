@@ -63,6 +63,16 @@ def _rmse_in_peso(y_true, y_pred, scaler, target_idx):
     return float(np.sqrt(np.mean(((y_true - y_pred) / scale) ** 2)))
 
 
+def _per_horizon_mae_peso(y_true, y_pred, scaler, target_idx) -> list:
+    """MAE broken out per forecast-ahead day (index 0 = tomorrow, 1 = day after, ...), instead of
+    one number pooled across all HORIZON steps. `mae_peso` above hides that day-3 is genuinely
+    harder to forecast than day-1 — this is what the per-day 'confidence' shown to users should
+    actually be based on, rather than reusing one aggregate figure for every day."""
+    scale = scaler.scale_[target_idx]
+    err = np.abs(y_true - y_pred) / scale  # shape (n_test, HORIZON)
+    return [round(float(np.mean(err[:, i])), 4) for i in range(err.shape[1])]
+
+
 def _persistence_baseline(X_test, y_test, target_idx, scaler) -> dict:
     """Naive persistence: forecast every horizon step as the last observed value.
 
@@ -368,10 +378,14 @@ def _train_one_target(df, target: str, use_tensorflow: bool) -> dict | None:
     shock = _shock_metrics(y_level_test, level_pred, anchors_test, scaler, target_idx)
     extra = _extra_metrics(y_level_test, level_pred, scaler, target_idx)
     rolling = _rolling_eval(y_level_test, level_pred, scaler, target_idx)
+    per_horizon_mae = _per_horizon_mae_peso(y_level_test, level_pred, scaler, target_idx)
 
     mean_price = float(sub[target].mean())
     accuracy = max(0.0, min(99.9, 100.0 - (metrics["mae_peso"] / max(mean_price, 1) * 100)))
     baseline_acc = max(0.0, min(99.9, 100.0 - (baseline["mae_peso"] / max(mean_price, 1) * 100)))
+    per_horizon_accuracy = [
+        round(max(0.0, min(99.9, 100.0 - (m / max(mean_price, 1) * 100))), 2) for m in per_horizon_mae
+    ]
     return {
         "target": target,
         "features": features,
@@ -383,6 +397,8 @@ def _train_one_target(df, target: str, use_tensorflow: bool) -> dict | None:
         "r2": extra["r2"],
         "rolling_eval": rolling,
         "accuracy_pct": round(accuracy, 2),
+        "per_horizon_mae_peso": per_horizon_mae,
+        "per_horizon_accuracy_pct": per_horizon_accuracy,
         "baseline_mae_peso": round(baseline["mae_peso"], 4),
         "baseline_rmse_peso": round(baseline["rmse_peso"], 4),
         "baseline_accuracy_pct": round(baseline_acc, 2),

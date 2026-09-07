@@ -20,27 +20,37 @@
       ],
       "backend": "tensorflow",
       "delta_mode": true,
-      "mae_peso": 0.2431,
-      "rmse_peso": 0.4374,
-      "mape_pct": 0.5395,
-      "r2": 0.9873,
+      "mae_peso": 0.4295,
+      "rmse_peso": 0.7997,
+      "mape_pct": 0.9379,
+      "r2": 0.9061,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.2567,
-          0.1617,
-          0.1844,
-          0.1951,
-          0.4174
+          0.4422,
+          0.6329,
+          0.3888,
+          0.2674,
+          0.4142
         ],
-        "mean": 0.2431,
-        "std": 0.0927
+        "mean": 0.4291,
+        "std": 0.1181
       },
-      "accuracy_pct": 99.45,
-      "baseline_mae_peso": 0.2281,
-      "baseline_rmse_peso": 0.436,
-      "baseline_accuracy_pct": 99.49,
+      "accuracy_pct": 99.04,
+      "per_horizon_mae_peso": [
+        0.358,
+        0.4466,
+        0.4838
+      ],
+      "per_horizon_accuracy_pct": [
+        99.2,
+        99.0,
+        98.91
+      ],
+      "baseline_mae_peso": 0.4137,
+      "baseline_rmse_peso": 0.7979,
+      "baseline_accuracy_pct": 99.07,
       "beats_baseline": false,
       "arima": {
         "order": [
@@ -48,23 +58,23 @@
           1,
           1
         ],
-        "mae_peso": 0.2281,
-        "rmse_peso": 0.436,
-        "n": 621
+        "mae_peso": 0.4216,
+        "rmse_peso": 0.7477,
+        "n": 622
       },
       "beats_arima": false,
       "shock": {
         "pct": 90,
-        "threshold_peso": 1.0,
-        "count": 85,
-        "lstm_mae_peso": 0.7916,
-        "baseline_mae_peso": 0.7805,
+        "threshold_peso": 1.618,
+        "count": 63,
+        "lstm_mae_peso": 1.5562,
+        "baseline_mae_peso": 1.5497,
         "beats_baseline": false
       },
-      "adf_pvalue": 0.0699,
-      "train_samples": 2895,
-      "val_samples": 620,
-      "test_samples": 621,
+      "adf_pvalue": 0.1112,
+      "train_samples": 2899,
+      "val_samples": 621,
+      "test_samples": 622,
       "split_policy": "chronological_70_15_15"
     },
     "locRegular": {
@@ -86,27 +96,37 @@
       ],
       "backend": "tensorflow",
       "delta_mode": true,
-      "mae_peso": 0.2481,
-      "rmse_peso": 0.5108,
-      "mape_pct": 0.5881,
-      "r2": 0.9769,
+      "mae_peso": 0.4658,
+      "rmse_peso": 0.7604,
+      "mape_pct": 1.1269,
+      "r2": 0.9478,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.2099,
-          0.1627,
-          0.1792,
-          0.2231,
-          0.4658
+          0.4428,
+          0.5284,
+          0.4848,
+          0.3083,
+          0.5645
         ],
-        "mean": 0.2481,
-        "std": 0.1109
+        "mean": 0.4658,
+        "std": 0.0887
       },
-      "accuracy_pct": 99.38,
-      "baseline_mae_peso": 0.2373,
-      "baseline_rmse_peso": 0.5105,
-      "baseline_accuracy_pct": 99.41,
+      "accuracy_pct": 98.84,
+      "per_horizon_mae_peso": [
+        0.4434,
+        0.4448,
+        0.5092
+      ],
+      "per_horizon_accuracy_pct": [
+        98.9,
+        98.9,
+        98.74
+      ],
+      "baseline_mae_peso": 0.4012,
+      "baseline_rmse_peso": 0.7363,
+      "baseline_accuracy_pct": 99.0,
       "beats_baseline": false,
       "arima": {
         "order": [
@@ -114,23 +134,23 @@
           1,
           1
         ],
-        "mae_peso": 0.2373,
-        "rmse_peso": 0.5105,
-        "n": 621
+        "mae_peso": 0.4021,
+        "rmse_peso": 0.6604,
+        "n": 622
       },
       "beats_arima": false,
       "shock": {
         "pct": 90,
-        "threshold_peso": 1.0,
-        "count": 75,
-        "lstm_mae_peso": 0.897,
-        "baseline_mae_peso": 0.8913,
+        "threshold_peso": 1.57,
+        "count": 63,
+        "lstm_mae_peso": 1.4392,
+        "baseline_mae_peso": 1.4158,
         "beats_baseline": false
       },
-      "adf_pvalue": 0.1599,
-      "train_samples": 2895,
-      "val_samples": 620,
-      "test_samples": 621,
+      "adf_pvalue": 0.0863,
+      "train_samples": 2899,
+      "val_samples": 621,
+      "test_samples": 622,
       "split_policy": "chronological_70_15_15"
     },
     "locPremium": {
@@ -152,27 +172,37 @@
       ],
       "backend": "tensorflow",
       "delta_mode": true,
-      "mae_peso": 0.222,
-      "rmse_peso": 0.4151,
-      "mape_pct": 0.4565,
-      "r2": 0.9914,
+      "mae_peso": 0.588,
+      "rmse_peso": 1.3388,
+      "mape_pct": 1.1523,
+      "r2": 0.7117,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.2556,
-          0.1568,
-          0.1999,
-          0.2206,
-          0.2767
+          0.613,
+          1.1716,
+          0.5093,
+          0.3587,
+          0.2826
         ],
-        "mean": 0.2219,
-        "std": 0.0421
+        "mean": 0.587,
+        "std": 0.3141
       },
-      "accuracy_pct": 99.56,
-      "baseline_mae_peso": 0.2093,
-      "baseline_rmse_peso": 0.4139,
-      "baseline_accuracy_pct": 99.59,
+      "accuracy_pct": 98.84,
+      "per_horizon_mae_peso": [
+        0.4969,
+        0.5792,
+        0.688
+      ],
+      "per_horizon_accuracy_pct": [
+        99.02,
+        98.86,
+        98.65
+      ],
+      "baseline_mae_peso": 0.5806,
+      "baseline_rmse_peso": 1.3383,
+      "baseline_accuracy_pct": 98.86,
       "beats_baseline": false,
       "arima": {
         "order": [
@@ -180,23 +210,23 @@
           1,
           1
         ],
-        "mae_peso": 0.2093,
-        "rmse_peso": 0.4139,
-        "n": 621
+        "mae_peso": 0.6057,
+        "rmse_peso": 1.2209,
+        "n": 622
       },
-      "beats_arima": false,
+      "beats_arima": true,
       "shock": {
         "pct": 90,
-        "threshold_peso": 1.0,
-        "count": 73,
-        "lstm_mae_peso": 0.7835,
-        "baseline_mae_peso": 0.7713,
+        "threshold_peso": 1.999,
+        "count": 63,
+        "lstm_mae_peso": 2.8534,
+        "baseline_mae_peso": 2.8459,
         "beats_baseline": false
       },
-      "adf_pvalue": 0.1484,
-      "train_samples": 2895,
-      "val_samples": 620,
-      "test_samples": 621,
+      "adf_pvalue": 0.1599,
+      "train_samples": 2899,
+      "val_samples": 621,
+      "test_samples": 622,
       "split_policy": "chronological_70_15_15"
     },
     "locSpecial": {
@@ -218,27 +248,37 @@
       ],
       "backend": "tensorflow",
       "delta_mode": true,
-      "mae_peso": 0.278,
-      "rmse_peso": 0.729,
-      "mape_pct": 0.5381,
-      "r2": 0.9872,
+      "mae_peso": 0.7103,
+      "rmse_peso": 2.1008,
+      "mape_pct": 1.2758,
+      "r2": 0.5562,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.3564,
-          0.2132,
-          0.2284,
-          0.3392,
-          0.2521
+          0.8603,
+          1.8355,
+          0.3605,
+          0.2263,
+          0.2583
         ],
-        "mean": 0.2779,
-        "std": 0.0587
+        "mean": 0.7082,
+        "std": 0.6082
       },
-      "accuracy_pct": 99.51,
-      "baseline_mae_peso": 0.2557,
-      "baseline_rmse_peso": 0.7269,
-      "baseline_accuracy_pct": 99.55,
+      "accuracy_pct": 98.75,
+      "per_horizon_mae_peso": [
+        0.5777,
+        0.6977,
+        0.8554
+      ],
+      "per_horizon_accuracy_pct": [
+        98.99,
+        98.78,
+        98.5
+      ],
+      "baseline_mae_peso": 0.704,
+      "baseline_rmse_peso": 2.1008,
+      "baseline_accuracy_pct": 98.77,
       "beats_baseline": false,
       "arima": {
         "order": [
@@ -246,23 +286,23 @@
           1,
           1
         ],
-        "mae_peso": 0.2557,
-        "rmse_peso": 0.7269,
-        "n": 621
+        "mae_peso": 0.7528,
+        "rmse_peso": 1.8853,
+        "n": 622
       },
-      "beats_arima": false,
+      "beats_arima": true,
       "shock": {
         "pct": 90,
-        "threshold_peso": 1.0,
-        "count": 120,
-        "lstm_mae_peso": 0.9136,
-        "baseline_mae_peso": 0.9026,
+        "threshold_peso": 2.0,
+        "count": 70,
+        "lstm_mae_peso": 4.2067,
+        "baseline_mae_peso": 4.2009,
         "beats_baseline": false
       },
-      "adf_pvalue": 0.2475,
-      "train_samples": 2895,
-      "val_samples": 620,
-      "test_samples": 621,
+      "adf_pvalue": 0.2212,
+      "train_samples": 2899,
+      "val_samples": 621,
+      "test_samples": 622,
       "split_policy": "chronological_70_15_15"
     },
     "impWellMilled": {
@@ -284,27 +324,37 @@
       ],
       "backend": "tensorflow",
       "delta_mode": true,
-      "mae_peso": 0.2485,
-      "rmse_peso": 0.6187,
-      "mape_pct": 0.5771,
-      "r2": 0.9812,
+      "mae_peso": 0.6192,
+      "rmse_peso": 1.249,
+      "mape_pct": 1.3944,
+      "r2": 0.697,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.2171,
-          0.1909,
-          0.2003,
-          0.3122,
-          0.322
+          0.519,
+          0.7726,
+          0.8619,
+          0.5475,
+          0.3942
         ],
-        "mean": 0.2485,
-        "std": 0.0567
+        "mean": 0.619,
+        "std": 0.1722
       },
-      "accuracy_pct": 99.42,
-      "baseline_mae_peso": 0.2214,
-      "baseline_rmse_peso": 0.6179,
-      "baseline_accuracy_pct": 99.48,
+      "accuracy_pct": 98.58,
+      "per_horizon_mae_peso": [
+        0.5084,
+        0.6181,
+        0.7309
+      ],
+      "per_horizon_accuracy_pct": [
+        98.83,
+        98.58,
+        98.32
+      ],
+      "baseline_mae_peso": 0.6016,
+      "baseline_rmse_peso": 1.2478,
+      "baseline_accuracy_pct": 98.62,
       "beats_baseline": false,
       "arima": {
         "order": [
@@ -312,23 +362,23 @@
           1,
           1
         ],
-        "mae_peso": 0.2214,
-        "rmse_peso": 0.6179,
-        "n": 621
+        "mae_peso": 0.6306,
+        "rmse_peso": 1.1571,
+        "n": 622
       },
-      "beats_arima": false,
+      "beats_arima": true,
       "shock": {
         "pct": 90,
-        "threshold_peso": 1.0,
-        "count": 71,
-        "lstm_mae_peso": 1.0928,
-        "baseline_mae_peso": 1.0844,
+        "threshold_peso": 3.193,
+        "count": 63,
+        "lstm_mae_peso": 2.5565,
+        "baseline_mae_peso": 2.5455,
         "beats_baseline": false
       },
-      "adf_pvalue": 0.1732,
-      "train_samples": 2895,
-      "val_samples": 620,
-      "test_samples": 621,
+      "adf_pvalue": 0.1107,
+      "train_samples": 2899,
+      "val_samples": 621,
+      "test_samples": 622,
       "split_policy": "chronological_70_15_15"
     },
     "impRegular": {
@@ -350,27 +400,37 @@
       ],
       "backend": "tensorflow",
       "delta_mode": true,
-      "mae_peso": 0.2294,
-      "rmse_peso": 0.4968,
-      "mape_pct": 0.5717,
-      "r2": 0.9838,
+      "mae_peso": 0.594,
+      "rmse_peso": 1.0681,
+      "mape_pct": 1.4537,
+      "r2": 0.802,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.2041,
-          0.1711,
-          0.173,
-          0.2593,
-          0.3399
+          0.3726,
+          0.7585,
+          0.8518,
+          0.5782,
+          0.4094
         ],
-        "mean": 0.2295,
-        "std": 0.0638
+        "mean": 0.5941,
+        "std": 0.1881
       },
-      "accuracy_pct": 99.42,
-      "baseline_mae_peso": 0.2227,
-      "baseline_rmse_peso": 0.4965,
-      "baseline_accuracy_pct": 99.44,
+      "accuracy_pct": 98.5,
+      "per_horizon_mae_peso": [
+        0.5026,
+        0.617,
+        0.6624
+      ],
+      "per_horizon_accuracy_pct": [
+        98.73,
+        98.44,
+        98.33
+      ],
+      "baseline_mae_peso": 0.5788,
+      "baseline_rmse_peso": 1.067,
+      "baseline_accuracy_pct": 98.54,
       "beats_baseline": false,
       "arima": {
         "order": [
@@ -378,23 +438,23 @@
           1,
           1
         ],
-        "mae_peso": 0.2227,
-        "rmse_peso": 0.4965,
-        "n": 621
+        "mae_peso": 0.5621,
+        "rmse_peso": 0.9812,
+        "n": 622
       },
       "beats_arima": false,
       "shock": {
         "pct": 90,
-        "threshold_peso": 1.0,
-        "count": 72,
-        "lstm_mae_peso": 0.9157,
-        "baseline_mae_peso": 0.91,
+        "threshold_peso": 2.459,
+        "count": 63,
+        "lstm_mae_peso": 2.0774,
+        "baseline_mae_peso": 2.0688,
         "beats_baseline": false
       },
-      "adf_pvalue": 0.1857,
-      "train_samples": 2895,
-      "val_samples": 620,
-      "test_samples": 621,
+      "adf_pvalue": 0.1273,
+      "train_samples": 2899,
+      "val_samples": 621,
+      "test_samples": 622,
       "split_policy": "chronological_70_15_15"
     },
     "impPremium": {
@@ -416,27 +476,37 @@
       ],
       "backend": "tensorflow",
       "delta_mode": true,
-      "mae_peso": 0.2776,
-      "rmse_peso": 0.6832,
-      "mape_pct": 0.5788,
-      "r2": 0.9892,
+      "mae_peso": 0.5993,
+      "rmse_peso": 1.5182,
+      "mape_pct": 1.2084,
+      "r2": 0.8827,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.2357,
-          0.1952,
-          0.2078,
-          0.3134,
-          0.4364
+          0.7698,
+          0.86,
+          0.4267,
+          0.3753,
+          0.5611
         ],
-        "mean": 0.2777,
-        "std": 0.0893
+        "mean": 0.5986,
+        "std": 0.1889
       },
-      "accuracy_pct": 99.42,
-      "baseline_mae_peso": 0.2462,
-      "baseline_rmse_peso": 0.6795,
-      "baseline_accuracy_pct": 99.49,
+      "accuracy_pct": 98.75,
+      "per_horizon_mae_peso": [
+        0.4512,
+        0.5997,
+        0.7469
+      ],
+      "per_horizon_accuracy_pct": [
+        99.06,
+        98.75,
+        98.45
+      ],
+      "baseline_mae_peso": 0.5964,
+      "baseline_rmse_peso": 1.5182,
+      "baseline_accuracy_pct": 98.76,
       "beats_baseline": false,
       "arima": {
         "order": [
@@ -444,23 +514,23 @@
           1,
           1
         ],
-        "mae_peso": 0.2462,
-        "rmse_peso": 0.6795,
-        "n": 621
+        "mae_peso": 0.6759,
+        "rmse_peso": 1.4878,
+        "n": 622
       },
-      "beats_arima": false,
+      "beats_arima": true,
       "shock": {
         "pct": 90,
-        "threshold_peso": 1.0,
-        "count": 85,
-        "lstm_mae_peso": 1.0341,
-        "baseline_mae_peso": 1.0127,
+        "threshold_peso": 1.798,
+        "count": 63,
+        "lstm_mae_peso": 3.2789,
+        "baseline_mae_peso": 3.2774,
         "beats_baseline": false
       },
-      "adf_pvalue": 0.2585,
-      "train_samples": 2895,
-      "val_samples": 620,
-      "test_samples": 621,
+      "adf_pvalue": 0.1225,
+      "train_samples": 2899,
+      "val_samples": 621,
+      "test_samples": 622,
       "split_policy": "chronological_70_15_15"
     },
     "impSpecial": {
@@ -482,27 +552,37 @@
       ],
       "backend": "tensorflow",
       "delta_mode": true,
-      "mae_peso": 0.3352,
-      "rmse_peso": 0.9696,
-      "mape_pct": 0.6513,
-      "r2": 0.9819,
+      "mae_peso": 1.0572,
+      "rmse_peso": 2.4139,
+      "mape_pct": 1.8669,
+      "r2": 0.5644,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.3246,
-          0.2203,
-          0.219,
-          0.5241,
-          0.3882
+          0.7716,
+          2.1397,
+          1.4162,
+          0.6097,
+          0.3424
         ],
-        "mean": 0.3352,
-        "std": 0.1143
+        "mean": 1.0559,
+        "std": 0.6471
       },
-      "accuracy_pct": 99.37,
-      "baseline_mae_peso": 0.2721,
-      "baseline_rmse_peso": 0.9626,
-      "baseline_accuracy_pct": 99.49,
+      "accuracy_pct": 98.05,
+      "per_horizon_mae_peso": [
+        0.8764,
+        1.055,
+        1.2402
+      ],
+      "per_horizon_accuracy_pct": [
+        98.39,
+        98.06,
+        97.72
+      ],
+      "baseline_mae_peso": 1.0481,
+      "baseline_rmse_peso": 2.4133,
+      "baseline_accuracy_pct": 98.07,
       "beats_baseline": false,
       "arima": {
         "order": [
@@ -510,23 +590,23 @@
           1,
           1
         ],
-        "mae_peso": 0.2721,
-        "rmse_peso": 0.9626,
-        "n": 621
+        "mae_peso": 1.076,
+        "rmse_peso": 2.1591,
+        "n": 622
       },
-      "beats_arima": false,
+      "beats_arima": true,
       "shock": {
         "pct": 90,
-        "threshold_peso": 1.0,
-        "count": 114,
-        "lstm_mae_peso": 0.989,
-        "baseline_mae_peso": 0.9674,
+        "threshold_peso": 6.0,
+        "count": 64,
+        "lstm_mae_peso": 5.0173,
+        "baseline_mae_peso": 5.0143,
         "beats_baseline": false
       },
-      "adf_pvalue": 0.0507,
-      "train_samples": 2895,
-      "val_samples": 620,
-      "test_samples": 621,
+      "adf_pvalue": 0.1335,
+      "train_samples": 2899,
+      "val_samples": 621,
+      "test_samples": 622,
       "split_policy": "chronological_70_15_15"
     }
   },
@@ -543,7 +623,7 @@
   "seq_len": 30,
   "horizon": 3,
   "delta_mode": true,
-  "last_date": "2026-08-09",
+  "last_date": "2026-09-06",
   "target": "locWellMilled",
   "features": [
     "locWellMilled",
@@ -561,33 +641,33 @@
     "locWellMilled_roll7"
   ],
   "backend": "tensorflow",
-  "mae_peso": 0.2431,
-  "rmse_peso": 0.4374,
-  "mape_pct": 0.5395,
-  "r2": 0.9873,
+  "mae_peso": 0.4295,
+  "rmse_peso": 0.7997,
+  "mape_pct": 0.9379,
+  "r2": 0.9061,
   "rolling_eval": {
     "method": "blocked rolling-origin over held-out test (no refit)",
     "k": 5,
     "block_mae": [
-      0.2567,
-      0.1617,
-      0.1844,
-      0.1951,
-      0.4174
+      0.4422,
+      0.6329,
+      0.3888,
+      0.2674,
+      0.4142
     ],
-    "mean": 0.2431,
-    "std": 0.0927
+    "mean": 0.4291,
+    "std": 0.1181
   },
-  "accuracy_pct": 99.44,
-  "primary_accuracy_pct": 99.45,
-  "avg_accuracy_pct": 99.44,
-  "baseline_mae_peso": 0.2281,
-  "baseline_rmse_peso": 0.436,
-  "baseline_accuracy_pct": 99.49,
+  "accuracy_pct": 98.67,
+  "primary_accuracy_pct": 99.04,
+  "avg_accuracy_pct": 98.67,
+  "baseline_mae_peso": 0.4137,
+  "baseline_rmse_peso": 0.7979,
+  "baseline_accuracy_pct": 99.07,
   "beats_baseline": false,
-  "adf_pvalue": 0.0699,
-  "train_samples": 2895,
-  "val_samples": 620,
-  "test_samples": 621,
+  "adf_pvalue": 0.1112,
+  "train_samples": 2899,
+  "val_samples": 621,
+  "test_samples": 622,
   "split_policy": "chronological_70_15_15"
 }

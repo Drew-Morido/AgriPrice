@@ -21,6 +21,11 @@ AgriPricePH.WebScraper = (function () {
   const POLL_IDLE  = 10_000;  // 10s kapag hindi nag-sscrape
   const POLL_RUN   = 2_000;   // 2s kapag nag-sscrape (para real-time ang logs)
 
+  function _adminToken() {
+    try { return JSON.parse(sessionStorage.getItem('agriprice_admin_session') || 'null')?.token || ''; }
+    catch { return ''; }
+  }
+
   // ─── STATE ─────────────────────────────────────────────────────────────────
   let _mounted   = false;
   let _running   = false;   // TRUE kung nag-sscrape ang backend
@@ -156,8 +161,16 @@ AgriPricePH.WebScraper = (function () {
     _addLocalLog('INFO', 'Manual run initiated — starting scraper...');
 
     try {
-      const res = await fetch(`${API}/api/run-scraper`, { method: 'POST' });
+      const token = _adminToken();
+      const res = await fetch(`${API}/api/run-scraper`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
 
+      if (res.status === 401) {
+        _addLocalLog('ERROR', 'Admin session required — please log out and log back in.');
+        return;
+      }
       if (res.status === 409) {
         _addLocalLog('WARN', 'Scraper is already running on the server.');
         return;

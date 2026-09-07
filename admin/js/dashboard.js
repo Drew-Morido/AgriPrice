@@ -760,14 +760,21 @@ AgriPricePH.Dashboard = (function () {
   function renderSparklines() {
     const hist = AgriPricePH.Data.historical;
     const sparkData = {
-      'spark-wm':   { data: hist.locWellMilled || hist.wellMilled, color: '#4CAF6E' },
-      'spark-rm':   { data: hist.locRegular || hist.regularMilled, color: '#3B82F6' },
-      'spark-fuel': { data: hist.fuel, color: '#F59E0B' },
-      'spark-usd':  { data: hist.exchange, color: '#8B5CF6' },
+      'spark-wm':   { data: hist.locWellMilled || hist.wellMilled, color: '#4CAF6E', valueEl: 'ki-wm' },
+      'spark-rm':   { data: hist.locRegular || hist.regularMilled, color: '#3B82F6', valueEl: 'ki-rm' },
+      'spark-fuel': { data: hist.fuel, color: '#F59E0B', valueEl: 'ki-fuel' },
+      'spark-usd':  { data: hist.exchange, color: '#8B5CF6', valueEl: 'ki-usd' },
     };
     Object.entries(sparkData).forEach(([id, cfg]) => {
       const el = document.getElementById(id);
       if (el && cfg.data?.length) AgriPricePH.Charts.sparkline(el, cfg.data, cfg.color, true);
+      // Key Indicators: show the latest real value of the same series the sparkline draws.
+      // These used to be hardcoded in dashboard.html with no id, so they never updated.
+      const valEl = cfg.valueEl && document.getElementById(cfg.valueEl);
+      if (valEl) {
+        const series = (cfg.data || []).filter((v) => typeof v === 'number' && Number.isFinite(v));
+        valEl.textContent = series.length ? `₱${series[series.length - 1].toFixed(2)}` : '—';
+      }
     });
   }
 

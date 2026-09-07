@@ -58,7 +58,7 @@
   <div class="card-header dash-pred-header">
     <div class="dash-pred-header-left">
       <span class="card-title">Rice Price Predictions</span>
-      <span class="text-xs text-muted" id="dash-pred-subtitle">Live 2-day forecasts from API · 4 types per view</span>
+      <span class="text-xs text-muted" id="dash-pred-subtitle">Live 3-day forecasts from API · 4 types per view</span>
     </div>
     <div class="dash-pred-filters">
       <div class="dash-pred-segment" id="dash-pred-origin-toggle" role="group" aria-label="Rice origin">
@@ -68,6 +68,7 @@
       <div class="dash-pred-segment" id="dash-pred-day-toggle" role="group" aria-label="Forecast day">
         <button type="button" class="dash-pred-segment-btn active" data-day="1">Day 1</button>
         <button type="button" class="dash-pred-segment-btn" data-day="2">Day 2</button>
+        <button type="button" class="dash-pred-segment-btn" data-day="3">Day 3</button>
       </div>
       <a href="#predictions" class="btn btn-ghost btn-sm" id="dash-pred-view-more">Full Predictions →</a>
     </div>
@@ -125,22 +126,22 @@
         <div>
           <div style="font-size:11px;color:var(--text-muted);font-weight:600;margin-bottom:4px;">Well Milled Rice</div>
           <canvas id="spark-wm" style="width:100%;height:44px;display:block;"></canvas>
-          <div style="font-size:13px;font-weight:700;font-family:var(--font-mono);margin-top:4px;">₱52.50</div>
+          <div id="ki-wm" style="font-size:13px;font-weight:700;font-family:var(--font-mono);margin-top:4px;">—</div>
         </div>
         <div>
           <div style="font-size:11px;color:var(--text-muted);font-weight:600;margin-bottom:4px;">Regular Milled Rice</div>
           <canvas id="spark-rm" style="width:100%;height:44px;display:block;"></canvas>
-          <div style="font-size:13px;font-weight:700;font-family:var(--font-mono);margin-top:4px;">₱48.00</div>
+          <div id="ki-rm" style="font-size:13px;font-weight:700;font-family:var(--font-mono);margin-top:4px;">—</div>
         </div>
         <div>
           <div style="font-size:11px;color:var(--text-muted);font-weight:600;margin-bottom:4px;">Diesel Price</div>
           <canvas id="spark-fuel" style="width:100%;height:44px;display:block;"></canvas>
-          <div style="font-size:13px;font-weight:700;font-family:var(--font-mono);margin-top:4px;">₱62.40</div>
+          <div id="ki-fuel" style="font-size:13px;font-weight:700;font-family:var(--font-mono);margin-top:4px;">—</div>
         </div>
         <div>
           <div style="font-size:11px;color:var(--text-muted);font-weight:600;margin-bottom:4px;">USD/PHP Rate</div>
           <canvas id="spark-usd" style="width:100%;height:44px;display:block;"></canvas>
-          <div style="font-size:13px;font-weight:700;font-family:var(--font-mono);margin-top:4px;">₱56.42</div>
+          <div id="ki-usd" style="font-size:13px;font-weight:700;font-family:var(--font-mono);margin-top:4px;">—</div>
         </div>
       </div>
     </div>
@@ -170,7 +171,7 @@
 
     <div class="card">
       <div class="card-header">
-        <span class="card-title">2-Day Forecast (Well Milled)</span>
+        <span class="card-title">3-Day Forecast (Well Milled)</span>
         <span class="text-xs text-muted">LSTM Model</span>
       </div>
       <div class="card-body">

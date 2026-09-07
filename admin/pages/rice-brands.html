@@ -1,0 +1,89 @@
+<div class="section-header">
+  <div>
+    <div class="section-title">Rice Brands</div>
+    <div class="section-subtitle">Branded rice products mapped to the 8 forecast categories &middot; catalog + governance</div>
+  </div>
+</div>
+
+<div class="rb-stat-strip" id="rb-stats"></div>
+
+<div class="rb-toolbar">
+  <div class="rb-search-box">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" id="rb-search" class="form-input" placeholder="Search brand, package, location&hellip;">
+  </div>
+  <label class="rb-toggle-label">
+    <input type="checkbox" id="rb-show-inactive"> Show deactivated
+  </label>
+  <span class="rb-result-count" id="rb-result-count"></span>
+  <button class="btn btn-primary" id="rb-add-toggle">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Add brand
+  </button>
+</div>
+
+<!-- ===== Add / edit brand form (slide-down panel, shared by both modes) ===== -->
+<div class="rb-form-panel" id="rb-form">
+  <p class="rb-form-title" id="rb-form-title">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/></svg>
+    Add a new brand
+  </p>
+  <input type="hidden" id="rf-brand-id" value="">
+  <div class="rb-form-grid">
+    <div class="rb-field">
+      <label for="rf-category">Category *</label>
+      <select id="rf-category" class="form-select"></select>
+    </div>
+    <div class="rb-field">
+      <label for="rf-brand-name">Brand name *</label>
+      <input type="text" id="rf-brand-name" class="form-input" placeholder="e.g. Doña Maria">
+    </div>
+    <div class="rb-field">
+      <label for="rf-package">Package / variety</label>
+      <input type="text" id="rf-package" class="form-input" placeholder="e.g. Jasponica Rice (5kg)">
+    </div>
+    <div class="rb-field">
+      <label for="rf-location">Location</label>
+      <input type="text" id="rf-location" class="form-input" placeholder="e.g. NCR">
+    </div>
+    <div class="rb-field">
+      <label for="rf-verification">Verification status</label>
+      <select id="rf-verification" class="form-select">
+        <option value="unverified">Unverified</option>
+        <option value="field_verified">Field-verified</option>
+        <option value="dti_verified">DTI-verified</option>
+      </select>
+    </div>
+    <div class="rb-field">
+      <label for="rf-last-verified">Last verified</label>
+      <input type="date" id="rf-last-verified" class="form-input">
+    </div>
+    <div class="rb-field span-3">
+      <label for="rf-source">Source * <span class="rb-field-hint">where did this entry come from? required before saving</span></label>
+      <input type="text" id="rf-source" class="form-input" placeholder="e.g. Official Brand Website, or NCR retailer listing">
+    </div>
+    <div class="rb-field span-3">
+      <label for="rf-source-url">Source URL</label>
+      <input type="url" id="rf-source-url" class="form-input" placeholder="https://...">
+    </div>
+    <div class="rb-field span-3">
+      <label for="rf-classification-note">Classification note</label>
+      <input type="text" id="rf-classification-note" class="form-input" placeholder="Basis for the category assignment">
+    </div>
+    <div class="rb-field span-3">
+      <label for="rf-notes">Notes</label>
+      <input type="text" id="rf-notes" class="form-input" placeholder="Anything else worth recording">
+    </div>
+  </div>
+  <div class="rb-form-actions">
+    <button class="btn btn-primary" id="rf-save">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+      Save brand
+    </button>
+    <button class="btn btn-outline" id="rf-cancel">Cancel</button>
+    <button class="btn btn-outline rb-danger-btn" id="rf-deactivate" hidden>Deactivate this brand</button>
+    <span class="rb-form-msg" id="rf-msg"></span>
+  </div>
+</div>
+
+<div id="rb-groups"><div class="empty-state"><h3>Loading&hellip;</h3></div></div>

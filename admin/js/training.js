@@ -11,6 +11,11 @@ AgriPricePH.Training = (function () {
   const POLL_IDLE = 5_000;
   const POLL_RUN  = 2_000;
 
+  function _adminToken() {
+    try { return JSON.parse(sessionStorage.getItem('agriprice_admin_session') || 'null')?.token || ''; }
+    catch { return ''; }
+  }
+
   let _mounted      = false;
   let _running      = false;
   let _pollTimer    = null;
@@ -829,7 +834,15 @@ AgriPricePH.Training = (function () {
     _addLocalLog('INFO', 'Sending training request to backend...');
 
     try {
-      const res = await fetch(`${API}/api/run-training`, { method: 'POST' });
+      const token = _adminToken();
+      const res = await fetch(`${API}/api/run-training`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.status === 401) {
+        _addLocalLog('ERROR', 'Admin session required — please log out and log back in.');
+        return;
+      }
       if (res.status === 409) {
         _addLocalLog('WARN', 'Training is already running on the server.');
         return;

@@ -1,4 +1,4 @@
-/* AgriPricePH — Predictions (2-day LSTM forecast from API) */
+/* AgriPricePH — Predictions (3-day LSTM forecast from API) */
 window.AgriPricePH = window.AgriPricePH || {};
 
 AgriPricePH.Predictions = (function () {

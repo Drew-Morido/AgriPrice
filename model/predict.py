@@ -43,28 +43,57 @@ def _inverse_target(scaled_vals, scaler, target_idx):
     return (np.asarray(scaled_vals) - min_) / scale
 
 
-def _confidence_ratio(mae_peso: float, mean_price: float, cap_high: float = 0.99, cap_low: float = 0.55) -> float:
+def _confidence_ratio(mae_peso: float, mean_price: float, cap_high: float = 0.95, cap_low: float = 0.55) -> float:
+    """Maps a forecast's real error (as % of the price level) onto a confidence band using two
+    fixed reference points — NOT "100% - error%", which is what the old formula did.
+
+    That old formula is why confidence always showed ~99% for every category and every day: this
+    series' typical MAE is a fraction of a peso against a ₱40-90 price, so "100 - mae/price*100"
+    is mechanically always ~97-99% no matter how good or bad the actual forecast is — it isn't a
+    confidence signal at all, just the error restated as a percentage of a large number. Here, an
+    error of ~0.4% of the price level reads as high confidence and ~4% reads as low confidence;
+    everything between is spread linearly across the full cap_low..cap_high band, so a genuinely
+    better/worse forecast (or an earlier/later horizon day) actually looks different on screen.
+    """
     if mean_price <= 0 or mae_peso < 0:
         return 0.7
-    pct = max(0.0, min(99.9, 100.0 - (mae_peso / mean_price * 100.0)))
-    return max(cap_low, min(cap_high, pct / 100.0))
+    err_pct = mae_peso / mean_price * 100.0
+    good_pct, bad_pct = 0.4, 4.0
+    frac_good = 1.0 - (err_pct - good_pct) / (bad_pct - good_pct)
+    frac_good = max(0.0, min(1.0, frac_good))
+    return cap_low + frac_good * (cap_high - cap_low)
 
 
-def _holdout_accuracy_confidence(tmeta: dict, meta: dict | None = None) -> float:
-    """
-    Match dashboard / Training History: use hold-out test accuracy_pct when saved.
-  Falls back to MAE-derived ratio only if accuracy is missing.
+def _holdout_accuracy_confidence(tmeta: dict, meta: dict | None = None, day_idx: int = 0) -> float:
+    """Per-forecast-day confidence (day_idx 0 = tomorrow, 1 = day after, 2 = in 3 days).
+
+    Uses train.py's per_horizon_mae_peso — real hold-out error computed separately for each
+    forecast-ahead day — through _confidence_ratio's calibrated error->confidence mapping, so
+    day 3 is honestly less certain than day 1 and different categories genuinely look different,
+    instead of every day/category on the UI repeating one ~99% figure. Falls back to the pooled
+    mae_peso/accuracy_pct (with a manual per-day decay) only for a meta.json saved before the
+    per-horizon fields existed.
     """
     meta = meta or {}
-    acc = tmeta.get("accuracy_pct")
-    if acc is None:
-        acc = meta.get("accuracy_pct")
-    if acc is not None:
-        return max(0.65, min(0.99, float(acc) / 100.0))
+    mean_price = float(tmeta.get("mean_price") or meta.get("mean_price") or 50.0)
+
+    per_horizon_mae = tmeta.get("per_horizon_mae_peso")
+    if not isinstance(per_horizon_mae, list) or not per_horizon_mae:
+        per_horizon_mae = meta.get("per_horizon_mae_peso")
+    if isinstance(per_horizon_mae, list) and day_idx < len(per_horizon_mae) and per_horizon_mae[day_idx] is not None:
+        return _confidence_ratio(float(per_horizon_mae[day_idx]), mean_price)
+
     mae = tmeta.get("mae_peso") or meta.get("mae_peso")
     if mae is not None:
-        mean_hint = float(tmeta.get("mean_price") or meta.get("mean_price") or 50.0)
-        return _confidence_ratio(float(mae), mean_hint)
+        base = _confidence_ratio(float(mae), mean_price)
+        decay = (1.0, 0.97, 0.94)[min(day_idx, 2)]
+        return max(0.5, base * decay)
+
+    acc = tmeta.get("accuracy_pct") or meta.get("accuracy_pct")
+    if acc is not None:
+        base = max(0.5, min(0.95, float(acc) / 100.0))
+        decay = (1.0, 0.97, 0.94)[min(day_idx, 2)]
+        return max(0.5, base * decay)
     return 0.75
 
 
@@ -262,13 +291,13 @@ def _run_lstm_inference(
     mean_price = float(pd.to_numeric(sub[target], errors="coerce").mean() or last_price)
     tmeta = dict(target_meta)
     tmeta.setdefault("mean_price", mean_price)
-    conf = _holdout_accuracy_confidence(tmeta, meta)
 
     days: list = []
     prev = last_price
     for i, price in enumerate(prices[:HORIZON]):
         d = anchor + pd.Timedelta(days=i + 1)
         change = float(price - prev)
+        conf = _holdout_accuracy_confidence(tmeta, meta, day_idx=i)
         days.append({
             "day": i + 1,
             "date": d.strftime("%b %d"),
@@ -304,12 +333,12 @@ def _trend_forecast_days(
     base = float(tail[-1]) if len(tail) else last_price
     tm = dict(tmeta or {})
     tm.setdefault("mean_price", float(np.nanmean(tail)) if len(tail) else last_price)
-    conf = _holdout_accuracy_confidence(tm, meta)
     days: list = []
     prev = last_price if last_price > 0 else base
     for i in range(HORIZON):
         price = max(0.01, base + slope * (i + 1))
         d = anchor + pd.Timedelta(days=i + 1)
+        conf = _holdout_accuracy_confidence(tm, meta, day_idx=i)
         days.append({
             "day": i + 1,
             "date": d.strftime("%b %d"),
@@ -363,13 +392,13 @@ def _formula_forecast_days_2026(
 
     tm = dict(tmeta or {})
     tm.setdefault("mean_price", float(target_series.mean()))
-    conf = _holdout_accuracy_confidence(tm, meta)
 
     out: list = []
     prev = last_price
     for i in range(HORIZON):
         price = max(0.01, prev * (1.0 + weighted_daily_pct))
         d = anchor + pd.Timedelta(days=i + 1)
+        conf = _holdout_accuracy_confidence(tm, meta, day_idx=i)
         out.append({
             "day": i + 1,
             "date": d.strftime("%b %d"),

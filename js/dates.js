@@ -52,11 +52,17 @@ AgriPricePH.Dates = (function () {
     });
 
     const heroSub = document.querySelector('[data-dynamic-date="forecast-subtitle"]');
-    if (heroSub && apiData?.forecast?.length >= 2) {
-      const d1 = apiData.forecast[0].date_iso;
-      const d2 = apiData.forecast[1].date_iso;
+    const fc = apiData?.forecast;
+    if (heroSub && fc?.length) {
+      // Derive the horizon from the API response instead of hardcoding "2-day": the model
+      // forecasts HORIZON days (currently 3) and this line used to disagree with the table
+      // rendered right below it.
+      const days = fc.length;
+      const span = days === 1
+        ? fc[0].date_iso
+        : `${fc[0].date_iso} – ${fc[days - 1].date_iso}`;
       heroSub.textContent =
-        `Powered by LSTM · 2-day ahead (${d1} & ${d2}) · 30-day sliding window`;
+        `Powered by LSTM · ${days}-day ahead (${span}) · 30-day sliding window`;
     }
   }
 
