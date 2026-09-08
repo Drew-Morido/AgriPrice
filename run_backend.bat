@@ -42,14 +42,15 @@ if not exist "api\app.py" (
   exit /b 1
 )
 
-REM --- If backend is already up, just open the browser ---
+REM --- If backend is already up, don't force-open a new tab: you're most likely
+REM     already using it in a browser (autostart, or an earlier run of this file).
+REM     Just report it and let you switch to that tab yourself.
 powershell -NoProfile -Command "try { $r = Invoke-WebRequest -Uri 'http://127.0.0.1:5000/api/health' -UseBasicParsing -TimeoutSec 2; if ($r.StatusCode -eq 200) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
 if %errorlevel%==0 (
   echo Backend is already running on port 5000.
-  echo Opening %OPEN_URL%
-  start "" "%OPEN_URL%"
+  echo If you don't already have it open, go to: %OPEN_URL%
   echo.
-  echo You can use the app now. Close this window if you did not start the server here.
+  echo Close this window if you did not start the server here.
   pause
   exit /b 0
 )

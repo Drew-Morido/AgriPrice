@@ -1,0 +1,77 @@
+================================================================================
+  AgriPricePH — Update Notes (dev-rk branch)
+  Date: 2026-09-04
+================================================================================
+
+1) PUBLIC HOMEPAGE (public/landpage.html, public/js/rice-knowledge.js)
+--------------------------------------------------------------------------------
+- Landing page reworked (public/landpage.html, ~1,300 lines changed).
+- New "Rice Knowledge" sections: Anatomy of Rice Classifications, Commercial
+  Brands vs. Seed Varieties, Philippine Rice Trivia.
+- Admin login no longer has its own page — admin/login.html removed. Admin
+  now signs in through the same unified login modal as regular users; the
+  form auto-detects admin credentials and asks for the 6-digit code.
+
+2) ADMIN — MODEL DASHBOARD (new: admin/pages/model-dashboard.html, admin/js/model-dashboard.js, admin/css/model-dashboard.css)
+--------------------------------------------------------------------------------
+- Merges the old "LSTM Model" and "Performance Metrics" pages into one Model
+  Dashboard. Both old pages removed (admin/pages/lstm-model.html, metrics.html).
+- Still pulls real numbers from /api/model-status (model/meta.json) — only the
+  page changed, not the data source.
+- Fixed stale numbers left over from before this reconciliation pass: input
+  feature count 5 → 13, LSTM units 128/64 → 64/32, Dense 32 → 16, early-stop
+  patience 10 → 8, fuel source DOE → Zigwheels; removed a fictional
+  "Rainfall/Weather (PAGASA)" input row that was never actually used.
+- Never claims the model "beats the baseline" when it doesn't — shows
+  "within X% of the naive baseline" instead (honest-evaluation rule).
+
+3) ADMIN — MARKET DRIVERS / CORRELATION (new: admin/js/correlation.js, admin/css/correlation.css)
+--------------------------------------------------------------------------------
+- New page showing how diesel price and USD/PHP correlate with rice prices
+  (Pearson r, trend chart, "diverging vs tracking" drift detection), computed
+  live from /api/historical-data.
+- Rice Stock Level, Rainfall, Month (seasonality), and Import Tariff aren't
+  available from that endpoint, so those four keep the existing research
+  figures rather than being faked.
+
+4) ADMIN — TAXES & IMPORT CHARGES (admin/js/taxes.js, admin/pages/taxes.html, admin/css/taxes.css)
+--------------------------------------------------------------------------------
+- Visual redesign only — same data/endpoints. Long legal paragraphs became
+  click-to-open info popovers, added a stat strip, and the add-form is now an
+  inline slide-down panel instead of a <details> block.
+
+5) ADMIN — HISTORICAL DATA (admin/js/historical.js, admin/pages/historical.html, admin/css/historical.css)
+--------------------------------------------------------------------------------
+- Rewritten module: adds a Stats view alongside the Chart view, category/grade
+  filters, and a paginated Data Table.
+
+6) ADMIN — NAV / LOGIN / LAYOUT (admin/index.html, admin/js/admin-auth.js, topbar.js, router.js, modules.js)
+--------------------------------------------------------------------------------
+- Nav relabeled (Predictions → Price Forecast, Historical → Price History),
+  responsive burger menu, tidied module list to match the merged pages above.
+
+7) SHARED — CHARTS (js/charts.js)
+--------------------------------------------------------------------------------
+- Line charts now animate smoothly when switching time ranges (7D/1Y/All)
+  instead of redrawing instantly.
+
+8) FIX — Keras/TensorFlow version mismatch breaking Predictions (model/predict.py, admin/js/dashboard.js, requirements.txt)
+--------------------------------------------------------------------------------
+- Problem: after a git pull, the Predictions dashboard could fail and show
+  raw internal Keras error text instead of forecasts.
+- Fix: a failed model load is now logged server-side and the app falls back
+  to the MLP model / trend estimate automatically instead of crashing; the
+  dashboard shortens/escapes any error text instead of dumping it raw.
+- Prevention: TensorFlow install docs now pin an exact version
+  (tensorflow==2.20.0) so everyone's Keras build matches the committed
+  model files. One-time action per machine:
+      py -3.13 -m pip install tensorflow==2.20.0
+
+9) DOCS UPDATED
+--------------------------------------------------------------------------------
+- CLAUDE.md, README.md, README.txt, SYSTEM_GUIDE.txt — pinned TensorFlow
+  version + new troubleshooting entry.
+- documents/PAPER_CORRECTIONS.md — "Round 5" log entry reconciling the Model
+  Dashboard merge and corrected architecture numbers against the paper.
+
+================================================================================

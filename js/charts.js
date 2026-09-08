@@ -54,11 +54,16 @@ AgriPricePH.Charts = (function () {
     if (!arr || !arr.length) return new Array(n).fill(0);
     if (arr.length === 1) return new Array(n).fill(arr[0]);
     const out = new Array(n);
+    // Gaps propagate rather than interpolate: `null * 0.5` is 0 in JS, which would drag the
+    // animated line down to the axis across any region a series deliberately omits.
+    const gap = (v) => v === null || v === undefined || !Number.isFinite(Number(v));
     for (let i = 0; i < n; i++) {
       const pos = (i / (n - 1)) * (arr.length - 1);
       const lo = Math.floor(pos), hi = Math.min(arr.length - 1, lo + 1);
       const frac = pos - lo;
-      out[i] = arr[lo] * (1 - frac) + arr[hi] * frac;
+      out[i] = (gap(arr[lo]) || gap(arr[hi]))
+        ? null
+        : Number(arr[lo]) * (1 - frac) + Number(arr[hi]) * frac;
     }
     return out;
   }
@@ -84,9 +89,13 @@ AgriPricePH.Charts = (function () {
       ctx.lineWidth = s.lineWidth || 2;
       ctx.lineJoin = 'round';
       if (s.dashed) ctx.setLineDash([5, 3]); else ctx.setLineDash([]);
+      // Gaps (null/undefined) break the line here too, so an in-flight transition matches the
+      // settled render instead of flashing a stray segment across a region the series omits.
+      let penDown = false;
       s.data.forEach((v, i) => {
-        const x = idxToX(i, s.data.length), y = valToY(v);
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        if (v === null || v === undefined || !Number.isFinite(Number(v))) { penDown = false; return; }
+        const x = idxToX(i, s.data.length), y = valToY(Number(v));
+        if (!penDown) { ctx.moveTo(x, y); penDown = true; } else ctx.lineTo(x, y);
       });
       ctx.stroke();
       ctx.setLineDash([]);
@@ -104,7 +113,9 @@ AgriPricePH.Charts = (function () {
     prevSeries.forEach(p => { if (p.id) prevById[p.id] = p.data; });
 
     const ranges = active.map(ds => {
-      const mn = Math.min(...ds.data), mx = Math.max(...ds.data);
+      const vals = ds.data.filter(v => v !== null && v !== undefined && Number.isFinite(Number(v))).map(Number);
+      if (!vals.length) return 1;
+      const mn = Math.min(...vals), mx = Math.max(...vals);
       return (mx - mn) || Math.max(Math.abs(mx), 1);
     });
     const oldSamples = active.map((ds, i) => {
@@ -165,8 +176,14 @@ AgriPricePH.Charts = (function () {
       if (!active.length) return;
       if (!W || !H || plotW <= 0 || plotH <= 0) return;
 
+      // A dataset may contain null/undefined "gaps" — points where that series simply does not
+      // exist (e.g. a forecast line that only starts where the historical line ends). Gaps are
+      // skipped when scaling, drawn as breaks, and omitted from the hover tooltip, so a series
+      // never reports a value for a region it does not cover.
+      const isGap = (v) => v === null || v === undefined || !Number.isFinite(Number(v));
       let allVals = [];
-      active.forEach(ds => allVals.push(...ds.data));
+      active.forEach(ds => ds.data.forEach(v => { if (!isGap(v)) allVals.push(Number(v)); }));
+      if (!allVals.length) return;
       const yDec = opts.yDecimals != null
         ? opts.yDecimals
         : (Math.max(...allVals) < 0.01 ? 4 : Math.max(...allVals) < 1 ? 3 : 1);
@@ -209,14 +226,20 @@ AgriPricePH.Charts = (function () {
         const color = ds.color || COLORS.primary;
 
         if (ds.fill) {
+          const firstIdx = data.findIndex(v => !isGap(v));
+          let lastIdx = -1;
+          data.forEach((v, i) => { if (!isGap(v)) lastIdx = i; });
           ctx.beginPath();
+          let started = false;
           data.forEach((v, i) => {
-            const x = idxToX(i, data.length), y = valToY(v);
-            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            if (isGap(v)) return;
+            const x = idxToX(i, data.length), y = valToY(Number(v));
+            if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
           });
-          ctx.lineTo(idxToX(data.length - 1, data.length), pad.top + plotH);
-          ctx.lineTo(idxToX(0, data.length), pad.top + plotH);
-          ctx.closePath();
+          if (!started) { ctx.closePath(); } else {
+          ctx.lineTo(idxToX(lastIdx, data.length), pad.top + plotH);
+          ctx.lineTo(idxToX(firstIdx, data.length), pad.top + plotH);
+          ctx.closePath(); }
           const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + plotH);
           grad.addColorStop(0, color + '30');
           grad.addColorStop(1, color + '00');
@@ -229,9 +252,11 @@ AgriPricePH.Charts = (function () {
         ctx.lineWidth = ds.lineWidth || 2;
         ctx.lineJoin = 'round';
         if (ds.dashed) ctx.setLineDash([5, 3]); else ctx.setLineDash([]);
+        let penDown = false;
         data.forEach((v, i) => {
-          const x = idxToX(i, data.length), y = valToY(v);
-          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          if (isGap(v)) { penDown = false; return; }
+          const x = idxToX(i, data.length), y = valToY(Number(v));
+          if (!penDown) { ctx.moveTo(x, y); penDown = true; } else ctx.lineTo(x, y);
         });
         ctx.stroke();
         ctx.setLineDash([]);
@@ -271,8 +296,11 @@ AgriPricePH.Charts = (function () {
       for(let i=0; i<totalPoints; i++) {
           let pointValues = [];
           tooltipDatasets.forEach(ds => {
-              if(ds.data[i] !== undefined) {
-                  pointValues.push({ label: ds.label || 'Value', val: ds.data[i], color: ds.color });
+              // Gaps are omitted so the tooltip lists only the series that actually cover this
+              // point — a forecast line padded with nulls over the historical region no longer
+              // reports the historical value as its own.
+              if (!isGap(ds.data[i])) {
+                  pointValues.push({ label: ds.label || 'Value', val: Number(ds.data[i]), color: ds.color });
               }
           });
           hoverData.push({ x: idxToX(i, totalPoints), label: tooltipLabels ? tooltipLabels[i] : i, values: pointValues });
@@ -336,10 +364,14 @@ AgriPricePH.Charts = (function () {
     }
 
     if (opts.animate && canvasEl._lastSeries && canvasEl._lastSeries.length && active.length) {
+      // Gaps are excluded here as well; a single null would otherwise make rawMin/rawMax NaN and
+      // collapse the whole animated frame.
+      const finite = (v) => v !== null && v !== undefined && Number.isFinite(Number(v));
       let allVals = [];
-      active.forEach(ds => allVals.push(...ds.data));
-      canvasEl._lastSeries.forEach(p => allVals.push(...(p.data || [])));
+      active.forEach(ds => ds.data.forEach(v => { if (finite(v)) allVals.push(Number(v)); }));
+      canvasEl._lastSeries.forEach(p => (p.data || []).forEach(v => { if (finite(v)) allVals.push(Number(v)); }));
       let minV = opts.minY, maxV = opts.maxY;
+      if (!allVals.length) { renderFinal(); return; }
       if (minV === undefined || maxV === undefined) {
         const rawMin = Math.min(...allVals), rawMax = Math.max(...allVals);
         const span = rawMax - rawMin || Math.max(rawMax * 0.1, 0.0001);

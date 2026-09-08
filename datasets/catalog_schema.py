@@ -66,11 +66,18 @@ CREATE TABLE IF NOT EXISTS rice_brand (
     brand_name     TEXT NOT NULL,
     package        TEXT,                          -- actual product/SKU name, e.g. "... Rice 5kg"
     location       TEXT,                          -- NCR city / store, or "NCR"
-    source         TEXT,                          -- label, e.g. "Official Brand Website"
+    source         TEXT,                          -- label, e.g. "Official Brand Website" — required
     source_url     TEXT,                          -- clickable citation
     last_verified  TEXT,                          -- YYYY-MM-DD
     classification_note TEXT,                     -- basis for the 8-category assignment
-    is_verified    INTEGER NOT NULL DEFAULT 0,    -- [VERIFY: DTI]
+    -- verification_status replaces the old boolean is_verified (Phase 3): a brand starts
+    -- 'unverified' and is promoted by an admin who has actually checked it, either against the
+    -- field ('field_verified') or against an official DTI list ('dti_verified').
+    verification_status TEXT NOT NULL DEFAULT 'unverified'
+                   CHECK (verification_status IN ('unverified','field_verified','dti_verified')),
+    verified_by    TEXT,                          -- admin client key / identity who set the status
+    verified_at    TEXT,                          -- YYYY-MM-DD HH:MM:SS
+    active         INTEGER NOT NULL DEFAULT 1,    -- soft-delete: 0 = deactivated, kept for history
     notes          TEXT,
     UNIQUE (category_id, brand_name, package)
 );
@@ -155,25 +162,98 @@ CREATE TABLE IF NOT EXISTS tariff_config (
     source     TEXT,
     updated_at TEXT
 );
+
+-- Rice Brand module Phase 2 — variance weight ("patong"): an observed retail premium/discount
+-- for ONE brand vs. its category's plain forecast price. This is display-layer only: it is never
+-- fed back into the LSTM (model/ is untouched) and never invented — a brand keeps NULL/no row
+-- here (falls back to the plain category price) until someone actually canvasses it.
+-- One current weight per brand; brand_weight_audit below is the append-only history of changes.
+CREATE TABLE IF NOT EXISTS brand_price_adjustment (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    brand_id          INTEGER NOT NULL UNIQUE REFERENCES rice_brand(id),
+    weight_pct        REAL NOT NULL,          -- % vs. category base price; e.g. 8.5 = +8.5%
+    sample_date       TEXT,                   -- YYYY-MM-DD the % was observed/surveyed
+    sample_locations  TEXT,                   -- where canvassed, e.g. "NCR - Quiapo, Divisoria"
+    sample_n          INTEGER,                -- number of price points sampled
+    source_notes      TEXT,                   -- free-text methodology / citation
+    entry_type        TEXT NOT NULL DEFAULT 'ADMIN' CHECK (entry_type IN ('ADMIN','OFFICIAL')),
+    updated_by        TEXT,
+    updated_at        TEXT DEFAULT (datetime('now'))
+);
+
+-- Append-only audit trail: who changed a brand's weight, when, and to what — mirrors tariff_audit.
+CREATE TABLE IF NOT EXISTS brand_weight_audit (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    brand_id        INTEGER NOT NULL,
+    action          TEXT NOT NULL,           -- 'set' / 'clear'
+    weight_pct      REAL,
+    sample_date     TEXT,
+    sample_locations TEXT,
+    sample_n        INTEGER,
+    actor           TEXT,                    -- admin client key / identity
+    detail          TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS ix_brand_weight_audit_brand ON brand_weight_audit(brand_id);
+
+-- Rice Brand module Phase 3 — full CRUD + governance. Append-only audit trail for the brand
+-- catalog record itself (add / update / verify / deactivate / reactivate) — mirrors tariff_audit.
+CREATE TABLE IF NOT EXISTS brand_audit (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    brand_id        INTEGER NOT NULL,
+    action          TEXT NOT NULL,           -- add / update / verify / deactivate / reactivate
+    actor           TEXT,                    -- admin client key / identity
+    detail          TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS ix_brand_audit_brand ON brand_audit(brand_id);
 """
 
 
 def _ensure_brand_schema(conn: sqlite3.Connection) -> None:
-    """Migrate an older rice_brand table to the extended (package/location/source_url/...) schema."""
+    """Migrate an older rice_brand table up to the current schema, column by column (idempotent —
+    safe to call on every startup). Two generations of migration live here:
+      - Phase 1/2: package/location/source_url/last_verified/classification_note (TEXT, nullable).
+      - Phase 3: is_verified (bool) -> verification_status/verified_by/verified_at + active
+        (soft-delete). Every existing row is migrated to verification_status='field_verified' —
+        it was already carrying real source/location/URL data, i.e. someone had looked it up, so
+        that's the honest tier (not 'dti_verified', which is reserved for an official DTI list)."""
     cur = conn.cursor()
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='rice_brand'")
     if not cur.fetchone():
         return
     cols = [r[1] for r in cur.execute("PRAGMA table_info(rice_brand)")]
-    if "package" in cols:
+    if not cols:
         return
+
     n = cur.execute("SELECT COUNT(*) FROM rice_brand").fetchone()[0]
-    if n == 0:
-        cur.execute("DROP TABLE rice_brand")  # empty -> safe to recreate with new schema
-    else:
+    if n == 0 and "verification_status" not in cols:
+        cur.execute("DROP TABLE rice_brand")  # empty -> safe to recreate with the current schema
+        conn.commit()
+        return
+
+    if "package" not in cols:
         for c in ("package", "location", "source_url", "last_verified", "classification_note"):
             if c not in cols:
                 cur.execute(f"ALTER TABLE rice_brand ADD COLUMN {c} TEXT")
+        cols = [r[1] for r in cur.execute("PRAGMA table_info(rice_brand)")]
+
+    if "verification_status" not in cols:
+        cur.execute("ALTER TABLE rice_brand ADD COLUMN verification_status TEXT NOT NULL DEFAULT 'unverified'")
+        cur.execute("ALTER TABLE rice_brand ADD COLUMN verified_by TEXT")
+        cur.execute("ALTER TABLE rice_brand ADD COLUMN verified_at TEXT")
+        cur.execute("ALTER TABLE rice_brand ADD COLUMN active INTEGER NOT NULL DEFAULT 1")
+        if "is_verified" in cols:
+            # Every pre-Phase-3 row already carried real source/location data — migrate all of
+            # them to 'field_verified' (never invent a stronger 'dti_verified' claim here).
+            cur.execute("UPDATE rice_brand SET verification_status='field_verified', "
+                        "verified_at=COALESCE(last_verified, verified_at)")
+            try:
+                cur.execute("ALTER TABLE rice_brand DROP COLUMN is_verified")
+            except sqlite3.OperationalError:
+                pass  # older SQLite (<3.35) can't DROP COLUMN — the stale column is just unused
+        else:
+            cur.execute("UPDATE rice_brand SET verification_status='field_verified'")
     conn.commit()
 
 
@@ -218,7 +298,8 @@ def status(conn: sqlite3.Connection) -> dict:
     cur = conn.cursor()
     out = {}
     for t in ("dti_category", "rice_brand", "market", "rice_price_bracket", "tax_component",
-              "tariff_schedule", "tariff_audit", "tariff_config"):
+              "tariff_schedule", "tariff_audit", "tariff_config",
+              "brand_price_adjustment", "brand_weight_audit", "brand_audit"):
         try:
             cur.execute(f"SELECT COUNT(*) FROM {t}")
             out[t] = cur.fetchone()[0]

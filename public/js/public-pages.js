@@ -23,7 +23,11 @@ document.addEventListener('DOMContentLoaded', () => {
     Modal?.initGatedPage?.({
       feature: 'historical',
       next: 'historical.html',
-      onUnlock: () => D?.initHistoricalPage?.(),
+      // Chart first, then the insight panels — both only after the gate is unlocked.
+      onUnlock: () => {
+        D?.initHistoricalPage?.();
+        AgriPricePH.History?.init?.();
+      },
     });
   }
 

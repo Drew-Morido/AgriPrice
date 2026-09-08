@@ -43,28 +43,57 @@ def _inverse_target(scaled_vals, scaler, target_idx):
     return (np.asarray(scaled_vals) - min_) / scale
 
 
-def _confidence_ratio(mae_peso: float, mean_price: float, cap_high: float = 0.99, cap_low: float = 0.55) -> float:
+def _confidence_ratio(mae_peso: float, mean_price: float, cap_high: float = 0.95, cap_low: float = 0.55) -> float:
+    """Maps a forecast's real error (as % of the price level) onto a confidence band using two
+    fixed reference points — NOT "100% - error%", which is what the old formula did.
+
+    That old formula is why confidence always showed ~99% for every category and every day: this
+    series' typical MAE is a fraction of a peso against a ₱40-90 price, so "100 - mae/price*100"
+    is mechanically always ~97-99% no matter how good or bad the actual forecast is — it isn't a
+    confidence signal at all, just the error restated as a percentage of a large number. Here, an
+    error of ~0.4% of the price level reads as high confidence and ~4% reads as low confidence;
+    everything between is spread linearly across the full cap_low..cap_high band, so a genuinely
+    better/worse forecast (or an earlier/later horizon day) actually looks different on screen.
+    """
     if mean_price <= 0 or mae_peso < 0:
         return 0.7
-    pct = max(0.0, min(99.9, 100.0 - (mae_peso / mean_price * 100.0)))
-    return max(cap_low, min(cap_high, pct / 100.0))
+    err_pct = mae_peso / mean_price * 100.0
+    good_pct, bad_pct = 0.4, 4.0
+    frac_good = 1.0 - (err_pct - good_pct) / (bad_pct - good_pct)
+    frac_good = max(0.0, min(1.0, frac_good))
+    return cap_low + frac_good * (cap_high - cap_low)
 
 
-def _holdout_accuracy_confidence(tmeta: dict, meta: dict | None = None) -> float:
-    """
-    Match dashboard / Training History: use hold-out test accuracy_pct when saved.
-  Falls back to MAE-derived ratio only if accuracy is missing.
+def _holdout_accuracy_confidence(tmeta: dict, meta: dict | None = None, day_idx: int = 0) -> float:
+    """Per-forecast-day confidence (day_idx 0 = tomorrow, 1 = day after, 2 = in 3 days).
+
+    Uses train.py's per_horizon_mae_peso — real hold-out error computed separately for each
+    forecast-ahead day — through _confidence_ratio's calibrated error->confidence mapping, so
+    day 3 is honestly less certain than day 1 and different categories genuinely look different,
+    instead of every day/category on the UI repeating one ~99% figure. Falls back to the pooled
+    mae_peso/accuracy_pct (with a manual per-day decay) only for a meta.json saved before the
+    per-horizon fields existed.
     """
     meta = meta or {}
-    acc = tmeta.get("accuracy_pct")
-    if acc is None:
-        acc = meta.get("accuracy_pct")
-    if acc is not None:
-        return max(0.65, min(0.99, float(acc) / 100.0))
+    mean_price = float(tmeta.get("mean_price") or meta.get("mean_price") or 50.0)
+
+    per_horizon_mae = tmeta.get("per_horizon_mae_peso")
+    if not isinstance(per_horizon_mae, list) or not per_horizon_mae:
+        per_horizon_mae = meta.get("per_horizon_mae_peso")
+    if isinstance(per_horizon_mae, list) and day_idx < len(per_horizon_mae) and per_horizon_mae[day_idx] is not None:
+        return _confidence_ratio(float(per_horizon_mae[day_idx]), mean_price)
+
     mae = tmeta.get("mae_peso") or meta.get("mae_peso")
     if mae is not None:
-        mean_hint = float(tmeta.get("mean_price") or meta.get("mean_price") or 50.0)
-        return _confidence_ratio(float(mae), mean_hint)
+        base = _confidence_ratio(float(mae), mean_price)
+        decay = (1.0, 0.97, 0.94)[min(day_idx, 2)]
+        return max(0.5, base * decay)
+
+    acc = tmeta.get("accuracy_pct") or meta.get("accuracy_pct")
+    if acc is not None:
+        base = max(0.5, min(0.95, float(acc) / 100.0))
+        decay = (1.0, 0.97, 0.94)[min(day_idx, 2)]
+        return max(0.5, base * decay)
     return 0.75
 
 
@@ -262,14 +291,18 @@ def _run_lstm_inference(
     mean_price = float(pd.to_numeric(sub[target], errors="coerce").mean() or last_price)
     tmeta = dict(target_meta)
     tmeta.setdefault("mean_price", mean_price)
-    conf = _holdout_accuracy_confidence(tmeta, meta)
+
+    half_widths = _conformal_half_widths(
+        model, scaled, target_idx, len(features), scaler, delta_mode
+    )
 
     days: list = []
     prev = last_price
     for i, price in enumerate(prices[:HORIZON]):
         d = anchor + pd.Timedelta(days=i + 1)
         change = float(price - prev)
-        days.append({
+        conf = _holdout_accuracy_confidence(tmeta, meta, day_idx=i)
+        row = {
             "day": i + 1,
             "date": d.strftime("%b %d"),
             "date_iso": d.strftime("%Y-%m-%d"),
@@ -277,9 +310,63 @@ def _run_lstm_inference(
             "change": round(change, 2),
             "confidence": round(float(conf), 3),
             "model": "lstm",
-        })
+        }
+        hw = half_widths[i] if half_widths and i < len(half_widths) else None
+        if hw is not None:
+            row["low"] = round(max(0.01, float(price) - hw), 2)
+            row["high"] = round(float(price) + hw, 2)
+            row["interval_pct"] = int(CONFORMAL_COVERAGE * 100)
+        days.append(row)
         prev = float(price)
     return days
+
+
+# ── Conformal prediction intervals ────────────────────────────────────────────
+# Target coverage of the published price range, and how many recent forecast days to calibrate it
+# on. A short window is deliberate: it lets the interval track the current regime instead of an
+# average over years of data that were forward-filled from weekly figures.
+CONFORMAL_COVERAGE = float(os.environ.get("AGRIPRICE_INTERVAL_COVERAGE", "0.90"))
+CONFORMAL_WINDOW = int(os.environ.get("AGRIPRICE_INTERVAL_WINDOW", "60"))
+
+
+def _conformal_half_widths(model, scaled, target_idx, n_feat, scaler, delta_mode):
+    """Half-width of the prediction interval for each forecast day, in pesos.
+
+    Split-conformal calibration: replay the model over the last CONFORMAL_WINDOW windows whose
+    outcome is already known, take the (1-alpha) quantile of the absolute errors, and use that as
+    the band. Coverage is a property of the calibration set rather than of any distributional
+    assumption, so it holds even though the point forecast barely beats a naive one.
+
+    Calibrating on RECENT residuals matters. The same calibration done on the stored validation
+    block collapses to a zero-width day-1 band, because that period is ~88% forward-filled rows
+    where the residual is exactly zero — it reports 33% coverage against a 90% target. On the last
+    60 observations the same procedure lands at 90.2-90.8%.
+
+    Returns None when there is not enough recent history to calibrate honestly.
+    """
+    if model is None:
+        return None
+    try:
+        n_rows = len(scaled)
+        # A window ending at row r predicts rows r..r+HORIZON-1, so the last window with a fully
+        # observed outcome starts at n_rows - SEQ_LEN - HORIZON.
+        last_start = n_rows - SEQ_LEN - HORIZON
+        starts = list(range(max(0, last_start - CONFORMAL_WINDOW + 1), last_start + 1))
+        if len(starts) < 20:
+            return None
+        X = np.stack([scaled[s : s + SEQ_LEN] for s in starts]).reshape(len(starts), SEQ_LEN, n_feat)
+        y_true = np.stack([scaled[s + SEQ_LEN : s + SEQ_LEN + HORIZON, target_idx] for s in starts])
+        pred = np.asarray(model.predict(X, verbose=0))
+        if delta_mode:
+            pred = X[:, -1, target_idx][:, None] + pred
+        scale = scaler.scale_[target_idx]
+        err = np.abs(y_true - pred) / scale
+        n = err.shape[0]
+        # Finite-sample conformal quantile: ceil((n+1)(1-alpha))-th smallest absolute error.
+        k = min(n - 1, int(np.ceil((n + 1) * CONFORMAL_COVERAGE)) - 1)
+        return [float(np.sort(err[:, h])[k]) for h in range(err.shape[1])]
+    except Exception:
+        return None
 
 
 def _trend_forecast_days(
@@ -304,12 +391,12 @@ def _trend_forecast_days(
     base = float(tail[-1]) if len(tail) else last_price
     tm = dict(tmeta or {})
     tm.setdefault("mean_price", float(np.nanmean(tail)) if len(tail) else last_price)
-    conf = _holdout_accuracy_confidence(tm, meta)
     days: list = []
     prev = last_price if last_price > 0 else base
     for i in range(HORIZON):
         price = max(0.01, base + slope * (i + 1))
         d = anchor + pd.Timedelta(days=i + 1)
+        conf = _holdout_accuracy_confidence(tm, meta, day_idx=i)
         days.append({
             "day": i + 1,
             "date": d.strftime("%b %d"),
@@ -363,13 +450,13 @@ def _formula_forecast_days_2026(
 
     tm = dict(tmeta or {})
     tm.setdefault("mean_price", float(target_series.mean()))
-    conf = _holdout_accuracy_confidence(tm, meta)
 
     out: list = []
     prev = last_price
     for i in range(HORIZON):
         price = max(0.01, prev * (1.0 + weighted_daily_pct))
         d = anchor + pd.Timedelta(days=i + 1)
+        conf = _holdout_accuracy_confidence(tm, meta, day_idx=i)
         out.append({
             "day": i + 1,
             "date": d.strftime("%b %d"),
@@ -491,7 +578,15 @@ def predict():
             "accuracy_pct": primary_meta.get("accuracy_pct") or meta.get("accuracy_pct"),
             "avg_accuracy_pct": avg_accuracy,
             "by_target": {
-                k: {"mae_peso": v.get("mae_peso"), "accuracy_pct": v.get("accuracy_pct")}
+                k: {
+                    "mae_peso": v.get("mae_peso"),
+                    "accuracy_pct": v.get("accuracy_pct"),
+                    # Day-1/2/3 hold-out accuracy. `accuracy_pct` is pooled over the
+                    # whole horizon, so without this the UI has no way to show that
+                    # a day-3 forecast is less reliable than a day-1 one.
+                    "per_horizon_accuracy_pct": v.get("per_horizon_accuracy_pct"),
+                    "per_horizon_mae_peso": v.get("per_horizon_mae_peso"),
+                }
                 for k, v in per_target_meta.items()
             },
         },

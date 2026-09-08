@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "targets": {
     "locWellMilled": {
       "target": "locWellMilled",
@@ -20,27 +20,104 @@
       ],
       "backend": "tensorflow",
       "delta_mode": true,
-      "mae_peso": 0.2431,
-      "rmse_peso": 0.4374,
-      "mape_pct": 0.5395,
-      "r2": 0.9873,
+      "seed": 42,
+      "mae_peso": 0.3328,
+      "rmse_peso": 0.5041,
+      "mape_pct": 0.72,
+      "r2": 0.9699,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.2567,
-          0.1617,
-          0.1844,
-          0.1951,
-          0.4174
+          0.2686,
+          0.2496,
+          0.2857,
+          0.5002,
+          0.3597
         ],
-        "mean": 0.2431,
-        "std": 0.0927
+        "mean": 0.3328,
+        "std": 0.0917
       },
-      "accuracy_pct": 99.45,
-      "baseline_mae_peso": 0.2281,
-      "baseline_rmse_peso": 0.436,
-      "baseline_accuracy_pct": 99.49,
+      "accuracy_pct": 99.25,
+      "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
+      "hit_rate_pct": {
+        "0.25": [
+          61.8,
+          57.9,
+          53.9
+        ],
+        "0.50": [
+          80.0,
+          78.6,
+          76.1
+        ],
+        "1.00": [
+          93.9,
+          92.1,
+          93.2
+        ],
+        "1.50": [
+          97.9,
+          97.9,
+          98.2
+        ],
+        "2.00": [
+          99.6,
+          100.0,
+          99.3
+        ]
+      },
+      "baseline_hit_rate_pct": {
+        "0.25": [
+          62.5,
+          57.9,
+          55.4
+        ],
+        "0.50": [
+          80.7,
+          79.6,
+          77.9
+        ],
+        "1.00": [
+          93.2,
+          92.5,
+          91.8
+        ],
+        "1.50": [
+          97.9,
+          97.9,
+          98.2
+        ],
+        "2.00": [
+          100.0,
+          100.0,
+          99.6
+        ]
+      },
+      "directional_pct": [
+        53.5,
+        54.2,
+        47.1
+      ],
+      "movement": {
+        "pred_abs_change_peso": 0.0463,
+        "true_abs_change_peso": 0.3258,
+        "ratio": 0.1422
+      },
+      "skill_vs_baseline_pct": -2.13,
+      "per_horizon_mae_peso": [
+        0.3078,
+        0.335,
+        0.3554
+      ],
+      "per_horizon_accuracy_pct": [
+        99.31,
+        99.25,
+        99.2
+      ],
+      "baseline_mae_peso": 0.3258,
+      "baseline_rmse_peso": 0.5002,
+      "baseline_accuracy_pct": 99.27,
       "beats_baseline": false,
       "arima": {
         "order": [
@@ -48,24 +125,43 @@
           1,
           1
         ],
-        "mae_peso": 0.2281,
-        "rmse_peso": 0.436,
-        "n": 621
+        "mae_peso": 0.2879,
+        "rmse_peso": 0.4432,
+        "n": 280
       },
       "beats_arima": false,
       "shock": {
         "pct": 90,
-        "threshold_peso": 1.0,
-        "count": 85,
-        "lstm_mae_peso": 0.7916,
-        "baseline_mae_peso": 0.7805,
-        "beats_baseline": false
+        "threshold_peso": 1.261,
+        "count": 28,
+        "lstm_mae_peso": 0.875,
+        "baseline_mae_peso": 0.8755,
+        "beats_baseline": true
       },
-      "adf_pvalue": 0.0699,
-      "train_samples": 2895,
-      "val_samples": 620,
-      "test_samples": 621,
-      "split_policy": "chronological_70_15_15"
+      "adf_pvalue": 0.1148,
+      "train_samples": 3713,
+      "val_samples": 150,
+      "test_samples": 280,
+      "split_policy": "regime_aware_active_from_2025-04-01",
+      "split_dates": {
+        "train": [
+          "2015-01-31",
+          "2025-03-31"
+        ],
+        "val": [
+          "2025-04-01",
+          "2025-08-28"
+        ],
+        "test": [
+          "2025-08-29",
+          "2026-09-05"
+        ]
+      },
+      "flat_pct_by_split": {
+        "train": 81.9,
+        "val": 5.3,
+        "test": 7.1
+      }
     },
     "locRegular": {
       "target": "locRegular",
@@ -86,27 +182,104 @@
       ],
       "backend": "tensorflow",
       "delta_mode": true,
-      "mae_peso": 0.2481,
-      "rmse_peso": 0.5108,
-      "mape_pct": 0.5881,
-      "r2": 0.9769,
+      "seed": 42,
+      "mae_peso": 0.3809,
+      "rmse_peso": 0.7308,
+      "mape_pct": 0.9112,
+      "r2": 0.9389,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.2099,
-          0.1627,
-          0.1792,
-          0.2231,
-          0.4658
+          0.2806,
+          0.2334,
+          0.3112,
+          0.4202,
+          0.6591
         ],
-        "mean": 0.2481,
-        "std": 0.1109
+        "mean": 0.3809,
+        "std": 0.1521
       },
-      "accuracy_pct": 99.38,
-      "baseline_mae_peso": 0.2373,
-      "baseline_rmse_peso": 0.5105,
-      "baseline_accuracy_pct": 99.41,
+      "accuracy_pct": 99.05,
+      "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
+      "hit_rate_pct": {
+        "0.25": [
+          61.8,
+          58.6,
+          51.1
+        ],
+        "0.50": [
+          80.0,
+          77.1,
+          73.9
+        ],
+        "1.00": [
+          93.9,
+          93.2,
+          92.5
+        ],
+        "1.50": [
+          97.5,
+          96.8,
+          97.1
+        ],
+        "2.00": [
+          98.9,
+          98.2,
+          97.9
+        ]
+      },
+      "baseline_hit_rate_pct": {
+        "0.25": [
+          60.7,
+          58.9,
+          50.7
+        ],
+        "0.50": [
+          80.4,
+          77.5,
+          73.9
+        ],
+        "1.00": [
+          93.9,
+          92.9,
+          92.5
+        ],
+        "1.50": [
+          97.1,
+          96.8,
+          97.1
+        ],
+        "2.00": [
+          98.9,
+          98.2,
+          97.9
+        ]
+      },
+      "directional_pct": [
+        54.5,
+        55.3,
+        42.8
+      ],
+      "movement": {
+        "pred_abs_change_peso": 0.0484,
+        "true_abs_change_peso": 0.3753,
+        "ratio": 0.1289
+      },
+      "skill_vs_baseline_pct": -1.48,
+      "per_horizon_mae_peso": [
+        0.34,
+        0.3893,
+        0.4135
+      ],
+      "per_horizon_accuracy_pct": [
+        99.16,
+        99.03,
+        98.97
+      ],
+      "baseline_mae_peso": 0.3753,
+      "baseline_rmse_peso": 0.7303,
+      "baseline_accuracy_pct": 99.07,
       "beats_baseline": false,
       "arima": {
         "order": [
@@ -114,24 +287,43 @@
           1,
           1
         ],
-        "mae_peso": 0.2373,
-        "rmse_peso": 0.5105,
-        "n": 621
+        "mae_peso": 0.3369,
+        "rmse_peso": 0.6302,
+        "n": 280
       },
       "beats_arima": false,
       "shock": {
         "pct": 90,
-        "threshold_peso": 1.0,
-        "count": 75,
-        "lstm_mae_peso": 0.897,
-        "baseline_mae_peso": 0.8913,
+        "threshold_peso": 1.205,
+        "count": 28,
+        "lstm_mae_peso": 1.4196,
+        "baseline_mae_peso": 1.4189,
         "beats_baseline": false
       },
-      "adf_pvalue": 0.1599,
-      "train_samples": 2895,
-      "val_samples": 620,
-      "test_samples": 621,
-      "split_policy": "chronological_70_15_15"
+      "adf_pvalue": 0.0858,
+      "train_samples": 3713,
+      "val_samples": 150,
+      "test_samples": 280,
+      "split_policy": "regime_aware_active_from_2025-04-01",
+      "split_dates": {
+        "train": [
+          "2015-01-31",
+          "2025-03-31"
+        ],
+        "val": [
+          "2025-04-01",
+          "2025-08-28"
+        ],
+        "test": [
+          "2025-08-29",
+          "2026-09-05"
+        ]
+      },
+      "flat_pct_by_split": {
+        "train": 82.5,
+        "val": 4.7,
+        "test": 9.6
+      }
     },
     "locPremium": {
       "target": "locPremium",
@@ -152,27 +344,104 @@
       ],
       "backend": "tensorflow",
       "delta_mode": true,
-      "mae_peso": 0.222,
-      "rmse_peso": 0.4151,
-      "mape_pct": 0.4565,
-      "r2": 0.9914,
+      "seed": 42,
+      "mae_peso": 0.3272,
+      "rmse_peso": 0.4725,
+      "mape_pct": 0.6382,
+      "r2": 0.9662,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.2556,
-          0.1568,
-          0.1999,
-          0.2206,
-          0.2767
+          0.4837,
+          0.3325,
+          0.2932,
+          0.2716,
+          0.255
         ],
-        "mean": 0.2219,
-        "std": 0.0421
+        "mean": 0.3272,
+        "std": 0.0824
       },
-      "accuracy_pct": 99.56,
-      "baseline_mae_peso": 0.2093,
-      "baseline_rmse_peso": 0.4139,
-      "baseline_accuracy_pct": 99.59,
+      "accuracy_pct": 99.36,
+      "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
+      "hit_rate_pct": {
+        "0.25": [
+          58.6,
+          51.8,
+          48.6
+        ],
+        "0.50": [
+          79.6,
+          75.7,
+          71.4
+        ],
+        "1.00": [
+          96.1,
+          95.4,
+          95.0
+        ],
+        "1.50": [
+          98.6,
+          98.6,
+          98.2
+        ],
+        "2.00": [
+          100.0,
+          99.6,
+          99.6
+        ]
+      },
+      "baseline_hit_rate_pct": {
+        "0.25": [
+          57.9,
+          52.5,
+          49.3
+        ],
+        "0.50": [
+          80.4,
+          75.7,
+          71.4
+        ],
+        "1.00": [
+          96.1,
+          95.4,
+          95.0
+        ],
+        "1.50": [
+          98.6,
+          98.6,
+          98.6
+        ],
+        "2.00": [
+          100.0,
+          99.6,
+          99.6
+        ]
+      },
+      "directional_pct": [
+        52.7,
+        46.0,
+        44.2
+      ],
+      "movement": {
+        "pred_abs_change_peso": 0.0087,
+        "true_abs_change_peso": 0.3265,
+        "ratio": 0.0266
+      },
+      "skill_vs_baseline_pct": -0.2,
+      "per_horizon_mae_peso": [
+        0.2904,
+        0.3263,
+        0.3649
+      ],
+      "per_horizon_accuracy_pct": [
+        99.43,
+        99.36,
+        99.28
+      ],
+      "baseline_mae_peso": 0.3265,
+      "baseline_rmse_peso": 0.4722,
+      "baseline_accuracy_pct": 99.36,
       "beats_baseline": false,
       "arima": {
         "order": [
@@ -180,24 +449,43 @@
           1,
           1
         ],
-        "mae_peso": 0.2093,
-        "rmse_peso": 0.4139,
-        "n": 621
+        "mae_peso": 0.3049,
+        "rmse_peso": 0.4232,
+        "n": 280
       },
       "beats_arima": false,
       "shock": {
         "pct": 90,
-        "threshold_peso": 1.0,
-        "count": 73,
-        "lstm_mae_peso": 0.7835,
-        "baseline_mae_peso": 0.7713,
-        "beats_baseline": false
+        "threshold_peso": 0.982,
+        "count": 28,
+        "lstm_mae_peso": 0.8392,
+        "baseline_mae_peso": 0.8394,
+        "beats_baseline": true
       },
-      "adf_pvalue": 0.1484,
-      "train_samples": 2895,
-      "val_samples": 620,
-      "test_samples": 621,
-      "split_policy": "chronological_70_15_15"
+      "adf_pvalue": 0.1639,
+      "train_samples": 3713,
+      "val_samples": 150,
+      "test_samples": 280,
+      "split_policy": "regime_aware_active_from_2025-04-01",
+      "split_dates": {
+        "train": [
+          "2015-01-31",
+          "2025-03-31"
+        ],
+        "val": [
+          "2025-04-01",
+          "2025-08-28"
+        ],
+        "test": [
+          "2025-08-29",
+          "2026-09-05"
+        ]
+      },
+      "flat_pct_by_split": {
+        "train": 80.2,
+        "val": 3.3,
+        "test": 7.9
+      }
     },
     "locSpecial": {
       "target": "locSpecial",
@@ -218,27 +506,104 @@
       ],
       "backend": "tensorflow",
       "delta_mode": true,
-      "mae_peso": 0.278,
-      "rmse_peso": 0.729,
-      "mape_pct": 0.5381,
-      "r2": 0.9872,
+      "seed": 42,
+      "mae_peso": 0.2391,
+      "rmse_peso": 0.3709,
+      "mape_pct": 0.4075,
+      "r2": 0.9314,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.3564,
-          0.2132,
-          0.2284,
-          0.3392,
-          0.2521
+          0.248,
+          0.2308,
+          0.1746,
+          0.2278,
+          0.3141
         ],
-        "mean": 0.2779,
-        "std": 0.0587
+        "mean": 0.2391,
+        "std": 0.0449
       },
-      "accuracy_pct": 99.51,
-      "baseline_mae_peso": 0.2557,
-      "baseline_rmse_peso": 0.7269,
-      "baseline_accuracy_pct": 99.55,
+      "accuracy_pct": 99.58,
+      "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
+      "hit_rate_pct": {
+        "0.25": [
+          74.6,
+          67.9,
+          63.6
+        ],
+        "0.50": [
+          88.2,
+          87.1,
+          86.8
+        ],
+        "1.00": [
+          96.4,
+          97.5,
+          97.1
+        ],
+        "1.50": [
+          99.3,
+          99.3,
+          99.6
+        ],
+        "2.00": [
+          100.0,
+          100.0,
+          100.0
+        ]
+      },
+      "baseline_hit_rate_pct": {
+        "0.25": [
+          73.9,
+          68.2,
+          63.6
+        ],
+        "0.50": [
+          88.2,
+          87.5,
+          86.8
+        ],
+        "1.00": [
+          96.4,
+          97.5,
+          97.5
+        ],
+        "1.50": [
+          99.3,
+          99.3,
+          99.6
+        ],
+        "2.00": [
+          100.0,
+          100.0,
+          100.0
+        ]
+      },
+      "directional_pct": [
+        48.8,
+        50.6,
+        46.4
+      ],
+      "movement": {
+        "pred_abs_change_peso": 0.0175,
+        "true_abs_change_peso": 0.237,
+        "ratio": 0.0738
+      },
+      "skill_vs_baseline_pct": -0.89,
+      "per_horizon_mae_peso": [
+        0.2118,
+        0.2391,
+        0.2664
+      ],
+      "per_horizon_accuracy_pct": [
+        99.63,
+        99.58,
+        99.53
+      ],
+      "baseline_mae_peso": 0.237,
+      "baseline_rmse_peso": 0.369,
+      "baseline_accuracy_pct": 99.58,
       "beats_baseline": false,
       "arima": {
         "order": [
@@ -246,24 +611,43 @@
           1,
           1
         ],
-        "mae_peso": 0.2557,
-        "rmse_peso": 0.7269,
-        "n": 621
+        "mae_peso": 0.2101,
+        "rmse_peso": 0.3107,
+        "n": 280
       },
       "beats_arima": false,
       "shock": {
         "pct": 90,
-        "threshold_peso": 1.0,
-        "count": 120,
-        "lstm_mae_peso": 0.9136,
-        "baseline_mae_peso": 0.9026,
-        "beats_baseline": false
+        "threshold_peso": 0.861,
+        "count": 28,
+        "lstm_mae_peso": 0.6869,
+        "baseline_mae_peso": 0.6892,
+        "beats_baseline": true
       },
-      "adf_pvalue": 0.2475,
-      "train_samples": 2895,
-      "val_samples": 620,
-      "test_samples": 621,
-      "split_policy": "chronological_70_15_15"
+      "adf_pvalue": 0.2245,
+      "train_samples": 3713,
+      "val_samples": 150,
+      "test_samples": 280,
+      "split_policy": "regime_aware_active_from_2025-04-01",
+      "split_dates": {
+        "train": [
+          "2015-01-31",
+          "2025-03-31"
+        ],
+        "val": [
+          "2025-04-01",
+          "2025-08-28"
+        ],
+        "test": [
+          "2025-08-29",
+          "2026-09-05"
+        ]
+      },
+      "flat_pct_by_split": {
+        "train": 79.7,
+        "val": 3.3,
+        "test": 8.6
+      }
     },
     "impWellMilled": {
       "target": "impWellMilled",
@@ -284,27 +668,104 @@
       ],
       "backend": "tensorflow",
       "delta_mode": true,
-      "mae_peso": 0.2485,
-      "rmse_peso": 0.6187,
-      "mape_pct": 0.5771,
-      "r2": 0.9812,
+      "seed": 42,
+      "mae_peso": 0.4969,
+      "rmse_peso": 1.0204,
+      "mape_pct": 1.0918,
+      "r2": 0.8059,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.2171,
-          0.1909,
-          0.2003,
-          0.3122,
-          0.322
+          0.7407,
+          0.5823,
+          0.5031,
+          0.3777,
+          0.2808
         ],
-        "mean": 0.2485,
-        "std": 0.0567
+        "mean": 0.4969,
+        "std": 0.1598
       },
-      "accuracy_pct": 99.42,
-      "baseline_mae_peso": 0.2214,
-      "baseline_rmse_peso": 0.6179,
-      "baseline_accuracy_pct": 99.48,
+      "accuracy_pct": 98.86,
+      "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
+      "hit_rate_pct": {
+        "0.25": [
+          70.7,
+          60.0,
+          55.4
+        ],
+        "0.50": [
+          79.3,
+          71.4,
+          67.5
+        ],
+        "1.00": [
+          88.9,
+          83.9,
+          81.8
+        ],
+        "1.50": [
+          93.2,
+          90.0,
+          87.9
+        ],
+        "2.00": [
+          95.4,
+          93.6,
+          92.1
+        ]
+      },
+      "baseline_hit_rate_pct": {
+        "0.25": [
+          70.7,
+          59.6,
+          55.7
+        ],
+        "0.50": [
+          78.9,
+          70.0,
+          67.1
+        ],
+        "1.00": [
+          88.6,
+          82.9,
+          81.8
+        ],
+        "1.50": [
+          93.2,
+          90.0,
+          87.9
+        ],
+        "2.00": [
+          95.4,
+          93.9,
+          92.5
+        ]
+      },
+      "directional_pct": [
+        53.9,
+        54.7,
+        44.0
+      ],
+      "movement": {
+        "pred_abs_change_peso": 0.0279,
+        "true_abs_change_peso": 0.4874,
+        "ratio": 0.0572
+      },
+      "skill_vs_baseline_pct": -1.95,
+      "per_horizon_mae_peso": [
+        0.3853,
+        0.52,
+        0.5854
+      ],
+      "per_horizon_accuracy_pct": [
+        99.12,
+        98.81,
+        98.66
+      ],
+      "baseline_mae_peso": 0.4874,
+      "baseline_rmse_peso": 1.0198,
+      "baseline_accuracy_pct": 98.88,
       "beats_baseline": false,
       "arima": {
         "order": [
@@ -312,24 +773,43 @@
           1,
           1
         ],
-        "mae_peso": 0.2214,
-        "rmse_peso": 0.6179,
-        "n": 621
+        "mae_peso": 0.4976,
+        "rmse_peso": 0.9424,
+        "n": 280
       },
-      "beats_arima": false,
+      "beats_arima": true,
       "shock": {
         "pct": 90,
-        "threshold_peso": 1.0,
-        "count": 71,
-        "lstm_mae_peso": 1.0928,
-        "baseline_mae_peso": 1.0844,
+        "threshold_peso": 2.008,
+        "count": 28,
+        "lstm_mae_peso": 2.3334,
+        "baseline_mae_peso": 2.3323,
         "beats_baseline": false
       },
-      "adf_pvalue": 0.1732,
-      "train_samples": 2895,
-      "val_samples": 620,
-      "test_samples": 621,
-      "split_policy": "chronological_70_15_15"
+      "adf_pvalue": 0.1109,
+      "train_samples": 3713,
+      "val_samples": 150,
+      "test_samples": 280,
+      "split_policy": "regime_aware_active_from_2025-04-01",
+      "split_dates": {
+        "train": [
+          "2015-01-31",
+          "2025-03-31"
+        ],
+        "val": [
+          "2025-04-01",
+          "2025-08-28"
+        ],
+        "test": [
+          "2025-08-29",
+          "2026-09-05"
+        ]
+      },
+      "flat_pct_by_split": {
+        "train": 81.3,
+        "val": 18.7,
+        "test": 41.1
+      }
     },
     "impRegular": {
       "target": "impRegular",
@@ -350,27 +830,104 @@
       ],
       "backend": "tensorflow",
       "delta_mode": true,
-      "mae_peso": 0.2294,
-      "rmse_peso": 0.4968,
-      "mape_pct": 0.5717,
-      "r2": 0.9838,
+      "seed": 42,
+      "mae_peso": 0.522,
+      "rmse_peso": 0.9623,
+      "mape_pct": 1.2824,
+      "r2": 0.7758,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.2041,
-          0.1711,
-          0.173,
-          0.2593,
-          0.3399
+          0.7742,
+          0.51,
+          0.4977,
+          0.3762,
+          0.452
         ],
-        "mean": 0.2295,
-        "std": 0.0638
+        "mean": 0.522,
+        "std": 0.1345
       },
-      "accuracy_pct": 99.42,
-      "baseline_mae_peso": 0.2227,
-      "baseline_rmse_peso": 0.4965,
-      "baseline_accuracy_pct": 99.44,
+      "accuracy_pct": 98.68,
+      "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
+      "hit_rate_pct": {
+        "0.25": [
+          58.6,
+          52.1,
+          48.9
+        ],
+        "0.50": [
+          73.9,
+          67.5,
+          66.1
+        ],
+        "1.00": [
+          86.8,
+          81.4,
+          81.1
+        ],
+        "1.50": [
+          90.7,
+          88.2,
+          88.9
+        ],
+        "2.00": [
+          93.9,
+          93.6,
+          93.6
+        ]
+      },
+      "baseline_hit_rate_pct": {
+        "0.25": [
+          58.2,
+          51.8,
+          47.1
+        ],
+        "0.50": [
+          71.8,
+          66.4,
+          64.6
+        ],
+        "1.00": [
+          86.8,
+          81.4,
+          81.1
+        ],
+        "1.50": [
+          90.7,
+          88.2,
+          88.9
+        ],
+        "2.00": [
+          93.9,
+          93.6,
+          93.6
+        ]
+      },
+      "directional_pct": [
+        47.0,
+        46.4,
+        55.1
+      ],
+      "movement": {
+        "pred_abs_change_peso": 0.0092,
+        "true_abs_change_peso": 0.519,
+        "ratio": 0.0177
+      },
+      "skill_vs_baseline_pct": -0.58,
+      "per_horizon_mae_peso": [
+        0.4523,
+        0.5445,
+        0.5692
+      ],
+      "per_horizon_accuracy_pct": [
+        98.86,
+        98.63,
+        98.56
+      ],
+      "baseline_mae_peso": 0.519,
+      "baseline_rmse_peso": 0.9622,
+      "baseline_accuracy_pct": 98.69,
       "beats_baseline": false,
       "arima": {
         "order": [
@@ -378,24 +935,43 @@
           1,
           1
         ],
-        "mae_peso": 0.2227,
-        "rmse_peso": 0.4965,
-        "n": 621
+        "mae_peso": 0.4899,
+        "rmse_peso": 0.8669,
+        "n": 280
       },
       "beats_arima": false,
       "shock": {
         "pct": 90,
-        "threshold_peso": 1.0,
-        "count": 72,
-        "lstm_mae_peso": 0.9157,
-        "baseline_mae_peso": 0.91,
+        "threshold_peso": 2.08,
+        "count": 30,
+        "lstm_mae_peso": 1.7637,
+        "baseline_mae_peso": 1.7627,
         "beats_baseline": false
       },
-      "adf_pvalue": 0.1857,
-      "train_samples": 2895,
-      "val_samples": 620,
-      "test_samples": 621,
-      "split_policy": "chronological_70_15_15"
+      "adf_pvalue": 0.1265,
+      "train_samples": 3713,
+      "val_samples": 150,
+      "test_samples": 280,
+      "split_policy": "regime_aware_active_from_2025-04-01",
+      "split_dates": {
+        "train": [
+          "2015-01-31",
+          "2025-03-31"
+        ],
+        "val": [
+          "2025-04-01",
+          "2025-08-28"
+        ],
+        "test": [
+          "2025-08-29",
+          "2026-09-05"
+        ]
+      },
+      "flat_pct_by_split": {
+        "train": 83.5,
+        "val": 21.3,
+        "test": 40.0
+      }
     },
     "impPremium": {
       "target": "impPremium",
@@ -416,52 +992,148 @@
       ],
       "backend": "tensorflow",
       "delta_mode": true,
-      "mae_peso": 0.2776,
-      "rmse_peso": 0.6832,
-      "mape_pct": 0.5788,
-      "r2": 0.9892,
+      "seed": 42,
+      "mae_peso": 0.4525,
+      "rmse_peso": 1.0358,
+      "mape_pct": 0.8647,
+      "r2": 0.9522,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.2357,
-          0.1952,
-          0.2078,
-          0.3134,
-          0.4364
+          0.4998,
+          0.3041,
+          0.3122,
+          0.3213,
+          0.8253
         ],
-        "mean": 0.2777,
-        "std": 0.0893
+        "mean": 0.4525,
+        "std": 0.2001
       },
-      "accuracy_pct": 99.42,
-      "baseline_mae_peso": 0.2462,
-      "baseline_rmse_peso": 0.6795,
-      "baseline_accuracy_pct": 99.49,
-      "beats_baseline": false,
+      "accuracy_pct": 99.06,
+      "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
+      "hit_rate_pct": {
+        "0.25": [
+          66.4,
+          56.8,
+          47.9
+        ],
+        "0.50": [
+          83.2,
+          77.5,
+          73.2
+        ],
+        "1.00": [
+          92.9,
+          90.7,
+          88.6
+        ],
+        "1.50": [
+          95.7,
+          95.0,
+          93.6
+        ],
+        "2.00": [
+          98.2,
+          96.8,
+          95.7
+        ]
+      },
+      "baseline_hit_rate_pct": {
+        "0.25": [
+          65.7,
+          57.9,
+          50.4
+        ],
+        "0.50": [
+          82.5,
+          78.6,
+          72.5
+        ],
+        "1.00": [
+          92.9,
+          90.7,
+          88.6
+        ],
+        "1.50": [
+          95.7,
+          95.0,
+          93.2
+        ],
+        "2.00": [
+          98.2,
+          96.8,
+          95.7
+        ]
+      },
+      "directional_pct": [
+        56.1,
+        44.0,
+        59.2
+      ],
+      "movement": {
+        "pred_abs_change_peso": 0.0342,
+        "true_abs_change_peso": 0.4539,
+        "ratio": 0.0754
+      },
+      "skill_vs_baseline_pct": 0.31,
+      "per_horizon_mae_peso": [
+        0.3502,
+        0.4678,
+        0.5396
+      ],
+      "per_horizon_accuracy_pct": [
+        99.27,
+        99.03,
+        98.88
+      ],
+      "baseline_mae_peso": 0.4539,
+      "baseline_rmse_peso": 1.0366,
+      "baseline_accuracy_pct": 99.06,
+      "beats_baseline": true,
       "arima": {
         "order": [
           1,
           1,
           1
         ],
-        "mae_peso": 0.2462,
-        "rmse_peso": 0.6795,
-        "n": 621
+        "mae_peso": 0.481,
+        "rmse_peso": 0.9675,
+        "n": 280
       },
-      "beats_arima": false,
+      "beats_arima": true,
       "shock": {
         "pct": 90,
-        "threshold_peso": 1.0,
-        "count": 85,
-        "lstm_mae_peso": 1.0341,
-        "baseline_mae_peso": 1.0127,
-        "beats_baseline": false
+        "threshold_peso": 1.402,
+        "count": 28,
+        "lstm_mae_peso": 2.0744,
+        "baseline_mae_peso": 2.077,
+        "beats_baseline": true
       },
-      "adf_pvalue": 0.2585,
-      "train_samples": 2895,
-      "val_samples": 620,
-      "test_samples": 621,
-      "split_policy": "chronological_70_15_15"
+      "adf_pvalue": 0.1221,
+      "train_samples": 3713,
+      "val_samples": 150,
+      "test_samples": 280,
+      "split_policy": "regime_aware_active_from_2025-04-01",
+      "split_dates": {
+        "train": [
+          "2015-01-31",
+          "2025-03-31"
+        ],
+        "val": [
+          "2025-04-01",
+          "2025-08-28"
+        ],
+        "test": [
+          "2025-08-29",
+          "2026-09-05"
+        ]
+      },
+      "flat_pct_by_split": {
+        "train": 79.3,
+        "val": 4.7,
+        "test": 5.7
+      }
     },
     "impSpecial": {
       "target": "impSpecial",
@@ -482,27 +1154,104 @@
       ],
       "backend": "tensorflow",
       "delta_mode": true,
-      "mae_peso": 0.3352,
-      "rmse_peso": 0.9696,
-      "mape_pct": 0.6513,
-      "r2": 0.9819,
+      "seed": 42,
+      "mae_peso": 0.5384,
+      "rmse_peso": 0.912,
+      "mape_pct": 0.9044,
+      "r2": 0.5389,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.3246,
-          0.2203,
-          0.219,
-          0.5241,
-          0.3882
+          0.9229,
+          0.6464,
+          0.4098,
+          0.2328,
+          0.4804
         ],
-        "mean": 0.3352,
-        "std": 0.1143
+        "mean": 0.5385,
+        "std": 0.2336
       },
-      "accuracy_pct": 99.37,
-      "baseline_mae_peso": 0.2721,
-      "baseline_rmse_peso": 0.9626,
-      "baseline_accuracy_pct": 99.49,
+      "accuracy_pct": 99.01,
+      "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
+      "hit_rate_pct": {
+        "0.25": [
+          55.0,
+          47.9,
+          42.9
+        ],
+        "0.50": [
+          72.5,
+          67.5,
+          62.1
+        ],
+        "1.00": [
+          85.4,
+          82.5,
+          82.5
+        ],
+        "1.50": [
+          89.6,
+          90.0,
+          90.7
+        ],
+        "2.00": [
+          94.6,
+          94.3,
+          94.3
+        ]
+      },
+      "baseline_hit_rate_pct": {
+        "0.25": [
+          55.4,
+          47.5,
+          42.9
+        ],
+        "0.50": [
+          73.6,
+          66.8,
+          61.1
+        ],
+        "1.00": [
+          85.0,
+          82.9,
+          82.5
+        ],
+        "1.50": [
+          89.6,
+          90.0,
+          90.7
+        ],
+        "2.00": [
+          95.0,
+          94.3,
+          94.3
+        ]
+      },
+      "directional_pct": [
+        49.3,
+        48.7,
+        47.0
+      ],
+      "movement": {
+        "pred_abs_change_peso": 0.0207,
+        "true_abs_change_peso": 0.5327,
+        "ratio": 0.0388
+      },
+      "skill_vs_baseline_pct": -1.07,
+      "per_horizon_mae_peso": [
+        0.491,
+        0.5427,
+        0.5816
+      ],
+      "per_horizon_accuracy_pct": [
+        99.1,
+        99.0,
+        98.93
+      ],
+      "baseline_mae_peso": 0.5327,
+      "baseline_rmse_peso": 0.9116,
+      "baseline_accuracy_pct": 99.02,
       "beats_baseline": false,
       "arima": {
         "order": [
@@ -510,24 +1259,43 @@
           1,
           1
         ],
-        "mae_peso": 0.2721,
-        "rmse_peso": 0.9626,
-        "n": 621
+        "mae_peso": 0.4598,
+        "rmse_peso": 0.7287,
+        "n": 280
       },
       "beats_arima": false,
       "shock": {
         "pct": 90,
-        "threshold_peso": 1.0,
-        "count": 114,
-        "lstm_mae_peso": 0.989,
-        "baseline_mae_peso": 0.9674,
+        "threshold_peso": 2.151,
+        "count": 28,
+        "lstm_mae_peso": 1.6444,
+        "baseline_mae_peso": 1.6411,
         "beats_baseline": false
       },
-      "adf_pvalue": 0.0507,
-      "train_samples": 2895,
-      "val_samples": 620,
-      "test_samples": 621,
-      "split_policy": "chronological_70_15_15"
+      "adf_pvalue": 0.1303,
+      "train_samples": 3713,
+      "val_samples": 150,
+      "test_samples": 280,
+      "split_policy": "regime_aware_active_from_2025-04-01",
+      "split_dates": {
+        "train": [
+          "2015-01-31",
+          "2025-03-31"
+        ],
+        "val": [
+          "2025-04-01",
+          "2025-08-28"
+        ],
+        "test": [
+          "2025-08-29",
+          "2026-09-05"
+        ]
+      },
+      "flat_pct_by_split": {
+        "train": 78.5,
+        "val": 22.0,
+        "test": 25.4
+      }
     }
   },
   "trained_types": [
@@ -543,7 +1311,32 @@
   "seq_len": 30,
   "horizon": 3,
   "delta_mode": true,
-  "last_date": "2026-08-09",
+  "seed": 42,
+  "hit_rate_pct": {
+    "0.50": [
+      79.6,
+      75.3,
+      72.1
+    ],
+    "1.00": [
+      91.8,
+      89.6,
+      89.0
+    ],
+    "1.50": [
+      95.3,
+      94.5,
+      94.3
+    ],
+    "2.00": [
+      97.6,
+      97.0,
+      96.6
+    ]
+  },
+  "skill_vs_baseline_pct": -1.0,
+  "movement_ratio": 0.0701,
+  "last_date": "2026-09-07",
   "target": "locWellMilled",
   "features": [
     "locWellMilled",
@@ -561,33 +1354,52 @@
     "locWellMilled_roll7"
   ],
   "backend": "tensorflow",
-  "mae_peso": 0.2431,
-  "rmse_peso": 0.4374,
-  "mape_pct": 0.5395,
-  "r2": 0.9873,
+  "mae_peso": 0.3328,
+  "rmse_peso": 0.5041,
+  "mape_pct": 0.72,
+  "r2": 0.9699,
   "rolling_eval": {
     "method": "blocked rolling-origin over held-out test (no refit)",
     "k": 5,
     "block_mae": [
-      0.2567,
-      0.1617,
-      0.1844,
-      0.1951,
-      0.4174
+      0.2686,
+      0.2496,
+      0.2857,
+      0.5002,
+      0.3597
     ],
-    "mean": 0.2431,
-    "std": 0.0927
+    "mean": 0.3328,
+    "std": 0.0917
   },
-  "accuracy_pct": 99.44,
-  "primary_accuracy_pct": 99.45,
-  "avg_accuracy_pct": 99.44,
-  "baseline_mae_peso": 0.2281,
-  "baseline_rmse_peso": 0.436,
-  "baseline_accuracy_pct": 99.49,
+  "accuracy_pct": 99.11,
+  "primary_accuracy_pct": 99.25,
+  "avg_accuracy_pct": 99.11,
+  "baseline_mae_peso": 0.3258,
+  "baseline_rmse_peso": 0.5002,
+  "baseline_accuracy_pct": 99.27,
   "beats_baseline": false,
-  "adf_pvalue": 0.0699,
-  "train_samples": 2895,
-  "val_samples": 620,
-  "test_samples": 621,
-  "split_policy": "chronological_70_15_15"
+  "adf_pvalue": 0.1148,
+  "train_samples": 3713,
+  "val_samples": 150,
+  "test_samples": 280,
+  "split_policy": "regime_aware_active_from_2025-04-01",
+  "split_dates": {
+    "train": [
+      "2015-01-31",
+      "2025-03-31"
+    ],
+    "val": [
+      "2025-04-01",
+      "2025-08-28"
+    ],
+    "test": [
+      "2025-08-29",
+      "2026-09-05"
+    ]
+  },
+  "flat_pct_by_split": {
+    "train": 81.9,
+    "val": 5.3,
+    "test": 7.1
+  }
 }

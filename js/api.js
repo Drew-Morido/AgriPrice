@@ -118,7 +118,8 @@ AgriPricePH.API = (function () {
     historical: () => get('/api/historical-data'),
     predictions: () => getLenient('/api/predictions', { noCache: true }),
     modelStatus: () => get('/api/model-status'),
-    catalog: () => getLenient('/api/catalog', { noCache: true }),
+    catalog: (includeInactive) => getLenient(
+      '/api/catalog' + (includeInactive ? '?include_inactive=1' : ''), { noCache: true }),
     taxes: () => getLenient('/api/taxes', { noCache: true }),
     priceBrackets: (params = {}) => getLenient(
       '/api/prices/brackets' + (Object.keys(params).length
@@ -146,6 +147,42 @@ AgriPricePH.API = (function () {
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ active: !!active }),
     }).then(async (r) => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) })),
+    brandPrices: (category, includeInactive) => {
+      const params = new URLSearchParams({
+        ...(category ? { category } : {}), ...(includeInactive ? { include_inactive: '1' } : {}),
+      }).toString();
+      return getLenient('/api/brand-prices' + (params ? '?' + params : ''), { noCache: true });
+    },
+    brandWeightSet: (brandId, body, token) => fetch(`${BASE}/api/brand-prices/${encodeURIComponent(brandId)}/weight`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(body || {}),
+    }).then(async (r) => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) })),
+    brandWeightAudit: (token, brandId) => fetch(
+      `${BASE}/api/brand-prices/weight-audit` + (brandId ? '?' + new URLSearchParams({ brand_id: brandId }).toString() : ''),
+      { headers: token ? { Authorization: `Bearer ${token}` } : {}, cache: 'no-store' },
+    ).then((r) => r.json().catch(() => ({ audit: [] }))),
+    brandAdd: (body, token) => fetch(`${BASE}/api/brands`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(body || {}),
+    }).then(async (r) => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) })),
+    brandUpdate: (brandId, body, token) => fetch(`${BASE}/api/brands/${encodeURIComponent(brandId)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(body || {}),
+    }).then(async (r) => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) })),
+    brandDeactivate: (brandId, token) => fetch(`${BASE}/api/brands/${encodeURIComponent(brandId)}`, {
+      method: 'DELETE',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }).then(async (r) => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) })),
+    brandReactivate: (brandId, token) => fetch(`${BASE}/api/brands/${encodeURIComponent(brandId)}/reactivate`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }).then(async (r) => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) })),
+    brandAudit: (brandId, token) => fetch(`${BASE}/api/brands/${encodeURIComponent(brandId)}/audit`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}, cache: 'no-store',
+    }).then((r) => r.json().catch(() => ({ audit: [] }))),
     systemLogs: (params = {}, token) => fetch(
       `${BASE}/api/logs` + (Object.keys(params).length ? '?' + new URLSearchParams(params).toString() : ''),
       { headers: token ? { Authorization: `Bearer ${token}` } : {}, cache: 'no-store' },
@@ -179,6 +216,17 @@ AgriPricePH.API = (function () {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       }).then((r) => r.json()),
+    // Server-side public/vendor accounts (see model/user_auth.py).
+    authSignup: (name, email, password) => post('/api/auth/signup', { name, email, password }),
+    authLogin: (email, password) => post('/api/auth/login', { email, password }),
+    forgotPassword: (email) => post('/api/auth/forgot-password', { email }),
+    verifyResetCode: (email, code) => post('/api/auth/verify-reset-code', { email, code }),
+    resetPassword: (email, ticket, newPassword) =>
+      post('/api/auth/reset-password', { email, ticket, new_password: newPassword }),
+    authUpdateProfile: (email, name, newEmail) =>
+      put('/api/auth/profile', { email, name, new_email: newEmail }),
+    authChangePassword: (email, current, next) =>
+      post('/api/auth/change-password', { email, current, new: next }),
     reportsHistory: () => getLenient('/api/reports/history', { noCache: true }),
     reportsGenerate: (type) => post('/api/reports/generate', { type }),
     reportsDelete: (filename) => del(`/api/reports/file/${encodeURIComponent(filename)}`),

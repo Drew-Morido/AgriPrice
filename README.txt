@@ -144,6 +144,42 @@ AgriPricePH/
 
 
 ================================================================================
+  GMAIL SMTP SETUP (PASSWORD RESET EMAILS)
+================================================================================
+
+  Public/vendor accounts (public/signup.html) are real, server-side accounts now
+  (SQLite: model/agriprice_users.db) — not just browser localStorage — so "Forgot
+  password?" on the login page can email a real 6-digit reset code, sent from
+  agripriceph@gmail.com via Gmail SMTP.
+
+  One-time setup:
+    1. Turn on 2-Step Verification on the agripriceph@gmail.com account
+       (Google Account -> Security -> 2-Step Verification).
+    2. Once that's on, go to Google Account -> Security -> App Passwords,
+       generate one for "Mail", and copy the 16-character value it gives you.
+       (This is NOT the regular Gmail password — don't use that one.)
+    3. Copy .env.example to a new file named .env in the project root, and
+       paste the App Password in as AGRIPRICE_GMAIL_APP_PASSWORD=...
+       (.env is gitignored — never commit it.)
+    4. py -3.13 -m pip install -r requirements.txt   (picks up python-dotenv)
+    5. Restart the backend (run_backend.bat).
+
+  Without this set up, signup/login/settings still work normally — only
+  "Forgot password?" is affected (it returns a clear "email service is not
+  configured" error instead of silently doing nothing).
+
+  Troubleshooting:
+    • SMTPAuthenticationError          -> you used the real Gmail password
+                                           instead of the App Password, or
+                                           2-Step Verification isn't on yet.
+    • Connection refused / timed out   -> confirm port 465 (SSL), not 587
+                                           (STARTTLS); a firewall may be
+                                           blocking outbound 465.
+    • "Less secure app access" advice  -> outdated; Google removed that
+                                           option — App Passwords replaced it.
+
+
+================================================================================
   TRAIN MODEL & PREDICTIONS
 ================================================================================
 
@@ -158,17 +194,23 @@ AgriPricePH/
   API ENDPOINTS
 ================================================================================
 
-| Method | Endpoint              | Gamit                    |
-|--------|------------------------|--------------------------|
-| GET    | /api/health            | Server check             |
-| GET    | /api/historical-data   | Price charts             |
-| GET    | /api/predictions       | 2-day forecast (8 types) |
-| POST   | /api/run-training      | Start training           |
-| POST   | /api/admin/verify      | Admin login → token      |
-| GET    | /api/admin/session     | Validate token           |
-| POST   | /api/admin/logout      | End admin session        |
-| GET    | /api/settings          | System settings          |
-| PUT    | /api/settings          | Save settings            |
+| Method | Endpoint                   | Gamit                           |
+|--------|-----------------------------|----------------------------------|
+| GET    | /api/health                 | Server check                    |
+| GET    | /api/historical-data        | Price charts                    |
+| GET    | /api/predictions            | 2-day forecast (8 types)        |
+| POST   | /api/run-training           | Start training                  |
+| POST   | /api/admin/verify           | Admin login → token             |
+| GET    | /api/admin/session          | Validate token                  |
+| POST   | /api/admin/logout           | End admin session                |
+| GET    | /api/settings               | System settings                  |
+| PUT    | /api/settings               | Save settings                    |
+| POST   | /api/auth/signup            | Create vendor account            |
+| POST   | /api/auth/login              | Vendor login                    |
+| POST   | /api/auth/forgot-password   | Email a reset code               |
+| POST   | /api/auth/reset-password    | Verify code + set new password  |
+| PUT    | /api/auth/profile           | Update name/email                |
+| POST   | /api/auth/change-password   | Change password (logged in)     |
 
 
 ================================================================================

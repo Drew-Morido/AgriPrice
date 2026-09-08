@@ -1,6 +1,7 @@
-# model/train.py — LSTM training for 2-day forecast (all rice types)
+# model/train.py — LSTM training for 3-day forecast (all rice types)
 import json
 import os
+import random
 import shutil
 import sys
 import warnings
@@ -38,6 +39,169 @@ BATCH_SIZE = 32
 # would otherwise silently retrain the worse level-mode model. Opt out with AGRIPRICE_DELTA_MODE=0.
 DELTA_MODE = os.environ.get("AGRIPRICE_DELTA_MODE", "1").strip().lower() in ("1", "true", "yes")
 
+# Reproducibility. Without a fixed seed, weight init and dropout differ every run, so two runs on
+# identical data report different MAE — and a run-over-run "improvement" can be pure luck. A
+# capstone panel can reasonably ask for a rerun that reproduces the reported numbers.
+SEED = int(os.environ.get("AGRIPRICE_SEED", "42"))
+
+# ── Regime-aware split ────────────────────────────────────────────────────────
+# The retail series is not one homogeneous dataset. Before 2025-Q2 the source published weekly (or
+# was reconstructed from weekly figures) and the merge forward-fills to daily, so 78-100% of rows
+# repeat the previous day's price. From 2025-Q2 onward the source is genuinely daily and only
+# ~3-11% of rows repeat. Measured flatness of locWellMilled by quarter:
+#     2022Q1-2023Q4: 93-100% flat      2024Q1-2024Q4: 77-86% flat
+#     2025Q1: 57% flat                 2025Q2 onward:  2-11% flat
+#
+# A plain chronological 70/15/15 on that series puts TRAIN at 81% flat, VALIDATION at 88% flat and
+# TEST at 26% flat. Early stopping then selects whichever weights score best on an almost-static
+# validation set — i.e. it actively rewards a model that predicts "no change" — and the result is
+# scored on a period where prices actually move. That is a train/serve regime mismatch, not a
+# modelling choice.
+#
+# So validation and test are both drawn from the daily-observation era. Training still uses the
+# full history (it is all the history there is) and the mixed-regime training set is disclosed in
+# meta.json via `split_policy` + `train_flat_pct`.
+ACTIVE_FROM = os.environ.get("AGRIPRICE_ACTIVE_FROM", "2025-04-01")
+# Share of the active era reserved for validation; the remainder is the held-out test set.
+ACTIVE_VAL_FRACTION = float(os.environ.get("AGRIPRICE_ACTIVE_VAL_FRACTION", "0.35"))
+# Set AGRIPRICE_LEGACY_SPLIT=1 to reproduce pre-fix runs (chronological 70/15/15 over everything).
+LEGACY_SPLIT = os.environ.get("AGRIPRICE_LEGACY_SPLIT", "0").strip().lower() in ("1", "true", "yes")
+
+
+def _seed_everything(seed: int = SEED) -> None:
+    """Seed python/numpy/tensorflow so a rerun reproduces the reported metrics."""
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    try:
+        import tensorflow as tf
+
+        tf.random.set_seed(seed)
+        tf.keras.utils.set_random_seed(seed)
+    except Exception:
+        pass
+
+
+def _seq_dates(sub, n_seq):
+    """Date each sequence forecasts from — row i+SEQ_LEN, the first forecast day."""
+    import pandas as pd
+
+    dates = pd.to_datetime(sub["Date"], errors="coerce") if "Date" in sub.columns else None
+    if dates is None:
+        return None
+    return dates.iloc[SEQ_LEN : SEQ_LEN + n_seq].reset_index(drop=True)
+
+
+def _split_indices(sub, n_seq: int, target: str) -> tuple[int, int, str]:
+    """(train_end, val_end, policy). Validation and test both come from the daily-observation era.
+
+    Falls back to the historical chronological 70/15/15 when the active era is missing or too
+    small to split — better a disclosed legacy split than a two-sequence test set.
+    """
+    legacy = (int(n_seq * 0.70), int(n_seq * 0.85), "chronological_70_15_15")
+    if LEGACY_SPLIT:
+        return legacy
+    seq_dates = _seq_dates(sub, n_seq)
+    if seq_dates is None or seq_dates.isna().all():
+        return legacy
+
+    import pandas as pd
+
+    cutoff = pd.Timestamp(ACTIVE_FROM)
+    active = int((seq_dates >= cutoff).sum())
+    # Need a usable active era and enough history left to train on.
+    if active < 60 or (n_seq - active) < 200:
+        return legacy
+    i_tr = n_seq - active
+    i_va = i_tr + max(20, int(active * ACTIVE_VAL_FRACTION))
+    if (n_seq - i_va) < 30:
+        return legacy
+    return i_tr, i_va, f"regime_aware_active_from_{ACTIVE_FROM}"
+
+
+def _split_dates(sub, i_tr: int, i_va: int, n_seq: int) -> dict:
+    seq_dates = _seq_dates(sub, n_seq)
+    if seq_dates is None or seq_dates.isna().all():
+        return {}
+
+    def span(a, b):
+        s = seq_dates.iloc[a:b].dropna()
+        return None if s.empty else [str(s.iloc[0].date()), str(s.iloc[-1].date())]
+
+    return {"train": span(0, i_tr), "val": span(i_tr, i_va), "test": span(i_va, n_seq)}
+
+
+def _flat_pct_by_split(sub, target: str, i_tr: int, i_va: int, n_seq: int) -> dict:
+    """% of each split's forecast days that merely repeat the previous day's price.
+
+    This is the number that exposes a regime mismatch at a glance: when validation is far flatter
+    than test, early stopping has been selecting for the wrong behaviour.
+    """
+    import pandas as pd
+
+    vals = pd.to_numeric(sub[target], errors="coerce")
+    flat = (vals.diff().abs() < 1e-9).iloc[SEQ_LEN : SEQ_LEN + n_seq].reset_index(drop=True)
+
+    def pct(a, b):
+        s = flat.iloc[a:b]
+        return None if s.empty else round(float(s.mean() * 100), 1)
+
+    return {"train": pct(0, i_tr), "val": pct(i_tr, i_va), "test": pct(i_va, n_seq)}
+
+
+def _hit_rate_pct(y_true, y_pred, scaler, target_idx, tolerances=(0.25, 0.5, 1.0, 1.5, 2.0)) -> dict:
+    """% of forecasts landing within N pesos of the actual price, per forecast day.
+
+    Reported instead of the old `accuracy_pct` (= 100 - MAE/mean_price*100), which cannot
+    distinguish a trained model from a trivial one: because rice costs ~P45-60/kg and errors are
+    ~P0.50, that formula returns 98-99% for anything, and scores the naive baseline HIGHER than
+    the LSTM on all 8 rice types. A hit rate states its threshold, so it means something.
+    """
+    scale = scaler.scale_[target_idx]
+    err = np.abs(y_true - y_pred) / scale
+    return {
+        f"{t:.2f}": [round(float((err[:, h] <= t).mean() * 100), 1) for h in range(err.shape[1])]
+        for t in tolerances
+    }
+
+
+def _directional_pct(y_true, y_pred, anchors, scaler, target_idx) -> list:
+    """% of forecasts that get the up/down direction right, per day.
+
+    Days where the price did not move are EXCLUDED: np.sign(0) never matches a non-zero
+    prediction, so counting them makes any model look ~35% when the honest figure is ~50%.
+    """
+    scale = scaler.scale_[target_idx]
+    true_d = (y_true - anchors[:, None]) / scale
+    pred_d = (y_pred - anchors[:, None]) / scale
+    out = []
+    for h in range(true_d.shape[1]):
+        moved = np.abs(true_d[:, h]) > 1e-6
+        out.append(
+            round(float(np.mean(np.sign(true_d[moved, h]) == np.sign(pred_d[moved, h])) * 100), 1)
+            if moved.any()
+            else None
+        )
+    return out
+
+
+def _movement_ratio(y_true, y_pred, anchors, scaler, target_idx) -> dict:
+    """How far the model actually moves off the anchor, vs how far the price really moves.
+
+    The single most diagnostic number in this file. A model that has collapsed to "predict no
+    change" is numerically identical to the naive baseline, and every error metric will report
+    them as tied while hiding the reason. If `ratio` is near 0 the model is not forecasting, it is
+    copying — and no amount of metric tuning will change that.
+    """
+    scale = scaler.scale_[target_idx]
+    pred_move = float(np.abs((y_pred - anchors[:, None]) / scale).mean())
+    true_move = float(np.abs((y_true - anchors[:, None]) / scale).mean())
+    return {
+        "pred_abs_change_peso": round(pred_move, 4),
+        "true_abs_change_peso": round(true_move, 4),
+        "ratio": round(pred_move / true_move, 4) if true_move > 1e-9 else None,
+    }
+
 
 def _save_meta(meta: dict) -> None:
     with open(META_PATH, "w", encoding="utf-8") as f:
@@ -61,6 +225,16 @@ def _mae_in_peso(y_true, y_pred, scaler, target_idx):
 def _rmse_in_peso(y_true, y_pred, scaler, target_idx):
     scale = scaler.scale_[target_idx]
     return float(np.sqrt(np.mean(((y_true - y_pred) / scale) ** 2)))
+
+
+def _per_horizon_mae_peso(y_true, y_pred, scaler, target_idx) -> list:
+    """MAE broken out per forecast-ahead day (index 0 = tomorrow, 1 = day after, ...), instead of
+    one number pooled across all HORIZON steps. `mae_peso` above hides that day-3 is genuinely
+    harder to forecast than day-1 — this is what the per-day 'confidence' shown to users should
+    actually be based on, rather than reusing one aggregate figure for every day."""
+    scale = scaler.scale_[target_idx]
+    err = np.abs(y_true - y_pred) / scale  # shape (n_test, HORIZON)
+    return [round(float(np.mean(err[:, i])), 4) for i in range(err.shape[1])]
 
 
 def _persistence_baseline(X_test, y_test, target_idx, scaler) -> dict:
@@ -309,11 +483,12 @@ def _train_one_target(df, target: str, use_tensorflow: bool) -> dict | None:
         print(f"[SKIP] {target}: not enough sequences ({n_seq}).")
         return None
 
-    # Chronological 70/15/15 split on sequences — no shuffle, no leakage.
-    i_tr = int(n_seq * 0.70)
-    i_va = int(n_seq * 0.85)
+    # Chronological split — no shuffle, no leakage. Sequence i covers rows [i, i+SEQ_LEN) and is
+    # scored on rows [i+SEQ_LEN, i+SEQ_LEN+HORIZON), so a sequence "belongs" to the date at
+    # i+SEQ_LEN: that is the first day it forecasts.
+    i_tr, i_va, split_policy = _split_indices(sub, n_seq, target)
     if i_tr < 50 or (i_va - i_tr) < 5 or (n_seq - i_va) < 5:
-        print(f"[SKIP] {target}: split too small (n_seq={n_seq}).")
+        print(f"[SKIP] {target}: split too small (n_seq={n_seq}, policy={split_policy}).")
         return None
 
     # Fit the scaler on TRAIN rows only, then transform everything (prevents val/test leakage).
@@ -332,13 +507,19 @@ def _train_one_target(df, target: str, use_tensorflow: bool) -> dict | None:
     X_test, y_test = X[i_va:], y[i_va:]
     y_level_test = y_level[i_va:]
     anchors_test = anchors[i_va:]
-    split_policy = "chronological_70_15_15"
+    split_dates = _split_dates(sub, i_tr, i_va, n_seq)
+    flat_pct = _flat_pct_by_split(sub, target, i_tr, i_va, n_seq)
 
     keras_path, scaler_path, mlp_path = _model_paths(target)
     print(
         f"[INFO] {target}: train={len(X_train)} val={len(X_val)} test={len(X_test)} "
-        f"n_features={len(features)} delta_mode={DELTA_MODE}"
+        f"n_features={len(features)} delta_mode={DELTA_MODE} split={split_policy}"
     )
+    if flat_pct:
+        print(
+            f"[INFO] {target}: repeated-price days — train {flat_pct.get('train')}% "
+            f"val {flat_pct.get('val')}% test {flat_pct.get('test')}%"
+        )
 
     if use_tensorflow:
         result = _train_tensorflow(
@@ -368,21 +549,49 @@ def _train_one_target(df, target: str, use_tensorflow: bool) -> dict | None:
     shock = _shock_metrics(y_level_test, level_pred, anchors_test, scaler, target_idx)
     extra = _extra_metrics(y_level_test, level_pred, scaler, target_idx)
     rolling = _rolling_eval(y_level_test, level_pred, scaler, target_idx)
+    per_horizon_mae = _per_horizon_mae_peso(y_level_test, level_pred, scaler, target_idx)
+
+    baseline_pred = np.repeat(anchors_test[:, None], HORIZON, axis=1)
+    hit_rate = _hit_rate_pct(y_level_test, level_pred, scaler, target_idx)
+    baseline_hit = _hit_rate_pct(y_level_test, baseline_pred, scaler, target_idx)
+    directional = _directional_pct(y_level_test, level_pred, anchors_test, scaler, target_idx)
+    movement = _movement_ratio(y_level_test, level_pred, anchors_test, scaler, target_idx)
+    # Skill vs the naive baseline: >0 means the model beat "tomorrow = today". Unlike raw MAE this
+    # is comparable across runs even when the test window's volatility changes.
+    skill = (
+        round((1.0 - metrics["mae_peso"] / baseline["mae_peso"]) * 100, 2)
+        if baseline["mae_peso"] > 1e-9
+        else None
+    )
 
     mean_price = float(sub[target].mean())
     accuracy = max(0.0, min(99.9, 100.0 - (metrics["mae_peso"] / max(mean_price, 1) * 100)))
     baseline_acc = max(0.0, min(99.9, 100.0 - (baseline["mae_peso"] / max(mean_price, 1) * 100)))
+    per_horizon_accuracy = [
+        round(max(0.0, min(99.9, 100.0 - (m / max(mean_price, 1) * 100))), 2) for m in per_horizon_mae
+    ]
     return {
         "target": target,
         "features": features,
         "backend": metrics["backend"],
         "delta_mode": DELTA_MODE,
+        "seed": SEED,
         "mae_peso": round(metrics["mae_peso"], 4),
         "rmse_peso": round(metrics["rmse_peso"], 4),
         "mape_pct": extra["mape_pct"],
         "r2": extra["r2"],
         "rolling_eval": rolling,
+        # `accuracy_pct` is kept only so older runs/dashboards keep rendering. It is NOT a
+        # meaningful score — see _hit_rate_pct. Use hit_rate_pct / skill_vs_baseline_pct instead.
         "accuracy_pct": round(accuracy, 2),
+        "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model — do not report",
+        "hit_rate_pct": hit_rate,
+        "baseline_hit_rate_pct": baseline_hit,
+        "directional_pct": directional,
+        "movement": movement,
+        "skill_vs_baseline_pct": skill,
+        "per_horizon_mae_peso": per_horizon_mae,
+        "per_horizon_accuracy_pct": per_horizon_accuracy,
         "baseline_mae_peso": round(baseline["mae_peso"], 4),
         "baseline_rmse_peso": round(baseline["rmse_peso"], 4),
         "baseline_accuracy_pct": round(baseline_acc, 2),
@@ -395,6 +604,8 @@ def _train_one_target(df, target: str, use_tensorflow: bool) -> dict | None:
         "val_samples": len(X_val),
         "test_samples": len(X_test),
         "split_policy": split_policy,
+        "split_dates": split_dates,
+        "flat_pct_by_split": flat_pct,
     }
 
 
@@ -417,6 +628,8 @@ def _training_target_list() -> list[str]:
 
 
 def main():
+    _seed_everything()
+    print(f"[INFO] Seed: {SEED} (set AGRIPRICE_SEED to change) — runs are reproducible")
     print("[INFO] Loading merged dataset from database...")
     df = load_merged_frame()
     print(
@@ -443,10 +656,20 @@ def main():
         entry = _train_one_target(df, target, use_tf)
         if entry:
             targets_meta[target] = entry
+            mv = entry.get("movement") or {}
+            hit = (entry.get("hit_rate_pct") or {}).get("1.00") or []
             print(
                 f"[DONE] {target} | MAE PHP {entry['mae_peso']:.4f} | "
-                f"accuracy {entry['accuracy_pct']:.2f}%"
+                f"within PHP1.00 {hit[0] if hit else '—'}% (day 1) | "
+                f"skill vs naive {entry.get('skill_vs_baseline_pct')}% | "
+                f"movement ratio {mv.get('ratio')}"
             )
+            if mv.get("ratio") is not None and mv["ratio"] < 0.25:
+                print(
+                    f"[WARN] {target}: model moves only {mv['ratio'] * 100:.1f}% as much as the "
+                    f"real price (PHP {mv['pred_abs_change_peso']} vs PHP {mv['true_abs_change_peso']}) "
+                    f"— it is close to reproducing the naive forecast."
+                )
 
     if not targets_meta:
         print("[ERROR] No rice type could be trained.")
@@ -467,13 +690,45 @@ def main():
             if os.path.exists(scaler_path):
                 shutil.copy2(scaler_path, SCALER_PATH)
 
+    def _avg(key):
+        vals = [v.get(key) for v in targets_meta.values() if v.get(key) is not None]
+        return round(sum(map(float, vals)) / len(vals), 2) if vals else None
+
+    def _avg_hit(tol):
+        rows = [
+            (v.get("hit_rate_pct") or {}).get(tol)
+            for v in targets_meta.values()
+            if (v.get("hit_rate_pct") or {}).get(tol)
+        ]
+        if not rows:
+            return None
+        return [round(sum(r[h] for r in rows) / len(rows), 1) for h in range(len(rows[0]))]
+
     meta = {
-        "version": 3,
+        "version": 4,
         "targets": targets_meta,
         "trained_types": list(targets_meta.keys()),
         "seq_len": SEQ_LEN,
         "horizon": HORIZON,
         "delta_mode": DELTA_MODE,
+        "seed": SEED,
+        # Headline honest metrics, averaged across the trained types. `hit_rate_pct` states its
+        # own threshold; `skill_vs_baseline_pct` is comparable across runs even when the test
+        # window's volatility changes; `movement_ratio` says whether the model forecasts at all.
+        "hit_rate_pct": {t: _avg_hit(t) for t in ("0.50", "1.00", "1.50", "2.00")},
+        "skill_vs_baseline_pct": _avg("skill_vs_baseline_pct"),
+        "movement_ratio": (
+            round(
+                sum(
+                    float((v.get("movement") or {}).get("ratio") or 0)
+                    for v in targets_meta.values()
+                )
+                / len(targets_meta),
+                4,
+            )
+            if targets_meta
+            else None
+        ),
         "last_date": str(df["Date"].iloc[-1].date()),
         "target": TARGET_COLUMN,
         "features": primary.get("features"),
@@ -495,6 +750,8 @@ def main():
         "val_samples": primary.get("val_samples"),
         "test_samples": primary.get("test_samples"),
         "split_policy": primary.get("split_policy"),
+        "split_dates": primary.get("split_dates"),
+        "flat_pct_by_split": primary.get("flat_pct_by_split"),
     }
     _save_meta(meta)
     print("\n" + "=" * 47)

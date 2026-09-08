@@ -37,7 +37,7 @@ import sys
 import threading
 import time
 from collections import deque
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 
 
@@ -57,6 +57,16 @@ os.environ.setdefault(
     "AGRIPRICE_DB_PATH",
     _DATASETS_DB_EARLY if os.path.exists(_DATASETS_DB_EARLY) else _API_DB_EARLY,
 )
+
+# Load .env from the project root (not cwd — run_backend.bat cd's into api/
+# before running, so a bare load_dotenv() would look in api/.env and miss a
+# root-level .env). Optional: degrades silently if python-dotenv isn't
+# installed yet; AGRIPRICE_GMAIL_APP_PASSWORD can still be set another way.
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
+except ImportError:
+    pass
 
 if TOOLS_DIR not in sys.path:
     sys.path.insert(0, TOOLS_DIR)
@@ -940,7 +950,11 @@ def get_historical_data():
     df_fuel_hist = pd.read_sql("SELECT Date, Diesel AS fuel FROM fuel_history", conn)
 
     try:
-        df_fuel_ws = pd.read_sql('SELECT Date, RON_95 AS fuel FROM "WS_fuel"', conn)
+        # Must stay Diesel, matching `fuel_history`'s Diesel column above: this single "fuel"
+        # series is charted/labelled as "Diesel Price" on the admin dashboard. Reading RON_95
+        # here spliced gasoline onto the tail of a diesel series (two different commodities in
+        # one line, off by ~PHP 1.40 at the join) — the scraped table has Diesel, so use it.
+        df_fuel_ws = pd.read_sql('SELECT Date, Diesel AS fuel FROM "WS_fuel"', conn)
     except Exception:
         df_fuel_ws = pd.DataFrame()
 
@@ -1082,6 +1096,15 @@ def _bootstrap_training_history_if_empty() -> None:
         "accuracy_pct": meta.get("accuracy_pct"),
         "primary_accuracy_pct": meta.get("primary_accuracy_pct"),
         "avg_accuracy_pct": meta.get("avg_accuracy_pct"),
+        # Honest headline metrics (meta v4+). `accuracy_pct` above is kept only so runs recorded
+        # before v4 still render — that formula scores the naive baseline above the model.
+        "hit_rate_pct": meta.get("hit_rate_pct"),
+        "skill_vs_baseline_pct": meta.get("skill_vs_baseline_pct"),
+        "movement_ratio": meta.get("movement_ratio"),
+        "seed": meta.get("seed"),
+        "split_policy": meta.get("split_policy"),
+        "split_dates": meta.get("split_dates"),
+        "flat_pct_by_split": meta.get("flat_pct_by_split"),
         "train_samples": meta.get("train_samples"),
         "test_samples": meta.get("test_samples"),
         "last_data_date": meta.get("last_date"),
@@ -1107,6 +1130,56 @@ def _read_model_meta() -> dict:
             return json.load(f)
     except (json.JSONDecodeError, OSError):
         return {}
+
+
+def _meta_is_newer_than_run(meta: dict, run: dict | None) -> bool:
+    """True when meta.json on disk post-dates the newest recorded training run."""
+    if not meta:
+        return False
+    if not run:
+        return True
+    meta_path = os.path.join(MODEL_DIR, "meta.json")
+    try:
+        meta_mtime = datetime.fromtimestamp(os.path.getmtime(meta_path))
+        run_at = datetime.fromisoformat(str(run.get("completed_at")))
+    except (OSError, TypeError, ValueError):
+        return False
+    # A minute of slack: the web trigger writes meta.json moments before the history entry.
+    return meta_mtime > run_at + timedelta(minutes=1)
+
+
+def _run_from_meta(meta: dict, prev_run: dict | None) -> dict:
+    """A synthetic run entry describing the model currently on disk (CLI-trained)."""
+    meta_path = os.path.join(MODEL_DIR, "meta.json")
+    try:
+        completed = datetime.fromtimestamp(os.path.getmtime(meta_path)).isoformat()
+    except OSError:
+        completed = datetime.now().isoformat()
+    entry = {
+        "id": f"cli-{completed[:19].replace('-', '').replace(':', '').replace('T', '-')}",
+        "completed_at": completed,
+        "ok": True,
+        "source": "meta.json (trained from the command line)",
+        "backend": meta.get("backend"),
+        "mae_peso": meta.get("mae_peso"),
+        "rmse_peso": meta.get("rmse_peso"),
+        "accuracy_pct": meta.get("accuracy_pct"),
+        "avg_accuracy_pct": meta.get("avg_accuracy_pct"),
+        "hit_rate_pct": meta.get("hit_rate_pct"),
+        "skill_vs_baseline_pct": meta.get("skill_vs_baseline_pct"),
+        "movement_ratio": meta.get("movement_ratio"),
+        "seed": meta.get("seed"),
+        "split_policy": meta.get("split_policy"),
+        "split_dates": meta.get("split_dates"),
+        "flat_pct_by_split": meta.get("flat_pct_by_split"),
+        "train_samples": meta.get("train_samples"),
+        "test_samples": meta.get("test_samples"),
+        "last_data_date": meta.get("last_date"),
+        "target": meta.get("target"),
+        "trained_types": meta.get("trained_types") or list((meta.get("targets") or {}).keys()),
+        "targets_meta": meta.get("targets") if isinstance(meta.get("targets"), dict) else {},
+    }
+    return _json_safe(entry)
 
 
 def _build_training_insights(entry: dict, prev: dict | None) -> list[str]:
@@ -1234,6 +1307,15 @@ def _append_training_run(
         "accuracy_pct": meta.get("accuracy_pct"),
         "primary_accuracy_pct": meta.get("primary_accuracy_pct"),
         "avg_accuracy_pct": meta.get("avg_accuracy_pct"),
+        # Honest headline metrics (meta v4+). `accuracy_pct` above is kept only so runs recorded
+        # before v4 still render — that formula scores the naive baseline above the model.
+        "hit_rate_pct": meta.get("hit_rate_pct"),
+        "skill_vs_baseline_pct": meta.get("skill_vs_baseline_pct"),
+        "movement_ratio": meta.get("movement_ratio"),
+        "seed": meta.get("seed"),
+        "split_policy": meta.get("split_policy"),
+        "split_dates": meta.get("split_dates"),
+        "flat_pct_by_split": meta.get("flat_pct_by_split"),
         "train_samples": meta.get("train_samples"),
         "test_samples": meta.get("test_samples"),
         "last_data_date": meta.get("last_date"),
@@ -1544,6 +1626,19 @@ def api_dashboard_metrics():
     latest = summaries.get("latest_ok_run")
     meta = _read_model_meta()
 
+    # A run started from the command line (`cd model && py -3.13 train.py`) writes meta.json and
+    # the model files but never reaches training_history.json, which only the web trigger appends
+    # to. Reading history first would then describe a model that is no longer on disk — old MAE
+    # beside new metrics. meta.json is what predict.py actually loads, so when it is newer than
+    # the newest recorded run it becomes the source of truth and history is used only for trends.
+    prev_override = None
+    if _meta_is_newer_than_run(meta, latest):
+        # meta.json becomes "latest", so the run it superseded — the newest one in the log — is
+        # what the trend arrows must compare against. Using previous_ok_run here would skip a
+        # generation and compare the new model against the one before last.
+        prev_override = latest
+        latest = _run_from_meta(meta, latest)
+
     def _f(x):
         try:
             return float(x) if x is not None else None
@@ -1562,6 +1657,13 @@ def api_dashboard_metrics():
     elif isinstance(meta.get("targets"), dict):
         targets_meta = meta["targets"]
 
+    def _f_list(x):
+        """Per-horizon arrays (index 0 = day 1) — dropped entirely if malformed."""
+        if not isinstance(x, (list, tuple)):
+            return None
+        out = [_f(v) for v in x]
+        return out if out and all(v is not None for v in out) else None
+
     by_target = {}
     for key, tm in targets_meta.items():
         if not isinstance(tm, dict):
@@ -1570,9 +1672,42 @@ def api_dashboard_metrics():
             "mae_peso": _f(tm.get("mae_peso")),
             "rmse_peso": _f(tm.get("rmse_peso")),
             "accuracy_pct": _f(tm.get("accuracy_pct")),
+            # Day-1/2/3 breakdown: `accuracy_pct` above is pooled across the whole
+            # horizon, so on its own it makes every forecast day look equally
+            # reliable. Day 3 is measurably harder than day 1 and the UI should
+            # be able to say so.
+            "per_horizon_accuracy_pct": _f_list(tm.get("per_horizon_accuracy_pct")),
+            "per_horizon_mae_peso": _f_list(tm.get("per_horizon_mae_peso")),
+            "baseline_mae_peso": _f(tm.get("baseline_mae_peso")),
+            # Honest per-day figure for the predictions table: % of that day's forecasts that
+            # landed within P1.00. `per_horizon_accuracy_pct` above is the legacy formula.
+            "hit_rate_1p_pct": _f_list((tm.get("hit_rate_pct") or {}).get("1.00")),
+            "skill_vs_baseline_pct": _f(tm.get("skill_vs_baseline_pct")),
         }
 
-    prev = summaries.get("previous_ok_run")
+    prev = prev_override or summaries.get("previous_ok_run")
+
+    def _avg_baseline_mae(run):
+        """Mean naive-persistence MAE across a run's targets.
+
+        The naive baseline ("tomorrow = today") has no trainable parameters, so it
+        cannot improve or degrade on its own. When it moves between two runs, the
+        test window itself got easier or harder — which is what lets the dashboard
+        tell a real model regression apart from a change in the underlying data.
+        """
+        tms = (run or {}).get("targets_meta")
+        if not isinstance(tms, dict):
+            return None
+        vals = [
+            _f(t.get("baseline_mae_peso"))
+            for t in tms.values()
+            if isinstance(t, dict) and t.get("baseline_mae_peso") is not None
+        ]
+        vals = [v for v in vals if v is not None]
+        return round(sum(vals) / len(vals), 4) if vals else None
+
+    baseline_now = _avg_baseline_mae(latest)
+    baseline_prev = _avg_baseline_mae(prev)
 
     return jsonify({
         "ready": bool(latest or meta.get("mae_peso") is not None),
@@ -1587,8 +1722,38 @@ def api_dashboard_metrics():
             ),
             "avg_accuracy_pct": acc,
             "by_target": by_target,
+            "baseline_mae_peso": baseline_now,
+            # Honest headline metrics — see model/train.py::_hit_rate_pct for why the legacy
+            # `accuracy_pct` above must not be reported.
+            "hit_rate_pct": (latest or {}).get("hit_rate_pct") or meta.get("hit_rate_pct"),
+            "skill_vs_baseline_pct": (
+                (latest or {}).get("skill_vs_baseline_pct")
+                if (latest or {}).get("skill_vs_baseline_pct") is not None
+                else meta.get("skill_vs_baseline_pct")
+            ),
+            "movement_ratio": (
+                (latest or {}).get("movement_ratio")
+                if (latest or {}).get("movement_ratio") is not None
+                else meta.get("movement_ratio")
+            ),
+        },
+        "quality": {
+            "seed": (latest or {}).get("seed") or meta.get("seed"),
+            "split_policy": (latest or {}).get("split_policy") or meta.get("split_policy"),
+            "split_dates": (latest or {}).get("split_dates") or meta.get("split_dates"),
+            "flat_pct_by_split": (
+                (latest or {}).get("flat_pct_by_split") or meta.get("flat_pct_by_split")
+            ),
+            "adf_pvalue": meta.get("adf_pvalue"),
         },
         "trends": {
+            "baseline_mae_peso": baseline_now,
+            "baseline_mae_peso_prev": baseline_prev,
+            "baseline_mae_peso_delta": (
+                (baseline_now - baseline_prev)
+                if baseline_now is not None and baseline_prev is not None
+                else None
+            ),
             "mae_peso_delta": (
                 (mae - _f(prev.get("mae_peso")))
                 if mae is not None and prev and prev.get("mae_peso") is not None
@@ -1633,12 +1798,42 @@ def api_training_status():
     with _train_log_lock:
         logs = list(_train_log_buffer)
     runs = _load_training_history()
+
+    # `_last_train_ts`/`_last_saved_run` are process-local, so after a server restart the admin
+    # Training page showed "Last Run: — Never" even with a full run history on disk. Fall back to
+    # the newest completed run recorded in that history.
+    last_run_ts = _last_train_ts.isoformat() if _last_train_ts else None
+    last_saved_run = _last_saved_run
+    last_result = _last_train_result
+    if last_run_ts is None or last_saved_run is None or last_result is None:
+        newest = None
+        for run in runs:
+            completed = run.get("completed_at")
+            if not completed:
+                continue
+            if newest is None or completed > newest.get("completed_at", ""):
+                newest = run
+        if newest is not None:
+            if last_run_ts is None:
+                last_run_ts = newest.get("completed_at")
+            if last_saved_run is None:
+                last_saved_run = newest
+            if last_result is None:
+                # Without this the admin page read `ok` off a null result and rendered a
+                # successful run as "Failed" after any server restart.
+                last_result = {
+                    "ok": bool(newest.get("ok")),
+                    "cancelled": bool(newest.get("cancelled")),
+                    "duration": newest.get("duration"),
+                    "run_id": newest.get("id"),
+                }
+
     return jsonify({
         "running":      _train_running,
         "logs":         logs,
-        "last_run":     _last_train_ts.isoformat() if _last_train_ts else None,
-        "last_result":  _last_train_result,
-        "last_saved_run": _last_saved_run,
+        "last_run":     last_run_ts,
+        "last_result":  last_result,
+        "last_saved_run": last_saved_run,
         "history":      {"runs": list(reversed(runs)), "total": len(runs)},
     })
 
@@ -1742,7 +1937,8 @@ def api_model_status():
 def api_catalog():
     try:
         from catalog_service import list_catalog
-        return jsonify(list_catalog())
+        include_inactive = request.args.get("include_inactive") in ("1", "true", "yes")
+        return jsonify(list_catalog(include_inactive=include_inactive))
     except Exception as exc:
         return jsonify({"ready": False, "error": str(exc), "categories": []}), 500
 
@@ -1779,6 +1975,157 @@ def api_consumer_price():
         return jsonify(consumer_price(key, request.args.get("date")))
     except Exception as exc:
         return jsonify({"ready": False, "error": str(exc)}), 500
+
+
+# ── Rice Brand module Phase 2: per-brand variance weight ("patong") ──────────────
+# Public-safe read: each brand's price = base category price × (1 + weight_pct/100), falling
+# back to the plain category price when a brand has no canvassed weight yet. No category param
+# returns all 8 categories at once (mirrors /api/catalog's shape).
+@app.route("/api/brand-prices", methods=["GET"])
+def api_brand_prices():
+    try:
+        from catalog_service import brand_price, list_catalog
+        key = request.args.get("category")
+        include_inactive = request.args.get("include_inactive") in ("1", "true", "yes")
+        if key:
+            return jsonify(brand_price(key, include_inactive=include_inactive))
+        cats = list_catalog(include_inactive=include_inactive)
+        if not cats.get("ready"):
+            return jsonify({"ready": False, "categories": [], "note": cats.get("note", "")})
+        return jsonify({"ready": True, "categories": [
+            brand_price(c["canonical_key"], include_inactive=include_inactive)
+            for c in cats.get("categories", [])
+        ]})
+    except Exception as exc:
+        return jsonify({"ready": False, "error": str(exc), "categories": [], "brands": []}), 500
+
+
+@app.route("/api/brand-prices/<int:brand_id>/weight", methods=["POST"])
+def api_brand_weight_set(brand_id):
+    """Admin: set (or clear, with weight_pct omitted/null) one brand's canvassed variance weight."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    payload = request.get_json(silent=True) or {}
+    try:
+        from catalog_service import set_brand_weight
+        result = set_brand_weight(
+            brand_id=brand_id,
+            weight_pct=payload.get("weight_pct"),
+            sample_date=(payload.get("sample_date") or "").strip() or None,
+            sample_locations=(payload.get("sample_locations") or "").strip() or None,
+            sample_n=payload.get("sample_n"),
+            source_notes=(payload.get("source_notes") or "").strip() or None,
+            actor=_admin_client_key(),
+        )
+        return jsonify(result), (200 if result.get("ok") else 400)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route("/api/brand-prices/weight-audit", methods=["GET"])
+def api_brand_weight_audit():
+    """Admin: audit trail of who changed a brand's weight, when, and to what."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    try:
+        from catalog_service import list_brand_weight_audit
+        brand_id = request.args.get("brand_id")
+        return jsonify(list_brand_weight_audit(int(brand_id) if brand_id else None))
+    except Exception as exc:
+        return jsonify({"ready": False, "error": str(exc), "audit": []}), 500
+
+
+# ── Rice Brand module Phase 3: full CRUD + governance ────────────────────────────
+# add_brand/update_brand/deactivate_brand are the only ways the brand catalog record changes;
+# every one of them is admin-only and writes a brand_audit row (see /api/brands/<id>/audit).
+def _brand_payload_kwargs(payload: dict) -> dict:
+    """Shared arg-extraction for add/update — only keys the caller actually sent are included,
+    so update_brand()'s "only change what's passed" semantics work from the same payload shape."""
+    kwargs = {}
+    for key in ("category_key", "brand_name", "package", "location", "source", "source_url",
+                "last_verified", "classification_note", "notes", "verification_status"):
+        if key in payload:
+            v = payload.get(key)
+            kwargs[key] = v.strip() if isinstance(v, str) else v
+    return kwargs
+
+
+@app.route("/api/brands", methods=["POST"])
+def api_brand_add():
+    """Admin: add a new brand. Requires brand_name, category_key, source; blocks an exact
+    (category, brand_name, package) duplicate."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    payload = request.get_json(silent=True) or {}
+    try:
+        from catalog_service import add_brand
+        kwargs = _brand_payload_kwargs(payload)
+        kwargs.setdefault("verification_status", "unverified")
+        result = add_brand(actor=_admin_client_key(), **kwargs)
+        return jsonify(result), (200 if result.get("ok") else 400)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route("/api/brands/<int:brand_id>", methods=["PUT"])
+def api_brand_update(brand_id):
+    """Admin: edit an existing brand's fields and/or verification status. Only fields present in
+    the JSON body are changed; the same required-fields/no-duplicate rules apply as on add."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    payload = request.get_json(silent=True) or {}
+    try:
+        from catalog_service import update_brand
+        kwargs = _brand_payload_kwargs(payload)
+        result = update_brand(brand_id, actor=_admin_client_key(), **kwargs)
+        return jsonify(result), (200 if result.get("ok") else 400)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route("/api/brands/<int:brand_id>", methods=["DELETE"])
+def api_brand_deactivate(brand_id):
+    """Admin: soft-delete a brand (active=0). History (weights, audit) is kept."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    try:
+        from catalog_service import deactivate_brand
+        result = deactivate_brand(brand_id, active=False, actor=_admin_client_key())
+        return jsonify(result), (200 if result.get("ok") else 400)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route("/api/brands/<int:brand_id>/reactivate", methods=["POST"])
+def api_brand_reactivate(brand_id):
+    """Admin: restore a previously deactivated brand."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    try:
+        from catalog_service import deactivate_brand
+        result = deactivate_brand(brand_id, active=True, actor=_admin_client_key())
+        return jsonify(result), (200 if result.get("ok") else 400)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route("/api/brands/<int:brand_id>/audit", methods=["GET"])
+def api_brand_audit(brand_id):
+    """Admin: per-brand change-history (add/update/verify/deactivate/reactivate)."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    try:
+        from catalog_service import list_brand_audit
+        return jsonify(list_brand_audit(brand_id))
+    except Exception as exc:
+        return jsonify({"ready": False, "error": str(exc), "audit": []}), 500
 
 
 # ── Rice import tariff (quarterly, price-indexed, effective-date table) ──────────
@@ -2266,6 +2613,193 @@ def api_change_password():
 
 
 # ══════════════════════════════════════════════
+# PUBLIC / VENDOR USER ACCOUNTS (server-side — see model/user_auth.py)
+# ══════════════════════════════════════════════
+
+try:
+    # Aliased — user_auth's check_lockout/clear_failures/record_failure take a
+    # (bucket, client_key) pair, not admin_auth's single client_key (imported
+    # above, same names). Importing them under the bare names here would
+    # silently rebind the module-global name Python resolves at CALL time —
+    # which broke every admin-auth call site (they'd suddenly be invoked with
+    # the wrong arity and 500, since admin_auth's own call sites only pass
+    # one argument) even though admin_auth's functions were imported first.
+    from user_auth import (
+        LOGIN_ATTEMPTS,
+        RESET_REQUEST_ATTEMPTS,
+        RESET_VERIFY_ATTEMPTS,
+        change_password_for_user,
+        check_lockout as user_check_lockout,
+        clear_failures as user_clear_failures,
+        login_user,
+        record_failure as user_record_failure,
+        request_reset,
+        reset_password_with_ticket,
+        signup_user,
+        verify_reset_code,
+    )
+    from user_store import update_profile as user_update_profile
+    from mailer import is_configured as mailer_is_configured
+    _USER_AUTH_AVAILABLE = True
+except ImportError as _user_auth_err:
+    _USER_AUTH_AVAILABLE = False
+    _USER_AUTH_IMPORT_ERROR = str(_user_auth_err)
+
+
+@app.route("/api/auth/signup", methods=["POST"])
+def api_auth_signup():
+    if not _USER_AUTH_AVAILABLE:
+        return jsonify({"success": False, "error": _USER_AUTH_IMPORT_ERROR}), 503
+    payload = request.get_json(silent=True) or {}
+    try:
+        ok, msg = signup_user(payload.get("name"), payload.get("email"), payload.get("password"))
+        if not ok:
+            return jsonify({"success": False, "error": msg}), 400
+        return jsonify({"success": True})
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 500
+
+
+@app.route("/api/auth/login", methods=["POST"])
+def api_auth_login():
+    if not _USER_AUTH_AVAILABLE:
+        return jsonify({"success": False, "error": _USER_AUTH_IMPORT_ERROR}), 503
+    client_key = _admin_client_key()
+    ok_lock, lock_msg = user_check_lockout(LOGIN_ATTEMPTS, client_key)
+    if not ok_lock:
+        return jsonify({"success": False, "error": lock_msg}), 429
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        ok, msg, user = login_user(payload.get("email"), payload.get("password"))
+        if not ok:
+            user_record_failure(LOGIN_ATTEMPTS, client_key)
+            return jsonify({"success": False, "error": msg}), 401
+        user_clear_failures(LOGIN_ATTEMPTS, client_key)
+        return jsonify({"success": True, "user": user})
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 500
+
+
+@app.route("/api/auth/forgot-password", methods=["POST"])
+def api_auth_forgot_password():
+    """Step 1 of 3. By design (see model/user_auth.py's docstring) this
+    reveals whether the email is registered, rather than a generic response —
+    an explicit "email verified" vs "no account found" popup, at the user's
+    request. "already_sent" (a valid code from a recent request is still
+    active) is reported too, instead of silently emailing a second code that
+    would invalidate the first one in the visitor's inbox."""
+    if not _USER_AUTH_AVAILABLE:
+        return jsonify({"success": False, "error": _USER_AUTH_IMPORT_ERROR}), 503
+    if not mailer_is_configured():
+        return jsonify({"success": False, "error": "Email service is not configured on the server."}), 503
+    client_key = _admin_client_key()
+    ok_lock, lock_msg = user_check_lockout(RESET_REQUEST_ATTEMPTS, client_key)
+    if not ok_lock:
+        return jsonify({"success": False, "error": lock_msg}), 429
+
+    payload = request.get_json(silent=True) or {}
+    email = (payload.get("email") or "").strip().lower()
+    try:
+        status, message = request_reset(email)
+    except Exception as exc:
+        _add_log("ERROR", f"Password reset request failed: {exc}", source="AUTH")
+        return jsonify({"success": False, "error": "Could not process that request."}), 500
+
+    _add_log(
+        "INFO" if status in ("sent", "already_sent") else "WARN",
+        f"Password reset requested for '{email or '?'}' from {client_key} ({status})",
+        source="AUTH",
+    )
+    if status == "not_found":
+        # Only "no such account" counts toward the lockout — it's the one
+        # response shape that rewards an attacker for probing many emails;
+        # legitimate requests (sent/already_sent) shouldn't cost the visitor
+        # their remaining attempts.
+        user_record_failure(RESET_REQUEST_ATTEMPTS, client_key)
+        return jsonify({"success": False, "error": message}), 404
+    if status == "mail_error":
+        return jsonify({"success": False, "error": "Could not send the code right now. Try again shortly."}), 502
+    user_clear_failures(RESET_REQUEST_ATTEMPTS, client_key)
+    return jsonify({"success": True, "status": status, "message": message})
+
+
+@app.route("/api/auth/verify-reset-code", methods=["POST"])
+def api_auth_verify_reset_code():
+    """Step 2 of 3: check the emailed code on its own. Returns a one-time
+    'ticket' on success — the client holds onto it and sends it back (not the
+    code) to actually change the password in step 3."""
+    if not _USER_AUTH_AVAILABLE:
+        return jsonify({"success": False, "error": _USER_AUTH_IMPORT_ERROR}), 503
+    client_key = _admin_client_key()
+    ok_lock, lock_msg = user_check_lockout(RESET_VERIFY_ATTEMPTS, client_key)
+    if not ok_lock:
+        return jsonify({"success": False, "error": lock_msg}), 429
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        ok, msg, ticket = verify_reset_code(payload.get("email"), payload.get("code"))
+        if not ok:
+            user_record_failure(RESET_VERIFY_ATTEMPTS, client_key)
+            return jsonify({"success": False, "error": msg}), 400
+        user_clear_failures(RESET_VERIFY_ATTEMPTS, client_key)
+        return jsonify({"success": True, "message": msg, "ticket": ticket})
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 500
+
+
+@app.route("/api/auth/reset-password", methods=["POST"])
+def api_auth_reset_password():
+    """Step 3 of 3: set the new password, gated on the ticket from step 2 (not
+    the original code)."""
+    if not _USER_AUTH_AVAILABLE:
+        return jsonify({"success": False, "error": _USER_AUTH_IMPORT_ERROR}), 503
+    client_key = _admin_client_key()
+    ok_lock, lock_msg = user_check_lockout(RESET_VERIFY_ATTEMPTS, client_key)
+    if not ok_lock:
+        return jsonify({"success": False, "error": lock_msg}), 429
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        ok, msg = reset_password_with_ticket(payload.get("email"), payload.get("ticket"), payload.get("new_password"))
+        if not ok:
+            user_record_failure(RESET_VERIFY_ATTEMPTS, client_key)
+            return jsonify({"success": False, "error": msg}), 400
+        user_clear_failures(RESET_VERIFY_ATTEMPTS, client_key)
+        return jsonify({"success": True, "message": msg})
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 500
+
+
+@app.route("/api/auth/profile", methods=["PUT"])
+def api_auth_update_profile():
+    if not _USER_AUTH_AVAILABLE:
+        return jsonify({"success": False, "error": _USER_AUTH_IMPORT_ERROR}), 503
+    payload = request.get_json(silent=True) or {}
+    try:
+        ok, msg = user_update_profile(payload.get("email"), payload.get("name"), payload.get("new_email"))
+        if not ok:
+            return jsonify({"success": False, "error": msg}), 400
+        return jsonify({"success": True, "message": msg})
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 500
+
+
+@app.route("/api/auth/change-password", methods=["POST"])
+def api_auth_change_password():
+    if not _USER_AUTH_AVAILABLE:
+        return jsonify({"success": False, "error": _USER_AUTH_IMPORT_ERROR}), 503
+    payload = request.get_json(silent=True) or {}
+    try:
+        ok, msg = change_password_for_user(payload.get("email"), payload.get("current"), payload.get("new"))
+        if not ok:
+            return jsonify({"success": False, "error": msg}), 400
+        return jsonify({"success": True, "message": msg})
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 500
+
+
+# ══════════════════════════════════════════════
 # REPORTS & EXPORT
 # ══════════════════════════════════════════════
 
@@ -2361,10 +2895,24 @@ def save_export():
 
 
 # ─── Frontend (same origin as API — open http://127.0.0.1:5000/) ─────────────
+# Top-level folders the static route may serve. Everything else under PROJECT_ROOT — the SQLite
+# databases, the Python source, model artefacts, .env — stays unreachable over HTTP.
+SERVABLE_ROOTS = frozenset({"public", "admin", "css", "js"})
+
+
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def serve_frontend(path: str):
-    """Serve public site + admin dashboard from project folders."""
+    """Serve public site + admin dashboard from project folders.
+
+    Only the four front-end folders are web-servable. This route previously served anything under
+    PROJECT_ROOT, which meant an unauthenticated GET could download
+    `datasets/agriprice_database.db` (the entire ~1 MB database), any `model/*.py` including
+    `admin_auth.py`, `model/training_history.json`, and — once a user registers —
+    `model/agriprice_users.db`, which holds the werkzeug password hashes. Nothing outside these
+    folders is needed by the browser: `public/*.html` references `assets/`, `css/` and `js/`
+    relative to itself, and the admin SPA fetches only `/admin/**` and `/api/**`.
+    """
     if path.startswith("api"):
         abort(404)
     safe = path.replace("\\", "/").lstrip("/")
@@ -2373,6 +2921,11 @@ def serve_frontend(path: str):
     # which drops the nav bar and the JS-rendered price widgets.
     if not safe or safe == "index.html":
         return redirect("/public/landpage.html", code=302)
+
+    root = safe.split("/", 1)[0]
+    if root not in SERVABLE_ROOTS:
+        abort(404)
+
     full = os.path.join(PROJECT_ROOT, safe)
     if os.path.isfile(full):
         return send_from_directory(PROJECT_ROOT, safe)

@@ -39,20 +39,8 @@
     <div class="ah-overlay"></div>
 
     <div class="ah-hero">
-      <a href="landpage.html" class="ah-topbar">
-        <span class="ah-logo-tile">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
-            <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
-          </svg>
-        </span>
-        <span class="ah-brand-text">
-          <span class="ah-brand-name">AgriPricePH</span>
-        </span>
-      </a>
-
       <div class="ah-hero-mid">
-        <h1>Rice prices shouldn't be a guessing game — see today's price, and where it's headed, before you buy or sell.</h1>
+        <h1>Know today's rice price. See where it's headed.</h1>
         <p>Track today's price and a 3-day forecast across all 8 rice types — local and imported — plus fuel and the USD/PHP rate, in one place.</p>
 
         <div class="ah-stat-row">
@@ -87,13 +75,32 @@
           <button type="button" class="ah-slide-dot" data-slide-index="3" role="tab" aria-selected="false" aria-label="Photo 4 of 5"></button>
           <button type="button" class="ah-slide-dot" data-slide-index="4" role="tab" aria-selected="false" aria-label="Photo 5 of 5"></button>
         </div>
-        <p class="ah-slide-credit" id="ah-slide-credit"></p>
+        <div class="ah-slide-credit" id="ah-slide-credit">
+          <button type="button" class="ah-credit-trigger" id="ah-credit-trigger" aria-haspopup="true" aria-expanded="false">
+            <svg class="ah-credit-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9.5"/>
+              <line x1="12" y1="11" x2="12" y2="16.5"/>
+              <circle cx="12" cy="7.6" r="0.9" fill="currentColor" stroke="none"/>
+            </svg>
+            <span id="ah-credit-name">Photo credit</span>
+          </button>
+          <div class="ah-credit-popover" id="ah-credit-popover" role="tooltip"></div>
+        </div>
       </div>
     </div>
   </div>
 
   <div class="ah-form-panel">
     <div class="ah-card">
+      <a href="landpage.html" class="ah-card-logo">
+        <span class="ah-logo-tile">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
+            <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+          </svg>
+        </span>
+        <span class="ah-brand-name">AgriPricePH</span>
+      </a>
       <div class="ah-card-body" id="ah-login-panel">
         <h2>Welcome back</h2>
         <p class="ah-sub">Log in to view price history and charts &amp; stats. Today's prices and the forecast stay free without an account.</p>
@@ -143,11 +150,92 @@
 
         <form id="form-admin-pin" autocomplete="off">
           <div class="ah-field">
-            <label for="admin-pin">6-digit PIN</label>
-            <input class="form-input" type="password" id="admin-pin" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="••••••" required />
+            <label id="ah-pin-label">6-digit PIN</label>
+            <div class="ah-pin-boxes" id="ah-pin-boxes" role="group" aria-labelledby="ah-pin-label">
+              <input class="form-input ah-pin-box" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" autocomplete="one-time-code" aria-label="PIN digit 1" />
+              <input class="form-input ah-pin-box" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" autocomplete="one-time-code" aria-label="PIN digit 2" />
+              <input class="form-input ah-pin-box" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" autocomplete="one-time-code" aria-label="PIN digit 3" />
+              <input class="form-input ah-pin-box" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" autocomplete="one-time-code" aria-label="PIN digit 4" />
+              <input class="form-input ah-pin-box" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" autocomplete="one-time-code" aria-label="PIN digit 5" />
+              <input class="form-input ah-pin-box" type="password" inputmode="numeric" pattern="[0-9]" maxlength="1" autocomplete="one-time-code" aria-label="PIN digit 6" />
+            </div>
           </div>
           <button type="submit" class="btn btn-primary btn-lg" style="width:100%">Sign in to dashboard</button>
-          <button type="button" class="btn btn-ghost btn-sm" id="ah-pin-back" style="width:100%;margin-top:10px">← Back to log in</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="ah-pin-back" style="width:100%">← Back to log in</button>
+        </form>
+      </div>
+
+      <div class="ah-card-body" id="ah-forgot-panel" hidden>
+        <h2>Reset your password</h2>
+        <p class="ah-sub">Enter your account email and we'll send a 6-digit code to reset your password.</p>
+
+        <form id="form-forgot-password" autocomplete="on">
+          <div class="ah-field">
+            <label for="forgot-email">Email</label>
+            <div class="ah-input-wrap">
+              <svg class="ah-icon-left" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+              <input class="form-input" type="email" id="forgot-email" required autocomplete="email" placeholder="you@email.com" />
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-lg" style="width:100%">Send reset code</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="ah-forgot-back" style="width:100%">← Back to log in</button>
+        </form>
+      </div>
+
+      <div class="ah-card-body" id="ah-code-panel" hidden>
+        <h2>Enter your code</h2>
+        <p class="ah-sub">We sent a 6-digit code to <strong id="ah-code-target-email">your email</strong>. It expires in 15 minutes.</p>
+
+        <form id="form-verify-code" autocomplete="off">
+          <div class="ah-field">
+            <label id="ah-code-label">6-digit code</label>
+            <div class="ah-pin-boxes" id="ah-code-boxes" role="group" aria-labelledby="ah-code-label">
+              <input class="form-input ah-pin-box" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" autocomplete="one-time-code" aria-label="Reset code digit 1" />
+              <input class="form-input ah-pin-box" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" autocomplete="one-time-code" aria-label="Reset code digit 2" />
+              <input class="form-input ah-pin-box" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" autocomplete="one-time-code" aria-label="Reset code digit 3" />
+              <input class="form-input ah-pin-box" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" autocomplete="one-time-code" aria-label="Reset code digit 4" />
+              <input class="form-input ah-pin-box" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" autocomplete="one-time-code" aria-label="Reset code digit 5" />
+              <input class="form-input ah-pin-box" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" autocomplete="one-time-code" aria-label="Reset code digit 6" />
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-lg" style="width:100%">Verify code</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="ah-code-resend" style="width:100%">Resend code</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="ah-code-back" style="width:100%">← Back to log in</button>
+        </form>
+      </div>
+
+      <div class="ah-card-body" id="ah-reset-panel" hidden>
+        <h2>Create a new password</h2>
+        <p class="ah-sub">Code verified — choose a new password for <strong id="ah-reset-target-email">your account</strong>.</p>
+
+        <form id="form-reset-password" autocomplete="off">
+          <div class="ah-field">
+            <label for="reset-new-password">New password</label>
+            <div class="ah-input-wrap">
+              <svg class="ah-icon-left" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+              <input class="form-input ah-pw-input" type="password" id="reset-new-password" required autocomplete="new-password" placeholder="Strong password" />
+              <button type="button" class="ah-pw-toggle" data-pw-toggle="reset-new-password" aria-label="Show password">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+            <div class="ah-pw-meter"><div class="ah-pw-meter-bar" id="reset-pw-bar"></div></div>
+            <div class="ah-pw-hint" id="reset-pw-hint">8+ chars, upper, lower &amp; a number.</div>
+          </div>
+
+          <div class="ah-field">
+            <label for="reset-confirm-password">Confirm new password</label>
+            <div class="ah-input-wrap">
+              <svg class="ah-icon-left" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+              <input class="form-input ah-pw-input" type="password" id="reset-confirm-password" required autocomplete="new-password" placeholder="Re-enter password" />
+              <button type="button" class="ah-pw-toggle" data-pw-toggle="reset-confirm-password" aria-label="Show password">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-lg" style="width:100%">Reset password</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="ah-reset-back" style="width:100%">← Back to log in</button>
         </form>
       </div>
     </div>

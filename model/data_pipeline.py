@@ -135,6 +135,35 @@ def _db_path() -> str:
     return DB_PATH
 
 
+# Plausible pump-price band for PH fuel, in PHP/litre. The historical DOE series
+# (`fuel_history`, 2015-2025) spans PHP 18.40-103.95 — the upper end being the real mid-2022 oil
+# spike — so this band is deliberately wide enough to keep every genuine observation.
+FUEL_PLAUSIBLE_MIN = 15.0
+FUEL_PLAUSIBLE_MAX = 110.0
+
+
+def _drop_implausible_fuel(df: pd.DataFrame) -> pd.DataFrame:
+    """Blank out scraped fuel prices that fall outside any realistic PH pump price.
+
+    `tools/scrap.py` mis-parsed the fuel source for a stretch of 2026 (2026-03-10 to 2026-05-27),
+    recording gasoline around PHP 94-96 and diesel around PHP 119-129 — roughly double the real
+    pump price, with normal PHP 55-60 readings immediately before and after. Left alone those rows
+    flow straight into `fuel_ron95`/`fuel_diesel` and become model features, and into the admin
+    "Market Drivers" 30-day averages.
+
+    Out-of-band values are set to NaN (not dropped as rows) so the existing merge-time
+    `ffill().bfill()` carries the last good reading forward instead of the series jumping. Nothing
+    is invented and the stored scraper rows are left untouched — this only guards what the model
+    and charts consume.
+    """
+    for col in ("fuel_ron95", "fuel_diesel"):
+        if col not in df.columns:
+            continue
+        vals = pd.to_numeric(df[col], errors="coerce")
+        df[col] = vals.where(vals.between(FUEL_PLAUSIBLE_MIN, FUEL_PLAUSIBLE_MAX))
+    return df
+
+
 def load_merged_frame() -> pd.DataFrame:
     """Load and merge all feature tables on Date."""
     db = _db_path()
@@ -188,11 +217,13 @@ def load_merged_frame() -> pd.DataFrame:
         'FROM fuel_history ORDER BY Date ASC',
         conn,
     )
+
     try:
         df_fuel_ws = pd.read_sql(
             'SELECT Date, RON_95 AS fuel_ron95, Diesel AS fuel_diesel FROM "WS_fuel" ORDER BY Date ASC',
             conn,
         )
+        df_fuel_ws = _drop_implausible_fuel(df_fuel_ws)
         df_fuel = pd.concat([df_fuel, df_fuel_ws], ignore_index=True)
     except Exception:
         pass

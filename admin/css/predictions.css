@@ -46,13 +46,20 @@
   color: #A7F3C0; letter-spacing: 0.5px;
 }
 
-.hero-left { flex-shrink: 0; min-width: 220px; }
+/* `min-width: 0` lets this column shrink instead of forcing the banner wider than its container
+   at tablet widths; the basis keeps it readable until there is genuinely no room. */
+.hero-left { flex: 1 1 220px; min-width: 0; }
 
 .hero-prices {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* `stretch` is what makes the four cards equal height. Without it each card is only as tall as
+     its own content, so "Imported Well-Milled" (label wraps to two lines) stood taller than
+     "Local Premium" and the row looked ragged. */
+  align-items: stretch;
   gap: 12px;
-  flex: 1;
+  flex: 2 1 320px;
+  min-width: 0;
 }
 
 .hero-price-item {
@@ -61,6 +68,12 @@
   border-radius: 10px;
   padding: 12px 14px;
   transition: background 0.2s;
+  /* Column layout + space-between pins the price and its footnote to the same baseline in every
+     card regardless of how many lines the rice name takes. */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
 }
 
 .hero-price-item:hover { background: rgba(255,255,255,0.11); }
@@ -77,9 +90,20 @@
   white-space: nowrap;
 }
 
-.hero-price-rice  { font-size: 11px; color: rgba(255,255,255,0.55); margin-bottom: 4px; font-weight: 500; }
-.hero-price-val   { font-size: 22px; font-weight: 700; font-family: var(--font-mono); color: white; letter-spacing: -0.5px; }
-.hero-price-change { font-size: 11px; color: #6EE7A0; font-weight: 600; margin-top: 2px; }
+/* Two lines reserved for the name so a one-line label ("Local Premium") and a two-line one
+   ("Imported Well-Milled") occupy the same height. */
+.hero-price-rice {
+  font-size: 11px; color: rgba(255,255,255,0.55); margin-bottom: 4px; font-weight: 500;
+  line-height: 1.3; min-height: 2.6em;
+}
+.hero-price-val {
+  font-size: 22px; font-weight: 700; font-family: var(--font-mono); color: white;
+  letter-spacing: -0.5px; white-space: nowrap;
+}
+.hero-price-change {
+  font-size: 11px; color: #6EE7A0; font-weight: 600; margin-top: 2px;
+  line-height: 1.3; min-height: 1.3em;
+}
 .hero-price-change.neg { color: #FCA5A5; }
 
 /* ── Local/Imported Toggle ── */
@@ -169,7 +193,14 @@
 }
 
 .forecast-date    { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
-.forecast-chart-cell { height: 28px; }
+/* The sparkline sits in a fixed-height, horizontally centred box so all three rows line up and
+   the column keeps the same footprint whether or not a canvas has been drawn into it yet. */
+.forecast-chart-cell {
+  height: 28px;
+  display: block;
+  margin: 0 auto;
+  max-width: 180px;
+}
 .forecast-price   { font-size: 13px; font-weight: 700; font-family: var(--font-mono); }
 .forecast-change  { font-size: 12px; font-weight: 600; }
 .forecast-change.up   { color: var(--color-danger); }
@@ -301,13 +332,50 @@
 
 @media (max-width: 1200px) {
   .prediction-hero { flex-wrap: wrap; }
-  .hero-prices { grid-template-columns: repeat(2, 1fr); }
+  /* Full width once wrapped, so the four cards share the row evenly instead of being squeezed
+     into whatever space the text column leaves behind. */
+  .hero-prices { flex-basis: 100%; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
+  .prediction-hero { padding: 22px 20px; gap: 20px; }
+  .hero-prices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* The refresh/toggle column drops under the text rather than pinning to the right edge, where
+     it would otherwise squash the banner heading. */
+  .hero-right { flex-basis: 100%; align-items: flex-start; }
+}
+
+@media (max-width: 560px) {
+  .hero-prices { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .hero-price-val { font-size: 18px; }
+  .hero-price-rice { min-height: 2.6em; }
 }
 
 @media (max-width: 1100px) {
-  .hero-prices { grid-template-columns: 1fr 1fr; }
   .model-status-strip { grid-template-columns: 1fr 1fr; }
   .pred-layout { grid-template-columns: 1fr; }
   .pred-sidebar { flex-direction: row; flex-wrap: wrap; }
   .pred-sidebar .card { flex: 1; min-width: 240px; }
+}
+/* ── Forecast prices shown as calibrated ranges ── */
+/* Wider than a single figure, so the price column gets more room and the range never wraps. */
+.forecast-row { grid-template-columns: 90px 1fr 140px 80px 80px; }
+
+/* Trend column centred; the numeric columns keep their natural left alignment so the peso signs
+   stay in a straight vertical line down the table. */
+.forecast-row > *:nth-child(2) { text-align: center; justify-self: stretch; }
+
+.forecast-price-range { white-space: nowrap; font-size: 12.5px; }
+
+/* .pred-bar-out lives in dashboard.css (loaded first in admin/index.html) and is shared by
+   this module's 3-Day Outlook bars. */
+
+@media (max-width: 700px) {
+  /* Drop the sparkline column entirely — including the header cell that labels it. Hiding only
+     the canvas left the header with five items in a four-column grid, so "Accuracy" wrapped onto
+     its own line while the data rows stayed single-line. */
+  .forecast-row { grid-template-columns: 92px 1fr 68px 66px; }
+  .forecast-row .forecast-chart-cell,
+  .forecast-row.header > span:nth-child(2) { display: none; }
+  .forecast-price-range { font-size: 11.5px; }
 }

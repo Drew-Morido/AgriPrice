@@ -24,6 +24,17 @@ TARIFF_BAND_MAX = 35.0   # % ceiling
 TARIFF_STEP_PRICE_PCT = 5.0   # every 5% move in the FAO reference price ...
 TARIFF_STEP_POINTS = 5.0      # ... shifts the duty by 5 percentage points
 
+# Rice Brand module Phase 2 — variance weight ("patong") sanity band. Originally ±20% on the
+# (untested) assumption that a brand's retail premium/discount vs. its category's plain price
+# would be modest. Checking real survey data against live category prices disproved that: 14 of
+# 36 canvassed brands are named/boutique products (e.g. Doña Maria +116%, imported Harvester's
+# +138%) that genuinely retail far above the DA's tracked commodity-category price — that's a
+# real market signal, not bad data. NFA (government low-price rice) sits at -52%, so the band
+# needs real headroom on both sides. Widened to catch actual fat-finger entries (a brand priced
+# at 10x or -95% of its category) without rejecting legitimate premium/discount brands.
+BRAND_WEIGHT_BAND_MIN = -70.0
+BRAND_WEIGHT_BAND_MAX = 200.0
+
 # canonical model key -> WS_rice_price column (2026 data) for a live base price fallback.
 CANON_TO_WS = {
     "locWellMilled": "Local Well Milled", "locPremium": "Local Premium",
@@ -62,8 +73,10 @@ def catalog_ready() -> bool:
         conn.close()
 
 
-def list_catalog() -> dict:
-    """Categories with their brands (empty brand lists until DTI-verified)."""
+def list_catalog(include_inactive: bool = False) -> dict:
+    """Categories with their brands (empty brand lists until DTI-verified). Deactivated brands
+    (Phase 3 soft-delete) are excluded by default — pass include_inactive=True for admin views
+    that need to see/manage/reactivate them."""
     conn = _connect()
     try:
         if not _has_table(conn, "dti_category"):
@@ -73,13 +86,18 @@ def list_catalog() -> dict:
             "FROM dti_category ORDER BY segment,name")]
         brands_by_cat: dict[int, list] = {}
         if _has_table(conn, "rice_brand"):
-            for r in conn.execute(
-                "SELECT id,category_id,brand_name,package,location,source,source_url,"
-                "last_verified,classification_note,is_verified FROM rice_brand ORDER BY brand_name,package"):
+            q = ("SELECT id,category_id,brand_name,package,location,source,source_url,"
+                 "last_verified,classification_note,verification_status,verified_by,verified_at,"
+                 "active,notes FROM rice_brand")
+            if not include_inactive:
+                q += " WHERE active=1"
+            q += " ORDER BY brand_name,package"
+            for r in conn.execute(q):
                 brands_by_cat.setdefault(r["category_id"], []).append(dict(r))
         for c in cats:
             c["brands"] = brands_by_cat.get(c["id"], [])
-            c["brands_verified_count"] = sum(1 for b in c["brands"] if b["is_verified"])
+            c["brands_verified_count"] = sum(
+                1 for b in c["brands"] if b["verification_status"] != "unverified")
         return {"ready": True, "categories": cats,
                 "note": "Brand lists require DTI verification." if not any(c["brands"] for c in cats) else ""}
     finally:
@@ -460,5 +478,392 @@ def consumer_price(category_key: str, date: str | None = None) -> dict:
             "base_source": base_src, "taxes": taxes_applied, "tax_total": tax_total,
             "final_consumer_price": final, "tariff": tariff_info, "note": note,
         }
+    finally:
+        conn.close()
+
+
+# ── Rice Brand module Phase 2 — variance weight ("patong") ──────────────────────
+# Display-layer only: a brand's price here is base_price × (1 + weight_pct/100). Never fed back
+# into the LSTM/model — model/ never sees this. A brand with no canvassed weight yet simply shows
+# the plain category price (estimated=False) — that's an honest state, not something to fake.
+
+def brand_price(category_key: str, include_inactive: bool = False) -> dict:
+    """Every brand mapped to `category_key`, each with its own adjusted price (or the plain
+    category price as a fallback when no weight has been canvassed for that brand yet). A
+    deactivated (Phase 3 soft-delete) brand is excluded by default."""
+    conn = _connect()
+    try:
+        if not _has_table(conn, "dti_category"):
+            return {"ready": False, "brands": [], "note": "Catalog schema not initialized."}
+        cat = conn.execute(
+            "SELECT id,canonical_key,name,segment FROM dti_category WHERE canonical_key=?",
+            (category_key,)).fetchone()
+        if not cat:
+            return {"ready": True, "error": f"Unknown category '{category_key}'.", "brands": []}
+
+        base, base_src = _latest_base_price(conn, category_key)
+
+        weights_by_brand: dict[int, dict] = {}
+        if _has_table(conn, "brand_price_adjustment"):
+            for r in conn.execute(
+                    "SELECT brand_id,weight_pct,sample_date,sample_locations,sample_n,"
+                    "source_notes,entry_type,updated_by,updated_at FROM brand_price_adjustment"):
+                weights_by_brand[r["brand_id"]] = dict(r)
+
+        brands_out = []
+        if _has_table(conn, "rice_brand"):
+            q = ("SELECT id,brand_name,package,location,source,source_url,last_verified,"
+                 "classification_note,verification_status,verified_by,verified_at,active,notes "
+                 "FROM rice_brand WHERE category_id=?")
+            if not include_inactive:
+                q += " AND active=1"
+            q += " ORDER BY brand_name,package"
+            for b in conn.execute(q, (cat["id"],)):
+                b = dict(b)
+                w = weights_by_brand.get(b["id"])
+                if w and base is not None:
+                    price = round(base * (1.0 + float(w["weight_pct"]) / 100.0), 2)
+                    estimated = True
+                else:
+                    price = round(base, 2) if base is not None else None
+                    estimated = False
+                brands_out.append({
+                    **b,
+                    "price": price,
+                    "estimated": estimated,
+                    "weight_pct": w["weight_pct"] if w else None,
+                    "sample_date": w["sample_date"] if w else None,
+                    "sample_locations": w["sample_locations"] if w else None,
+                    "sample_n": w["sample_n"] if w else None,
+                    "source_notes": w["source_notes"] if w else None,
+                    "updated_by": w["updated_by"] if w else None,
+                    "updated_at": w["updated_at"] if w else None,
+                })
+
+        return {
+            "ready": True, "category": cat["name"], "canonical_key": cat["canonical_key"],
+            "segment": cat["segment"], "base_price": round(base, 2) if base is not None else None,
+            "base_source": base_src, "brands": brands_out,
+            "note": "" if base is not None else "No base price available for this category.",
+        }
+    finally:
+        conn.close()
+
+
+def set_brand_weight(brand_id: int, weight_pct, sample_date: str | None = None,
+                     sample_locations: str | None = None, sample_n: int | None = None,
+                     source_notes: str | None = None, actor: str = "admin") -> dict:
+    """Set (or, with weight_pct=None, clear) one brand's canvassed variance weight. Validates the
+    sanity band (BRAND_WEIGHT_BAND_MIN/MAX), upserts brand_price_adjustment, and appends a
+    brand_weight_audit row — never invents a weight; the caller must supply one from actual
+    field canvassing."""
+    try:
+        bid = int(brand_id)
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "brand_id must be an integer."}
+
+    conn = _connect()
+    try:
+        if not _has_table(conn, "brand_price_adjustment"):
+            return {"ok": False, "error": "Brand weight schema not initialized."}
+        brand = conn.execute(
+            "SELECT b.id,b.brand_name,c.canonical_key FROM rice_brand b "
+            "JOIN dti_category c ON c.id=b.category_id WHERE b.id=?", (bid,)).fetchone()
+        if not brand:
+            return {"ok": False, "error": f"Brand #{bid} not found."}
+
+        # weight_pct is None (or '') -> clear any existing weight, brand reverts to the plain
+        # category price. This is the "I have no field data for this brand" honest state.
+        if weight_pct in (None, ""):
+            existing = conn.execute(
+                "SELECT 1 FROM brand_price_adjustment WHERE brand_id=?", (bid,)).fetchone()
+            conn.execute("DELETE FROM brand_price_adjustment WHERE brand_id=?", (bid,))
+            conn.execute(
+                "INSERT INTO brand_weight_audit(brand_id,action,actor,detail) VALUES (?,?,?,?)",
+                (bid, "clear", actor, f"Cleared weight for {brand['brand_name']}."
+                 if existing else "No-op clear (no weight was set)."))
+            conn.commit()
+            return {"ok": True, "brand_id": bid, "weight_pct": None, "cleared": True}
+
+        try:
+            weight = float(weight_pct)
+        except (TypeError, ValueError):
+            return {"ok": False, "error": "weight_pct must be a number."}
+        if not (BRAND_WEIGHT_BAND_MIN <= weight <= BRAND_WEIGHT_BAND_MAX):
+            return {"ok": False, "error": f"weight_pct {weight} outside the "
+                    f"{BRAND_WEIGHT_BAND_MIN:.0f}% to {BRAND_WEIGHT_BAND_MAX:+.0f}% sanity band."}
+        if sample_date:
+            try:
+                _dt.date.fromisoformat(sample_date[:10])
+            except ValueError:
+                return {"ok": False, "error": "sample_date must be YYYY-MM-DD."}
+        n = None
+        if sample_n not in (None, ""):
+            try:
+                n = int(sample_n)
+            except (TypeError, ValueError):
+                return {"ok": False, "error": "sample_n must be an integer."}
+
+        conn.execute(
+            "INSERT INTO brand_price_adjustment(brand_id,weight_pct,sample_date,sample_locations,"
+            "sample_n,source_notes,entry_type,updated_by,updated_at) "
+            "VALUES (?,?,?,?,?,?,'ADMIN',?,datetime('now')) "
+            "ON CONFLICT(brand_id) DO UPDATE SET weight_pct=excluded.weight_pct,"
+            "sample_date=excluded.sample_date, sample_locations=excluded.sample_locations,"
+            "sample_n=excluded.sample_n, source_notes=excluded.source_notes,"
+            "updated_by=excluded.updated_by, updated_at=excluded.updated_at",
+            (bid, weight, (sample_date or None)[:10] if sample_date else None,
+             sample_locations or None, n, source_notes or None, actor))
+        conn.execute(
+            "INSERT INTO brand_weight_audit(brand_id,action,weight_pct,sample_date,"
+            "sample_locations,sample_n,actor,detail) VALUES (?,'set',?,?,?,?,?,?)",
+            (bid, weight, sample_date[:10] if sample_date else None, sample_locations, n, actor,
+             f"Set weight for {brand['brand_name']} to {weight:+.2f}%."))
+        conn.commit()
+        return {"ok": True, "brand_id": bid, "brand_name": brand["brand_name"], "weight_pct": weight}
+    finally:
+        conn.close()
+
+
+def list_brand_weight_audit(brand_id: int | None = None, limit: int = 100) -> dict:
+    conn = _connect()
+    try:
+        if not _has_table(conn, "brand_weight_audit"):
+            return {"ready": False, "audit": []}
+        if brand_id is not None:
+            rows = [dict(r) for r in conn.execute(
+                "SELECT id,brand_id,action,weight_pct,sample_date,sample_locations,sample_n,"
+                "actor,detail,created_at FROM brand_weight_audit WHERE brand_id=? "
+                "ORDER BY id DESC LIMIT ?", (int(brand_id), int(limit)))]
+        else:
+            rows = [dict(r) for r in conn.execute(
+                "SELECT id,brand_id,action,weight_pct,sample_date,sample_locations,sample_n,"
+                "actor,detail,created_at FROM brand_weight_audit ORDER BY id DESC LIMIT ?",
+                (int(limit),))]
+        return {"ready": True, "audit": rows}
+    finally:
+        conn.close()
+
+
+# ── Rice Brand module Phase 3 — full CRUD + governance ───────────────────────────
+# add_brand / update_brand / deactivate_brand are the only ways the brand catalog record itself
+# changes; every one of them writes a brand_audit row. Nothing here is ever fed into model/ —
+# this is still purely the display-layer catalog on top of the 8 forecast categories.
+
+VERIFICATION_STATUSES = ("unverified", "field_verified", "dti_verified")
+
+
+def _brand_dict(row) -> dict:
+    return dict(row) if row is not None else None
+
+
+def _resolve_category(conn, category_key: str):
+    return conn.execute(
+        "SELECT id,name,canonical_key FROM dti_category WHERE canonical_key=?",
+        (category_key,)).fetchone()
+
+
+def _duplicate_brand(conn, category_id: int, brand_name: str, package: str | None,
+                     exclude_id: int | None = None):
+    q = ("SELECT id,active FROM rice_brand WHERE category_id=? AND brand_name=? AND "
+         "(package IS ? OR package = ?)")
+    args = [category_id, brand_name, package, package]
+    if exclude_id is not None:
+        q += " AND id != ?"
+        args.append(exclude_id)
+    return conn.execute(q, args).fetchone()
+
+
+def add_brand(category_key: str, brand_name: str, package: str | None = None,
+             location: str | None = None, source: str | None = None,
+             source_url: str | None = None, last_verified: str | None = None,
+             classification_note: str | None = None, notes: str | None = None,
+             verification_status: str = "unverified", actor: str = "admin") -> dict:
+    """Add a new brand row. Requires brand_name, category_key (must resolve to one of the 8
+    categories) and source (a citation for where this entry came from) — never invented.
+    Blocks an exact (category, brand_name, package) duplicate."""
+    brand_name = (brand_name or "").strip()
+    source = (source or "").strip()
+    if not brand_name:
+        return {"ok": False, "error": "Brand name is required."}
+    if not source:
+        return {"ok": False, "error": "A source is required — where did this entry come from?"}
+    if verification_status not in VERIFICATION_STATUSES:
+        return {"ok": False, "error": f"verification_status must be one of {VERIFICATION_STATUSES}."}
+
+    conn = _connect()
+    try:
+        if not _has_table(conn, "rice_brand"):
+            return {"ok": False, "error": "Catalog schema not initialized."}
+        cat = _resolve_category(conn, category_key)
+        if not cat:
+            return {"ok": False, "error": f"Unknown category '{category_key}'."}
+
+        package = (package or None)
+        dup = _duplicate_brand(conn, cat["id"], brand_name, package)
+        if dup:
+            status = "an existing" if dup["active"] else "a deactivated"
+            return {"ok": False, "error": f"{status} brand already has this exact "
+                    f"(category, name, package) — reactivate/edit it instead of adding a duplicate.",
+                    "duplicate_brand_id": dup["id"]}
+
+        cur = conn.execute(
+            "INSERT INTO rice_brand(category_id,brand_name,package,location,source,source_url,"
+            "last_verified,classification_note,verification_status,verified_by,verified_at,"
+            "active,notes) VALUES (?,?,?,?,?,?,?,?,?,?,?,1,?)",
+            (cat["id"], brand_name, package, location or None, source, source_url or None,
+             last_verified or None, classification_note or None, verification_status,
+             actor if verification_status != "unverified" else None,
+             _dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S") if verification_status != "unverified" else None,
+             notes or None))
+        bid = cur.lastrowid
+        conn.execute(
+            "INSERT INTO brand_audit(brand_id,action,actor,detail) VALUES (?,'add',?,?)",
+            (bid, actor, f"Added '{brand_name}'{f' ({package})' if package else ''} to "
+             f"{cat['name']}. Source: {source}."))
+        conn.commit()
+        return {"ok": True, "brand_id": bid, "brand_name": brand_name}
+    finally:
+        conn.close()
+
+
+def update_brand(brand_id: int, category_key: str | None = None, brand_name: str | None = None,
+                 package: str | None = None, location: str | None = None,
+                 source: str | None = None, source_url: str | None = None,
+                 last_verified: str | None = None, classification_note: str | None = None,
+                 notes: str | None = None, verification_status: str | None = None,
+                 actor: str = "admin") -> dict:
+    """Edit an existing brand's fields and/or its verification status. Every field is optional —
+    only the ones passed are changed — but the row that results must still satisfy the same
+    required-fields and no-duplicate rules as add_brand()."""
+    try:
+        bid = int(brand_id)
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "brand_id must be an integer."}
+
+    conn = _connect()
+    try:
+        if not _has_table(conn, "rice_brand"):
+            return {"ok": False, "error": "Catalog schema not initialized."}
+        existing = conn.execute(
+            "SELECT b.*, c.canonical_key AS current_category_key, c.name AS current_category_name "
+            "FROM rice_brand b JOIN dti_category c ON c.id=b.category_id WHERE b.id=?",
+            (bid,)).fetchone()
+        if not existing:
+            return {"ok": False, "error": f"Brand #{bid} not found."}
+        existing = dict(existing)
+
+        cat = existing["category_id"]
+        cat_name = existing["current_category_name"]
+        if category_key and category_key != existing["current_category_key"]:
+            new_cat = _resolve_category(conn, category_key)
+            if not new_cat:
+                return {"ok": False, "error": f"Unknown category '{category_key}'."}
+            cat, cat_name = new_cat["id"], new_cat["name"]
+
+        new_name = (brand_name if brand_name is not None else existing["brand_name"]).strip()
+        new_package = package if package is not None else existing["package"]
+        new_source = (source if source is not None else existing["source"] or "").strip()
+        if not new_name:
+            return {"ok": False, "error": "Brand name is required."}
+        if not new_source:
+            return {"ok": False, "error": "A source is required — where did this entry come from?"}
+
+        dup = _duplicate_brand(conn, cat, new_name, new_package, exclude_id=bid)
+        if dup:
+            status = "an existing" if dup["active"] else "a deactivated"
+            return {"ok": False, "error": f"{status} brand already has this exact "
+                    f"(category, name, package) — pick a different name/package.",
+                    "duplicate_brand_id": dup["id"]}
+
+        new_status = existing["verification_status"]
+        new_verified_by = existing["verified_by"]
+        new_verified_at = existing["verified_at"]
+        if verification_status and verification_status != existing["verification_status"]:
+            if verification_status not in VERIFICATION_STATUSES:
+                return {"ok": False, "error": f"verification_status must be one of {VERIFICATION_STATUSES}."}
+            new_status = verification_status
+            new_verified_by = actor if verification_status != "unverified" else None
+            new_verified_at = (_dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                               if verification_status != "unverified" else None)
+
+        conn.execute(
+            "UPDATE rice_brand SET category_id=?, brand_name=?, package=?, location=?, source=?, "
+            "source_url=?, last_verified=?, classification_note=?, notes=?, verification_status=?, "
+            "verified_by=?, verified_at=? WHERE id=?",
+            (cat, new_name, new_package,
+             location if location is not None else existing["location"],
+             new_source,
+             source_url if source_url is not None else existing["source_url"],
+             last_verified if last_verified is not None else existing["last_verified"],
+             classification_note if classification_note is not None else existing["classification_note"],
+             notes if notes is not None else existing["notes"],
+             new_status, new_verified_by, new_verified_at, bid))
+
+        changes = []
+        if new_name != existing["brand_name"]:
+            changes.append(f"name '{existing['brand_name']}'->'{new_name}'")
+        if cat != existing["category_id"]:
+            changes.append(f"category '{existing['current_category_name']}'->'{cat_name}'")
+        if new_status != existing["verification_status"]:
+            changes.append(f"verification '{existing['verification_status']}'->'{new_status}'")
+        if new_source != (existing["source"] or ""):
+            changes.append("source updated")
+        detail = ("Updated " + ", ".join(changes)) if changes else "Updated (no field changes detected)"
+        conn.execute(
+            "INSERT INTO brand_audit(brand_id,action,actor,detail) VALUES (?,'update',?,?)",
+            (bid, actor, detail))
+        conn.commit()
+        return {"ok": True, "brand_id": bid, "brand_name": new_name}
+    finally:
+        conn.close()
+
+
+def deactivate_brand(brand_id: int, active: bool = False, actor: str = "admin") -> dict:
+    """Soft-delete (active=False, the default) or restore (active=True) a brand. History —
+    weights, audit rows — is kept either way; a deactivated brand just stops showing up in the
+    public catalog and in brand-prices."""
+    try:
+        bid = int(brand_id)
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "brand_id must be an integer."}
+    active_int = 1 if active else 0
+
+    conn = _connect()
+    try:
+        if not _has_table(conn, "rice_brand"):
+            return {"ok": False, "error": "Catalog schema not initialized."}
+        row = conn.execute(
+            "SELECT id,brand_name,active FROM rice_brand WHERE id=?", (bid,)).fetchone()
+        if not row:
+            return {"ok": False, "error": f"Brand #{bid} not found."}
+        if int(row["active"]) == active_int:
+            return {"ok": True, "brand_id": bid, "active": bool(active_int), "unchanged": True}
+
+        conn.execute("UPDATE rice_brand SET active=? WHERE id=?", (active_int, bid))
+        action = "reactivate" if active_int else "deactivate"
+        conn.execute(
+            "INSERT INTO brand_audit(brand_id,action,actor,detail) VALUES (?,?,?,?)",
+            (bid, action, actor, f"{action.capitalize()}d '{row['brand_name']}'."))
+        conn.commit()
+        return {"ok": True, "brand_id": bid, "brand_name": row["brand_name"], "active": bool(active_int)}
+    finally:
+        conn.close()
+
+
+def list_brand_audit(brand_id: int | None = None, limit: int = 100) -> dict:
+    conn = _connect()
+    try:
+        if not _has_table(conn, "brand_audit"):
+            return {"ready": False, "audit": []}
+        if brand_id is not None:
+            rows = [dict(r) for r in conn.execute(
+                "SELECT id,brand_id,action,actor,detail,created_at FROM brand_audit "
+                "WHERE brand_id=? ORDER BY id DESC LIMIT ?", (int(brand_id), int(limit)))]
+        else:
+            rows = [dict(r) for r in conn.execute(
+                "SELECT id,brand_id,action,actor,detail,created_at FROM brand_audit "
+                "ORDER BY id DESC LIMIT ?", (int(limit),))]
+        return {"ready": True, "audit": rows}
     finally:
         conn.close()

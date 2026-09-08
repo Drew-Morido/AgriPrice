@@ -332,7 +332,23 @@ AgriPricePH.PublicData = (function () {
     return { labels, series };
   }
 
+  // Which chart lines are hidden. The Price History page seeds this so only the variety chosen in
+  // the page's own selector is drawn — eight overlapping lines by default is unreadable on a phone
+  // and buries whichever variety the reader actually came for. Others stay one tap away.
   const histLegendHidden = {};
+
+  function setHistoryFocus(key) {
+    if (!RICE.some((r) => r.key === key)) return;
+    RICE.forEach((r) => { histLegendHidden[r.key] = r.key !== key; });
+    if (charts.historical) {
+      RICE.forEach((r) => {
+        const idx = datasetIndexForRiceKey(charts.historical, r.key);
+        if (idx >= 0) charts.historical.setDatasetVisibility(idx, r.key === key);
+      });
+      syncHistoricalLegendUi();
+      charts.historical.update();
+    }
+  }
 
   const historicalCrosshairPlugin = {
     id: 'historicalCrosshair',
@@ -1085,12 +1101,12 @@ AgriPricePH.PublicData = (function () {
     }
   }
 
+  // The Price History page now owns its own chart (public/js/public-history.js): it draws one
+  // variety chosen from a dropdown, with gaps left as gaps, instead of eight toggleable lines.
+  // Nothing is left for this module to initialise there — but the export stays so the page's
+  // unlock callback keeps working, and so the Charts & Stats page is untouched.
   async function initHistoricalPage() {
-    bindPeriodTabs();
-    bindHistoricalLegendGrid();
     await ensureHistorical();
-    renderHistoricalChart(getPeriod());
-    if ($('#stat-avg')) renderStatsCharts();
   }
 
   async function initStatisticsPage() {
@@ -1106,5 +1122,6 @@ AgriPricePH.PublicData = (function () {
     loadPredictions,
     initHistoricalPage,
     initStatisticsPage,
+    setHistoryFocus,
   };
 })();

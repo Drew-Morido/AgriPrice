@@ -169,7 +169,8 @@ def seed(conn: sqlite3.Connection) -> dict:
             continue
         cur.execute(
             "INSERT INTO rice_brand(category_id,brand_name,package,location,source,source_url,"
-            "last_verified,classification_note,is_verified) VALUES (?,?,?,?,?,?,?,?,1)",
+            "last_verified,classification_note,verification_status,verified_by,verified_at) "
+            "VALUES (?,?,?,?,?,?,?,?,'field_verified','seed',datetime('now'))",
             (cat_id, brand, pkg, loc, src, url, verified_date, note))
         added["brands"] += 1
 

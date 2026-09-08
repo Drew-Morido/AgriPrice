@@ -13,6 +13,7 @@ AgriPricePH.Router = (function () {
     'correlation':  { title: 'Market Drivers',           module: 'Correlation' },
     'reports':      { title: 'Reports & Export',         module: 'Reports' },
     'taxes':        { title: 'Taxes & Import Charges',     module: 'Taxes' },
+    'rice-brands':  { title: 'Rice Brands',               module: 'RiceBrands' },
     'alerts':       { title: 'Price Alerts',             module: 'Alerts' },
     'settings':     { title: 'System Settings',          module: 'Settings' },
     'logs':         { title: 'System Logs',              module: 'SystemLogs' },
@@ -97,14 +98,21 @@ AgriPricePH.Router = (function () {
     const mod = AgriPricePH[route.module];
     const navCtx = AgriPricePH.Navigation?.consumeContext?.(routeKey);
     if (mod && typeof mod.init === 'function') {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          mod.init();
-          if (navCtx && typeof mod.applySearchContext === 'function') {
-            requestAnimationFrame(() => mod.applySearchContext(navCtx));
-          }
-        });
-      });
+      // Let the injected DOM settle before init (two frames), but NEVER depend on rAF alone:
+      // rAF callbacks don't fire while the tab is hidden/background, which previously left the
+      // page mounted but never initialised — showing only the static placeholder markup.
+      // Whichever of rAF / timeout wins first runs init exactly once.
+      let started = false;
+      const runInit = () => {
+        if (started) return;
+        started = true;
+        mod.init();
+        if (navCtx && typeof mod.applySearchContext === 'function') {
+          mod.applySearchContext(navCtx);
+        }
+      };
+      requestAnimationFrame(() => requestAnimationFrame(runInit));
+      setTimeout(runInit, 120);
     } else if (navCtx && mod?.applySearchContext) {
       mod.applySearchContext(navCtx);
     }

@@ -45,11 +45,12 @@ AgriPricePH.PublicAuthModal = (function () {
     <p><strong>AgriPricePH is an academic capstone demonstration</strong>, provided for educational
     and evaluation purposes only. By creating an account you acknowledge the following.</p>
     <ol style="padding-left:18px;display:grid;gap:8px;">
-      <li><strong>Demo accounts are local.</strong> Your public account (name, email, password) is
-      stored only in <em>this browser</em> via localStorage. It is not uploaded to a server, and it is
-      not shared. Clearing your browser data removes it.</li>
-      <li><strong>No personal data collection.</strong> The system does not transmit or store your
-      personal information on a backend. Admin-side security logs may record admin sign-in events only.</li>
+      <li><strong>Account storage.</strong> Your name, email, and a securely hashed password (never
+      the password itself) are stored on the AgriPricePH server for this demo/capstone deployment. It
+      is not shared with any third party.</li>
+      <li><strong>Limited personal data.</strong> Only what's needed to sign you in and, if requested,
+      email you a password-reset code is stored. Admin-side security logs may separately record admin
+      sign-in events.</li>
       <li><strong>Data sources.</strong> Prices and indicators are compiled from public sources
       (Department of Agriculture, PSA, UN-FAO, and public fuel/exchange references). Figures are for
       guidance and may be delayed, estimated, or incomplete.</li>
@@ -204,7 +205,7 @@ AgriPricePH.PublicAuthModal = (function () {
               </div>
               <label style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--text-secondary,#365846);margin:4px 0 12px;cursor:pointer;">
                 <input type="checkbox" id="public-modal-signup-terms" style="margin-top:2px;" />
-                <span>I agree to the <button type="button" id="signup-terms-link" style="background:none;border:none;padding:0;font:inherit;color:var(--accent,#2d6a4f);font-weight:700;text-decoration:underline;cursor:pointer;">Terms &amp; Conditions</button> and Privacy notice for this demo (accounts are stored on this device only).</span>
+                <span>I agree to the <button type="button" id="signup-terms-link" style="background:none;border:none;padding:0;font:inherit;color:var(--accent,#2d6a4f);font-weight:700;text-decoration:underline;cursor:pointer;">Terms &amp; Conditions</button> and Privacy notice for this demo (your password is hashed and never stored in plain text).</span>
               </label>
               <button type="submit" class="btn btn-primary btn-lg" style="width:100%">Create account</button>
             </form>
@@ -478,7 +479,7 @@ AgriPricePH.PublicAuthModal = (function () {
     }
 
     if (id.includes('@')) {
-      const userResult = Auth().login({ email: id, password });
+      const userResult = await Auth().login({ email: id, password });
       if (userResult.ok) {
         hideAuth();
         Alert()?.success?.('Welcome back! You are now logged in.', {
@@ -501,7 +502,7 @@ AgriPricePH.PublicAuthModal = (function () {
     }
   }
 
-  function handleUserSignup(e) {
+  async function handleUserSignup(e) {
     e.preventDefault();
     const name = document.getElementById('public-modal-signup-name')?.value?.trim();
     const email = document.getElementById('public-modal-signup-email')?.value?.trim();
@@ -516,7 +517,7 @@ AgriPricePH.PublicAuthModal = (function () {
     if (password !== confirm) { Alert()?.invalid?.('Passwords do not match.'); return; }
     if (!terms) { Alert()?.invalid?.('Please accept the Terms & Conditions to continue.'); return; }
 
-    const result = Auth().signup({ name, email, password });
+    const result = await Auth().signup({ name, email, password });
     if (!result.ok) {
       Alert()?.authFailure?.(result.message);
       return;
@@ -603,14 +604,20 @@ AgriPricePH.PublicAuthModal = (function () {
         window.location.href = 'signup.html';
         return;
       }
+      // Marketing CTAs elsewhere on the page (landpage hero, the mid-page "Create
+      // free account" button, the footer's Log in / Sign up free links) carry the
+      // same [data-auth-open] attribute the old modal used — send them to the real
+      // pages too, same as the topbar nav above, instead of the retired modal.
       const trigger = e.target.closest('[data-auth-open]');
       if (trigger) {
         e.preventDefault();
         const mode = trigger.dataset.authOpen === 'signup' ? 'signup' : 'login';
-        showAuth({
-          mode,
-          next: trigger.dataset.authNext || undefined,
-        });
+        const next = trigger.dataset.authNext;
+        if (mode === 'signup') {
+          window.location.href = 'signup.html';
+        } else {
+          window.location.href = next ? `login.html?next=${encodeURIComponent(next)}` : 'login.html';
+        }
       }
     });
   }

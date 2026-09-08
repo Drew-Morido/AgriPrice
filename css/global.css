@@ -588,6 +588,21 @@ html.theme-dark .pill-neutral { color: #9fb0bd; }
   background: var(--bg-card);
 }
 
+/* Browser autofill (saved logins/addresses) paints its own background straight
+   into the input — regular `background` can't touch it — clashing with the
+   site's --bg-input tone (shows as a mismatched pale blue/yellow fill). The
+   inset box-shadow trick is the only way to override it; the long transition
+   delay stops the browser's own fade-in flash from sneaking through first. */
+.form-input:-webkit-autofill,
+.form-input:-webkit-autofill:hover,
+.form-input:-webkit-autofill:focus,
+.form-input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--text-primary);
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-input) inset;
+  box-shadow: 0 0 0 1000px var(--bg-input) inset;
+  transition: background-color 5000s ease-in-out 0s, color 5000s ease-in-out 0s;
+}
+
 .form-textarea { resize: vertical; min-height: 80px; }
 .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
 .form-group { margin-bottom: 16px; }
@@ -642,13 +657,67 @@ html.theme-dark .pill-neutral { color: #9fb0bd; }
   bottom: calc(100% + 6px); left: 50%;
   transform: translateX(-50%);
   background: var(--tooltip-bg); color: var(--tooltip-fg);
+  /* Reset explicitly: a trigger that's itself an icon-font glyph (e.g. Tabler's
+     .ti class) sets font-family on the element, and ::after inherits it — without
+     this the tooltip text renders as icon glyphs instead of readable words. */
+  font-family: var(--font-sans); font-weight: 400; font-style: normal;
   font-size: 11px; white-space: nowrap;
   padding: 4px 8px; border-radius: 4px;
   opacity: 0; pointer-events: none;
   transition: opacity var(--transition-fast);
   z-index: 200;
 }
-[data-tooltip]:hover::after { opacity: 1; }
+[data-tooltip]:hover::after, [data-tooltip]:focus-visible::after { opacity: 1; }
+
+/* Wide variant: multi-line explanatory tooltips (e.g. stat-card info icons).
+   Opens BELOW the trigger, not above — these icons sit near the top of short
+   cards, and an upward popover tall enough for a full sentence would cover the
+   card's own headline value instead of just overlaying empty page space.
+   `pre-line` is what makes these readable: the data-tooltip string can use real
+   line breaks to separate "what it means" / "what the arrow means" / "where the
+   number came from" into short paragraphs instead of one dense wall of text. */
+[data-tooltip].tooltip-wide::after {
+  bottom: auto; top: calc(100% + 6px);
+  white-space: pre-line;
+  width: max-content;
+  max-width: min(260px, 72vw);
+  text-align: left;
+  line-height: 1.55;
+  padding: 10px 12px;
+  font-size: 11.5px;
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+}
+/* Bias the popover so it doesn't clip past the edge of the first/last card in a row */
+[data-tooltip].tooltip-left::after  { left: 0; transform: translateX(0); }
+[data-tooltip].tooltip-right::after { left: auto; right: 0; transform: translateX(0); }
+
+/* Small "i" info affordance next to shortened stat-card labels */
+.stat-info-icon {
+  display: inline-block;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: help;
+  vertical-align: -2px;
+  margin-left: 3px;
+  transition: color var(--transition-fast);
+}
+.stat-info-icon:hover, .stat-info-icon:focus-visible { color: var(--color-accent); }
+
+/* Inside a stat card the popover is anchored to the CARD, not to the tiny icon:
+   `position: static` on the trigger makes its ::after resolve against the card
+   (which is `position: relative`), so the popover spans the card's own width and
+   drops straight below it. A popover centred on the icon instead runs off-screen
+   on the last card of the row and gets clipped mid-sentence. */
+.stat-card { position: relative; }
+.stat-card:hover, .stat-card:focus-within { z-index: 3; }
+.stat-card .stat-info-icon { position: static; }
+.stat-card .stat-info-icon[data-tooltip]::after {
+  top: calc(100% + 8px); bottom: auto;
+  left: 0; right: 0;
+  transform: none;
+  width: auto; max-width: none;
+}
 
 /* ── Divider ── */
 .divider { height: 1px; background: var(--border-color); margin: 16px 0; }

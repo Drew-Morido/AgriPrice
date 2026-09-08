@@ -1,4 +1,4 @@
-/* AgriPricePH — Predictions (2-day LSTM forecast from API) */
+/* AgriPricePH — Predictions (3-day LSTM forecast from API) */
 window.AgriPricePH = window.AgriPricePH || {};
 
 AgriPricePH.Predictions = (function () {
@@ -79,19 +79,47 @@ AgriPricePH.Predictions = (function () {
   }
 
   /** Hold-out test accuracy % — same source as dashboard (training history / meta). */
+  /**
+   * Accuracy for a rice type on a specific forecast day.
+   *
+   * This used to ignore `forecastRow.day` entirely and return the pooled `accuracy_pct`, so
+   * "Accuracy by Day" showed the *same* number for Day 1, Day 2 and Day 3 — a card whose whole
+   * purpose is to vary by day. The figure was real (measured on hold-out data) but it was one
+   * figure averaged over the whole horizon, and day 3 is measurably harder than day 1.
+   *
+   * It now prefers the per-day hit rate — the share of that day's forecasts that landed within
+   * ₱1.00 of the real price — falling back to the legacy per-horizon accuracy, then the pooled
+   * figure, for models trained before meta v4.
+   */
   function trainAccuracyPct(riceKey, forecastRow) {
-    const acc = _metricsByTarget?.[riceKey]?.accuracy_pct;
-    if (acc != null) return Number(acc);
+    const t = _metricsByTarget?.[riceKey];
+    const dayIdx = forecastRow?.day != null ? Number(forecastRow.day) - 1 : null;
+    if (t && dayIdx != null && dayIdx >= 0) {
+      const hit = t.hit_rate_1p_pct;
+      if (Array.isArray(hit) && hit[dayIdx] != null) return Number(hit[dayIdx]);
+      const perDay = t.per_horizon_accuracy_pct;
+      if (Array.isArray(perDay) && perDay[dayIdx] != null) return Number(perDay[dayIdx]);
+    }
+    if (t?.accuracy_pct != null) return Number(t.accuracy_pct);
     const avg = _dashMetrics?.metrics?.avg_accuracy_pct ?? _forecast?.metrics?.avg_accuracy_pct;
     if (avg != null && riceKey === LSTM_TARGET_KEY) return Number(avg);
     if (forecastRow?.confidence != null) return Number(forecastRow.confidence) * 100;
     return null;
   }
 
-  function accuracyBarColor(pct) {
+  /** True when the figures shown are hit rates rather than the legacy accuracy formula. */
+  function usingHitRate(riceKey) {
+    return Array.isArray(_metricsByTarget?.[riceKey]?.hit_rate_1p_pct);
+  }
+
+  // Thresholds are for the ₱1.00 hit rate (typically 80–96%). The legacy accuracy formula sits at
+  // 98–99% for any model, so its scale needs its own band or everything reads green.
+  function accuracyBarColor(pct, isHit = true) {
     if (pct == null || Number.isNaN(pct)) return '#94a3b8';
-    if (pct >= 95) return '#4CAF6E';
-    if (pct >= 85) return '#F59E0B';
+    const good = isHit ? 90 : 95;
+    const ok = isHit ? 80 : 85;
+    if (pct >= good) return '#4CAF6E';
+    if (pct >= ok) return '#F59E0B';
     return '#EF4444';
   }
 
@@ -150,11 +178,21 @@ AgriPricePH.Predictions = (function () {
     if (valAt(2) && m.rmse_peso != null) {
       valAt(2).textContent = `₱${Number(m.rmse_peso).toFixed(2)}`;
     }
-    const acc = m.avg_accuracy_pct ?? m.accuracy_pct;
-    if (acc != null && valAt(0)) {
-      if (labelAt(0)) labelAt(0).textContent = 'Avg hold-out accuracy';
-      valAt(0).textContent = `${Number(acc).toFixed(1)}%`;
-      valAt(0).style.color = acc >= 95 ? '#4CAF6E' : acc >= 85 ? '#F59E0B' : 'var(--text-primary)';
+    // Headline is the day-1 hit rate within ₱1.00, matching the dashboard card and the per-day
+    // figures below. The legacy `accuracy_pct` (100 − MAE/mean_price) is only a fallback for
+    // models trained before meta v4: it returns 98–99% for any model and rates the naive
+    // "tomorrow = today" baseline above the LSTM on all 8 rice types.
+    const hit1 = (dm?.metrics?.hit_rate_pct ?? m.hit_rate_pct)?.['1.00']?.[0];
+    const legacyAcc = m.avg_accuracy_pct ?? m.accuracy_pct;
+    const shown = hit1 ?? legacyAcc;
+    if (shown != null && valAt(0)) {
+      if (labelAt(0)) {
+        labelAt(0).textContent = hit1 != null
+          ? 'Forecasts within ₱1.00'
+          : 'Avg hold-out accuracy (legacy)';
+      }
+      valAt(0).textContent = `${Number(shown).toFixed(1)}%`;
+      valAt(0).style.color = accuracyBarColor(shown, hit1 != null);
     }
     if (dm?.model?.last_trained && valAt(3)) {
       const d = new Date(dm.model.last_trained);
@@ -296,26 +334,42 @@ AgriPricePH.Predictions = (function () {
     const slide = document.querySelector('#pred-slider-card .pred-slide[data-slide="0"] .card-body');
     if (!slide || !day1) return;
     const accPct = trainAccuracyPct(riceKey, day1);
+    const isHit = usingHitRate(riceKey);
+    const accColor = accuracyBarColor(accPct, isHit);
     const pct = lastPrice ? ((day1.change / lastPrice) * 100) : 0;
     const sign = day1.change >= 0 ? '+' : '';
     const color = day1.change >= 0 ? 'var(--color-danger)' : 'var(--color-accent)';
+    const hasBand = day1.low != null && day1.high != null;
+    // Headline is the range. A 36px "₱52.80" claims a precision the model cannot support; the
+    // central estimate drops to a sub-line so the change figure below still has a visible basis.
+    const headline = hasBand
+      ? `₱${Number(day1.low).toFixed(2)} – ₱${Number(day1.high).toFixed(2)}`
+      : `₱${Number(day1.price).toFixed(2)}`;
+    const headlineSize = hasBand ? 24 : 36;
+    const accLabel = isHit ? 'Forecasts within ₱1.00 (day 1)' : 'Hold-out accuracy (same as dashboard)';
+    const barPct = accPct != null
+      ? Math.min(100, accPct).toFixed(0)
+      : ((day1.confidence || 0) * 100).toFixed(0);
     slide.innerHTML = `
       <div style="font-size:11px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">
-        ${label} · ${day1.date}
+        ${escapeAttr(label)} · ${escapeAttr(day1.date || '')}
       </div>
-      <div style="font-size:36px;font-weight:700;font-family:var(--font-mono);color:var(--text-primary);letter-spacing:-1px;">
-        ₱${day1.price.toFixed(2)}
+      <div style="font-size:${headlineSize}px;font-weight:700;font-family:var(--font-mono);color:var(--text-primary);letter-spacing:-1px;white-space:nowrap;">
+        ${headline}
       </div>
+      ${hasBand ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+        ${day1.interval_pct || 90}% range · central estimate ₱${Number(day1.price).toFixed(2)}
+      </div>` : ''}
       <div style="font-size:13px;font-weight:600;color:${color};margin-top:6px;">
         ${day1.change >= 0 ? '▲' : '▼'} ${sign}₱${Math.abs(day1.change).toFixed(2)} (${sign}${pct.toFixed(2)}%)
       </div>
       <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border-color);">
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">Hold-out accuracy (same as dashboard)</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">${accLabel}</div>
         <div style="background:var(--bg-input);border-radius:99px;height:8px;overflow:hidden;">
-          <div style="width:${accPct != null ? Math.min(100, accPct).toFixed(0) : (day1.confidence * 100).toFixed(0)}%;height:100%;background:${accuracyBarColor(accPct)};border-radius:99px;"></div>
+          <div style="width:${barPct}%;height:100%;background:${accColor};border-radius:99px;"></div>
         </div>
-        <div style="font-size:13px;font-weight:700;font-family:var(--font-mono);color:${accuracyBarColor(accPct)};margin-top:6px;">
-          ${accPct != null ? accPct.toFixed(1) : (day1.confidence * 100).toFixed(0)}%
+        <div style="font-size:13px;font-weight:700;font-family:var(--font-mono);color:${accColor};margin-top:6px;">
+          ${accPct != null ? accPct.toFixed(1) : barPct}%
         </div>
       </div>`;
   }
@@ -324,39 +378,45 @@ AgriPricePH.Predictions = (function () {
     const container = document.getElementById('hero-prices');
     if (!container || !data.current_prices) return;
     const keys = type === 'local' ? LOCAL_KEYS : IMPORT_KEYS;
+    // Always emit one card per rice type. Returning '' for a missing price left a hole in the
+    // 4-column grid, so the remaining cards reflowed and the banner lost its alignment — the
+    // "uniform cards" problem. A type with no price now shows "—" and keeps its slot.
     container.innerHTML = keys.map(key => {
       let price = data.current_prices[key];
-      if (price == null || Number(price) <= 0) {
-        price = getLastPrice(key);
-      }
-      if (price == null || Number(price) <= 0) return '';
+      if (price == null || Number(price) <= 0) price = getLastPrice(key);
+      const known = price != null && Number(price) > 0;
       const label = RICE_LABELS[key] || key;
       return `
         <div class="hero-price-item">
-          <div class="hero-price-rice">${label}</div>
-          <div class="hero-price-val">₱${Number(price).toFixed(2)}</div>
-          <div class="hero-price-change">Live DB price</div>
+          <div class="hero-price-rice">${escapeAttr(label)}</div>
+          <div class="hero-price-val">${known ? `₱${Number(price).toFixed(2)}` : '—'}</div>
+          <div class="hero-price-change">${known ? 'Live DB price' : 'No price recorded'}</div>
         </div>`;
     }).join('');
   }
 
+  /**
+   * Offline fallback for the hero prices — sample figures from js/data.js.
+   *
+   * The API-backed cards (renderHeroFromApi) are footed "Live DB price". These were footed with a
+   * change and percentage taken straight from the demo data, so a reader could not tell the two
+   * apart and would read hardcoded placeholders as today's market. They are now labelled, and the
+   * invented change/percentage is dropped — a made-up price is bad enough without a made-up trend.
+   */
   function renderHeroPrices(type) {
     const container = document.getElementById('hero-prices');
     if (!container) return;
-    const data = AgriPricePH.Data.currentPrices;
+    const data = AgriPricePH.Data.currentPrices || {};
     const prefix = type === 'local' ? 'Local' : 'Imported';
     const types = ['Well-Milled', 'Regular', 'Premium', 'Special'];
     container.innerHTML = types.map(t => {
       const name = `${prefix} ${t}`;
-      const d = data[name] || { price: 0, change: 0, pct: 0 };
-      const isNeg = d.change < 0;
-      const arrow = d.change > 0 ? '▲' : d.change < 0 ? '▼' : '→';
-      const sign  = d.change > 0 ? '+' : '';
+      const d = data[name] || { price: 0 };
       return `
         <div class="hero-price-item">
           <div class="hero-price-rice">${name}</div>
-          <div class="hero-price-val">₱${d.price.toFixed(2)}</div>
-          <div class="hero-price-change${isNeg ? ' neg' : ''}">${arrow} ${sign}₱${Math.abs(d.change).toFixed(2)} (${sign}${d.pct.toFixed(2)}%)</div>
+          <div class="hero-price-val">₱${Number(d.price || 0).toFixed(2)}</div>
+          <div class="hero-price-change" title="The API is unreachable, so these are placeholder figures from the bundled sample data — not today's prices.">Sample data — API offline</div>
         </div>`;
     }).join('');
   }
@@ -368,9 +428,23 @@ AgriPricePH.Predictions = (function () {
     const histLabels = hist.labels || [];
     const pred = (forecast || []).map(f => f.price);
     const predLabels = (forecast || []).map(f => f.date);
+
+    // The Forecast series used to be [...histVals, ...pred] — i.e. it duplicated the ENTIRE
+    // historical series before appending the forecast. Hovering any historical point therefore
+    // listed "Historical" and "Forecast" with the same number, because for that region they were
+    // literally the same array. The forecast now exists only where a forecast exists: nulls over
+    // the historical span, anchored at the last observed price so the dashed line still joins the
+    // solid one, then the predicted days.
+    const anchorIdx = histVals.length - 1;
+    const forecastSeries = histVals.map((v, i) => (i === anchorIdx ? v : null)).concat(pred);
+    // Historical is padded on the right so both series span the same index range and the tooltip's
+    // per-index lookup stays aligned with the labels.
+    const historicalSeries = histVals.concat(pred.map(() => null));
+
     AgriPricePH.Charts.lineChart(canvas, [
-      { data: [...histVals, ...pred], color: '#8B5CF6', fill: false, lineWidth: 1.5, dashed: true, label: 'Forecast' },
-      { data: histVals, color: '#4CAF6E', fill: true, lineWidth: 2.5, label: 'Historical' },
+      // Labels match the legend swatches above the chart.
+      { data: forecastSeries, color: '#8B5CF6', fill: false, lineWidth: 1.5, dashed: true, label: 'Predicted' },
+      { data: historicalSeries, color: '#4CAF6E', fill: true, lineWidth: 2.5, label: 'Historical' },
     ], { labels: [...histLabels, ...predLabels], padding: { top: 20, right: 20, bottom: 36, left: 54 } });
   }
 
@@ -385,19 +459,94 @@ AgriPricePH.Predictions = (function () {
       const arrow = delta > 0 ? '▲' : delta < 0 ? '▼' : '—';
       const sign = delta > 0 ? '+' : '';
       const acc = trainAccuracyPct(riceKey, f);
+      const isHit = usingHitRate(riceKey);
       const accStr = acc != null ? `${acc.toFixed(1)}%` : '—';
-      const accTitle = acc != null
-        ? 'Hold-out test accuracy (2024–2025) — matches dashboard'
-        : 'Accuracy unavailable — retrain model';
+      const accTitle = acc == null
+        ? 'Accuracy unavailable — retrain model'
+        : isHit
+          ? `${accStr} of day-${f.day} forecasts landed within ₱1.00 of the real price`
+          : 'Hold-out test accuracy (legacy formula)';
       return `
         <div class="forecast-row">
           <span class="forecast-date">Day ${f.day} · ${f.date}</span>
           <canvas class="forecast-chart-cell" id="mini-chart-${i}" style="width:100%;height:28px;"></canvas>
-          <span class="forecast-price">₱${f.price.toFixed(2)}</span>
+          <span class="forecast-price">${priceRangeHtml(f)}</span>
           <span class="forecast-change ${dir}">${arrow} ${sign}${delta.toFixed(2)}</span>
-          <span class="forecast-conf" title="${accTitle}" style="color:${accuracyBarColor(acc)}">${accStr}</span>
+          <span class="forecast-conf" title="${escapeAttr(accTitle)}" style="color:${accuracyBarColor(acc, isHit)}">${accStr}</span>
         </div>`;
     }).join('');
+    drawTrendCells(forecast, riceKey);
+  }
+
+  /**
+   * The Trend column's mini sparklines.
+   *
+   * The <canvas> elements were created by renderForecastTable but nothing ever drew into them, so
+   * the column had been rendering blank since it was added — there were no values to be accurate
+   * or inaccurate. Each row now shows the recent observed prices followed by the forecast path up
+   * to and including that row's day, so Day 1 / 2 / 3 are visibly different lines.
+   */
+  function drawTrendCells(forecast, riceKey) {
+    if (!AgriPricePH.Charts?.sparkline) return;
+    const hist = getHistoricalSlice(riceKey);
+    const tail = (hist.values || []).filter(v => Number.isFinite(v) && v > 0).slice(-10);
+    (forecast || []).forEach((f, i) => {
+      const el = document.getElementById(`mini-chart-${i}`);
+      if (!el) return;
+      const upTo = (forecast || []).slice(0, i + 1).map(d => Number(d.price)).filter(Number.isFinite);
+      const series = [...tail, ...upTo];
+      if (series.length < 2) return;
+      // Green when this day's forecast sits at or above the last observed price, red when below —
+      // the same up/down convention as the Change column beside it.
+      const rising = series[series.length - 1] >= (tail[tail.length - 1] ?? series[0]);
+      el.title = `Last ${tail.length} observed prices, then the forecast through day ${f.day}`;
+      drawWhenSized(el, () => {
+        AgriPricePH.Charts.sparkline(el, series, rising ? '#4CAF6E' : '#EF4444', true);
+      });
+    });
+  }
+
+  /**
+   * Run `draw` once the canvas actually has a width.
+   *
+   * Charts.setupDPI sizes the backing store from getBoundingClientRect(). This table is rendered
+   * while its view panel can still be laid out at zero width (the module paints during the router's
+   * page swap), and a canvas sized 0×0 silently draws nothing — which is why the Trend column
+   * appeared blank even though the sparkline call was being made. Retry across a few frames, then
+   * fall back to a ResizeObserver so the cells also repaint when the panel is revealed or the
+   * window is resized.
+   */
+  function drawWhenSized(el, draw, attempt = 0) {
+    if (el.getBoundingClientRect().width > 0) { draw(); return; }
+    if (attempt < 5) {
+      requestAnimationFrame(() => drawWhenSized(el, draw, attempt + 1));
+      return;
+    }
+    if (typeof ResizeObserver === 'undefined' || el._sizeObserver) return;
+    el._sizeObserver = new ResizeObserver(() => {
+      if (el.getBoundingClientRect().width > 0) {
+        el._sizeObserver.disconnect();
+        el._sizeObserver = null;
+        draw();
+      }
+    });
+    el._sizeObserver.observe(el);
+  }
+
+  /**
+   * A forecast price, shown as its calibrated range rather than a single figure.
+   *
+   * `low`/`high` come from conformal calibration in model/predict.py (90% coverage on held-out
+   * data). Only forecasts get a range — observed prices stay exact, so that a reader can always
+   * tell which numbers were measured and which were predicted.
+   */
+  function priceRangeHtml(f) {
+    const point = `₱${Number(f.price).toFixed(2)}`;
+    if (f?.low == null || f?.high == null) return point;
+    const pct = f.interval_pct || 90;
+    const title = `Central estimate ${point} · ${pct}% of past forecasts landed inside a band this wide`;
+    return `<span class="forecast-price-range" title="${escapeAttr(title)}">`
+      + `₱${Number(f.low).toFixed(2)} – ₱${Number(f.high).toFixed(2)}</span>`;
   }
 
   function renderSidebarBars(forecast, label) {
@@ -409,14 +558,21 @@ AgriPricePH.Predictions = (function () {
     const minP = Math.min(...prices);
     container.innerHTML = forecast.map(f => {
       const pct = ((f.price - minP) / ((maxP - minP) || 1)) * 55 + 35;
+      const hasBand = f.low != null && f.high != null;
+      const val = hasBand
+        ? `₱${Number(f.low).toFixed(2)} – ₱${Number(f.high).toFixed(2)}`
+        : `₱${Number(f.price).toFixed(2)}`;
+      const title = hasBand
+        ? `Central estimate ₱${Number(f.price).toFixed(2)} · ${f.interval_pct || 90}% range`
+        : '';
+      // Value sits beside the bar: a range would be clipped by .pred-bar's overflow on a short bar.
       return `
         <div class="pred-day">
           <span class="pred-day-label">Day ${f.day}</span>
           <div class="pred-bar-wrap">
-            <div class="pred-bar" style="width:${pct}%">
-              <span class="pred-bar-val">₱${f.price.toFixed(2)}</span>
-            </div>
+            <div class="pred-bar" style="width:${pct}%"></div>
           </div>
+          <span class="pred-bar-out" title="${escapeAttr(title)}">${val}</span>
         </div>`;
     }).join('');
   }
@@ -424,13 +580,25 @@ AgriPricePH.Predictions = (function () {
   function renderConfBars(forecast, riceKey) {
     const container = document.getElementById('pred-conf-bars');
     if (!container) return;
+    const isHit = usingHitRate(riceKey);
+    const caption = document.getElementById('pred-conf-caption');
+    if (caption) {
+      caption.textContent = isHit
+        ? 'Share of forecasts within ₱1.00 of the real price, per forecast day'
+        : 'Hold-out test accuracy per forecast day';
+    }
     container.innerHTML = (forecast || []).map(f => {
       const acc = trainAccuracyPct(riceKey, f);
       const pctNum = acc != null ? acc : (f.confidence != null ? f.confidence * 100 : null);
       const pct = pctNum != null ? Math.min(100, pctNum).toFixed(0) : '—';
-      const color = accuracyBarColor(pctNum);
+      const color = accuracyBarColor(pctNum, isHit);
+      const title = pctNum == null
+        ? 'Not available — retrain the model'
+        : isHit
+          ? `${Number(pctNum).toFixed(1)}% of day-${f.day} forecasts landed within ₱1.00 of the real price, on hold-out test data`
+          : `Day ${f.day} hold-out accuracy (legacy formula)`;
       return `
-        <div class="pred-conf-row">
+        <div class="pred-conf-row" title="${escapeAttr(title)}">
           <span class="pred-conf-label">Day ${f.day}</span>
           <div class="pred-conf-track">
             <div class="pred-conf-fill" style="width:${pct}%;background:${color};"></div>
@@ -438,6 +606,11 @@ AgriPricePH.Predictions = (function () {
           <span class="pred-conf-pct" style="color:${color};">${pctNum != null ? `${Number(pctNum).toFixed(1)}%` : '—'}</span>
         </div>`;
     }).join('');
+  }
+
+  function escapeAttr(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
   function bindHeroToggle() {

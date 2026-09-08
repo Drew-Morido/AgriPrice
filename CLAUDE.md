@@ -102,15 +102,40 @@ forecast (48–72h). Raw `FEATURE_COLUMNS = fuel_ron95, fuel_diesel, stock, farm
 `add_engineered_features()` adds seasonal sin/cos, 7-day rolling diesel/exchange, and the target's
 lag-1/lag-7/rolling-7 — ~13 features total. A separate model is trained **per rice type** (8 total:
 `locWellMilled, locRegular, locPremium, locSpecial, imp*` — `TARGET_COLUMN` names the default type).
-Training uses a **chronological 70/15/15** split (`i_tr=0.70·n`, `i_va=0.85·n`, no shuffling), fits
-the `MinMaxScaler` on training rows only (leakage guard), and needs ≥50 train sequences or it errors
-out. **Anchored-delta mode is the default** (`AGRIPRICE_DELTA_MODE=1` in `train.py`): the net predicts
-the change from the last price and inference reconstructs the level — opting out silently retrains the
-worse level-mode model. `meta.json` (v3) records per-type MAE/RMSE/MAPE/R², persistence + ARIMA(1,1,1)
-baselines, rolling-origin, shock metrics, and the ADF p-value. TensorFlow LSTM is preferred; if
-unavailable, `train.py`/`predict.py` fall back to an sklearn `MLPRegressor` — `meta.json.backend`
-records which produced the current model. Honest result: LSTM ≈ persistence ≈ ARIMA at this horizon
-(ADF p≈0.07, near-random-walk); do not claim it beats the baseline.
+Training uses a **regime-aware chronological split** (`train.py::_split_indices`, no shuffling):
+validation and test are both drawn from the daily-observation era (`ACTIVE_FROM=2025-04-01`), while
+training keeps the full history. This replaced a plain 70/15/15, which put TRAIN at 81% / VAL at 88%
+/ TEST at 26% forward-filled "no price change" rows — so early stopping was selecting weights on an
+almost-static validation set while the model was scored on a period where prices move.
+`AGRIPRICE_LEGACY_SPLIT=1` reproduces the old behaviour.
+
+**The split fix is a measurement fix, not a performance fix — do not present it as one.** Replayed
+over the *same* test window, the pre-fix and post-fix models are indistinguishable (MAE 0.4090 vs
+0.4100; skill −0.35% vs −0.66%; movement 0.042 vs 0.044; skill improved for 1 of 8 types). That null
+result is itself the useful finding: the LSTM reproduces the naive forecast not because the flat
+training signal suppressed it, but because for a near-random-walk series the last observed value *is*
+the optimal predictor. When comparing runs, only compare on a fixed test window — a raw MAE
+difference between runs is dominated by how forward-filled each run's test period happened to be.
+Runs are **seeded** (`AGRIPRICE_SEED`, default 42) so reported metrics are reproducible. The
+`MinMaxScaler` is fit on training rows only (leakage guard), and ≥50 train sequences are required.
+**Anchored-delta mode is the default** (`AGRIPRICE_DELTA_MODE=1`): the net predicts the change from
+the last price and inference reconstructs the level — opting out silently retrains the worse
+level-mode model.
+
+`meta.json` (v4) records per-type MAE/RMSE/MAPE/R², persistence + ARIMA(1,1,1) baselines,
+rolling-origin, shock metrics, the ADF p-value, and the honest headline metrics:
+`hit_rate_pct` (% of forecasts within ₱0.50/1.00/1.50/2.00, per forecast day),
+`skill_vs_baseline_pct`, `directional_pct`, and `movement` (how far the model moves vs how far
+prices really move — the number that exposes a collapsed model). **Do not report `accuracy_pct`**:
+that legacy formula (`100 − MAE/mean_price`) returns 98–99% for any model and scores the naive
+baseline *above* the LSTM on all 8 rice types; it is kept only so pre-v4 runs still render.
+
+`predict.py` attaches a **conformal prediction interval** (`low`/`high`/`interval_pct`) to every
+forecast day, calibrated on the last 60 observations so it tracks the current regime — measured
+coverage 90.2–90.8% against a 90% target. TensorFlow LSTM is preferred; if unavailable,
+`train.py`/`predict.py` fall back to an sklearn `MLPRegressor` — `meta.json.backend` records which
+produced the current model. Honest result: LSTM ≈ persistence ≈ ARIMA at this horizon (ADF p ≈
+0.09–0.22 across all 8 types, near-random-walk; skill ≈ −1%); do not claim it beats the baseline.
 
 ### Backend — `api/app.py`
 
@@ -136,8 +161,11 @@ hashes the 6-digit security code server-side, and locks out after 5 failed attem
 - `js/` — shared across both sites: `api.js` (backend base URL/client), `data.js` (fallback
   mock data when the backend is unreachable), `charts.js`, `dates.js`.
 - `public/js/` — vendor/household-facing: `public-shell.js` (layout), `public-auth.js` /
-  `public-auth-modal.js` (login/signup — demo accounts live only in browser `localStorage`,
-  there's no real user DB), `public-data.js` / `public-forecast.js` (charts + forecast cards),
+  `public-auth-modal.js` (login/signup — accounts are server-side: `model/user_store.py`
+  (SQLite, `model/agriprice_users.db`, gitignored) + `model/user_auth.py` (werkzeug-hashed
+  passwords, email-based password reset via `model/mailer.py`/Gmail SMTP); pre-existing
+  browser-`localStorage` demo accounts migrate over automatically on next login from the same
+  browser — see `public-auth.js`'s `login()`), `public-data.js` / `public-forecast.js` (charts + forecast cards),
   `public-rice.js` (defines the 8 rice type keys used everywhere: `imp/loc` ×
   `Special/Premium/WellMilled/Regular`).
 - `admin/js/` — staff dashboard, built as a lightweight SPA: `router.js` loads HTML fragments

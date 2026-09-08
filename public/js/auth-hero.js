@@ -2,7 +2,7 @@
    sign-up strength meter, the background photo slideshow, the live stat
    row, and the real submit handlers for #form-login / #form-signup
    (including the admin username -> 6-digit PIN step, same as the shared
-   auth modal). */
+   auth modal, and the "Forgot password?" -> email code -> reset flow). */
 window.AgriPricePH = window.AgriPricePH || {};
 
 (function () {
@@ -46,27 +46,36 @@ window.AgriPricePH = window.AgriPricePH || {};
     });
   }
 
-  /* ---------------- "Forgot password?" — honest demo notice, no backend flow ---------------- */
-  function wireForgotPassword() {
-    const link = document.getElementById('ah-forgot-link');
-    if (!link) return;
-    link.addEventListener('click', (e) => {
-      e.preventDefault();
-      Alert()?.warning?.(
-        "Password reset isn't available in this demo — accounts are stored only in this browser. " +
-        'Try logging in with the password you set when you created the account.'
-      );
-    });
-  }
-
   /* ---------------- login form (email/password, or admin username -> PIN) ---------------- */
   let pendingAdmin = null;
 
+  const AH_PANEL_IDS = ['ah-login-panel', 'ah-pin-panel', 'ah-forgot-panel', 'ah-code-panel', 'ah-reset-panel'];
+
+  /* Fast, smooth step-to-step transition: fade+slide the current panel out,
+     swap `hidden`, fade+slide the new one in. Sequential (not a simultaneous
+     crossfade) since only one panel is ever visible at a time — that keeps it
+     simple with no absolute-positioning/layout-jump risk. ~130ms each way
+     reads as snappy, not sluggish, per "smooth fast transitioning". */
   function showPanel(id) {
-    ['ah-login-panel', 'ah-pin-panel'].forEach((pid) => {
-      const el = document.getElementById(pid);
-      if (el) el.hidden = pid !== id;
-    });
+    const panels = AH_PANEL_IDS.map((pid) => document.getElementById(pid)).filter(Boolean);
+    const current = panels.find((el) => !el.hidden);
+    const next = panels.find((el) => el.id === id);
+    if (!next || next === current) return;
+
+    if (!current) {
+      panels.forEach((el) => { el.hidden = el !== next; });
+      return;
+    }
+
+    current.classList.add('ah-panel-out');
+    window.setTimeout(() => {
+      panels.forEach((el) => { el.hidden = el !== next; });
+      current.classList.remove('ah-panel-out');
+      next.classList.add('ah-panel-in');
+      // Force the "entering" state to actually paint before removing it, so
+      // the browser has something to transition FROM.
+      requestAnimationFrame(() => requestAnimationFrame(() => next.classList.remove('ah-panel-in')));
+    }, 130);
   }
 
   function wireLoginForm() {
@@ -83,7 +92,7 @@ window.AgriPricePH = window.AgriPricePH || {};
       }
 
       if (id.includes('@')) {
-        const userResult = Auth().login({ email: id, password });
+        const userResult = await Auth().login({ email: id, password });
         if (userResult.ok) {
           Alert()?.success?.('Welcome back! You are now logged in.', {
             onConfirm: () => {
@@ -100,7 +109,7 @@ window.AgriPricePH = window.AgriPricePH || {};
       if (adminResult.ok) {
         pendingAdmin = { username: id, password };
         showPanel('ah-pin-panel');
-        document.getElementById('admin-pin')?.focus();
+        document.querySelector('.ah-pin-box')?.focus();
         return;
       }
 
@@ -112,18 +121,63 @@ window.AgriPricePH = window.AgriPricePH || {};
     });
   }
 
+  /* Six single-digit boxes acting as one PIN field: typing a digit advances
+     to the next box, Backspace on an empty box steps back, arrow keys move
+     between boxes, and pasting a full code (e.g. from a password manager or
+     an SMS prompt) fans it out across the remaining boxes. Scoped to a
+     container since the page can have more than one 6-box group (admin PIN,
+     password-reset code) — querying `.ah-pin-box` globally would merge them
+     into one array and break both. */
+  function wirePinBoxes(container) {
+    const boxes = $all('.ah-pin-box', container);
+    if (!boxes.length) return null;
+
+    function value() { return boxes.map((b) => b.value).join(''); }
+    function clear() { boxes.forEach((b) => { b.value = ''; }); }
+    function focusBox(i) { boxes[Math.max(0, Math.min(boxes.length - 1, i))]?.focus(); }
+    function firstEmptyIndex() {
+      const i = boxes.findIndex((b) => !b.value);
+      return i === -1 ? boxes.length - 1 : i;
+    }
+
+    boxes.forEach((box, i) => {
+      box.addEventListener('input', () => {
+        box.value = box.value.replace(/\D/g, '').slice(-1);
+        if (box.value && i < boxes.length - 1) focusBox(i + 1);
+      });
+      box.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !box.value && i > 0) {
+          focusBox(i - 1);
+        } else if (e.key === 'ArrowLeft' && i > 0) {
+          focusBox(i - 1);
+        } else if (e.key === 'ArrowRight' && i < boxes.length - 1) {
+          focusBox(i + 1);
+        }
+      });
+      box.addEventListener('paste', (e) => {
+        const digits = (e.clipboardData?.getData('text') || '').replace(/\D/g, '');
+        if (!digits) return;
+        e.preventDefault();
+        digits.slice(0, boxes.length - i).split('').forEach((d, offset) => {
+          if (boxes[i + offset]) boxes[i + offset].value = d;
+        });
+        focusBox(Math.min(i + digits.length, boxes.length - 1));
+      });
+      box.addEventListener('focus', () => box.select());
+    });
+
+    return { value, clear, focusFirstEmpty: () => focusBox(firstEmptyIndex()) };
+  }
+
   function wireAdminPinForm() {
     const form = document.getElementById('form-admin-pin');
     if (!form) return;
 
-    const pinInput = document.getElementById('admin-pin');
-    pinInput?.addEventListener('input', (e) => {
-      e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
-    });
+    const pin = wirePinBoxes(document.getElementById('ah-pin-panel'));
 
     document.getElementById('ah-pin-back')?.addEventListener('click', () => {
       pendingAdmin = null;
-      if (pinInput) pinInput.value = '';
+      pin?.clear();
       showPanel('ah-login-panel');
     });
 
@@ -134,7 +188,12 @@ window.AgriPricePH = window.AgriPricePH || {};
         showPanel('ah-login-panel');
         return;
       }
-      const accessCode = pinInput?.value;
+      const accessCode = pin?.value() || '';
+      if (accessCode.length < 6) {
+        Alert()?.invalid?.('Enter all 6 digits of your access code.');
+        pin?.focusFirstEmpty();
+        return;
+      }
       const result = await Auth().adminLogin({
         username: pendingAdmin.username,
         password: pendingAdmin.password,
@@ -142,10 +201,165 @@ window.AgriPricePH = window.AgriPricePH || {};
       });
       if (!result.ok) {
         Alert()?.authFailure?.(result.message);
+        pin?.clear();
+        pin?.focusFirstEmpty();
         return;
       }
       Alert()?.success?.('Admin sign-in successful.', {
         onConfirm: () => { window.location.href = '../admin/index.html'; },
+      });
+    });
+  }
+
+  /* ---------------- "Forgot password?" -> email a 6-digit code -> verify -> reset ----------------
+     Three card-swap steps, same showPanel()/wirePinBoxes() machinery as the admin PIN step
+     above, each step confirmed with a popup before moving to the next:
+       1. ah-forgot-panel — email -> "code sent" popup -> Continue
+       2. ah-code-panel   — 6-digit code only -> "code verified" popup -> Continue
+       3. ah-reset-panel  — new password + confirm -> "password reset" popup -> back to log in
+     Real now that accounts live server-side (model/user_auth.py + mailer.py). The code itself
+     is only checked once, in step 2; step 3 is gated on the one-time "ticket" step 2 hands back
+     (see verifyResetCode/submitPasswordReset in public-auth.js), not the code again. */
+  let pendingResetEmail = null;
+  let pendingResetTicket = null;
+
+  function wireForgotPasswordForm() {
+    document.getElementById('ah-forgot-link')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      showPanel('ah-forgot-panel');
+      document.getElementById('forgot-email')?.focus();
+    });
+    document.getElementById('ah-forgot-back')?.addEventListener('click', () => {
+      showPanel('ah-login-panel');
+    });
+
+    const form = document.getElementById('form-forgot-password');
+    if (!form) return;
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('forgot-email')?.value?.trim();
+      if (!email) {
+        Alert()?.invalid?.('Enter your email address.');
+        return;
+      }
+      const result = await Auth().requestPasswordReset({ email });
+      if (!result.ok) {
+        Alert()?.authFailure?.(result.message);
+        return;
+      }
+      pendingResetEmail = email;
+      const targetEl = document.getElementById('ah-code-target-email');
+      if (targetEl) targetEl.textContent = email;
+      // "a pop up ... that the code was sent, then a button to click continue" —
+      // the alert's own OK button IS that "Continue" step; the panel only swaps
+      // once the visitor has acknowledged it.
+      Alert()?.success?.(result.message || 'A 6-digit code was sent to your email.', {
+        onConfirm: () => {
+          showPanel('ah-code-panel');
+          document.querySelector('#ah-code-panel .ah-pin-box')?.focus();
+        },
+      });
+    });
+  }
+
+  function wireCodeVerifyForm() {
+    const form = document.getElementById('form-verify-code');
+    if (!form) return;
+
+    const code = wirePinBoxes(document.getElementById('ah-code-panel'));
+
+    document.getElementById('ah-code-back')?.addEventListener('click', () => {
+      pendingResetEmail = null;
+      pendingResetTicket = null;
+      code?.clear();
+      showPanel('ah-login-panel');
+    });
+
+    document.getElementById('ah-code-resend')?.addEventListener('click', async () => {
+      if (!pendingResetEmail) return;
+      const result = await Auth().requestPasswordReset({ email: pendingResetEmail });
+      if (result.ok) {
+        Alert()?.success?.(result.message || 'A new code was sent.');
+      } else {
+        Alert()?.authFailure?.(result.message);
+      }
+      code?.clear();
+      code?.focusFirstEmpty();
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!pendingResetEmail) {
+        Alert()?.invalid?.('Session expired. Start over from "Forgot password?".');
+        showPanel('ah-login-panel');
+        return;
+      }
+      const codeValue = code?.value() || '';
+      if (codeValue.length < 6) {
+        Alert()?.invalid?.('Enter all 6 digits of your reset code.');
+        code?.focusFirstEmpty();
+        return;
+      }
+
+      const result = await Auth().verifyResetCode({ email: pendingResetEmail, code: codeValue });
+      if (!result.ok) {
+        Alert()?.authFailure?.(result.message);
+        code?.clear();
+        code?.focusFirstEmpty();
+        return;
+      }
+      pendingResetTicket = result.ticket;
+      // "if match then pop up as verified then can create new password" —
+      // same popup-then-Continue pattern as step 1.
+      Alert()?.success?.('Code verified.', {
+        onConfirm: () => {
+          showPanel('ah-reset-panel');
+          document.getElementById('reset-new-password')?.focus();
+        },
+      });
+    });
+  }
+
+  function wireResetPasswordForm() {
+    const form = document.getElementById('form-reset-password');
+    if (!form) return;
+
+    document.getElementById('ah-reset-back')?.addEventListener('click', () => {
+      pendingResetEmail = null;
+      pendingResetTicket = null;
+      showPanel('ah-login-panel');
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!pendingResetEmail || !pendingResetTicket) {
+        Alert()?.invalid?.('Session expired. Start over from "Forgot password?".');
+        showPanel('ah-login-panel');
+        return;
+      }
+      const newPassword = document.getElementById('reset-new-password')?.value || '';
+      const confirm = document.getElementById('reset-confirm-password')?.value || '';
+
+      if (!Auth().passwordStrength(newPassword).valid) {
+        Alert()?.invalid?.('New password must be at least 8 characters with uppercase, lowercase, and a number.');
+        return;
+      }
+      if (newPassword !== confirm) {
+        Alert()?.invalid?.('Passwords do not match.');
+        return;
+      }
+
+      const result = await Auth().submitPasswordReset({ email: pendingResetEmail, ticket: pendingResetTicket, newPassword });
+      if (!result.ok) {
+        Alert()?.authFailure?.(result.message);
+        return;
+      }
+      pendingResetEmail = null;
+      pendingResetTicket = null;
+      // "if done correctly it will pop up as successful then button to go back to login"
+      Alert()?.success?.('Your password has been reset. You can log in now.', {
+        onConfirm: () => showPanel('ah-login-panel'),
       });
     });
   }
@@ -171,7 +385,7 @@ window.AgriPricePH = window.AgriPricePH || {};
     });
     document.getElementById('signup-terms')?.addEventListener('change', () => setFieldError('signup-terms', ''));
 
-    form.addEventListener('submit', (e) => {
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const firstName = document.getElementById('signup-firstname')?.value?.trim();
       const lastName = document.getElementById('signup-lastname')?.value?.trim();
@@ -210,7 +424,7 @@ window.AgriPricePH = window.AgriPricePH || {};
       }
 
       const name = `${firstName} ${lastName}`.trim();
-      const result = Auth().signup({ name, email, password });
+      const result = await Auth().signup({ name, email, password });
       if (!result.ok) {
         // Server/account-level failure (e.g. email already registered) — this
         // isn't one field's fault, so it stays a popup rather than an inline error.
@@ -250,10 +464,20 @@ window.AgriPricePH = window.AgriPricePH || {};
   }
 
   /* ---------------- background photo slideshow ---------------- */
+  // A slide's data-credit is a full line like "Photo: Patrickroque01 — Wikimedia
+  // Commons (CC BY-SA 4.0)". The trigger pill only shows the photographer's name;
+  // the full line (linked) shows up in the popover on hover/focus/tap.
+  function creditName(credit) {
+    return credit.replace(/^Photo:\s*/i, '').split(/\s+—\s+/)[0].trim() || 'Photo credit';
+  }
+
   function wireSlideshow() {
     const slides = $all('.ah-slide');
     const dots = $all('.ah-slide-dot');
-    const creditEl = document.getElementById('ah-slide-credit');
+    const creditWrap = document.getElementById('ah-slide-credit');
+    const creditTrigger = document.getElementById('ah-credit-trigger');
+    const creditNameEl = document.getElementById('ah-credit-name');
+    const creditPopover = document.getElementById('ah-credit-popover');
     if (!slides.length) return;
 
     let index = Math.max(0, slides.findIndex((s) => s.classList.contains('is-active')));
@@ -265,10 +489,11 @@ window.AgriPricePH = window.AgriPricePH || {};
         d.classList.toggle('is-active', i === index);
         d.setAttribute('aria-selected', i === index ? 'true' : 'false');
       });
-      if (creditEl) {
-        const credit = slides[index].getAttribute('data-credit') || '';
-        const href = slides[index].getAttribute('data-credit-href');
-        creditEl.innerHTML = href
+      const credit = slides[index].getAttribute('data-credit') || '';
+      const href = slides[index].getAttribute('data-credit-href');
+      if (creditNameEl) creditNameEl.textContent = creditName(credit);
+      if (creditPopover) {
+        creditPopover.innerHTML = href
           ? `<a href="${href}" target="_blank" rel="noopener">${credit}</a>`
           : credit;
       }
@@ -290,6 +515,22 @@ window.AgriPricePH = window.AgriPricePH || {};
         restart();
       });
     });
+
+    // Hover already reveals the popover via CSS (:hover / :focus-within); the
+    // click here just makes it work on touch, where there is no hover.
+    if (creditWrap && creditTrigger) {
+      creditTrigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const open = creditWrap.classList.toggle('is-open');
+        creditTrigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      document.addEventListener('click', (e) => {
+        if (!creditWrap.contains(e.target)) {
+          creditWrap.classList.remove('is-open');
+          creditTrigger.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
 
     render();
     restart();
@@ -349,9 +590,11 @@ window.AgriPricePH = window.AgriPricePH || {};
   document.addEventListener('DOMContentLoaded', () => {
     wirePasswordToggles();
     wirePasswordStrength();
-    wireForgotPassword();
     wireLoginForm();
     wireAdminPinForm();
+    wireForgotPasswordForm();
+    wireCodeVerifyForm();
+    wireResetPasswordForm();
     wireSignupForm();
     wireTermsModal();
     wireSlideshow();

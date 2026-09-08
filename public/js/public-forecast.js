@@ -529,7 +529,7 @@ AgriPricePH.PublicForecast = (function () {
       if (badge) { badge.textContent = 'Price is stable'; badge.className = 'model-status-badge orange'; }
     } else if (maxMove <= 1.5) {
       if (title) title.textContent = 'Moderate movement';
-      if (sub) sub.textContent = 'Prices may shift a little over the next 2 days';
+      if (sub) sub.textContent = 'Prices may shift a little over the next 3 days';
       if (badge) { badge.textContent = 'Watch the trend'; badge.className = 'model-status-badge orange'; }
     } else {
       if (title) title.textContent = 'Bigger swings possible';
@@ -548,13 +548,13 @@ AgriPricePH.PublicForecast = (function () {
 
     if (rising && forecast[forecast.length - 1].price > lastPrice + 0.2) {
       el.textContent =
-        `Prices are expected to slowly rise over the next 2 days. If you're planning to buy in bulk, today might be a better time to stock up on ${rice} rice.`;
+        `Prices are expected to slowly rise over the next 3 days. If you're planning to buy in bulk, today might be a better time to stock up on ${rice} rice.`;
     } else if (falling) {
       el.textContent =
-        `Prices may ease slightly over the next 2 days. If you can wait, you might save a little on ${rice} rice — but check again tomorrow.`;
+        `Prices may ease slightly over the next 3 days. If you can wait, you might save a little on ${rice} rice — but check again tomorrow.`;
     } else {
       el.textContent =
-        `Prices look fairly steady for ${rice} rice over the next 2 days. Buy when it fits your budget — no strong rush either way.`;
+        `Prices look fairly steady for ${rice} rice over the next 3 days. Buy when it fits your budget — no strong rush either way.`;
     }
   }
 

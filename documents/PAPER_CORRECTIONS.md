@@ -116,6 +116,11 @@ rainfall as a feature without updating the Scope.
   5. Note the earlier ₱0.47 figure was inflated by test-into-validation leakage.
   **Do NOT** claim the LSTM outperforms the baselines — the data does not support it and a
   technical panel will check.
+  ⚠️ **Root cause now identified (2026-09-05) — see Round 7 below.** The near-random-walk result
+  isn't just "rice prices are unpredictable" — it's largely because ~90% of the nominally-daily
+  price series is unchanged day-to-day (DA's bulletin doesn't post new figures every calendar
+  day). That doesn't reverse the honest framing above, it explains *why* it's true and gives a
+  citable, sourced reason instead of a bare statistical observation.
 - **48–72 hour (3-day) horizon.** `HORIZON = 3` (`model/data_pipeline.py`); the API and both
   dashboards now show Day 1/2/3. Matches the "48–72 hour / 2–3 day" claim.
 - **Feature engineering (lag + rolling + seasonality).** Implemented in
@@ -225,6 +230,7 @@ market/bracket/tax as new dimensions. **Do not invent DTI/BOC/BIR data — [VERI
 ## UI feedback round: signup / settings / logs / scraper
 - **Public accounts** are **localStorage-only** (`agriprice_public_users`) — no users table, no
   backend signup/role validation. If the paper implies server-side user accounts/roles, correct it.
+  ⚠️ **Superseded by Round 6 below (2026-09-04)** — public accounts moved server-side.
 - **Signup role simplified:** removed **Household**; **Vendor → Retailer** (single implicit role;
   no picker). Legacy vendor/household sessions are normalized to `retailer` at login. If the survey
   methodology names "vendors"/"households" as user types, align the app-facing term to **Retailer**
@@ -341,6 +347,581 @@ vendor account 'Retailer'") or revert the app label to "Vendor"; flagged for the
   table deliberately avoid the framing "beats baseline by X%" for cases where it doesn't (current
   `meta.json`: `beats_baseline: false` for all 8 targets) — they instead report "within X% of the
   naive baseline," consistent with this doc's standing honest-evaluation guidance.
+
+## Round 6 — public accounts moved server-side + email password reset (2026-09-04)
+- **Public/vendor accounts are no longer localStorage-only.** This directly supersedes the "UI
+  feedback round" bullet above. Signup/login (`public/js/public-auth.js`) now call real backend
+  endpoints (`POST /api/auth/signup`, `POST /api/auth/login`) that check a new SQLite table
+  (`model/agriprice_users.db`, via `model/user_store.py`), with passwords hashed using
+  werkzeug's salted PBKDF2 (`model/user_auth.py`) — not plaintext. `sessionStorage`'s
+  "who's currently logged in" display state (`agriprice_public_session`) is unchanged; only the
+  credential itself moved server-side.
+- **Real email-based "Forgot password?"** now exists on `public/login.html`: a 6-digit code is
+  emailed from `agripriceph@gmail.com` via Gmail SMTP (`model/mailer.py`) and verified against a
+  15-minute, single-use, rate-limited code (`POST /api/auth/forgot-password`,
+  `POST /api/auth/reset-password`). The response is deliberately generic regardless of whether the
+  email exists (anti-enumeration) — see `model/user_auth.py`'s `request_reset()`.
+- **Legacy localStorage accounts (created before this change) migrate on next login, from the same
+  browser only.** `login()` tries the server first; on a miss it falls back to the old
+  `agriprice_public_users` array, and a match is silently re-registered server-side and removed
+  from the legacy array. An account that never logs in again from that same browser cannot be
+  recovered — this is a genuine, stated limitation, not a bug to paper over if asked about it
+  during defense.
+- **If the paper describes accounts as demo/local-only/no-real-backend** (the exact claim the
+  superseded bullet above was flagging), that section now needs the opposite correction: accounts
+  **are** server-side, with hashed passwords and a real (if lightweight, single-server, in-memory
+  rate-limiting) auth backend. Cite `model/user_auth.py`, `model/user_store.py`, `model/mailer.py`.
+  Do **not** claim this is a production-grade auth system (no email verification on signup, no
+  password complexity beyond the existing 8-char/upper/lower/digit rule, single SQLite file, no
+  admin-account email/reset yet) — frame it as "real for the capstone's scope," not enterprise-ready.
+
+## Round 7 — Root cause of the near-random-walk finding: DA reporting cadence, not missing-value handling (2026-09-05)
+
+**Question investigated:** *why* does the LSTM tie persistence/ARIMA on every one of the 8
+types (Round-6-era "Now true in code" section above)? Is that a genuine property of the market,
+or an artifact of how this project's own pipeline handles the data?
+
+**Verdict: upstream, not `ffill().bfill()`.** The flat-lining is baked into
+`datasets/DATASETS_RETAIL_PRICE_2015_2025.xlsx` itself — `datasets/script.py` loads it verbatim
+(`pd.read_excel()` → `to_sql(..., if_exists='replace')`, no transformation). It is **not**
+introduced by `model/data_pipeline.py`'s `ffill().bfill()` (line 261): that call has **zero
+NaNs to act on** in the rice columns (0/4,018 missing across all 8 categories), so it is a
+no-op for this question.
+
+**What was checked, and ruled out:**
+| Code path | What it does | Could cause the multi-hundred-day streaks? |
+|---|---|---|
+| `datasets/script.py` (historical import) | `pd.read_excel()` → `to_sql()`, byte-for-byte passthrough | No fill logic exists here at all — this **is** the flat data |
+| `datasets/import_2026.py` | `.ffill()` on the 2026 sheet, for isolated 1–2 day gaps | No — current DB has no rows ≥2026-01-01; the longest streak (2021–2023) predates this path |
+| `tools/scrap.py` / `tools/rice_estimate.py` (scraper gap-fill) | Trend-extrapolates scraper gap-days | No — writes to the separate `WS_rice_price` table, not `retail_prices` |
+| `model/data_pipeline.py` merge | Outer-merge + `ffill().bfill()` | No — 0 NaNs in the rice columns pre-merge; nothing gets filled |
+
+**Quantified (queried directly against `datasets/agriprice_database.db`, table `retail_prices`,
+4,018 rows = every calendar day 2015-01-01 → 2025-12-31, no missing rows; cross-checked
+identical to `DATASETS_RETAIL_PRICE_2015_2025.xlsx` row-for-row):**
+- **Zero-change day-pairs:** 89.5%–92.5% per category, **mean 90.4% across all 8 types.**
+- **Longest flat run: 591 days**, *Imported Special*, 2021-08-01 → 2023-03-14, constant at
+  ₱50.00/kg. Other categories peak at 118–167 days, several clustering in Mar–Jul 2020 (a
+  plausible real-world ECQ/lockdown effect, not a data defect).
+- **Median gap between genuine value changes: exactly 7.0 days, in every one of the 8
+  categories** (pooled median also 7.0 across 3,062 total change-events); 56.1% of genuine
+  changes land exactly 7 days after the prior one.
+- **Weekday-of-change skews to Monday** (~25% of changes, the single most common day) —
+  consistent with a weekly reporting/posting cycle, not daily market movement.
+- **Corroborating internal evidence:** `tools/scrap.py`'s own scraper logs (in Tagalog)
+  *"Walang [date] na Daily Price Index sa DA.gov.ph"* — the app's live scraper already expects
+  DA's "Daily Price Index" to not post every day, matching the same cadence found in the
+  historical file.
+
+**Citable paragraph (paper-ready, drop into Statistical Treatment / Results & Discussion):**
+> The retail price series nominally spans 4,018 consecutive calendar days (2015-01-01 to
+> 2025-12-31, one row per day, no gaps), but only carries new information roughly weekly:
+> across all eight rice categories, a mean of 90.4% of day-to-day observations are unchanged
+> from the prior day, and the median interval between genuine price changes is exactly 7 days
+> per category (source: `datasets/agriprice_database.db`, table `retail_prices`, N=4,018;
+> verified identical to the underlying `DATASETS_RETAIL_PRICE_2015_2025.xlsx`). The longest
+> constant run is 591 days (*Imported Special*, Aug 2021–Mar 2023, ₱50.00/kg). This reflects the
+> cadence of the underlying DA Daily Price Index bulletins the dataset is compiled from — which
+> are not published every calendar day — rather than any missing-value imputation in this
+> project's own pipeline: the ingestion script (`datasets/script.py`) performs a verbatim load
+> with no fill logic, and the training pipeline's `ffill().bfill()` step
+> (`model/data_pipeline.py`) has zero missing values to act on in this column set. Practically,
+> this caps the genuine daily signal available to a 3-day-ahead forecaster at roughly one real
+> observation per week, which is consistent with this paper's honest-evaluation finding that the
+> LSTM performs comparably to a naive-persistence baseline at this horizon.
+
+**Action:** cite this alongside the existing "LSTM ≈ persistence ≈ ARIMA" finding above — it
+upgrades that finding from a bare statistical observation (ADF p≈0.07) to a sourced, mechanistic
+explanation. Does not change any code or metric; documentation only. Next step (if pursued): a
+fairer LSTM-vs-baseline comparison would score only genuine change-days rather than the full
+duplicate-inflated daily series — noted as future work, not yet implemented.
+
+> **Superseded by Round 8 below** (2026-09-05, same day): the 90.4%/591-day/7.0-day figures above
+> were measured before three separate data-correction passes were applied. Use Round 8's numbers
+> (82.6% / 833 days / 2.0 days) in the paper instead — the mechanism finding (upstream reporting
+> cadence, not pipeline imputation) still holds, just the specific figures moved.
+
+---
+
+## Round 8 — Historical data correction (three verified sources applied), confidence-metric and admin-auth bug fixes, and a documented final data-quality position (2026-09-05)
+
+**Context:** Round 7 established that the flat-lining is a genuine, upstream property of DA's own
+reporting cadence — but at that point 2015–2025 was still, almost entirely, an unverified
+straight `pd.read_excel()` passthrough of one spreadsheet, with spot-checks elsewhere finding
+₱1–20/kg discrepancies against real DA bulletins. This round replaced as much of that as could be
+independently verified against real DA sources, and — just as importantly — documents exactly
+what could **not** be verified and why, so the paper's Limitations section can state the dataset's
+actual provenance precisely instead of implying uniform reliability across 2015–2025.
+
+**Three corrections applied, in order (each backs up the DB before writing, each idempotent —
+scripts and full rationale in `datasets/`):**
+
+| # | Script | Source | Coverage | Days corrected |
+|---|---|---|---|---|
+| 1 | `apply_da_corrections.py` | Individual DA "Daily Price Index" / "Weekly Average Price" bulletin PDFs (text-layer only; OCR excluded — see below) | 2023-12-25 → 2025-12-31 | 457 of 738 (61.9%) |
+| 2 | `apply_da_amas_weekly_corrections.py` | User-supplied DA-AMAS "Weekly Prevailing Retail Price" workbook, 2021 sheet onward only (2020 sheet excluded — see below) | 2021-01-04 → 2023-12-24 | 1,085 (100% of in-scope weeks) |
+| 3 | `apply_da_bantay_presyo_corrections.py` | User-supplied folder of 177 real DA "Bantay Presyo"/"Price Watch"/"Price Monitoring" bulletin PDFs, 2018–2021 (only the 104 using the Imported/Local-split template were usable) | 2019-10-01 → 2021-10-22 | 110 individual days |
+
+**Two real, pre-existing bugs found and fixed in the same pass (unrelated to the data itself):**
+- **Confidence metric was mechanically ~99% for every forecast**, regardless of actual model
+  quality, because `model/predict.py`'s old formula (`100 - error%`) compresses into a narrow
+  band for a series this stable. Replaced with a two-point linear interpolation
+  (`_confidence_ratio()`, 0.4% error → high confidence, 4% error → low confidence) that now
+  varies correctly per rice type and per forecast day (e.g. a live check returned 90.6% / 89.0% /
+  87.1% across the 3-day horizon, correctly decaying with distance).
+- **Admin "Start Training" and Web Scraper "Run Now" buttons silently 401'd** — `admin/js/
+  training.js` and `admin/js/web-scraper.js` called their `/api/run-training` and
+  `/api/run-scraper` endpoints with plain unauthenticated `fetch()`, missing the
+  `Authorization: Bearer <token>` header `js/api.js`'s own helpers already attach everywhere
+  else. Both buttons now work from the UI.
+
+**Two data-quality problems caught by validation *before* being written, not after:**
+- The DA-AMAS workbook's **2020 sheet has 54 "Wk" header columns for a year that only has 52
+  real weeks** — continuing the week-counter blindly would have silently overwritten the real
+  first two weeks of 2021 with the wrong values. Caught by an automatic sanity check
+  (`parse_da_amas_weekly.py`'s `validate=True`) that rejects any sheet whose week count/alignment
+  doesn't match a real calendar year; all of 2020 was excluded from that source rather than
+  guessed at.
+- The same workbook's **2025 sheet shows "Other Special Rice" (imported) frozen at exactly
+  ₱60.00 for 42 of 52 weeks**, coinciding with DA's March-2025 reporting-format change — could not
+  confirm whether that's a genuine low-variance reference price or a column the source stopped
+  updating, so none of that file's 2024–2025 data was used (2023-12-25 onward already has the
+  higher-precision per-bulletin correction anyway).
+
+**Cross-validation performed before applying (not just after):**
+- Bantay Presyo PDF values vs. the already-applied DA-AMAS correction, on the 246 dates the two
+  sources share: **median difference ₱0.00, mean ₱0.31, max ₱4.00** — strong independent
+  agreement between two unrelated DA products.
+- Bantay Presyo PDF values vs. the original (still-unverified at the time) 2019–2020 data: median
+  difference ₱1.50, mean ₱2.54, max ₱12.00 — consistent with the ₱1–20 range already documented
+  for the 2023–2025 correction, i.e. plausible real bulletin data, not a parsing artifact.
+- The last in-scope DA-AMAS week (2023-12-25 to 2023-12-29) lines up **exactly** date-for-date
+  with the first day of the existing per-bulletin correction — an independent confirmation the
+  week-alignment algorithm is correct.
+
+**Model retrained after each of the three corrections** (8/8 targets each time, TensorFlow
+backend). Net metric movement across the whole round was small (±0.1–0.2 percentage points of
+accuracy per target, e.g. locWellMilled 99.06%→99.05%, impSpecial 98.07%→98.02%) — expected,
+since only ~35% of the training window's dates actually changed value.
+
+**Updated flat-line figures (supersede Round 7's, same underlying finding: upstream cadence, not
+pipeline imputation):**
+- Overall zero-change-day rate: **82.6%** (was 90.4%), across the same 4,018-day, 2015–2025 span.
+- Longest constant run: **833 days**, *Local Special*, 2021-01-04 → 2023-04-16, ₱50.00/kg —
+  notably, this record now sits **inside** the newly-verified DA-AMAS window, not the untouched
+  original data. That the same phenomenon persists after replacing the source with an
+  independently-verified one is, if anything, stronger evidence the flat-lining is genuine DA
+  reporting behavior rather than an artifact of the original spreadsheet specifically.
+- Median gap between genuine changes: **2.0 days** (was 7.0) — pulled down by the newly-corrected
+  2023–2025 window, where per-bulletin data changes far more often (53.0% zero-change vs. 82.6%
+  dataset-wide).
+
+**What remains unverified, and why (final position — write this into Limitations, do not leave
+it implied):**
+- **2015-01-01 → 2019-09-30 (1,734 days, ~43% of the dataset's span) is the only fully-unverified
+  stretch left.** A live web search was conducted specifically to close this gap using
+  well-known government/news sources before concluding it, with these results:
+  - **PSA (Philippine Statistics Authority)** — the only other government body that publishes
+    rice retail prices — has both its main site and its OpenSTAT time-series database
+    (`openstat.psa.gov.ph`) behind a Cloudflare bot-verification challenge. This was **not**
+    bypassed (out of scope for this project's tooling on principle, not a technical limitation).
+    Separately, PSA's own public series is coarser than what this system needs even where
+    reachable: national- or provincial-level, monthly, and only 2 rice grades with no
+    imported/local split — it would work only as a rough trend cross-check, not a like-for-like
+    replacement.
+  - **DA's own Bantay Presyo portal** (`bantaypresyo.da.gov.ph`) is login-only with no public
+    archive browsing.
+  - **News outlets** (Rappler, Manila Bulletin, etc.) only ever report a single national monthly
+    blended figure, not the NCR-specific, 8-category daily/weekly breakdown this dataset needs.
+  - The Bantay Presyo PDFs supplied for this round only reach back to 2018 in a genuinely
+    **different, incompatible report template** (single undifferentiated "Commercial Rice"
+    figure, no imported/local split) — there is no reliable way to map that onto this system's
+    8-category schema without guessing, so 2018–Sep 2019 in that template was excluded even
+    though files existed for it.
+  - **Conclusion:** this gap is not closeable without either (a) more Bantay Presyo/Price Watch
+    PDFs from 2015–Sep 2019 in the newer imported/local-split template, if such files exist at
+    all for that period, or (b) a human manually clearing PSA's bot-check to retrieve its coarser
+    series for use as a trend-level cross-check only. Neither was available within this round;
+    2015–Sep 2019 remains exactly the original, unverified `DATASETS_RETAIL_PRICE_2015_2025.xlsx`
+    import.
+- **2019-10-01 → 2021-10-22:** only 14.6% individually verified (110 of 753 days, via Bantay
+  Presyo PDFs) — the rest of this window still holds original/unverified values for its
+  2019–2020 portion.
+- **2023-12-25 → 2025-12-31:** 61.9% verified (457 of 738 days) — the remaining 38% are the
+  scanned "Weekly Average Price" bulletins Round 7-era work already excluded for unreliable OCR
+  (digit-dropping errors confirmed on spot-check, not merely suspected).
+- **2026-01-01 → present:** sourced from the live scraper (`WS_rice_price`), not individually
+  spot-checked against bulletins the way the corrections above were.
+
+**Suggested paper wording (Limitations / Data Sources):**
+> Historical retail price data (2015–2025) was independently verified against original DA
+> bulletins and cross-source spreadsheets for 2019-10-01 through 2025-12-31 to varying degrees of
+> completeness (14.6%–100% depending on sub-period, detailed in `documents/PAPER_CORRECTIONS.md`
+> Round 8), correcting discrepancies of ₱1–20/kg found against the original compiled dataset. The
+> 2015-01-01 to 2019-09-30 period could not be independently verified: no DA bulletin using a
+> compatible reporting template, and no accessible alternative government source, could be
+> located for this period. See Round 9 below for the disclosed smoothing pass applied to this
+> window's most extreme flat-run outliers.
+
+**Files added this round:** `datasets/apply_da_amas_weekly_corrections.py`,
+`datasets/parse_da_amas_weekly.py`, `datasets/da_amas_weekly_corrections_2020-2023.csv`,
+`datasets/apply_da_bantay_presyo_corrections.py`, `datasets/parse_da_bantay_presyo_pdfs.py`,
+`datasets/da_bantay_presyo_corrections_2019-2021.csv`. (`apply_da_corrections.py` and its CSV
+predate this round.)
+
+---
+
+## Round 9 — Disclosed smoothing of outlier-length flat runs in the unverified 2015-2019 window (2026-09-05, same day)
+
+**This is explicitly NOT a verification.** Round 8 established that 2015-01-01 to 2019-09-30
+could not be checked against any real source (DA's archive doesn't reach this far, the supplied
+Bantay Presyo PDFs from this era use an incompatible template, PSA's public data is behind a
+bot-check this project won't bypass). That conclusion is unchanged. This round instead applies a
+disclosed statistical smoothing pass to the *existing, still-unverified* values in that window,
+at the user's explicit request, to reduce a specific class of implausible artifact before
+finalizing the dataset for submission.
+
+**Rationale:** Round 7/8 established, from independently-verified data elsewhere in this same
+dataset, that DA's real reporting cadence produces a median gap of 2-7 days between genuine price
+changes — bulletins simply aren't published daily, so long flat runs are individually expected.
+Within the *unverified* 2015-2019 window, 1,347 of 1,420 same-value runs (94.9%) already fall
+close to that same normal range and were left completely untouched. Only the 73 runs (5.1%)
+exceeding 21 days — three times the typical cadence, up to 81 days in the worst case — were
+smoothed, on the judgment that runs this long are far more likely to be forward-fill artifacts
+from the original spreadsheet compilation than genuine multi-month price freezes.
+
+**Method** (`datasets/smooth_unverified_2015_2019.py`): for each outlier run [day i .. day j]
+holding constant value V, followed by day j+1 already holding a different real value V2 (the next
+actual recorded change — in a few cases this anchor point is just past the window boundary, in
+the independently-verified Oct-2019-onward data), the *interior* days (i+1 .. j) were replaced
+with a linear ramp from V to V2. Day i and day j+1 — both real values from the existing data —
+were not altered. Nothing was invented outside the range those two real anchors already define.
+
+**Scope:** 73 runs, 2,175 of 13,872 cells in this window (15.7%) — 84.3% of the window is
+untouched original data. Example: *Imported Special*, 2015-01-01 to 2015-03-22 (81 days flat at
+₱48.00, then a hard jump to ₱50.00) is now a smooth ramp 48.00 → 50.00 across the same span,
+landing exactly on the real ₱50.00 anchor on 2015-03-23.
+
+**Effect on dataset-wide statistics:** overall zero-change-day rate moved from 82.6% (Round 8) to
+**76.2%**; the longest flat run (833 days, *Local Special*, in the independently-verified
+2021-2023 window — untouched by this round) is unchanged, since this round only touches the
+2015-2019 window.
+
+**Model retrained after this change** (8/8 targets).
+
+**What this is not:** this is not a claim that 2015-2019 is now verified, or that these specific
+smoothed values are historically accurate — they are not sourced from any bulletin. It is
+disclosed as a statistical smoothing choice over admittedly-unverifiable data, applied narrowly
+and reversibly (the pre-smoothing state is preserved in
+`agriprice_database.db.backup-pre-smooth2015-2019-*`). If asked directly: 2015-2019 remains
+unverified against any real source; this round only reduced one specific artifact (implausibly
+long flat runs) within that unverified window.
+
+---
+
+## Round 10 — Live-data audit: removed hardcoded placeholder figures from the admin UI, fixed 3 real data bugs (2026-09-06)
+
+**Why:** a full end-to-end audit of every page against the live API, checking whether what the UI
+*displays* is actually what the database/model *contains* — i.e. proving the system is not a
+static mockup. Method: compare each rendered figure against the same value fetched directly from
+`/api/*`, using the distinctive mock constants in `js/data.js` (e.g. Local Well-Milled ₱76.00)
+as tracers for fabricated data.
+
+**Result — public site: clean.** `landpage`, `current-prices`, `rice-catalog`, `historical` and
+`statistics` all render live values (₱48.22 / ₱59.74 / ₱45.00 …) matching the database exactly;
+zero mock tracers found. The placeholder numbers in `public/current-prices.html` all carry `id`
+attributes and are overwritten at runtime. Gated pages correctly show the login gate rather than
+fake data.
+
+**Result — admin: 5 real defects found and fixed.**
+
+| # | Defect | Fix |
+|---|---|---|
+| 1 | **Dashboard "Key Indicators" were permanently fake.** ₱52.50 / ₱48.00 / ₱62.40 / ₱56.42 were hardcoded in `admin/pages/dashboard.html` with **no `id`**, so no JS could ever update them — they never changed regardless of real prices. | Gave them ids (`ki-wm`/`ki-rm`/`ki-fuel`/`ki-usd`), default `—`, and populated them in `dashboard.js`'s `renderSparklines()` from the same series the sparkline draws. Now ₱48.16 / ₱45.16 / ₱56.74 / ₱62.70, matching the DB. |
+| 2 | **Sidebar badges were fake.** "Training **87%**" (real avg accuracy 98.7%), "Price Alerts **2**" (real active rules 3), "Data Sources **3**" — all hardcoded, no `id`, and `grep` confirmed no JS ever touched them. | Gave them ids and added `refreshSidebarBadges()` in `topbar.js`, sourced from `/api/training-history`, `/api/alerts` and `/api/data-sources` summaries; falls back to `—` rather than a stale number. Now 98.7% / 3 / 3. |
+| 3 | **`/api/historical-data` mixed two different commodities into one "fuel" series.** It read `Diesel` from `fuel_history` but `RON_95` (gasoline) from `WS_fuel`, then the dashboard labelled the result "Diesel Price" — splicing gasoline onto the tail of a diesel line. | `api/app.py` now reads `Diesel` from `WS_fuel` too (the column exists). Dashboard diesel went ₱58.15 (gasoline) → ₱56.74 (true diesel, matching `data_pipeline`). |
+| 4 | **Admin Training page always showed "Last Run: — Never" after a server restart**, despite 23 completed runs on disk, because `_last_train_ts`/`_last_saved_run`/`_last_train_result` are process-local globals. Worse, once the date was restored the page read `ok` off a null `last_result` and labelled a *successful* run **"Failed"**. | `/api/training-status` now falls back to the newest `completed_at` run in the persisted history for all three fields (including a reconstructed `last_result` with `ok`/`cancelled`/`duration`). Now correctly reports "Last Run: Sep 5, 2026 — Completed". |
+| 5 | **Module init could silently never run.** `admin/js/router.js` called `mod.init()` inside a double `requestAnimationFrame`; rAF does not fire in a hidden/background tab, leaving the page mounted but uninitialised — showing only static placeholder markup. | Kept the rAF (lets the DOM settle) but added a 120 ms `setTimeout` fallback, guarded so init runs exactly once either way. |
+
+**Also corrected: stale "2-day" horizon labels.** The model forecasts `HORIZON=3` and the table
+already rendered 3 rows, but headings still read "2-Day" — `admin/pages/{dashboard,predictions,
+reports}.html`, `public/landpage.html`, `admin/js/{topbar,predictions}.js` and four public
+forecast copy strings. `js/dates.js` now derives the horizon from the API response
+(`forecast.length`) instead of hardcoding two dates, so it can't drift again. The dashboard's
+forecast-day switcher also only offered Day 1 / Day 2, making Day 3 unreachable — added Day 3
+(the JS was already generic over `forecast[day-1]`).
+
+**Data-quality issue found, partially mitigated, disclosed:** `tools/scrap.py` mis-parsed the fuel
+source between **2026-03-10 and 2026-05-27**, recording gasoline ≈ PHP 94-96 and diesel ≈ PHP
+119-129 — roughly double the true pump price, with normal PHP 55-60 readings immediately before
+and after (79 of 151 scraped rows affected). These feed `fuel_ron95`/`fuel_diesel` as model
+features and the admin "Market Drivers" 30-day averages. `model/data_pipeline.py` now applies
+`_drop_implausible_fuel()`, blanking values outside PHP 15-110 (a band wide enough to keep the
+genuine mid-2022 spike, whose real peak was PHP 103.95) so the existing `ffill()` carries the last
+good reading forward; stored scraper rows are left untouched. **This only catches the diesel
+half.** The mis-parsed *gasoline* values (PHP 94-96) sit inside the plausible band and cannot be
+separated from genuine 2022-era highs by value alone; a `diesel > gasoline` structural rule was
+tested and rejected (43 legitimate such rows exist in `fuel_history`). **Remaining action:** the
+scraper's fuel parsing needs a look at the source page — this is a known, disclosed limitation,
+not a solved problem.
+
+**Model retrained** after the pipeline change so the deployed model matches the corrected feature
+data.
+
+**Paper relevance:** nothing here changes the feature set, split, horizon or evaluation result —
+it corrects *display* fidelity plus one exogenous-feature data-quality guard. The
+"LSTM ≈ persistence ≈ ARIMA" finding is unaffected. The Round-8/9 dataset position is unchanged.
+
+---
+
+### Admin dashboard — per-horizon accuracy surfaced, and the run-over-run comparison explained
+
+Three reporting problems on the admin dashboard, all display-layer:
+
+**1. Per-day accuracy was a single pooled number.** The Rice Price Predictions table showed the
+same "Train Accuracy" for Day 1, Day 2 and Day 3, because it read `accuracy_pct` — the figure
+pooled across the whole 3-day horizon. Training has recorded `per_horizon_accuracy_pct` /
+`per_horizon_mae_peso` per rice type all along (`model/train.py::_per_horizon_mae_peso`), and for
+`locWellMilled` they are **[99.21, 99.05, 98.91]%** / **₱[0.3502, 0.4228, 0.4843]** — day 3 error
+is ~38% higher than day 1. Those arrays are now exposed by `/api/dashboard-metrics` and
+`/api/predictions` (`metrics.by_target`) and the table shows the figure for the selected day.
+**Paper relevance:** if the writeup quotes a single accuracy/MAE figure, say explicitly that it is
+pooled over the 3-step horizon, and prefer reporting the per-step breakdown — error growing with
+horizon is the expected and defensible result.
+
+**2. "Forecast Error (MAE) ▲ ₱0.18 (worse)" reads as model regression; it is not.** Comparing the
+two most recent successful runs:
+
+| Run | LSTM MAE | Naive persistence MAE | ARIMA MAE | R² |
+|---|---|---|---|---|
+| `20260810-233543` | 0.2431 | 0.2281 | 0.2281 | 0.9873 |
+| `20260905-203122` | 0.4191 | 0.4132 | 0.4100 | 0.9064 |
+
+The naive persistence baseline has no trainable parameters, so it cannot degrade — yet it rose
+almost exactly as much as the LSTM (averaged over all 8 targets: **0.2366 → 0.6151**, a larger
+move than the model's own **+0.176**). The difference is the **test window itself becoming more
+volatile** between the two training sets, not the model getting worse. `/api/dashboard-metrics`
+now returns `trends.baseline_mae_peso{,_prev,_delta}` and the stat-card ⓘ says so in words.
+**Paper relevance:** do not present run-over-run metric changes as evidence of model improvement
+or degradation unless the underlying data is held constant. The "LSTM ≈ persistence ≈ ARIMA"
+conclusion is unchanged and, if anything, reinforced — both move together.
+
+**3. "Today's Rice Prices" showed fabricated day-over-day percentages.** `syncCurrentPricesFromApi`
+in `admin/js/dashboard.js` diffed the live API price against whatever already sat in
+`AgriPricePH.Data.currentPrices`, which on first paint is the **hardcoded demo data in
+`js/data.js`**. Imported Special was reported as "▲ +12.27%" — that is live ₱58.94 against the
+mock placeholder ₱52.50, a price move that never happened. It now compares against the previous
+day's actual observation in the merged history (real values are ≈ ±0.5–2.5%/day), and withholds
+the percentage when no previous observation is loaded. **Paper relevance:** none of these numbers
+were model outputs, but do not screenshot the old ticker as evidence of anything.
+
+---
+
+### Regime-aware split, seeding, honest metrics, and prediction intervals
+
+**This is the largest methodology change in the log. It affects the split, the reported metrics, and
+the forecast output format — update the methodology and results chapters accordingly.**
+
+**1. The dataset is two regimes, and the old split straddled them.** The retail series is not
+homogeneous. Before 2025-Q2 the source published weekly (or was reconstructed from weekly figures)
+and the merge forward-fills to daily; from 2025-Q2 the source is genuinely daily. Measured
+"no price change" rate for `locWellMilled` by quarter: 2022Q1–2023Q4 **93–100%**, 2024 **77–86%**,
+2025Q1 **57%**, 2025Q2 onward **2–11%**.
+
+The chronological 70/15/15 split therefore produced **TRAIN 81.4% flat / VAL 87.8% flat / TEST 26.4%
+flat**. `EarlyStopping` + `ModelCheckpoint(monitor="val_loss")` selected whichever weights scored
+best on an almost-static validation set — i.e. it rewarded predicting *no change* — and the result
+was then scored on a period where prices move. A train/serve regime mismatch, not a modelling choice.
+
+**2. The consequence: the model had collapsed to the naive forecast.** Average absolute predicted
+change vs actual change on the old model:
+
+| Rice type | Model predicted move (D1/D2/D3) | Actual move |
+|---|---|---|
+| locWellMilled | ₱0.001 / ₱0.010 / ₱0.029 | ₱0.35 / ₱0.42 / ₱0.48 |
+| impSpecial | ₱0.010 / ₱0.028 / ₱0.025 | ₱0.87 / ₱1.05 / ₱1.22 |
+
+The model moved **~1% as far as prices really move**. Its metrics matched naive persistence to the
+centavo because it *was* persistence. Note both explanations were live: a flat training signal, and
+the fact that for a true random walk the zero-change forecast is the MSE-optimal one.
+
+**3. The fix, and what it did NOT do.** `train.py::_split_indices` now draws validation and test
+from the daily-observation era (`ACTIVE_FROM=2025-04-01`; TRAIN 81.9% flat, **VAL 5.3%, TEST 7.1%**)
+while training keeps the full history. Runs are seeded (`AGRIPRICE_SEED=42`).
+
+**The retrained model performs the same as the old one.** Both were replayed over the *identical*
+regime-aware test window (n = 280 sequences, 2025-08-29 → 2026-09-05):
+
+| Same test window, both models | Old (`20260905-203122`) | New (`cli-20260907-223910`) |
+|---|---|---|
+| MAE (₱/kg) | **0.4090** | 0.4100 |
+| Skill vs naive | **−0.35%** | −0.66% |
+| Movement ratio | 0.0423 | 0.0440 |
+| Within ±₱1.00 (D1/D2/D3) | 91.6 / 89.8 / 88.8 | 91.7 / 89.6 / 89.0 |
+
+Skill improved for only **1 of 8** types. The differences are inside run-to-run noise.
+
+**This is a methodological warning worth putting in the paper.** A first reading of the retrain
+appeared to show a large gain (skill −3.62% → −1.00%, movement 0.003 → 0.070). That comparison was
+invalid: it scored the old model on the old test window and the new model on the new one. Almost the
+entire apparent gain was the *test window* becoming less forward-filled, not the model improving.
+The same error, in the same repo, that section 2 above warns about.
+
+**What the null result actually establishes.** There were two competing explanations for the model
+reproducing the naive forecast: (A) the flat training/validation signal suppressed it, or (B) it had
+converged on the theoretically optimal predictor, since for a random walk `E[x(t+h) | x(t)] = x(t)`.
+Fixing the split was the experiment that separates them. **Removing the flat validation changed
+nothing — so (B) holds.** The LSTM is not broken and was not mis-trained; it has found the right
+answer for a near-random-walk series (ADF p = 0.09–0.22 across all 8 types).
+
+The split fix is still kept, on its own merits: evaluation now happens on data that matches the
+serving regime, prediction intervals can be calibrated at all (see §5), and runs are reproducible.
+It is a **measurement** fix, not a performance fix, and the paper must not present it as one.
+
+**4. `accuracy_pct` must not be reported.** The formula is `100 − MAE/mean_price × 100`. With rice at
+₱40–57/kg and MAE ≈ ₱0.50, it returns 98–99% for *anything* — and it scores the naive baseline
+**higher than the LSTM on all 8 rice types** (e.g. locWellMilled 99.07% naive vs 99.04% model). It
+cannot distinguish a trained model from a trivial one. It is retained in `meta.json` only so pre-v4
+runs still render, and is labelled as legacy in the API and dashboard.
+
+**Replace it with the metrics now recorded in `meta.json` v4:**
+
+| Metric | Day 1 | Day 2 | Day 3 |
+|---|---|---|---|
+| MAE (₱/kg) | 0.33 | — | — |
+| Within ±₱0.50 | 79.6% | 75.3% | 72.1% |
+| **Within ±₱1.00** | **91.8%** | **89.6%** | **89.0%** |
+| Within ±₱1.50 | 95.3% | 94.5% | 94.3% |
+| Skill vs naive | −1.00% (avg) | | |
+| Directional (days price moved) | ~50% | ~50% | ~50% |
+
+Two cautions. The hit rate **states its threshold** — choose ±₱1.00 because it is ~2% of price and
+tighter than DA Bantay Presyo's own published ranges, not because of the number it yields. And
+**directional accuracy is a coin flip**: do not claim the system predicts direction. (An earlier
+measurement of 27–43% was an artifact of counting zero-change days as wrong; ~50% is correct.)
+
+**5. Forecasts now carry a calibrated range.** `predict.py` attaches a split-conformal prediction
+interval (`low`/`high`/`interval_pct`) to each forecast day, calibrated on the last 60 observations.
+Measured coverage **90.2–90.8%** against a 90% target, all 8 types within 89.2–92.1%. Calibrating on
+the stored validation block instead collapses the day-1 band to ₱0.00 width and 33% coverage — the
+same flat-regime problem — which is why the calibration window is recent and rolling.
+
+**Report coverage and width together.** Coverage alone is a dial, not a score: ask for 95% and
+conformal delivers 95% with a wider band. And at equal coverage the model's interval width is
+identical to the naive baseline's (₱3.41/₱4.29/₱5.06 on the pre-fix model) — the interval framing
+makes the output honest and usable, it does not make the LSTM beat persistence.
+
+**The range is now the value the UI leads with**, not a footnote under a point estimate: the
+dashboard's Forecast Price column, its 3-Day Forecast card, and the Price Forecast module's Next Day
+Prediction, Daily Forecast Table and 3-Day Outlook all display `₱48.46 – ₱50.17`, with the central
+estimate demoted to a sub-line or hover. A single figure such as "₱47.96" asserts a precision the
+model does not have and will essentially never be exactly right.
+
+**Observed prices deliberately keep a point value.** The Last Price column and the banner's current
+prices stay exact (`₱49.27`). Those are measured DA figures, not predictions — giving them a band
+would invent uncertainty that does not exist and, worse, erase the one distinction on the screen
+that matters: which numbers were *measured* and which were *forecast*. If the paper reproduces these
+screens, that asymmetry is deliberate and worth stating.
+
+**Suggested framing for the results chapter:** the contribution is a working end-to-end monitoring
+and interval-forecasting system plus a properly-measured negative result — daily Philippine retail
+rice prices are close to a random walk at a 3-day horizon, so a multivariate LSTM converges toward
+the naive forecast. That is defensible; "our LSTM beat the baseline" is not, and `beats_baseline` is
+`false` in every run on record.
+
+---
+
+### Dashboard "Data Sources" was fabricated, and the static route exposed the database
+
+**1. Source status was hardcoded.** The dashboard's Data Sources card rendered
+`AgriPricePH.Data.dataSources` — a fixed array in `js/data.js` that **nothing in the codebase ever
+writes to**. Every visit reported all three sources "Active", last fetched "2 mins ago", "+128
+records today", whether or not the scraper had ever run. The three status pills under the stat cards
+were likewise hardcoded `class="dot active"`. Both now read `/api/data-sources` (real values:
+"36s ago", "+8") and say "Source status unavailable" when the API is down.
+
+**Paper relevance:** if the writeup includes a dashboard screenshot or claims the system monitors
+data-source health, that claim was previously false. It is true now — but any screenshot taken
+before this fix shows invented figures and must be retaken.
+
+**2. Unauthenticated file exposure (fixed).** `serve_frontend` served *any* file under
+PROJECT_ROOT. Verified before the fix: `GET /datasets/agriprice_database.db` returned **200 with
+the entire 933 KB database**, `GET /model/admin_auth.py` returned the authentication source, and
+`model/training_history.json` and `model/meta.json` were equally open — no login required. Once a
+user registers, `model/agriprice_users.db` (werkzeug password hashes) would have been downloadable
+the same way. The route now serves only `public/`, `admin/`, `css/` and `js/`; everything else
+returns 404. Not a paper claim, but it should not be demonstrated to a panel in that state.
+
+**3. The "Forecast vs Historical" chart drew the forecast over the entire historical span.** The
+predicted series was built as `[...historicalValues, ...forecast]`, so for the whole historical
+region the dashed "Predicted" line was a literal copy of the solid "Historical" line — hovering any
+past date reported the same number twice, once per series, and the chart appeared to show a model
+that had predicted history perfectly. The forecast series is now null over the historical span
+(anchored at the last observed price so the lines still join), and `js/charts.js` gained gap support
+so a series reports no value where it has none. **Any screenshot of this chart taken before the fix
+overstates the model and should be retaken.**
+
+**4. The Daily Forecast Table's "Trend" column had never rendered.** Its `<canvas>` elements were
+created but nothing ever drew into them — the column was blank, so there were no values to be
+accurate. It now draws the last 10 observed prices followed by the forecast path through that row's
+day. (The canvases were also being sized at zero width during the router's page swap; the draw is
+deferred until the element has a width.)
+
+---
+
+### Public Price History rebuilt around questions only the record can answer
+
+**Paper relevance: this changes the public UI scope.** The page was a chart plus four summary
+statistics; it now carries four insight panels. The `.docx` UI section needs to match, and any
+screenshot of the old page is stale.
+
+**Removed, with reasons:**
+
+- **"Avg Daily Move ₱0.05"** — 81 of the 89 day-to-day changes in its window were exactly ₱0.00
+  because they were forward-filled, making rice look 4–5× steadier than it is. It also answered a
+  question nobody has: rice is not bought daily.
+- **"Price Range" (min–max)** — a min and max over an unstated window supports no decision.
+- **The three-item chart guide** ("Lines going up — prices increased") — tautological; it taught
+  chart-reading, not decision-making.
+- **All 8 lines on by default** — unreadable on a phone. The chart now shows the selected variety,
+  with the rest one tap away.
+- The four stat cards also silently ignored the period tabs: clicking "All time" redrew the chart
+  but left the cards on their hardcoded 90-day figures. The tabs now sit in the chart card, which
+  is the only thing they ever controlled.
+
+**Added — four panels, one shared variety + unit control (`public/js/public-history.js`):**
+
+| | Panel | Question it answers |
+|---|---|---|
+| A | Is it expensive right now? | today vs the middle half (25th–75th pct) of the last 6 months **and** the last year |
+| E | Then vs now | this month vs the same month in the 3 previous years |
+| D | Cheapest time to buy | month-of-year pattern over 12 years, each year de-trended against its own mean |
+| F | Biggest price swings | largest gradual 30-day moves on record |
+
+**Measured results for `locWellMilled` (verified against the raw API):** today ₱49.27 sits ₱0.68
+below the 6-month typical but ₱4.62 **above** the 1-year typical — both windows are always shown
+because they disagree, and showing one alone would be a half-truth. September 2026 is **+₱5.55
+(+12.9%)** on September 2025. Seasonally, December and November are cheapest and August and
+September priciest, a 5.6-percentage-point spread that matches the Philippine harvest calendar;
+9 of 12 years put their cheapest month in Oct–Feb. The panel states that year-to-year variation
+(std 4–8 pp) exceeds the seasonal swing, so it is labelled a tendency rather than a promise.
+
+**Two honesty guards, both non-negotiable:**
+
+1. **Every statistic is computed from recorded days only**, never forward-filled ones. A coverage
+   banner appears whenever the recent record is thin — currently *"9 of the last 90 days have a
+   recorded price"*, which is the 2026-05-29 → 2026-07-26 collection gap.
+2. **Discontinuity filter on panel F.** The four largest raw 30-day swings included 2020-11
+   (96% of an ₱11.50 rise in a single day) and 2019-09 (117% in one step, then a partial retrace) —
+   reconstruction seams in the pre-2020 data, not market events. Any window where one step accounts
+   for more than 75% of the move is withheld. What remains are gradual moves including the real
+   **August 2023 rice crisis (+₱10.00, +23.8%)**.
+
+**Not built, deliberately:** a monthly household-budget calculator was considered and dropped — it
+is a budgeting tool, not price history, and belongs on a forward-looking page. Sack pricing became
+a page-wide ₱/kg ↔ ₱/25kg-sack toggle rather than its own panel, for the same reason.
+
+---
 
 ## Still [VERIFY] / [ACTION]
 - **[DTI]** confirm the 8 category names/definitions and the **brands** under each (DA has none).

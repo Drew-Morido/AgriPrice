@@ -1,6 +1,6 @@
 /* ============================================
    AgriPricePH — Login / Sign up hero page
-   70/30 split: a rice-terraces photo slideshow (with credited HD sources)
+   ~64/36 split: a rice-terraces photo slideshow (with credited HD sources)
    on the left, a plain-color panel holding the login/sign-up card on the
    right. The photo side deliberately keeps one fixed dark/gold look in
    both the light and dark app themes; the form side already uses the
@@ -14,10 +14,10 @@
   min-height: 100svh;
 }
 
-/* ---------------- 70% — photo slideshow + brand storytelling ---------------- */
+/* ---------------- ~64% — photo slideshow + brand storytelling ---------------- */
 .ah-hero-zone {
   position: relative;
-  flex: 1 1 70%;
+  flex: 1 1 64%;
   min-width: 0;
   overflow: hidden;
   background: #101b13;
@@ -27,7 +27,7 @@
 .ah-slide {
   position: absolute; inset: 0; width: 100%; height: 100%;
   object-fit: cover; object-position: 50% 38%;
-  opacity: 0; transition: opacity 1400ms ease;
+  opacity: 0; transition: opacity 3000ms ease;
 }
 .ah-slide.is-active { opacity: 1; }
 
@@ -38,7 +38,6 @@
     linear-gradient(180deg, rgba(6,14,10,0.4) 0%, rgba(6,14,10,0.05) 20%, rgba(6,14,10,0.08) 68%, rgba(6,14,10,0.55) 100%);
 }
 
-.ah-topbar { display: flex; align-items: center; gap: 12px; margin-bottom: 40px; text-decoration: none; }
 .ah-logo-tile {
   width: 44px; height: 44px; border-radius: var(--border-radius, 10px);
   /* Matches the public site's real nav logo tile exactly (--lp-green-700
@@ -51,17 +50,19 @@
 .ah-brand-text { display: flex; flex-direction: column; line-height: 1.25; }
 .ah-brand-name { font-size: 19px; font-weight: 700; color: #ffffff; letter-spacing: 0.2px; }
 
-/* .ah-hero and .ah-form-panel share the exact same top/bottom padding
-   (48px / 40px) and both use justify-content:space-between across three
-   (hero) or two (form) stacked groups — so the logo lines up with the top
-   of the card, and the slide-bar lines up with the footer at the bottom,
-   regardless of how tall the card gets (login vs. sign-up vs. PIN step). */
+/* The brand mark now lives once, inside the card (see .ah-card-logo below) —
+   .ah-hero no longer reserves a top row for it. .ah-hero-mid takes the flexible
+   space above the slide-bar and centers its own content in it, so the headline
+   sits mid-height rather than pinned to the top or bottom. */
 .ah-hero {
   position: absolute; z-index: 3; top: 0; bottom: 0; left: 0; right: 0;
-  display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between;
-  text-align: left; padding: 48px clamp(28px, 5vw, 64px) 40px;
+  display: flex; flex-direction: column; align-items: flex-start;
+  text-align: left; padding: 40px clamp(28px, 5vw, 64px) 40px;
 }
-.ah-hero-mid { display: flex; flex-direction: column; align-items: flex-start; }
+.ah-hero-mid {
+  flex: 1 1 auto; min-height: 0;
+  display: flex; flex-direction: column; justify-content: center; align-items: flex-start;
+}
 .ah-hero h1 {
   margin: 0; font-family: 'Fraunces', serif; font-weight: 700;
   font-size: clamp(26px, 2.6vw, 40px); line-height: 1.15; color: #ffffff;
@@ -80,6 +81,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .ah-hero h1, .ah-hero p, .ah-card { animation: none; }
+  .ah-card-body { transition: none !important; }
 }
 
 .ah-stat-row {
@@ -106,12 +108,18 @@
 .ah-stat-change.down { color: var(--color-danger, #EF4444); }
 .ah-stat-change.flat { color: rgba(255,255,255,0.6); }
 
-/* ---------------- slideshow controls: bullets + running photo credit ---------------- */
+/* ---------------- slideshow controls: page dots (top-right) + photo credit (bottom-left) ---------------- */
+/* The bar now only carries the credit control at the bottom — the page dots
+   live up by the top-right corner instead (see .ah-slide-dots below), which
+   is empty space now that the brand mark moved into the card. */
 .ah-slide-bar {
-  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  display: flex; align-items: center; justify-content: flex-start; gap: 16px;
   width: 100%;
 }
-.ah-slide-dots { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.ah-slide-dots {
+  position: absolute; z-index: 4; top: 40px; right: clamp(28px, 5vw, 64px);
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+}
 .ah-slide-dot {
   width: 8px; height: 8px; border-radius: 99px; padding: 0; border: none;
   background: rgba(255,255,255,0.4); cursor: pointer;
@@ -119,26 +127,62 @@
 }
 .ah-slide-dot:hover { background: rgba(255,255,255,0.7); }
 .ah-slide-dot.is-active { width: 22px; background: #ffffff; }
-.ah-slide-credit {
-  font-size: 10px; color: rgba(255,255,255,0.55); text-align: right;
-  flex: 1 1 auto; min-width: 0;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.ah-slide-credit a { color: rgba(255,255,255,0.72); }
-.ah-slide-credit a:hover { color: #ffffff; }
 
-/* ---------------- 30% — plain panel holding the card ---------------- */
+/* Photo credit — a compact "ⓘ Photographer" pill; the full attribution +
+   source link only appears in a popover on hover, focus, or tap (so it
+   doesn't compete with the headline, but is always one action away). Sits
+   bottom-left now — the page dots' old spot. */
+.ah-slide-credit { position: relative; flex: 0 0 auto; }
+.ah-credit-trigger {
+  display: inline-flex; align-items: center; gap: 6px;
+  max-width: 200px;
+  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border-radius: 99px; padding: 5px 11px 5px 9px;
+  font-family: var(--font-sans); font-size: 11px; color: rgba(255,255,255,0.75);
+  cursor: pointer; transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+.ah-credit-trigger span {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ah-credit-icon { flex-shrink: 0; opacity: 0.85; }
+.ah-credit-trigger:hover, .ah-credit-trigger:focus-visible {
+  background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.32); color: #ffffff;
+  outline: none;
+}
+.ah-credit-popover {
+  position: absolute; z-index: 5; bottom: calc(100% + 10px); left: 0;
+  min-width: 220px; max-width: 300px;
+  background: rgba(12,22,16,0.97);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: var(--border-radius-md, 12px);
+  padding: 12px 14px;
+  font-size: 12.5px; line-height: 1.55; color: rgba(255,255,255,0.92);
+  box-shadow: 0 16px 34px rgba(0,0,0,0.38);
+  opacity: 0; visibility: hidden; transform: translateY(6px); pointer-events: none;
+  transition: opacity 160ms ease, transform 160ms ease, visibility 160ms;
+}
+.ah-credit-popover a { color: #8fe0a6; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.ah-credit-popover a:hover { color: #b3edc2; }
+.ah-slide-credit:hover .ah-credit-popover,
+.ah-slide-credit:focus-within .ah-credit-popover,
+.ah-slide-credit.is-open .ah-credit-popover {
+  opacity: 1; visibility: visible; transform: translateY(0); pointer-events: auto;
+}
+
+/* ---------------- ~36% — plain panel holding the card ---------------- */
 .ah-form-panel {
-  flex: 1 1 30%; min-width: 340px;
+  flex: 1 1 36%; min-width: 380px;
   background: var(--bg-body, #F4F6F3);
-  display: flex; align-items: center; justify-content: space-between;
-  flex-direction: column;
-  padding: 48px 32px 40px;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 16px;
+  padding: 32px 40px 24px;
 }
 
 .ah-card {
-  width: 100%; max-width: 448px;
-  max-height: calc(100svh - 80px);
+  width: 100%; max-width: 468px;
+  flex: 0 1 auto; min-height: 0;
+  max-height: calc(100svh - 100px);
   display: flex; flex-direction: column;
   background: var(--bg-card, #ffffff);
   border: 1px solid var(--border-color, #E2EAE4);
@@ -147,14 +191,40 @@
   animation: ah-fade-in 700ms ease 200ms both;
 }
 
+/* The log-in card's own content (one field pair + a checkbox row) is much
+   shorter than sign-up's (~498px vs ~629px natural), which reads as broken
+   next to it — so it's floored taller than its own content. Not floored all
+   the way to sign-up's height on purpose: that made the two auto-margin gaps
+   below (above the form, above the divider) big enough to look like empty
+   placeholders rather than intentional spacing. The min() keeps this from
+   ever fighting .ah-card's own max-height on a short viewport. */
+body[data-page="login"] .ah-card { min-height: min(560px, calc(100svh - 100px)); }
+
+/* Brand logo — lives inside the card itself now, right above the heading,
+   so it stays put across the login <-> admin-PIN step swap too. Bigger than
+   the old panel-level mark, with its own breathing room before "Welcome back". */
+.ah-card-logo {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 14px;
+  padding: 26px 40px 0;
+  margin-bottom: 10px;
+  text-decoration: none;
+}
+.ah-card-logo .ah-logo-tile { width: 52px; height: 52px; box-shadow: none; }
+.ah-card-logo .ah-brand-name { font-size: 21px; font-weight: 700; color: var(--text-primary, #1C2B1E); }
+
 .ah-card-body .btn { justify-content: center; }
 
 /* The scrollable region — kept separate from .ah-card so a tall sign-up form
    scrolls inside its own padding instead of a bare scrollbar hugging the
-   card's rounded edge. */
+   card's rounded edge. It fills .ah-card's min-height (see above) but stays
+   top-aligned, so the heading sits right under the logo at a fixed, tight
+   gap on every step; the divider/footer below (margin-top:auto, further
+   down) is what absorbs the extra height on the shorter login/PIN steps. */
 .ah-card-body {
-  min-height: 0; overflow-y: auto;
-  padding: 38px 48px 30px;
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  display: flex; flex-direction: column;
+  padding: 16px 40px 14px;
   scrollbar-width: thin; scrollbar-color: var(--border-color, #CBD8CE) transparent;
 }
 .ah-card-body::-webkit-scrollbar { width: 6px; }
@@ -162,15 +232,23 @@
 .ah-card-body::-webkit-scrollbar-thumb { background: var(--border-color, #CBD8CE); border-radius: 99px; }
 .ah-card-body::-webkit-scrollbar-thumb:hover { background: var(--text-muted, #9AAAA1); }
 
-.ah-card h2 { margin: 0 0 8px; font-family: 'Fraunces', serif; font-size: var(--fs-h1, 24px); font-weight: 700; color: var(--text-primary, #1C2B1E); }
-.ah-card .ah-sub { margin: 0 0 26px; font-size: 14px; line-height: 1.6; color: var(--text-secondary, #5A7060); }
+.ah-card h2 { margin: 0 0 3px; font-family: 'Fraunces', serif; font-size: var(--fs-h1, 24px); font-weight: 700; color: var(--text-primary, #1C2B1E); }
+.ah-card .ah-sub { margin: 0 0 11px; font-size: 13.5px; line-height: 1.45; color: var(--text-secondary, #5A7060); }
+
+/* Login/sign-up's leftover height (once the card is floored to sign-up's
+   height — see .ah-card above) is split into two auto-margin gaps instead of
+   dumping it all before the divider: one here, above the form, so the fields
+   read as centered rather than pinned high under the sub-text, and the rest
+   above the divider (below) — so "No account yet…" sits a little up from the
+   very bottom instead of hugging the card's edge. */
+#form-login, #form-signup { margin-top: auto; }
 
 .ah-footer {
-  margin-top: 22px; font-size: 11.5px; color: var(--text-muted, #849C8E); text-align: center;
+  margin: 0; flex: 0 0 auto; font-size: 11.5px; color: var(--text-muted, #849C8E); text-align: center;
 }
 
 /* ---------------- form fields — reuse the site's .form-input, just add icon room ---------------- */
-.ah-field { margin-bottom: 16px; }
+.ah-field { margin-bottom: 8px; }
 .ah-field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary, #5A7060); margin-bottom: 6px; }
 .ah-field-row { display: flex; gap: 12px; }
 .ah-field-row .ah-field { flex: 1; min-width: 0; }
@@ -192,21 +270,23 @@
 }
 .ah-pw-toggle:hover { color: var(--text-secondary, #5A7060); }
 
-.ah-row { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 22px; }
+.ah-row { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 14px; }
 .ah-remember { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-secondary, #5A7060); cursor: pointer; user-select: none; }
 .ah-remember input { width: 15px; height: 15px; accent-color: var(--color-accent, #4CAF6E); cursor: pointer; }
 .ah-forgot { font-size: 12.5px; font-weight: 700; color: var(--color-primary-mid, #2D5A3E); background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; }
 .ah-forgot:hover { color: var(--color-accent, #4CAF6E); }
 
-.ah-divider { height: 1px; background: var(--border-color, #E2EAE4); margin: 24px 0 18px; }
+/* The other half of the split described above the form — pushes the footer
+   down from the button, but only partway, not flush to the card's bottom edge. */
+.ah-divider { height: 1px; background: var(--border-color, #E2EAE4); margin: auto 0 10px; }
 
-.ah-foot { text-align: center; font-size: 13.5px; color: var(--text-secondary, #5A7060); line-height: 1.9; }
+.ah-foot { text-align: center; font-size: 13.5px; color: var(--text-secondary, #5A7060); line-height: 1.5; }
 .ah-foot a { font-weight: 700; }
-.ah-foot-back { display: block; margin-top: 2px; font-size: 12.5px; color: var(--text-muted, #849C8E); }
+.ah-foot-back { display: block; margin-top: 1px; font-size: 12.5px; color: var(--text-muted, #849C8E); }
 .ah-foot-back:hover { color: var(--text-secondary, #5A7060); }
 
-.ah-terms { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; color: var(--text-secondary, #5A7060); line-height: 1.5; margin: 2px 0 6px; cursor: pointer; }
-.ah-terms input { width: 15px; height: 15px; margin-top: 2px; accent-color: var(--color-accent, #4CAF6E); flex-shrink: 0; cursor: pointer; }
+.ah-terms { display: flex; gap: 10px; align-items: flex-start; font-size: 12.5px; color: var(--text-secondary, #5A7060); line-height: 1.6; margin: 10px 0 12px; cursor: pointer; }
+.ah-terms input { width: 15px; height: 15px; margin-top: 3px; accent-color: var(--color-accent, #4CAF6E); flex-shrink: 0; cursor: pointer; }
 .ah-terms-link {
   font-weight: 700; color: var(--color-primary-mid, #2D5A3E);
   background: none; border: none; padding: 0; margin: 0;
@@ -255,17 +335,51 @@
 .ah-modal-body strong { color: var(--text-primary, #1C2B1E); }
 .ah-modal-foot { padding: 0 28px 24px; text-align: right; }
 
-.ah-pw-meter { height: 5px; border-radius: 99px; background: var(--border-color, #E2EAE4); margin-top: 7px; overflow: hidden; }
+.ah-pw-meter { height: 5px; border-radius: 99px; background: var(--border-color, #E2EAE4); margin-top: 6px; overflow: hidden; }
 .ah-pw-meter-bar { height: 100%; width: 0%; background: var(--color-danger, #EF4444); transition: width 150ms ease, background 150ms ease; }
-.ah-pw-hint { font-size: 11px; color: var(--text-muted, #849C8E); margin-top: 5px; line-height: 1.4; }
+.ah-pw-hint { font-size: 10.5px; color: var(--text-muted, #849C8E); margin-top: 4px; line-height: 1.35; }
 
-/* ---------------- admin PIN step (shown in place of the login form) ---------------- */
-#ah-pin-panel[hidden], #ah-login-panel[hidden] { display: none; }
+/* ---------------- admin PIN + forgot/code/reset-password steps (shown in place of the login form) ---------------- */
+#ah-pin-panel[hidden], #ah-login-panel[hidden],
+#ah-forgot-panel[hidden], #ah-code-panel[hidden], #ah-reset-panel[hidden] { display: none; }
+
+/* Step-to-step transition — see showPanel() in auth-hero.js, which times the
+   hidden-attribute swap around these classes (a plain [hidden] toggle can't
+   itself transition, since display:none applies instantly). Fast (130ms) and
+   a short slide so it reads as snappy, not sluggish. */
+.ah-card-body { transition: opacity 130ms ease, transform 130ms ease; }
+.ah-card-body.ah-panel-out { opacity: 0; transform: translateY(-6px); }
+.ah-card-body.ah-panel-in { opacity: 0; transform: translateY(6px); }
+
+/* None of these four steps has a divider/footer to anchor at the bottom the
+   way login/sign-up do, so each form grows to fill the card and its last
+   field's margin-bottom:auto pushes the trailing button(s) down together —
+   same effect (fixed gap under the heading, leftover height absorbed further
+   down) without disturbing the normal gap between stacked buttons. */
+#form-admin-pin, #form-forgot-password, #form-verify-code, #form-reset-password {
+  display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0;
+}
+#form-admin-pin .ah-field,
+#form-forgot-password .ah-field,
+#form-verify-code .ah-field,
+#form-reset-password .ah-field:last-of-type { margin-bottom: auto; }
+#ah-pin-back, #ah-forgot-back, #ah-code-resend, #ah-code-back, #ah-reset-back { margin-top: 10px; }
+
+/* Six separate single-digit boxes instead of one text field — reads faster
+   at a glance and matches the usual OTP/PIN pattern. Inherits .form-input's
+   border/background/focus-ring; only size, centering and type are custom. */
+.ah-pin-boxes { display: flex; gap: 10px; }
+.ah-pin-box {
+  width: 100%; aspect-ratio: 1 / 1; padding: 0;
+  text-align: center; font-family: 'JetBrains Mono', monospace;
+  font-size: 22px; font-weight: 700; letter-spacing: 0;
+}
+.ah-pin-box::-webkit-outer-spin-button, .ah-pin-box::-webkit-inner-spin-button { display: none; }
 
 /* ================= tablet: keep the split, narrow the photo side a bit ================= */
 @media (max-width: 1080px) and (min-width: 761px) {
-  .ah-hero-zone { flex-basis: 60%; }
-  .ah-form-panel { flex-basis: 40%; }
+  .ah-hero-zone { flex-basis: 56%; }
+  .ah-form-panel { flex-basis: 44%; min-width: 320px; }
 }
 
 /* ================= mobile: photo recedes to a top band, panel stacks full-width ================= */
@@ -274,15 +388,18 @@
 
   .ah-hero-zone { flex: 0 0 auto; min-height: 380px; }
 
-  .ah-logo-tile { width: 38px; height: 38px; border-radius: 10px; }
-  .ah-brand-name { font-size: 16px; }
-  .ah-topbar { margin-bottom: 22px; }
-
   .ah-hero { position: relative; inset: auto; justify-content: flex-start; padding: 26px 20px 20px; }
   .ah-hero h1 { font-size: 25px; }
   .ah-hero p { font-size: 13.5px; }
 
-  .ah-slide-bar { margin-top: 18px; flex-wrap: wrap; }
+  /* The top-right corner is tight on a phone (headline + stat row already
+     live there), so the page dots go back to sitting inline with the credit
+     pill at the bottom, like before. */
+  .ah-slide-dots { position: static; top: auto; right: auto; }
+  .ah-slide-bar { margin-top: 18px; justify-content: space-between; flex-wrap: wrap; }
+  /* Credit pill is back on the right of the bar here, so its popover should
+     grow leftward from that side instead of the desktop bottom-left setup. */
+  .ah-credit-popover { left: auto; right: 0; }
 
   .ah-stat-row {
     margin-top: 24px; display: grid; grid-template-columns: 1fr 1fr;
@@ -295,6 +412,11 @@
 
   .ah-form-panel { flex: 1; min-width: 0; width: 100%; justify-content: flex-start; padding: 30px 22px 32px; border-radius: 26px 26px 0 0; margin-top: -20px; box-shadow: 0 -14px 40px rgba(5,16,10,0.18); position: relative; z-index: 2; }
   .ah-card { max-height: none; box-shadow: none; border: none; }
+  /* No side-by-side comparison to match on a phone — let the card be its natural height. */
+  body[data-page="login"] .ah-card { min-height: 0; }
+  .ah-card-logo { padding: 0; margin: 0 0 14px; gap: 10px; }
+  .ah-card-logo .ah-logo-tile { width: 40px; height: 40px; }
+  .ah-card-logo .ah-brand-name { font-size: 17px; }
   .ah-card-body { overflow-y: visible; padding: 0; }
   .ah-card h2 { font-size: 22px; }
 }

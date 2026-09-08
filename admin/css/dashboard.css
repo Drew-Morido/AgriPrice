@@ -240,6 +240,14 @@
   min-width: 200px;
 }
 
+/* `align-self` keeps the row as wide as its own content, so the ⓘ sits right
+   next to the "Local"/"Imported" word instead of at the far end of the header. */
+.dash-pred-subtitle-line {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+}
+
 .dash-pred-filters {
   display: flex;
   align-items: center;
@@ -298,7 +306,9 @@
 
 .dash-pred-row {
   display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr 0.9fr 0.8fr 0.7fr;
+  /* Forecast Price now carries a range ("P48.46 - P50.17"), roughly twice the width of a
+     single figure, so it gets the widest share and Last Price gives some back. */
+  grid-template-columns: 1.3fr 0.8fr 1.5fr 0.8fr 0.9fr 0.7fr;
   align-items: center;
   gap: 12px;
   padding: 12px 20px;
@@ -340,6 +350,14 @@ html.theme-dark .dash-pred-row-head { background: var(--bg-input); }
   font-family: var(--font-mono);
   font-weight: 700;
   color: var(--text-primary);
+}
+
+/* The forecast range is the headline value; it needs to survive a narrower column than a single
+   price did, so it drops a little in size and never wraps mid-range. */
+.dash-pred-price-main {
+  display: block;
+  font-size: 12.5px;
+  white-space: nowrap;
 }
 
 .dash-pred-change {
@@ -472,3 +490,88 @@ html.theme-dark .dash-pred-row-head { background: var(--bg-input); }
   color: var(--text-muted);
   border: 1px solid var(--border-color);
 }
+
+/* ── Filterable card headers (Key Indicators, 3-Day Forecast) ── */
+.dash-filter-header {
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.dash-filter-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dash-filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Sized to sit level with .dash-pred-segment next to it */
+.dash-filter-select {
+  padding: 6px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  max-width: 130px;
+}
+
+.dash-filter-select:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* Key Indicators: two tiles side by side, the third spanning the full row so a
+   3-tile card doesn't leave an empty cell in the 2-column grid. */
+.ki-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.ki-tile-wide { grid-column: 1 / -1; }
+
+.ki-tile-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.ki-tile-value {
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  margin-top: 4px;
+}
+
+/* ── Recent Alerts footer ── */
+.dash-alerts-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 20px;
+  border-top: 1px solid var(--border-color);
+}
+
+/* Forecast value rendered beside the bar, not inside it: a price RANGE is about twice as wide as
+   a single figure and gets clipped by .pred-bar's overflow on a short bar or in a narrow column. */
+.pred-bar-out {
+  font-size: 10.5px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+

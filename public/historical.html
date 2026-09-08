@@ -8,6 +8,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <!-- Icon font for the info affordances, the coverage notice and the price-swing arrows.
+       Already a dependency of current-prices.html; without it these <i> tags render as
+       zero-width elements and the hover targets disappear. -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
   <link rel="stylesheet" href="../css/global.css" />
   <link rel="stylesheet" href="css/landpage.css" />
   <link rel="stylesheet" href="css/public.css" />
@@ -78,45 +82,12 @@
     }
 
     /* ── HERO — full bleed ── */
-    .hist-hero {
-      position: relative;
-      overflow: hidden;
-      background: var(--g900);
-      width: 100%;
-      padding: 56px 0 64px;
-    }
 
     /* grid texture */
-    .hist-hero::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background-image:
-        repeating-linear-gradient(90deg, transparent, transparent 79px, rgba(114,201,141,0.035) 80px),
-        repeating-linear-gradient(0deg,  transparent, transparent 79px, rgba(114,201,141,0.025) 80px);
-      pointer-events: none;
-    }
 
     /* glow right */
-    .hist-hero::after {
-      content: '';
-      position: absolute;
-      width: 600px; height: 600px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(74,158,103,0.2) 0%, transparent 65%);
-      top: -120px; right: -100px;
-      pointer-events: none;
-    }
 
     /* glow left accent */
-    .hist-hero-glow2 {
-      position: absolute;
-      width: 300px; height: 300px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(74,158,103,0.1) 0%, transparent 70%);
-      bottom: -60px; left: -40px;
-      pointer-events: none;
-    }
 
     .hist-hero-inner {
       position: relative;
@@ -131,116 +102,131 @@
       flex-wrap: wrap;
     }
 
-    .hist-eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
-      color: var(--g300);
-      margin-bottom: 16px;
-    }
 
-    .hist-eyebrow-line {
-      width: 24px; height: 2px;
-      background: var(--g400);
-      border-radius: 2px;
-      flex-shrink: 0;
-    }
 
-    .hist-hero h1 {
-      font-family: var(--f-display);
-      font-size: clamp(34px, 4.5vw, 58px);
-      color: #fff;
-      line-height: 1.04;
-      letter-spacing: -1.5px;
-      margin-bottom: 14px;
-    }
 
-    .hist-hero h1 em {
-      font-style: italic;
-      color: var(--g300);
-    }
 
-    .hist-hero-desc {
-      font-size: 14.5px;
-      color: rgba(255,255,255,0.45);
-      line-height: 1.65;
-      max-width: 400px;
-    }
 
-    .hist-hero-right {
+
+
+
+
+
+
+
+
+    /* ══ One container ═══════════════════════════════════════════════════════
+       The whole module sits in a single card floating on the dark ground. With the hero gone the
+       page needs one edge to hold it together, and it puts the first real answer above the fold. */
+    .hist-page { background: var(--g900); }
+    /* The gap under the navbar lives on the shell's margin, not the page's padding: the layout
+       override further up sets `padding: 0 !important` on .hist-page, so padding there is ignored. */
+    .hist-shell {
+      max-width: 1240px;
+      margin: 32px auto 44px;
+      background: var(--card);
+      border-radius: 22px;
+      box-shadow: 0 24px 70px rgba(0,0,0,.28);
+      overflow: hidden;
+    }
+    .hist-shell .hist-body { max-width: none; padding: 24px 26px 26px; }
+
+    /* ══ Chart card — dark panel ══════════════════════════════════════════════ */
+    /* Same box as .ph-panel — radius, padding and margin — so the dark card reads as one of the
+       four rather than a different kind of thing that happens to sit beside them. */
+    .hist-chart-card {
+      background: var(--g900);
+      border: 1px solid var(--g800);
+      border-radius: 18px;
+      box-shadow: var(--sh-sm);
+      margin-bottom: 0;
+      padding: 22px 24px;
       display: flex;
       flex-direction: column;
-      align-items: flex-end;
-      gap: 14px;
-      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .hcc-head { padding: 0; }
+    .hcc-titles h2 {
+      font-family: var(--f-display); font-size: 21px; color: #fff;
+      margin: 0 0 3px; font-weight: 400; letter-spacing: -.2px;
+    }
+    .hcc-titles h2 .ph-info { color: rgba(255,255,255,.45); }
+    .hcc-titles h2 .ph-info:hover, .hcc-titles h2 .ph-info:focus-visible { color: var(--g300); }
+    .hcc-titles p { margin: 0; font-size: 12.5px; color: rgba(255,255,255,.42); }
+
+    .hcc-controls {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; flex-wrap: wrap; padding: 14px 0 14px;
+    }
+    /* Period tabs restyled for the dark panel. */
+    .hist-chart-card .hist-period-tabs {
+      background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+      border-radius: 10px; padding: 3px; gap: 2px; margin: 0;
+    }
+    .hist-chart-card .hist-period-tabs button {
+      color: rgba(255,255,255,.55); background: transparent; border: none;
+      padding: 7px 14px; font-size: 12.5px;
+    }
+    .hist-chart-card .hist-period-tabs button:hover:not(.active) {
+      color: #fff; background: rgba(255,255,255,.07);
+    }
+    .hist-chart-card .hist-period-tabs button.active { background: var(--g400); color: #06170e; }
+
+    /* Variety dropdown — replaces the eight-item legend toggle grid. */
+    .hcc-select {
+      font-family: inherit; font-size: 13px; font-weight: 700; color: var(--ink2);
+      background: #fff; border: 1px solid rgba(255,255,255,.16); border-radius: 10px;
+      padding: 9px 13px; cursor: pointer; min-width: 190px;
+    }
+    .hcc-select:focus-visible { outline: 2px solid var(--g300); outline-offset: 1px; }
+
+    /* Light plot area inside the dark card, so the line keeps the same contrast as the panels. */
+    /* Chart.js sizes the canvas itself when responsive + maintainAspectRatio:false, so the wrapper
+       carries the height and the canvas is left alone. Forcing height on the canvas fights that
+       and makes it grow on every resize. */
+    /* Chart.js sizes a responsive canvas from its offset parent. Absolutely positioning the canvas
+       inside a fixed-height relative box is the documented way to pin that down — leaving the
+       canvas in normal flow let it settle at 400px inside a 264px box and clip the x-axis. */
+    .hcc-canvas {
+      background: #fff; margin: 0; border-radius: 12px;
+      min-height: 200px; flex: 1; position: relative;
+    }
+    .hcc-canvas canvas { position: absolute; inset: 0; display: block; }
+
+    .hcc-legend {
+      display: flex; flex-wrap: wrap; gap: 8px 18px;
+      padding: 13px 0 0; font-size: 12px; color: rgba(255,255,255,.6);
+    }
+    .hcc-legend-item { display: inline-flex; align-items: center; gap: 7px; }
+    .hcc-legend-swatch { width: 16px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+    .hcc-legend-swatch.dashed {
+      height: 0; border-top: 3px dashed currentColor; border-radius: 0; width: 18px;
     }
 
-    .hist-meta-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(255,255,255,0.055);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 99px;
-      padding: 7px 16px 7px 11px;
-      font-size: 12px;
-      font-weight: 600;
-      color: rgba(255,255,255,0.55);
+    .ph-chart-note {
+      background: rgba(0,0,0,.28); color: rgba(255,255,255,.66);
+      /* Negative margins pull it out to the card edges while the card keeps its own padding. */
+      margin: 13px -24px -22px; padding: 12px 24px;
+      font-size: 12.5px; line-height: 1.6;
     }
+    .ph-chart-note strong { color: #fff; font-weight: 700; }
+    .ph-chart-note:empty { display: none; }
 
-    .hist-meta-dot {
-      width: 7px; height: 7px;
-      border-radius: 50%;
-      background: var(--g300);
-      animation: pulse 2.2s ease infinite;
+    @media (max-width: 1080px) {
+      .hist-shell { margin: 20px 14px 32px; border-radius: 18px; }
+      .hist-shell .hist-body { padding: 18px 16px 20px; }
     }
-
-    @keyframes pulse {
-      0%,100% { opacity:1; transform:scale(1); }
-      50%      { opacity:0.4; transform:scale(0.8); }
-    }
-
-    .hist-coverage {
-      display: flex;
-      gap: 28px;
-    }
-
-    .hist-cov-item { text-align: right; }
-
-    .hist-cov-num {
-      font-family: var(--f-mono);
-      font-size: 28px;
-      font-weight: 500;
-      color: #fff;
-      letter-spacing: -0.8px;
-      display: block;
-      line-height: 1;
-    }
-
-    .hist-cov-label {
-      font-size: 11px;
-      color: rgba(255,255,255,0.32);
-      margin-top: 4px;
-      display: block;
+    @media (max-width: 880px) {
+      .hist-chart-card { padding: 18px 16px; }
+      .hcc-controls { padding: 12px 0; }
+      .hcc-select { width: 100%; min-width: 0; }
+      .hcc-canvas { min-height: 190px; margin: 0; }
+      .hcc-legend { padding-left: 0; padding-right: 0; }
+      .ph-chart-note { margin: 12px -16px -18px; padding: 11px 16px; }
     }
 
     /* ── SCALLOP DIVIDER ── */
-    .hist-scallop {
-      display: block;
-      width: 100%;
-      line-height: 0;
-      /* green on top (hero bg), transparent on bottom — SVG fill below handles the wave colour */
-      background: linear-gradient(to bottom, var(--g900) 0%, var(--g900) 1px, transparent 1px);
-    }
 
-    .hist-scallop svg {
-      display: block;
-      width: 100%;
-    }
 
     /* ── BODY (constrained) ── */
     .hist-body {
@@ -250,25 +236,8 @@
     }
 
     /* ── CONTROLS BAR ── */
-    .hist-controls {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-      padding: 20px 0 24px;
-    }
 
-    .hist-period-label {
-      font-size: 11.5px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: var(--ink4);
-    }
 
-    /* Hide the original lp-period-tabs (JS still binds to those hidden ones) */
-    .lp-period-tabs { display: none !important; }
 
     .hist-period-tabs {
       display: flex;
@@ -307,40 +276,226 @@
     }
 
     /* ── STAT ROW ── */
-    .hist-stat-row {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 14px;
-      margin-bottom: 20px;
+    /* ══ Price History insight panels (A/E/D/F) ══════════════════════════════
+       Same card language as the rest of the public site — white card, soft shadow, green accents.
+       One shared control row drives every panel and the chart, so the page always answers about a
+       single variety in a single unit. */
+
+    .ph-controls {
+      display: flex; flex-wrap: wrap; gap: 18px 26px; align-items: flex-end;
+      background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+      padding: 16px 20px; box-shadow: var(--sh-xs); margin-bottom: 16px;
+    }
+    .ph-ctl { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+    .ph-ctl-label {
+      font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+      color: var(--ink4);
+    }
+    .ph-select {
+      font-family: inherit; font-size: 14px; font-weight: 600; color: var(--ink2);
+      background: var(--bg); border: 1px solid var(--bord2); border-radius: 10px;
+      padding: 9px 12px; min-width: 210px; cursor: pointer;
+    }
+    .ph-select:focus-visible { outline: 2px solid var(--g400); outline-offset: 1px; }
+    .ph-seg {
+      display: inline-flex; gap: 3px; padding: 3px;
+      background: var(--bg); border: 1px solid var(--bord2); border-radius: 10px;
+    }
+    .ph-seg button {
+      font-family: inherit; font-size: 12.5px; font-weight: 700; color: var(--ink3);
+      background: transparent; border: none; border-radius: 7px; padding: 7px 14px; cursor: pointer;
+      white-space: nowrap;
+    }
+    .ph-seg button:hover:not(.active) { color: var(--ink2); background: rgba(38,84,56,.06); }
+    .ph-seg button.active { background: var(--g700); color: #fff; }
+
+    /* Shown only when the recent record is mostly forward-filled. */
+    /* Must outrank .ph-coverage's own display:flex — a class selector beats the browser's
+       [hidden] { display: none }, so without this the dismiss button appeared to do nothing. */
+    .ph-coverage[hidden] { display: none !important; }
+
+    .ph-coverage {
+      display: flex; gap: 10px; align-items: flex-start;
+      background: #fff8e8; border: 1px solid rgba(180,120,20,.22); border-left: 4px solid #d9902a;
+      border-radius: 12px; padding: 12px 16px; margin-bottom: 16px;
+      font-size: 13px; line-height: 1.55; color: #5c4415;
+    }
+    .ph-coverage i { color: #d9902a; font-size: 17px; flex-shrink: 0; margin-top: 1px; }
+
+    .ph-panel {
+      background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+      box-shadow: var(--sh-sm); padding: 22px 24px; margin-bottom: 16px;
+    }
+    .ph-panel-head { margin-bottom: 16px; }
+    .ph-panel-head h2 {
+      font-family: 'DM Serif Display', Georgia, serif; font-size: 21px; color: var(--ink);
+      margin: 0 0 3px; font-weight: 400;
+    }
+    .ph-panel-head p { margin: 0; font-size: 13px; color: var(--ink3); line-height: 1.5; }
+    /* `stretch` (the grid default, restated for clarity) makes side-by-side cards share the
+       tallest one's height instead of each ending wherever its content does. */
+    .ph-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: stretch; }
+    .ph-grid > .ph-panel { margin-bottom: 0; display: flex; flex-direction: column; }
+    /* The body takes the slack so the footnote sits at the bottom of every card in a row. */
+    /* The body is a column that fills the card: its main content stretches and the footnote is
+       pushed to the bottom edge, so a card that is taller than its content (every row is 1fr) has
+       no gap hanging under the last line. */
+    .ph-grid > .ph-panel > .ph-panel-body { flex: 1; display: flex; flex-direction: column; }
+    .ph-panel-body > .ph-foot { margin-top: auto; }
+    /* Row lists share the slack evenly rather than bunching at the top. */
+    .ph-tn-rows { display: grid; grid-auto-rows: 1fr; align-content: stretch; flex: 1; }
+    .ph-se-chart { margin-top: auto; }
+    .ph-empty { padding: 22px 4px; color: var(--ink4); font-size: 13.5px; text-align: center; }
+    .ph-foot {
+      margin: 14px 0 0; padding-top: 12px; border-top: 1px dashed var(--border);
+      font-size: 12px; color: var(--ink4); line-height: 1.5;
     }
 
-    .hist-stat-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 22px 20px 18px;
-      box-shadow: var(--sh-xs);
-      position: relative;
-      overflow: hidden;
-      transition: box-shadow 0.22s, transform 0.22s;
+    /* Small info affordance — explanation on hover/focus, never taking a line of its own. */
+    .ph-info {
+      font-size: 13px; color: var(--ink4); cursor: help; vertical-align: -2px; margin-left: 3px;
+    }
+    .ph-info:hover, .ph-info:focus-visible { color: var(--g500); }
+    [data-tip] { position: relative; }
+    [data-tip]::after {
+      content: attr(data-tip);
+      position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+      background: var(--g900); color: #fff;
+      font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 500; font-style: normal;
+      font-size: 11.5px; line-height: 1.5; text-align: left; letter-spacing: 0;
+      width: max-content; max-width: min(280px, 74vw);
+      padding: 9px 11px; border-radius: 9px; box-shadow: var(--sh-md);
+      opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 60;
+    }
+    [data-tip]:hover::after, [data-tip]:focus-visible::after { opacity: 1; }
+
+    /* ── A · verdict ── */
+    .ph-panel--hero { background: linear-gradient(135deg, #ffffff 0%, var(--g50) 100%); }
+    .ph-verdict { display: flex; flex-wrap: wrap; gap: 26px 40px; align-items: center; }
+    .ph-verdict-main { min-width: 210px; }
+    .ph-v-label { font-size: 12.5px; font-weight: 700; color: var(--ink3); margin-bottom: 4px; }
+    .ph-v-price {
+      font-family: 'JetBrains Mono', monospace; font-size: 38px; font-weight: 700;
+      color: var(--g700); letter-spacing: -1.5px; line-height: 1;
+    }
+    .ph-v-price span { font-size: 13px; font-weight: 600; color: var(--ink4); letter-spacing: 0; margin-left: 5px; }
+    .ph-v-badge {
+      display: inline-block; margin-top: 11px; padding: 6px 14px; border-radius: 99px;
+      font-size: 12.5px; font-weight: 800;
+    }
+    .ph-v-badge.good { background: var(--g100); color: var(--g600); }
+    .ph-v-badge.mid  { background: #eef1ee; color: var(--ink3); }
+    .ph-v-badge.bad  { background: #fde8e6; color: #9b2c1f; }
+    .ph-verdict-side { flex: 1; min-width: 260px; }
+    .ph-v-row {
+      display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: baseline;
+      padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px;
+    }
+    .ph-v-window { color: var(--ink3); }
+    .ph-v-usual { color: var(--ink4); font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+    .ph-v-delta { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 12.5px; white-space: nowrap; }
+    .ph-v-delta.low { color: var(--g500); }
+    .ph-v-delta.mid { color: var(--ink3); }
+    .ph-v-delta.high { color: #b0392a; }
+    .ph-v-note { margin: 10px 0 0; font-size: 11.5px; color: var(--ink4); line-height: 1.5; }
+
+    /* ── E · then vs now ── */
+    .ph-tn-now {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+      padding-bottom: 12px; margin-bottom: 6px; border-bottom: 2px solid var(--g100);
+    }
+    .ph-tn-now-label { font-size: 13px; font-weight: 700; color: var(--ink2); }
+    .ph-tn-now-val {
+      font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700; color: var(--g700);
+    }
+    .ph-tn-now-val small { font-size: 11px; color: var(--ink4); margin-left: 3px; }
+    .ph-tn-row {
+      display: grid; grid-template-columns: 64px 68px 1fr auto; gap: 10px; align-items: center;
+      padding: 9px 0; font-size: 12.5px;
+    }
+    .ph-tn-year { color: var(--ink3); font-weight: 600; }
+    .ph-tn-was { font-family: 'JetBrains Mono', monospace; color: var(--ink4); font-size: 12px; }
+    .ph-tn-bar-wrap { background: var(--bg); border-radius: 99px; height: 7px; overflow: hidden; }
+    .ph-tn-bar { display: block; height: 100%; border-radius: 99px; }
+    .ph-tn-bar.up { background: linear-gradient(90deg, #f0a58c, #c14a33); }
+    .ph-tn-bar.down { background: linear-gradient(90deg, var(--g300), var(--g500)); }
+    .ph-tn-diff { font-family: 'JetBrains Mono', monospace; font-weight: 700; white-space: nowrap; }
+    .ph-tn-diff small { font-weight: 600; opacity: .75; }
+    .ph-tn-diff.up { color: #b0392a; }
+    .ph-tn-diff.down { color: var(--g500); }
+
+    /* ── D · seasonal ── */
+    .ph-se-summary { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+    .ph-se-pick { flex: 1; min-width: 140px; border-radius: 12px; padding: 11px 14px; }
+    .ph-se-pick.good { background: var(--g50); border: 1px solid var(--g100); }
+    .ph-se-pick.bad  { background: #fdf1ef; border: 1px solid #f7ded9; }
+    .ph-se-pick-lbl {
+      display: block; font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .05em; margin-bottom: 3px;
+    }
+    .ph-se-pick.good .ph-se-pick-lbl { color: var(--g500); }
+    .ph-se-pick.bad  .ph-se-pick-lbl { color: #b0392a; }
+    .ph-se-pick-val { font-size: 14px; font-weight: 700; color: var(--ink2); }
+    .ph-se-chart {
+      position: relative; display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px;
+      padding: 6px 0 0;
+    }
+    .ph-se-axis { position: absolute; left: 0; right: 0; top: 56px; height: 1px; background: var(--bord2); }
+    .ph-se-col { display: flex; flex-direction: column; align-items: center; cursor: help; }
+    .ph-se-col:focus-visible { outline: 2px solid var(--g400); outline-offset: 2px; border-radius: 6px; }
+    .ph-se-slot { position: relative; width: 100%; height: 100px; }
+    .ph-se-bar { position: absolute; left: 22%; right: 22%; border-radius: 4px; }
+    .ph-se-bar.up { background: linear-gradient(180deg, #e08a70, #c14a33); }
+    .ph-se-bar.down { background: linear-gradient(0deg, var(--g500), var(--g300)); }
+    .ph-se-mon { font-size: 10.5px; color: var(--ink4); font-weight: 600; margin-top: 5px; }
+    .ph-se-col:hover .ph-se-mon { color: var(--ink2); }
+
+    /* ── F · biggest swings ── */
+        /* Equal-height rows so four entries fill the card rather than stacking at the top and leaving
+       a gap — the card's height is set by the chart beside it, and dead space there reads as a
+       mistake rather than as breathing room. */
+    .ph-moves { display: grid; gap: 8px; grid-auto-rows: 1fr; }
+    .ph-mv {
+      display: flex; gap: 13px; align-items: center;
+      background: var(--bg); border-radius: 12px; padding: 11px 14px;
+      border-left: 4px solid var(--g400);
+    }
+    .ph-mv.up { border-left-color: #c14a33; }
+    .ph-mv-ico {
+      width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center;
+      flex-shrink: 0; font-size: 16px;
+    }
+    .ph-mv.up .ph-mv-ico   { background: #fde8e6; color: #b0392a; }
+    .ph-mv.down .ph-mv-ico { background: var(--g100); color: var(--g600); }
+    .ph-mv-body { min-width: 0; flex: 1; }
+    .ph-mv-top { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+    .ph-mv-top strong { font-family: 'JetBrains Mono', monospace; font-size: 15px; }
+    .ph-mv.up .ph-mv-top strong   { color: #b0392a; }
+    .ph-mv.down .ph-mv-top strong { color: var(--g600); }
+    .ph-mv-pct { font-size: 11.5px; font-weight: 700; color: var(--ink3); }
+    .ph-mv-when { font-size: 11.5px; font-weight: 700; color: var(--ink4); margin-left: auto; }
+    .ph-mv-sub { font-size: 12px; color: var(--ink3); margin-top: 3px; line-height: 1.5; }
+    .ph-mv-range { color: var(--ink4); }
+
+    @media (max-width: 880px) {
+      .ph-grid { grid-template-columns: 1fr; }
+      .ph-v-price { font-size: 32px; }
+      .ph-panel { padding: 18px 16px; border-radius: 15px; }
+      .ph-controls { padding: 14px 16px; gap: 14px 18px; }
+      .ph-select { min-width: 0; width: 100%; }
+      .ph-ctl { flex: 1 1 100%; }
+      .ph-mv-when { margin-left: 0; width: 100%; }
+      .ph-se-slot { height: 84px; }
+      .ph-se-axis { top: 48px; }
+      .ph-se-mon { font-size: 9.5px; }
+      .ph-v-row { grid-template-columns: 1fr auto; }
+      .ph-v-usual { display: none; }
     }
 
-    .hist-stat-card:hover {
-      box-shadow: var(--sh-sm);
-      transform: translateY(-2px);
-    }
 
-    .hist-stat-card::after {
-      content: '';
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      height: 3px;
-      background: linear-gradient(90deg, var(--g400), var(--g300));
-      opacity: 0;
-      transition: opacity 0.22s;
-    }
 
-    .hist-stat-card:hover::after { opacity: 1; }
+
+
 
     .hist-stat-ico {
       width: 32px; height: 32px;
@@ -385,145 +540,66 @@
     }
 
     /* ── CHART CARD ── */
-    .hist-chart-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 24px;
-      overflow: hidden;
-      box-shadow: var(--sh-md);
-      margin-bottom: 20px;
+    /* ══ Layout refinements ══════════════════════════════════════════════════ */
+
+    /* Controls and the coverage notice share a line: the notice is context for the control above
+       it, and giving it a full band of its own pushed the first real panel below the fold. */
+    .ph-controls-row {
+      display: grid; grid-template-columns: minmax(320px, auto) 1fr; gap: 14px;
+      align-items: stretch; margin-bottom: 16px;
     }
+    .ph-controls-row > .ph-controls { margin-bottom: 0; }
+    .ph-controls-row > .ph-coverage { margin-bottom: 0; align-items: center; }
+    .ph-coverage-x {
+      margin-left: auto; background: transparent; border: none; cursor: pointer;
+      color: #a08048; font-size: 15px; line-height: 1; padding: 4px; border-radius: 6px; flex-shrink: 0;
+    }
+    .ph-coverage-x:hover { background: rgba(180,120,20,.12); color: #5c4415; }
+
+    /* Swings sit beside the chart so the page ends on one row rather than two full-width bands. */
+    /* Equal rows as well as equal columns, so all four cards are the same size — not just the
+       two that happen to share a row. */
+    .ph-grid--quad { grid-auto-rows: 1fr; }
+    .ph-grid--quad > * { min-width: 0; }
+
+    /* ── Chart card, restyled to sit in the same row as a panel ── */
+    .ph-chart-note {
+      background: var(--g900); color: rgba(255,255,255,.72);
+      padding: 13px 22px; font-size: 12.5px; line-height: 1.6;
+    }
+    .ph-chart-note strong { color: #fff; font-weight: 700; }
+    .ph-chart-note:empty { display: none; }
+
+    /* The legend has to work in a half-width column, so it flows instead of using fixed columns. */
+
+    @media (max-width: 1080px) {
+      .ph-controls-row { grid-template-columns: 1fr; }
+      .ph-grid--wide { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 880px) {
+      .ph-chart-note { padding: 12px 16px; font-size: 12px; }
+    }
+
 
     /* dark header strip for the chart */
-    .hist-chart-topbar {
-      background: var(--g900);
-      padding: 22px 28px 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
-    }
 
-    .hist-chart-title {
-      font-family: var(--f-display);
-      font-size: 20px;
-      color: #fff;
-      letter-spacing: -0.4px;
-      margin-bottom: 4px;
-    }
 
-    .hist-chart-sub {
-      font-size: 12px;
-      color: rgba(255,255,255,0.38);
-    }
 
-    .hist-chart-pills {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
 
-    .hist-chart-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: rgba(255,255,255,0.07);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 99px;
-      padding: 5px 13px;
-      font-size: 11.5px;
-      font-weight: 600;
-      color: rgba(255,255,255,0.55);
-      white-space: nowrap;
-    }
 
-    .hist-chart-pill svg {
-      width: 11px; height: 11px;
-      stroke: var(--g300);
-      fill: none;
-      stroke-width: 2.2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
 
-    /* chart canvas area */
-    .hist-chart-canvas-wrap {
-      padding: 20px 22px 18px;
-      background: var(--card);
-      position: relative;
-      border-top: 1px solid var(--border);
-    }
-
-    .hist-chart-canvas-inner {
-      position: relative;
-      z-index: 1;
-      padding: 8px 4px 0;
-    }
-
-    #chart-historical {
-      width: 100% !important;
-      height: 400px !important;
-      display: block;
-    }
+    /* The old layout pinned this canvas to 400px with !important, which beat both the stylesheet
+       and the inline size Chart.js writes — the canvas kept overflowing its 264px box. Sizing is
+       now left entirely to Chart.js inside the absolutely-positioned .hcc-canvas box. */
 
     /* ── LEGEND (2×4 grid, reference layout) ── */
-    .hist-legend-wrap {
-      padding: 16px 0 0;
-      background: var(--card);
-    }
 
-    .hist-legend-hint {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--ink4);
-      text-transform: uppercase;
-      letter-spacing: 0.85px;
-      margin: 0 0 20px;
-      padding: 0 22px;
-    }
 
-    .hist-legend-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      width: 100%;
-      border-top: 1px solid rgba(38, 84, 56, 0.1);
-      border-radius: 0;
-      overflow: hidden;
-      background: var(--card);
-    }
 
-    .hist-legend-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      min-height: 56px;
-      padding: 20px 20px;
-      background: var(--card);
-      border-right: 1px solid rgba(38, 84, 56, 0.1);
-      border-bottom: 1px solid rgba(38, 84, 56, 0.1);
-      cursor: pointer;
-      user-select: none;
-      transition: background 0.15s ease, opacity 0.2s ease;
-      outline: none;
-    }
 
-    .hist-legend-item:nth-child(4n) {
-      border-right: none;
-    }
 
-    .hist-legend-item:nth-child(n + 5) {
-      border-bottom: none;
-    }
 
-    .hist-legend-item:hover:not(.hist-legend-item--hidden) {
-      background: #f7fbf8;
-    }
 
-    .hist-legend-item:focus-visible {
-      box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--legend-color) 40%, transparent);
-      z-index: 1;
-    }
 
     .hist-legend-item--hidden {
       opacity: 0.5;
@@ -535,134 +611,30 @@
       opacity: 0.45;
     }
 
-    .hist-legend-swatch {
-      width: 28px;
-      height: 4px;
-      border-radius: 2px;
-      flex-shrink: 0;
-      background: var(--legend-color);
-    }
 
-    .hist-legend-copy {
-      min-width: 0;
-      line-height: 1.25;
-    }
 
-    .hist-legend-name {
-      font-size: 12.5px;
-      font-weight: 700;
-      color: var(--ink2);
-      white-space: nowrap;
-    }
 
-    .hist-legend-group {
-      font-size: 10px;
-      color: var(--ink4);
-      font-weight: 500;
-      margin-top: 2px;
-    }
 
     /* ── GUIDE CARD ── */
-    .hist-guide-card {
-      background: var(--g900);
-      border-radius: 24px;
-      padding: 30px 32px;
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 0;
-      position: relative;
-      overflow: hidden;
-      margin-bottom: 56px;
-    }
 
-    .hist-guide-card::before {
-      content: '';
-      position: absolute;
-      width: 400px; height: 400px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(74,158,103,0.12) 0%, transparent 65%);
-      right: -80px; bottom: -100px;
-      pointer-events: none;
-    }
 
-    .hist-guide-item {
-      position: relative;
-      z-index: 1;
-      padding: 0 28px 0 0;
-    }
 
-    .hist-guide-item + .hist-guide-item {
-      padding-left: 28px;
-      border-left: 1px solid rgba(255,255,255,0.07);
-    }
 
-    .hist-guide-icon {
-      width: 40px; height: 40px;
-      border-radius: 11px;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.08);
-      display: flex; align-items: center; justify-content: center;
-      margin-bottom: 16px;
-    }
 
-    .hist-guide-icon svg {
-      width: 18px; height: 18px;
-      stroke: var(--g300);
-      fill: none;
-      stroke-width: 2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
 
-    .hist-guide-title {
-      font-size: 13.5px;
-      font-weight: 700;
-      color: #fff;
-      margin-bottom: 8px;
-    }
 
-    .hist-guide-text {
-      font-size: 12.5px;
-      color: rgba(255,255,255,0.38);
-      line-height: 1.65;
-    }
 
     /* ── RESPONSIVE ── */
     @media (max-width: 900px) {
-      .hist-stat-row       { grid-template-columns: repeat(2, 1fr); }
-      .hist-guide-card     { grid-template-columns: 1fr; gap: 24px; }
-      .hist-guide-item     { padding: 0 !important; border-left: none !important; padding-bottom: 24px !important; border-bottom: 1px solid rgba(255,255,255,0.07) !important; }
-      .hist-guide-item:last-child { border-bottom: none !important; padding-bottom: 0 !important; }
       .hist-hero-inner     { padding: 0 24px; }
-      .hist-legend-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-      .hist-legend-item:nth-child(4n) { border-right: 1px solid rgba(38, 84, 56, 0.1); }
-      .hist-legend-item:nth-child(2n) { border-right: none; }
-      .hist-legend-item:nth-child(n + 5) { border-bottom: 1px solid rgba(38, 84, 56, 0.1); }
-      .hist-legend-item:nth-child(n + 7) { border-bottom: none; }
     }
 
     @media (max-width: 640px) {
-      .hist-stat-row       { grid-template-columns: 1fr 1fr; gap: 10px; }
       .hist-body           { padding: 0 16px; }
-      #chart-historical    { height: 300px !important; }
-      .hist-chart-topbar   { padding: 18px 20px 16px; }
-      .hist-chart-canvas-wrap { padding: 16px 12px 14px; }
-      .hist-legend-grid { grid-template-columns: 1fr; }
-      .hist-legend-item { border-right: none; border-bottom: 1px solid rgba(38, 84, 56, 0.1); }
-      .hist-legend-item:last-child { border-bottom: none; }
-      .hist-hero           { padding: 40px 0 50px; }
-      .hist-hero h1        { font-size: 30px; }
-      .hist-hero-right     { align-items: flex-start; }
-      .hist-cov-item       { text-align: left; }
-      .hist-guide-card     { padding: 22px; }
-      .hist-controls       { padding: 16px 0 20px; }
       .hist-period-tabs button { padding: 7px 12px; font-size: 12px; }
     }
 
     @media (max-width: 440px) {
-      .hist-stat-row { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -671,225 +643,104 @@
 <main class="page-content hist-page" id="public-page-content">
 
   <!-- ── HERO ── -->
-  <div class="hist-hero">
-    <div class="hist-hero-glow2"></div>
-    <div class="hist-hero-inner">
-      <div>
-        <div class="hist-eyebrow">
-          <span class="hist-eyebrow-line"></span>
-          Price History
-        </div>
-        <h1>Track every <em>rise<br>and dip</em></h1>
-        <p class="hist-hero-desc">
-          A full timeline of all 8 rice varieties — from local well-milled to imported premium.
-          Pick a window and watch the market move.
-        </p>
-      </div>
-      <div class="hist-hero-right">
-        <div class="hist-meta-pill">
-          <span class="hist-meta-dot"></span>
-          Updated daily from DA monitoring
-        </div>
-        <div class="hist-coverage">
-          <div class="hist-cov-item">
-            <span class="hist-cov-num">8</span>
-            <span class="hist-cov-label">Rice varieties</span>
-          </div>
-          <div class="hist-cov-item">
-            <span class="hist-cov-num">2015+</span>
-            <span class="hist-cov-label">Years of data</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- scallop edge: green hero on top, page-bg below -->
-  <div class="hist-scallop">
-    <svg viewBox="0 0 1440 56" preserveAspectRatio="none" height="56" xmlns="http://www.w3.org/2000/svg">
-      <!-- page-bg rectangle fills the whole block -->
-      <rect width="1440" height="56" fill="#f2f7f4"/>
-      <!-- green wave sits on top, covering the hero-coloured upper area -->
-      <path d="M0,0 L1440,0 L1440,28 C1200,8 960,8 720,28 C480,48 240,48 0,28 Z" fill="#0b1d14"/>
-    </svg>
-  </div>
-
-  <!-- ── BODY ── -->
+  <!-- Hero and scallop divider removed: the page opens straight on the controls so the
+       first answer is above the fold. Everything below sits in one card. -->
+  <div class="hist-shell">
   <div class="hist-body">
 
-    <!-- CONTROLS -->
-    <div class="hist-controls">
-      <span class="hist-period-label">Viewing period</span>
-      <div class="hist-period-tabs">
-        <button type="button" data-period="30">30 days</button>
-        <button type="button" data-period="90" class="active">90 days</button>
-        <button type="button" data-period="180">180 days</button>
-        <button type="button" data-period="all">All time</button>
+    <!-- CONTROLS — one variety + unit choice drives every panel and the chart below -->
+    <div class="ph-controls-row">
+    <div class="ph-controls">
+      <div class="ph-ctl">
+        <label class="ph-ctl-label" for="ph-rice">Rice variety<i class="ti ti-info-circle ph-info" tabindex="0" role="img" data-tip="Everything on this page — all four panels and the chart — follows the variety you pick here."></i></label>
+        <select id="ph-rice" class="ph-select"></select>
+      </div>
+      <div class="ph-ctl">
+        <span class="ph-ctl-label">Show prices per<i class="ti ti-info-circle ph-info" tabindex="0" role="img" data-tip="A few centavos per kilo looks small but adds up over a sack. Switch to sack pricing to see the figures in the amount you actually buy."></i></span>
+        <div class="ph-seg" id="ph-unit" role="group" aria-label="Price unit">
+          <button type="button" data-unit="kg" class="active">Kilo</button>
+          <button type="button" data-unit="sack">25kg sack</button>
+        </div>
       </div>
     </div>
 
-    <!-- STAT CARDS -->
-    <div class="hist-stat-row">
-      <div class="hist-stat-card">
-        <div class="hist-stat-ico">
-          <svg viewBox="0 0 24 24"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>
-        </div>
-        <div class="hist-stat-label">90-day Avg</div>
-        <div class="hist-stat-val" id="stat-avg">—</div>
-        <div class="hist-stat-hint">Local Well-Milled avg price</div>
-      </div>
-      <div class="hist-stat-card">
-        <div class="hist-stat-ico">
-          <svg viewBox="0 0 24 24"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="14 7 21 7 21 14"/></svg>
-        </div>
-        <div class="hist-stat-label">Price Range</div>
-        <div class="hist-stat-val" id="stat-range">—</div>
-        <div class="hist-stat-hint">Min to max over 90 days</div>
-      </div>
-      <div class="hist-stat-card">
-        <div class="hist-stat-ico">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
-        </div>
-        <div class="hist-stat-label">Avg Daily Move</div>
-        <div class="hist-stat-val" id="stat-vol">—</div>
-        <div class="hist-stat-hint">Average ₱ change per day</div>
-      </div>
-      <div class="hist-stat-card">
-        <div class="hist-stat-ico">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        </div>
-        <div class="hist-stat-label">Latest Price</div>
-        <div class="hist-stat-val" id="stat-last">—</div>
-        <div class="hist-stat-hint">Today's Local Well-Milled</div>
-      </div>
+    <!-- Sits beside the controls and only appears when recent coverage is thin — renderCoverage() -->
+    <div class="ph-coverage" id="ph-coverage" hidden></div>
     </div>
 
-    <!-- CHART CARD -->
+    <!-- A · Is today expensive? -->
+    <section class="ph-panel ph-panel--hero">
+      <div class="ph-panel-head">
+        <h2>Is it expensive right now?<i class="ti ti-info-circle ph-info" tabindex="0" role="img" data-tip="Compares today with the middle half of prices recorded over each window, so one unusual stretch cannot label every day expensive. Two windows are shown because they can disagree."></i></h2>
+        <p>Today&rsquo;s price against what this variety normally costs.</p>
+      </div>
+      <div class="ph-panel-body ph-verdict" id="ph-verdict"></div>
+    </section>
+
+    <!-- All four cards live in one 2x2 grid: equal columns and equal rows are what make them
+         match in width and height, which two separate grids could never guarantee. -->
+    <div class="ph-grid ph-grid--quad">
+      <!-- E · Then vs now -->
+      <section class="ph-panel">
+        <div class="ph-panel-head">
+          <h2>Then vs now<i class="ti ti-info-circle ph-info" tabindex="0" role="img" data-tip="Each figure is the average of the days actually recorded in that month. Using the same month every year removes the harvest-season swing, leaving the year-on-year change."></i></h2>
+          <p>This month compared with the same month in earlier years.</p>
+        </div>
+        <div class="ph-panel-body" id="ph-thennow"></div>
+      </section>
+
+      <!-- D · Cheapest time to buy -->
+      <section class="ph-panel">
+        <div class="ph-panel-head">
+          <h2>Cheapest time to buy<i class="ti ti-info-circle ph-info" tabindex="0" role="img" data-tip="Each year is measured against its own average before the months are combined, so this shows the seasonal shape rather than inflation. Bars above the line are dearer months, below are cheaper."></i></h2>
+          <p>Which months rice usually costs less, across every year on record.</p>
+        </div>
+        <div class="ph-panel-body" id="ph-seasonal"></div>
+      </section>
+
+    <!-- F · Biggest price swings -->
+    <section class="ph-panel">
+      <div class="ph-panel-head">
+        <h2>Biggest price swings on record<i class="ti ti-info-circle ph-info" tabindex="0" role="img" data-tip="Only gradual moves are listed. Where the whole change landed in a single day it is a break in the record rather than a market move, so it is left out."></i></h2>
+        <p>The sharpest 30-day moves since 2015 — how fast prices can change.</p>
+      </div>
+      <div class="ph-panel-body ph-moves" id="ph-moves"></div>
+    </section>
+
+    <!-- CHART CARD — dark panel. The rice type is chosen from a dropdown here rather than an
+         eight-item toggle grid: the grid took a third of the card, and on a phone the eight
+         names wrapped into a block taller than the chart itself. -->
     <div class="hist-chart-card">
-
-      <!-- dark topbar -->
-      <div class="hist-chart-topbar">
-        <div>
-          <div class="hist-chart-title">Rice price chart</div>
-          <p class="hist-chart-sub">Smooth price trends · tap a variety below to show or hide its line</p>
-        </div>
-        <div class="hist-chart-pills">
-          <div class="hist-chart-pill">
-            <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 16 4-4 4 4 4-5"/></svg>
-            ₱ per kg
-          </div>
-          <div class="hist-chart-pill">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-            8 varieties
-          </div>
+      <div class="hcc-head">
+        <div class="hcc-titles">
+          <h2>Rice price chart
+            <i class="ti ti-info-circle ph-info" tabindex="0" role="img" data-tip="Daily recorded prices for the variety selected. Hover any point on the line for that day's price. Flat stretches are days the source published nothing and the previous price is carried forward."></i>
+          </h2>
+          <p>Pick a period and a variety — the panels above follow the same choice.</p>
         </div>
       </div>
 
-      <!-- canvas -->
-      <div class="hist-chart-canvas-wrap">
-        <div class="hist-chart-canvas-inner">
-          <canvas id="chart-historical" aria-label="Rice price line chart"></canvas>
+      <div class="hcc-controls">
+        <div class="hist-period-tabs" aria-label="Chart period">
+          <button type="button" data-period="30">30 days</button>
+          <button type="button" data-period="90" class="active">90 days</button>
+          <button type="button" data-period="180">180 days</button>
+          <button type="button" data-period="all">All time</button>
         </div>
+        <select id="hcc-rice" class="hcc-select" aria-label="Rice variety shown on chart"></select>
       </div>
 
-      <!-- legend toggle grid -->
-      <div class="hist-legend-wrap">
-        <p class="hist-legend-hint">Show / hide lines</p>
-        <div class="hist-legend-grid" role="toolbar" aria-label="Toggle rice types on chart">
-          <div class="hist-legend-item" role="button" tabindex="0" data-rice-key="impSpecial" aria-pressed="true" style="--legend-color:#6366F1" title="Toggle Imported Special on chart">
-            <span class="hist-legend-swatch" aria-hidden="true"></span>
-            <div class="hist-legend-copy">
-              <div class="hist-legend-name">Imp. Special</div>
-              <div class="hist-legend-group">Imported</div>
-            </div>
-          </div>
-          <div class="hist-legend-item" role="button" tabindex="0" data-rice-key="impPremium" aria-pressed="true" style="--legend-color:#8B5CF6" title="Toggle Imported Premium on chart">
-            <span class="hist-legend-swatch" aria-hidden="true"></span>
-            <div class="hist-legend-copy">
-              <div class="hist-legend-name">Imp. Premium</div>
-              <div class="hist-legend-group">Imported</div>
-            </div>
-          </div>
-          <div class="hist-legend-item" role="button" tabindex="0" data-rice-key="impWellMilled" aria-pressed="true" style="--legend-color:#F59E0B" title="Toggle Imported Well-Milled on chart">
-            <span class="hist-legend-swatch" aria-hidden="true"></span>
-            <div class="hist-legend-copy">
-              <div class="hist-legend-name">Imp. Well-Milled</div>
-              <div class="hist-legend-group">Imported</div>
-            </div>
-          </div>
-          <div class="hist-legend-item" role="button" tabindex="0" data-rice-key="impRegular" aria-pressed="true" style="--legend-color:#F97316" title="Toggle Imported Regular on chart">
-            <span class="hist-legend-swatch" aria-hidden="true"></span>
-            <div class="hist-legend-copy">
-              <div class="hist-legend-name">Imp. Regular</div>
-              <div class="hist-legend-group">Imported</div>
-            </div>
-          </div>
-          <div class="hist-legend-item" role="button" tabindex="0" data-rice-key="locSpecial" aria-pressed="true" style="--legend-color:#EC4899" title="Toggle Local Special on chart">
-            <span class="hist-legend-swatch" aria-hidden="true"></span>
-            <div class="hist-legend-copy">
-              <div class="hist-legend-name">Local Special</div>
-              <div class="hist-legend-group">Local</div>
-            </div>
-          </div>
-          <div class="hist-legend-item" role="button" tabindex="0" data-rice-key="locPremium" aria-pressed="true" style="--legend-color:#14B8A6" title="Toggle Local Premium on chart">
-            <span class="hist-legend-swatch" aria-hidden="true"></span>
-            <div class="hist-legend-copy">
-              <div class="hist-legend-name">Local Premium</div>
-              <div class="hist-legend-group">Local</div>
-            </div>
-          </div>
-          <div class="hist-legend-item" role="button" tabindex="0" data-rice-key="locWellMilled" aria-pressed="true" style="--legend-color:#4CAF6E" title="Toggle Local Well-Milled on chart">
-            <span class="hist-legend-swatch" aria-hidden="true"></span>
-            <div class="hist-legend-copy">
-              <div class="hist-legend-name">Local Well-Milled</div>
-              <div class="hist-legend-group">Local</div>
-            </div>
-          </div>
-          <div class="hist-legend-item" role="button" tabindex="0" data-rice-key="locRegular" aria-pressed="true" style="--legend-color:#3B82F6" title="Toggle Local Regular on chart">
-            <span class="hist-legend-swatch" aria-hidden="true"></span>
-            <div class="hist-legend-copy">
-              <div class="hist-legend-name">Local Regular</div>
-              <div class="hist-legend-group">Local</div>
-            </div>
-          </div>
-        </div>
+      <div class="hcc-canvas">
+        <canvas id="chart-historical" aria-label="Rice price line chart"></canvas>
       </div>
+
+      <div class="hcc-legend" id="hcc-legend"></div>
+      <div class="ph-chart-note" id="ph-chart-note"></div>
     </div>
-
-    <!-- GUIDE CARD -->
-    <div class="hist-guide-card">
-      <div class="hist-guide-item">
-        <div class="hist-guide-icon">
-          <svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-        </div>
-        <div class="hist-guide-title">Lines going up</div>
-        <p class="hist-guide-text">Prices increased over that period — signals supply shortages, import disruptions, or peak-season demand pushing costs higher.</p>
-      </div>
-      <div class="hist-guide-item">
-        <div class="hist-guide-icon">
-          <svg viewBox="0 0 24 24"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>
-        </div>
-        <div class="hist-guide-title">Lines going down</div>
-        <p class="hist-guide-text">Prices fell — usually harvest season, improved supply chains, or lower fuel costs reducing transport and milling expenses.</p>
-      </div>
-      <div class="hist-guide-item">
-        <div class="hist-guide-icon">
-          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-        </div>
-        <div class="hist-guide-title">Compare varieties</div>
-        <p class="hist-guide-text">Watch the gap between local and imported lines — when it widens, one type is clearly better value for your budget or margins.</p>
-      </div>
     </div>
 
   </div><!-- /hist-body -->
-
-  <!-- Original hidden tabs — JS binds period click handlers here -->
-  <div class="lp-period-tabs" style="display:none !important;" aria-hidden="true">
-    <button type="button" data-period="30">Last 30 days</button>
-    <button type="button" data-period="90" class="active">Last 90 days</button>
-    <button type="button" data-period="180">Last 180 days</button>
-    <button type="button" data-period="all">All data</button>
-  </div>
+  </div><!-- /hist-shell -->
 
 </main>
 
@@ -902,27 +753,12 @@
 <script src="js/public-auth-modal.js"></script>
 <script src="js/public-shell.js"></script>
 <script src="js/public-data.js"></script>
+<script src="js/public-history.js"></script>
 <script src="js/public-pages.js"></script>
 
-<script>
-document.addEventListener('DOMContentLoaded', function () {
+<!-- The visible tabs are bound directly by public-history.js now; the hidden mirror set and
+     the click-forwarding bridge they needed are gone. -->
 
-  /* 1. Bridge: visible tabs → hidden lp-period-tabs (what public-data.js binds) */
-  var visTabs    = document.querySelectorAll('.hist-period-tabs button');
-  var hiddenTabs = document.querySelectorAll('.lp-period-tabs button');
-
-  visTabs.forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      visTabs.forEach(function (b) { b.classList.remove('active'); });
-      btn.classList.add('active');
-      var period = btn.dataset.period;
-      hiddenTabs.forEach(function (hb) {
-        if (hb.dataset.period === period) hb.click();
-      });
-    });
-  });
-});
-</script>
 
 </body>
 </html>

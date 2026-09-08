@@ -43,11 +43,11 @@ AgriPricePH.Topbar = (function () {
     { id: 'hist-page', group: 'Modules', label: 'Historical Data', route: 'historical',
       keywords: ['historical', 'history', 'historical data', 'price history', 'charts history'] },
 
-    { id: 'pred-loc-wm', group: 'Forecast', label: 'Local Well-Milled — 2-Day Forecast', route: 'predictions',
+    { id: 'pred-loc-wm', group: 'Forecast', label: 'Local Well-Milled — 3-Day Forecast', route: 'predictions',
       keywords: ['forecast', 'prediction', 'predictions', '2 day', '2-day', 'outlook', 'local well milled forecast'], params: { heroType: 'local', outlookKey: 'wm' } },
-    { id: 'pred-loc-special', group: 'Forecast', label: 'Local Special — 2-Day Forecast', route: 'predictions',
+    { id: 'pred-loc-special', group: 'Forecast', label: 'Local Special — 3-Day Forecast', route: 'predictions',
       keywords: ['local special forecast', 'special forecast'], params: { heroType: 'local', outlookKey: 'sp' } },
-    { id: 'pred-imp-wm', group: 'Forecast', label: 'Imported Well-Milled — 2-Day Forecast', route: 'predictions',
+    { id: 'pred-imp-wm', group: 'Forecast', label: 'Imported Well-Milled — 3-Day Forecast', route: 'predictions',
       keywords: ['imported forecast', 'imported well milled forecast'], params: { heroType: 'imported', outlookKey: 'wm' } },
     { id: 'pred-page', group: 'Modules', label: 'Live Predictions', route: 'predictions',
       keywords: ['live predictions', 'rice forecast', 'lstm forecast'] },
@@ -84,6 +84,44 @@ AgriPricePH.Topbar = (function () {
     bindAlertPanels();
     refreshAlertBadge();
     setInterval(refreshAlertBadge, 60_000);
+    refreshSidebarBadges();
+    setInterval(refreshSidebarBadges, 120_000);
+  }
+
+  /* Sidebar nav counters. These were hardcoded in admin/index.html ("2" alerts, "3" sources,
+     "87%" accuracy) with no ids, so they never changed and the accuracy one disagreed with the
+     real trained model. Each is now filled from the same API the corresponding page uses, and
+     falls back to "—" rather than showing a stale/invented number. */
+  async function refreshSidebarBadges() {
+    const set = (id, text) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    };
+
+    try {
+      const alerts = await AgriPricePH.API.alerts();
+      const active = alerts?.summary?.active_rules
+        ?? (alerts?.rules || []).filter((r) => r.active).length;
+      set('nav-badge-alerts', Number.isFinite(active) ? String(active) : '—');
+    } catch { set('nav-badge-alerts', '—'); }
+
+    try {
+      const ds = await AgriPricePH.API.dataSources();
+      const active = ds?.summary?.active
+        ?? (ds?.sources || []).filter((s) => (s.status || '').toLowerCase() === 'active').length;
+      set('nav-badge-sources', Number.isFinite(active) ? String(active) : '—');
+    } catch { set('nav-badge-sources', '—'); }
+
+    try {
+      // dashboard-metrics, not training-history: it describes the model actually loaded by
+      // predict.py, including one trained from the command line (which never reaches the run log).
+      const dm = await AgriPricePH.API.dashboardMetrics();
+      const m = dm?.metrics || {};
+      // Day-1 hit rate within P1.00. Falls back to the legacy accuracy figure only for models
+      // trained before meta v4 — that formula rates the naive baseline above the model.
+      const acc = m.hit_rate_pct?.['1.00']?.[0] ?? m.avg_accuracy_pct ?? m.accuracy_pct;
+      set('nav-badge-accuracy', Number.isFinite(acc) ? `${Number(acc).toFixed(1)}%` : '—');
+    } catch { set('nav-badge-accuracy', '—'); }
   }
 
   function normalizeQuery(q) {

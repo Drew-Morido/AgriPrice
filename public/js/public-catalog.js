@@ -1,8 +1,14 @@
 /* AgriPricePH — public NCR Rice Catalog.
    8 category tabs drive ONE reusable table (Brand | Price | Actual Package | Location | Source |
-   Last Update). Brand/package/location/source come from the verified catalog API; the PRICE is
-   pulled from the Price Forecast data (brackets or current forecast price) per category — never
-   fabricated here. NCR-only; empty state when a category has no verified products. */
+   Last Update). Brand/package/location/source come from the verified catalog API. PRICE is, per
+   brand, either:
+     - an adjusted estimate (base forecast × a canvassed retail-premium weight) for brands an
+       admin has actually surveyed — via GET /api/brand-prices, labeled "Estimated — base
+       forecast + observed retail premium, surveyed [date]" (never "AI predicted": this is a
+       field-observed retail markup applied to the forecast, not a model output), or
+     - the plain category forecast price (brackets / current forecast) for every other brand —
+       nothing is invented for brands with no field data.
+   NCR-only; empty state when a category has no verified products. */
 (function () {
   // Tab order per spec.
   const TABS = [
@@ -18,7 +24,8 @@
 
   const peso = (v) => (v == null || isNaN(v)) ? null : `₱${Number(v).toFixed(2)}`;
   let CATS = {};        // canonical_key -> category (with brands[])
-  let PRICE = {};       // canonical_key -> { text, label }
+  let PRICE = {};       // canonical_key -> { text, label } (category-level forecast price)
+  let BRAND_INFO = {};  // brand id -> { price, estimated, sample_date, sample_locations }
   let active = 'locRegular';
 
   function esc(s) {
@@ -64,9 +71,16 @@
       const src = b.source_url
         ? `<a class="rc-srclink" href="${esc(b.source_url)}" target="_blank" rel="noopener">${esc(b.source || 'Source')}</a>`
         : esc(b.source || '—');
+      const info = BRAND_INFO[b.id];
+      // Estimated (canvassed weight applied) vs. the plain category forecast price — never
+      // invented for a brand with no field data, and never labeled as an AI prediction: this is
+      // a field-observed retail premium/discount applied on top of the forecast.
+      const priceCell = (info && info.estimated && info.price != null)
+        ? `${peso(info.price)}/kg<div class="rc-price-sub">Estimated — base forecast + observed retail premium, surveyed ${esc(info.sample_date || '—')}${info.sample_locations ? ' · ' + esc(info.sample_locations) : ''}</div>`
+        : price.text;
       return `<tr>
         <td>${esc(b.brand_name)}</td>
-        <td class="rc-price">${price.text}</td>
+        <td class="rc-price">${priceCell}</td>
         <td class="rc-pkg">${esc(b.package || '—')}</td>
         <td>${esc(b.location || 'NCR')}</td>
         <td>${src}</td>
@@ -91,14 +105,17 @@
 
   async function init() {
     try {
-      const [cat, brk, pred] = await Promise.all([
+      const [cat, brk, pred, bp] = await Promise.all([
         AgriPricePH.API.catalog(),
         AgriPricePH.API.priceBrackets(),
         AgriPricePH.API.predictions().catch(() => ({})),
+        AgriPricePH.API.brandPrices().catch(() => ({})),
       ]);
       CATS = {};
       (cat.categories || []).forEach(c => { CATS[c.canonical_key] = c; });
       PRICE = buildPriceMap(brk, pred);
+      BRAND_INFO = {};
+      (bp.categories || []).forEach(c => (c.brands || []).forEach(b => { BRAND_INFO[b.id] = b; }));
 
       const note = document.getElementById('rc-note');
       const anyBrands = (cat.categories || []).some(c => c.brands && c.brands.length);
