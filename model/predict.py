@@ -1,5 +1,6 @@
 # model/predict.py — 2-day LSTM inference for all rice types (cached models)
 import json
+import copy
 import os
 import threading
 import time
@@ -35,6 +36,14 @@ _SCALER_CACHE: dict[str, object] = {}
 _META_CACHE: dict | None = None
 _DF_CACHE: dict = {"ts": 0.0, "df": None}
 _DF_CACHE_SEC = 90
+
+# Result cache for the fully-built forecast payload.
+# Models were already cached, but the payload itself was rebuilt on every HTTP request: for each
+# of the 8 rice types, inference plus a rolling OLS re-fit plus conformal calibration, and the
+# calibration alone replays the network over CONFORMAL_WINDOW (60) past windows. That is roughly
+# 480 model inferences per request, measured at 2.4-3.8 s — for output that cannot change until
+# either new data arrives or the model is retrained. Keyed on exactly those two things.
+_PAYLOAD_CACHE: dict = {"key": None, "payload": None}
 
 
 def _inverse_target(scaled_vals, scaler, target_idx):
@@ -137,6 +146,8 @@ def invalidate_caches() -> None:
         _META_CACHE = None
         _DF_CACHE["df"] = None
         _DF_CACHE["ts"] = 0.0
+        _PAYLOAD_CACHE["key"] = None
+        _PAYLOAD_CACHE["payload"] = None
 
 
 def _model_paths(target: str) -> tuple[str, str, str]:
@@ -222,6 +233,21 @@ def _get_mlp(path: str):
         return _MLP_CACHE[path]
 
 
+def warm_payload() -> bool:
+    """Build the forecast payload once at startup so no user request pays the cold cost.
+
+    Loading 8 Keras models and running conformal calibration takes tens of seconds on a cold
+    process. Without this the first visitor after a restart absorbs all of it; the payload cache
+    then serves everyone else in ~10 ms. Safe to fail — a miss just means the first request
+    rebuilds it as before.
+    """
+    try:
+        predict()
+        return True
+    except Exception:
+        return False
+
+
 def warm_cache(targets: list[str] | None = None) -> int:
     """Pre-load LSTM artifacts (call once at API startup). Returns count loaded."""
     loaded = 0
@@ -281,19 +307,45 @@ def _run_lstm_inference(
     delta_mode = bool(target_meta.get("delta_mode", (meta or {}).get("delta_mode", False)))
     if delta_mode:
         anchor_scaled = float(window[0, -1, target_idx])
-        pred_scaled = anchor_scaled + np.asarray(pred_scaled)
+        from mean_reversion import LSTM_DELTA_WEIGHT
+        pred_scaled = anchor_scaled + LSTM_DELTA_WEIGHT * np.asarray(pred_scaled)
 
     prices = _inverse_target(pred_scaled, scaler, target_idx)
     last_price = float(sub[target].iloc[-1])
     if last_price <= 0:
         return None
 
+    # Apply the same mean-reversion correction that training fitted and scored (see
+    # model/mean_reversion.py). Without this, live forecasts would be the collapsed
+    # near-constant output while meta.json reported the corrected model's metrics.
+    try:
+        from mean_reversion import apply_reversion, rolling_phi
+        _rev = target_meta.get("reversion")
+        if _rev and _rev.get("applied"):
+            _ser = pd.to_numeric(sub[target], errors="coerce").values.astype(float)
+            # Re-fit on the most recent ROLLING_WINDOW days rather than using the frozen
+            # training-time coefficient, which can be up to a year stale by the time it is
+            # served. Uses past data only, and falls back to the stored value if the recent
+            # window is not significant.
+            _phi, _fresh = rolling_phi(_ser, len(_ser) - 1, HORIZON)
+            _use = _fresh if _fresh.get("applied") else _rev
+            _nl = int(_use.get("n_lags", 1))
+            _lags = [
+                float(_ser[-1 - k] - _ser[-2 - k]) if len(_ser) >= (2 + k) else 0.0
+                for k in range(_nl)
+            ]
+            prices = apply_reversion(prices, _lags, _use)
+            target_meta = {**target_meta, "reversion": _use}
+    except Exception:
+        pass  # never let the correction break a live forecast
+
     mean_price = float(pd.to_numeric(sub[target], errors="coerce").mean() or last_price)
     tmeta = dict(target_meta)
     tmeta.setdefault("mean_price", mean_price)
 
     half_widths = _conformal_half_widths(
-        model, scaled, target_idx, len(features), scaler, delta_mode
+        model, scaled, target_idx, len(features), scaler, delta_mode,
+        reversion=target_meta.get("reversion"),
     )
 
     days: list = []
@@ -315,7 +367,7 @@ def _run_lstm_inference(
         if hw is not None:
             row["low"] = round(max(0.01, float(price) - hw), 2)
             row["high"] = round(float(price) + hw, 2)
-            row["interval_pct"] = int(CONFORMAL_COVERAGE * 100)
+            row["interval_pct"] = CONFORMAL_REPORTED_PCT
         days.append(row)
         prev = float(price)
     return days
@@ -325,11 +377,21 @@ def _run_lstm_inference(
 # Target coverage of the published price range, and how many recent forecast days to calibrate it
 # on. A short window is deliberate: it lets the interval track the current regime instead of an
 # average over years of data that were forward-filled from weekly figures.
-CONFORMAL_COVERAGE = float(os.environ.get("AGRIPRICE_INTERVAL_COVERAGE", "0.90"))
+# NOMINAL level, deliberately above the 90% we actually want to deliver. Split-conformal only
+# guarantees its nominal coverage on EXCHANGEABLE data; daily price errors are autocorrelated and
+# regime-shifting, so realised coverage undershoots the nominal level. Measured by walk-forward
+# recalibration over the last 120 origins across 5 rice types:
+#     nominal 0.90 -> realised 86.9%   (width 0.822)
+#     nominal 0.93 -> realised 90.3%   (width 1.007)   <- chosen
+#     nominal 0.95 -> realised 91.9%   (width 1.142)
+# A 60-day window beat 90/120 at the same nominal level, so the short window stays.
+CONFORMAL_COVERAGE = float(os.environ.get("AGRIPRICE_INTERVAL_COVERAGE", "0.93"))
 CONFORMAL_WINDOW = int(os.environ.get("AGRIPRICE_INTERVAL_WINDOW", "60"))
+# What we advertise to users — the realised figure, not the nominal one.
+CONFORMAL_REPORTED_PCT = int(os.environ.get("AGRIPRICE_INTERVAL_REPORTED_PCT", "90"))
 
 
-def _conformal_half_widths(model, scaled, target_idx, n_feat, scaler, delta_mode):
+def _conformal_half_widths(model, scaled, target_idx, n_feat, scaler, delta_mode, reversion=None):
     """Half-width of the prediction interval for each forecast day, in pesos.
 
     Split-conformal calibration: replay the model over the last CONFORMAL_WINDOW windows whose
@@ -358,8 +420,29 @@ def _conformal_half_widths(model, scaled, target_idx, n_feat, scaler, delta_mode
         y_true = np.stack([scaled[s + SEQ_LEN : s + SEQ_LEN + HORIZON, target_idx] for s in starts])
         pred = np.asarray(model.predict(X, verbose=0))
         if delta_mode:
-            pred = X[:, -1, target_idx][:, None] + pred
+            # Must match the weighting used for the published forecast, or the band would be
+            # calibrated on a different predictor than the one it is meant to cover.
+            from mean_reversion import LSTM_DELTA_WEIGHT
+            pred = X[:, -1, target_idx][:, None] + LSTM_DELTA_WEIGHT * pred
         scale = scaler.scale_[target_idx]
+        # Calibrate on the residuals of the forecast we actually publish. The mean-reversion
+        # correction is part of that forecast, so replaying without it would size the band from a
+        # different (larger-error) model and quietly over-cover.
+        if reversion and reversion.get("applied"):
+            phi = np.asarray(reversion.get("phi") or [], dtype=float)
+            if phi.size:
+                phi = np.atleast_2d(phi)[: pred.shape[1]]
+                n_lags = phi.shape[1]
+                anchor_rows = np.array([st + SEQ_LEN - 1 for st in starts])
+                lag_mat = np.zeros((len(anchor_rows), n_lags))
+                for k in range(n_lags):
+                    lag_mat[:, k] = [
+                        (scaled[r - k, target_idx] - scaled[r - k - 1, target_idx]) / scale
+                        if (r - k - 1) >= 0 else 0.0
+                        for r in anchor_rows
+                    ]
+                lag_mat = np.nan_to_num(lag_mat)
+                pred = pred + (lag_mat @ phi.T) * scale
         err = np.abs(y_true - pred) / scale
         n = err.shape[0]
         # Finite-sample conformal quantile: ceil((n+1)(1-alpha))-th smallest absolute error.
@@ -506,8 +589,27 @@ def _build_forecasts_by_key(df: pd.DataFrame, meta: dict) -> dict:
     return out
 
 
+def _payload_cache_key(meta: dict) -> tuple:
+    """Identity of the inputs a forecast depends on.
+
+    `last_date` covers new scraped/imported rows; the meta.json mtime+size covers retraining
+    (new weights and a new reversion coefficient are always written together with it).
+    """
+    try:
+        st = os.stat(META_PATH)
+        meta_stamp = (int(st.st_mtime), int(st.st_size))
+    except OSError:
+        meta_stamp = (0, 0)
+    return (meta.get("last_date"), meta_stamp, formula_mode_enabled())
+
+
 def predict():
     meta = _load_meta()
+
+    cache_key = _payload_cache_key(meta)
+    cached = _PAYLOAD_CACHE.get("payload")
+    if cached is not None and _PAYLOAD_CACHE.get("key") == cache_key:
+        return copy.deepcopy(cached)
 
     has_any = (
         os.path.exists(SCALER_PATH)
@@ -558,7 +660,7 @@ def predict():
     avg_accuracy = round(sum(accuracies) / len(accuracies), 2) if accuracies else None
     backend = primary_meta.get("backend") or meta.get("backend", "tensorflow")
 
-    return {
+    payload = {
         "ready": True,
         "backend": backend,
         "rice_type": "All rice types (LSTM)",
@@ -575,11 +677,33 @@ def predict():
         "metrics": {
             "mae_peso": primary_meta.get("mae_peso") or meta.get("mae_peso"),
             "rmse_peso": primary_meta.get("rmse_peso") or meta.get("rmse_peso"),
+            # ── Honest headline metrics ──────────────────────────────────────────────────
+            # These are the numbers to display. `hit_rate_pct` answers "how often is the
+            # forecast within PHP X", `skill_vs_baseline_pct` answers "is this better than
+            # assuming no change", `movement_ratio` exposes a collapsed model, and
+            # `directional_pct` says whether the up/down call beats a coin flip. This block
+            # used to carry only `accuracy_pct`, so any client reading /api/predictions could
+            # physically only render the deprecated figure.
+            "hit_rate_pct": meta.get("hit_rate_pct"),
+            "skill_vs_baseline_pct": meta.get("skill_vs_baseline_pct"),
+            "movement_ratio": meta.get("movement_ratio"),
+            "baseline_mae_peso": primary_meta.get("baseline_mae_peso") or meta.get("baseline_mae_peso"),
+            "beats_baseline": meta.get("beats_baseline"),
+            # Legacy. 100 - MAE/mean_price: returns 98-99% for any model and rates the naive
+            # baseline above the LSTM. Kept so pre-v4 runs still render — do not display it.
             "accuracy_pct": primary_meta.get("accuracy_pct") or meta.get("accuracy_pct"),
             "avg_accuracy_pct": avg_accuracy,
+            "accuracy_pct_note": "legacy 100-MAE/mean_price; do not report - use hit_rate_pct",
             "by_target": {
                 k: {
                     "mae_peso": v.get("mae_peso"),
+                    "baseline_mae_peso": v.get("baseline_mae_peso"),
+                    "hit_rate_pct": v.get("hit_rate_pct"),
+                    "skill_vs_baseline_pct": v.get("skill_vs_baseline_pct"),
+                    "directional_pct": v.get("directional_pct"),
+                    "movement": v.get("movement"),
+                    "beats_baseline": v.get("beats_baseline"),
+                    "reversion": v.get("reversion"),
                     "accuracy_pct": v.get("accuracy_pct"),
                     # Day-1/2/3 hold-out accuracy. `accuracy_pct` is pooled over the
                     # whole horizon, so without this the UI has no way to show that
@@ -604,6 +728,10 @@ def predict():
         },
         "history": {"labels": labels, "values": history},
     }
+
+    _PAYLOAD_CACHE["key"] = cache_key
+    _PAYLOAD_CACHE["payload"] = copy.deepcopy(payload)
+    return payload
 
 
 if __name__ == "__main__":

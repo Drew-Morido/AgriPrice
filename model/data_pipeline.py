@@ -142,6 +142,45 @@ FUEL_PLAUSIBLE_MIN = 15.0
 FUEL_PLAUSIBLE_MAX = 110.0
 
 
+def _scrub_degenerate_fuel(df: pd.DataFrame) -> pd.DataFrame:
+    """Blank scraped fuel values that came from a known-degenerate parse AND look wrong.
+
+    `tools/scrap.py` mis-read the Zigwheels page for every scrape between 2026-01-06 and
+    2026-05-27: it iterated a per-city table alongside the Manila summary and kept only a
+    partial row (RON_100 / RON_91 / Diesel_Plus all NULL, Gasoline == RON 95). The scraper is
+    fixed at source, but those rows are already stored.
+
+    Not all of them are wrong — the block spans Diesel PHP 51-154, so it mixes plausible
+    readings with roughly-double ones. Blanking the whole block would force a six-month
+    forward-fill from a stale 2025 value, which is worse. So: use the *trustworthy* scraped rows
+    (complete parses) to define an accepted range, widen it 20%, and blank only degenerate-row
+    values that fall outside it. Nothing is invented; the surviving merge-time ffill carries the
+    last good reading forward.
+    """
+    if df.empty or "fuel_diesel" not in df.columns:
+        return df
+    complete = df.get("_parse_complete")
+    if complete is None:
+        return df
+    trust = df[complete.astype(bool)]
+    if len(trust) < 5:
+        return df
+    for col in ("fuel_ron95", "fuel_diesel"):
+        if col not in df.columns:
+            continue
+        vals = pd.to_numeric(df[col], errors="coerce")
+        good = pd.to_numeric(trust[col], errors="coerce").dropna()
+        if good.empty:
+            continue
+        lo, hi = good.min() * 0.8, good.max() * 1.2
+        suspect = (~complete.astype(bool)) & (~vals.between(lo, hi))
+        if suspect.any():
+            print(f"[data_pipeline] fuel: blanked {int(suspect.sum())} degenerate-parse "
+                  f"{col} value(s) outside PHP {lo:.2f}-{hi:.2f}")
+        df[col] = vals.where(~suspect)
+    return df.drop(columns=["_parse_complete"])
+
+
 def _drop_implausible_fuel(df: pd.DataFrame) -> pd.DataFrame:
     """Blank out scraped fuel prices that fall outside any realistic PH pump price.
 
@@ -220,9 +259,16 @@ def load_merged_frame() -> pd.DataFrame:
 
     try:
         df_fuel_ws = pd.read_sql(
-            'SELECT Date, RON_95 AS fuel_ron95, Diesel AS fuel_diesel FROM "WS_fuel" ORDER BY Date ASC',
+            'SELECT Date, RON_95 AS fuel_ron95, Diesel AS fuel_diesel, '
+            'RON_100, RON_91, Diesel_Plus FROM "WS_fuel" ORDER BY Date ASC',
             conn,
         )
+        # A complete parse has all six columns; the 2026 corruption left three of them NULL.
+        df_fuel_ws["_parse_complete"] = (
+            df_fuel_ws[["RON_100", "RON_91", "Diesel_Plus"]].notna().all(axis=1)
+        )
+        df_fuel_ws = df_fuel_ws.drop(columns=["RON_100", "RON_91", "Diesel_Plus"])
+        df_fuel_ws = _scrub_degenerate_fuel(df_fuel_ws)
         df_fuel_ws = _drop_implausible_fuel(df_fuel_ws)
         df_fuel = pd.concat([df_fuel, df_fuel_ws], ignore_index=True)
     except Exception:

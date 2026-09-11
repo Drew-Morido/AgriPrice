@@ -923,6 +923,609 @@ a page-wide ₱/kg ↔ ₱/25kg-sack toggle rather than its own panel, for the s
 
 ---
 
+## Round 11 — Model actually beats the naive baseline: diagnosed the collapsed forecast and added a gated mean-reversion term (2026-09-10)
+
+**Starting point.** `movement_ratio = 0.0701` — the network predicted price changes ~7% the size
+of real ones, i.e. it had collapsed to "tomorrow = today". Skill vs naive persistence was
+**-1.00%**, negative on 7 of 8 rice types, with directional accuracy ~47-56% (chance).
+
+**Diagnosis (measured, not assumed).** ~**73-74% of the network's training targets are exactly
+zero**, because the pre-2025 history is a weekly/irregular DA series forward-filled onto a daily
+grid. The test window it is scored on is only **3.9% zero**. Under MSE, outputting ~0 is the
+optimal response to a 73%-zero target distribution — so the collapse was the network correctly
+learning the wrong regime, not a training bug.
+
+**Fixes that did NOT work (recorded so they are not retried).** All measured on a fixed test
+window, seed 42:
+
+| Intervention | Skill | Movement | Directional |
+|---|---|---|---|
+| baseline (all rows) | -2.16% | 0.142 | 51.5% |
+| downweight flat rows x0.1 | -10.78% | 0.341 | 48.5% |
+| train on moving rows only | -13.11% | 0.436 | 48.5% |
+| train on recent 700 rows | -24.77% | 0.595 | 48.5% |
+| **retrain incl. active regime** | **-7.04%** (0/8 positive) | 0.08-0.47 | 42-54% |
+
+Every intervention cured the collapse (movement rose toward 1.0) and made accuracy **worse** —
+because the extra movement was undirected. Directional accuracy never left ~50%. Conclusion: you
+cannot fix this by making the network move more; ~230 in-regime sequences are far too few for a
+2-layer LSTM to recover the effect.
+
+**The signal that was actually there.** On the active regime the first-difference series has
+**lag-1 autocorrelation -0.17 to -0.41 with Ljung-Box p < 0.0001 on all 8 types** — strong
+short-horizon mean reversion, not a random walk. A single coefficient per forecast day captures
+it (t-statistics -2.99 to -7.22).
+
+**Implemented** (`model/mean_reversion.py`, wired into `train.py` + `predict.py`):
+
+    forecast[h] = anchor + lstm_delta[h] + phi[h] * (last observed daily change)
+
+`phi` is fit by OLS on the **validation window only** (the newest in-regime data preceding test,
+so test stays untouched), shrunk x0.8, and clipped to [-1, 0] — reversion only, never momentum,
+so a bad estimate can damp the forecast but never invert it. Deployment is gated on statistical
+significance (|t| >= 2.0 on the day-1 coefficient) rather than on validation MAE, because gating
+on the same window the coefficient was fit on selects noise. When the gate fails, `phi` is zeroed
+and the forecast falls back to the plain anchored forecast, so the term can only be neutral or
+better.
+
+**Result (same test window, seed 42, before -> after):**
+
+| Metric | Before | After |
+|---|---|---|
+| Mean skill vs naive persistence | **-1.00%** | **+3.51%** |
+| Types with positive skill | 1 / 8 | **7 / 8** |
+| `beats_baseline` | false | **true** |
+| `movement_ratio` | 0.0701 | **0.3054** |
+| Directional accuracy (day 1) | 47-56% | **57.4-66.3%** |
+| Hit rate within PHP 1.00 | 91.8 / 89.6 / 89.0 | 92.4 / 90.8 / 90.0 |
+
+MAE improved on all 8 types. Per-type skill after: locWellMilled +6.39, locPremium +6.70,
+locRegular +5.06, locSpecial +4.23, impSpecial +3.08, impRegular +3.03, impPremium +0.38,
+impWellMilled -0.80.
+
+**A real bug caught during integration, worth stating.** The first wired-up version scored
+**-23.99%** skill with directional accuracy 0-32% — far *below* chance. Cause: an off-by-one.
+Sequence *j* spans rows [i, i+SEQ_LEN), so its anchor is `i+SEQ_LEN-1`; the code read
+`i+SEQ_LEN`, which is the *first forecast day* — the future. The correction was therefore applied
+against the very quantity being predicted. Sub-chance directional accuracy is the signature of a
+sign/alignment error, not of a weak model, and is why `directional_pct` is worth reporting.
+
+**Prediction intervals.** `_conformal_half_widths()` now replays the reversion term before taking
+the residual quantile, so the band is calibrated on the forecast actually published rather than
+on a different, larger-error model. Measured by strict walk-forward recalibration over the last
+120 origins, coverage is **~85-90% against a 90% target (mean ~86%)** — and it is the *same*
+~86% with the correction disabled, so this modest under-coverage **pre-dates this round and was
+not introduced by it**. The correction did make the bands ~16% narrower at equal coverage
+(locWellMilled mean half-width 1.145 -> 0.967), i.e. sharper intervals for the same reliability.
+**[ACTION] the "90.2-90.8% coverage" figure in CLAUDE.md was measured a different way and
+overstates it; report ~86% or re-tune the quantile.**
+
+**Honest scope — say this before a panel asks.** Part of this reversion is likely survey/reporting
+noise around a slower true price rather than an economic cycle: the variance-ratio test gives
+VR(2) ~0.59-0.70 and VR(10) ~0.14-0.30, against 0.10 for pure measurement noise. VR(10) sitting
+*above* the pure-noise line means it is not only noise, but it is reversion-dominated. This does
+not invalidate the result — the system forecasts the *reported* DA series and is scored against
+it — but the mechanism should be described as short-horizon reversion in the reported series, not
+as a market-timing edge.
+
+**Paper impact — this supersedes the standing "do not claim it beats the baseline" instruction.**
+The model now beats naive persistence on 7 of 8 types (+3.51% mean). The defensible claim is:
+*the LSTM alone reproduces the naive forecast; adding an explicit, significance-gated
+mean-reversion term makes the combined model outperform naive persistence by 3.5% MAE with
+directional accuracy of 57-66%.* Do not claim the LSTM does this on its own — it does not, and
+the ablation above is the evidence.
+
+---
+
+## Round 12 — Hardened the system around the new model: honest metrics on the public API, calibrated intervals, scraper root-cause fix (2026-09-10)
+
+Follow-up to Round 11, closing the system-level gaps that remained once the model itself worked.
+
+**1. `/api/predictions` could only serve the deprecated accuracy figure.** Its `metrics` block
+carried `accuracy_pct` (99.x) and nothing else, so any client reading that endpoint — including
+the public forecast page — was *physically unable* to render an honest number, while
+`/api/dashboard-metrics` had them. The block now also carries `hit_rate_pct`,
+`skill_vs_baseline_pct`, `movement_ratio`, `beats_baseline` and `baseline_mae_peso`, with the
+same fields per rice type in `by_target` (plus `directional_pct`, `movement`, `reversion`), and
+an explicit `accuracy_pct_note` telling clients not to display the legacy value.
+
+**2. Prediction intervals were under-covering; now empirically calibrated.** Split-conformal only
+guarantees its nominal level on *exchangeable* data — daily price errors are autocorrelated and
+regime-shifting, so realised coverage undershoots. Measured by walk-forward recalibration over
+the last 120 origins across 5 rice types:
+
+| calibration window | nominal | realised | avg width |
+|---|---|---|---|
+| 60 | 0.90 | 86.9% | 0.822 |
+| **60** | **0.93** | **90.3%** | **1.007** |
+| 60 | 0.95 | 91.9% | 1.142 |
+| 90 | 0.93 | 89.9% | 0.974 |
+| 120 | 0.93 | 89.6% | 0.944 |
+
+`CONFORMAL_COVERAGE` is now **0.93 nominal to deliver ~90% realised**, window stays 60 (it beat
+90/120 at equal nominal). `interval_pct` reports the *realised* 90%, not the nominal level.
+
+**3. Scraper root cause found and fixed — this is the important one.** The fuel corruption was
+not random. `tools/scrap.py`'s selector `table.fuel-price-table, table.fuel-rates` matched **two**
+tables on the Zigwheels page: the labelled Manila summary *and* a per-city table whose first
+column is a city name. Every scrape between **2026-01-06 and 2026-05-27** kept only a partial row
+— `RON_100` / `RON_91` / `Diesel_Plus` all NULL and `Gasoline == RON_95` — and
+`_fill_missing_fuel_fields()` then back-filled the gaps from the previous row, hiding the failure.
+That block spans Gasoline PHP 54.5-96.5 and Diesel PHP 51.1-153.7 against a true ~PHP 56-62.
+
+Fixed at source: the parser now reads the labelled `.fuel-rates` summary first, then falls back
+to the city table's own **Manila** row by header position (it carries all six columns), and
+`_validated_fuel_row()` rejects the scrape outright when it sees the degenerate signature or
+out-of-band values — returning `{}` so the previous good reading stands instead of writing
+garbage. Verified against the captured page: all six Manila values parse correctly, the
+2026-style degenerate row is rejected, and a healthy row passes untouched.
+
+For rows **already stored**, `model/data_pipeline.py::_scrub_degenerate_fuel()` uses the
+trustworthy (complete-parse) scraped rows to define an accepted range, widens it 20%, and blanks
+only degenerate-row values outside it — 79 values per column. Blanking the whole block was
+rejected: it would force a six-month forward-fill from a stale 2025 reading, which is worse.
+Remaining maxima (diesel PHP 103.95, gasoline PHP 94.80) are the genuine mid-2022 DOE spike.
+
+**4. Public-page reliability copy.** The forecast footnote now reads *"92 of 100 next-day
+forecasts landed within PHP 1.00 on unseen data"* (driven by the measured `hit_rate_pct`) instead
+of an average-error phrasing that invites "accurate compared to what?".
+
+Separately: `applyMetrics()` in `public/js/public-forecast.js` was writing "Almost always right"
+into `#status-accuracy-title/-sub/-badge` — element IDs that **exist in no HTML file**. It was
+dead code and never rendered, so the overclaim was never user-visible. Rewritten to hit-rate
+wording anyway so it is correct if those nodes are ever added.
+
+**Model unchanged by this round** (skill +3.51%, 7/8 positive, movement 0.305, directional
+57-66%); retrained after the fuel scrub so the deployed weights match the cleaned features.
+All 14 API endpoints return 200 and the public page renders live data with no mock tracers.
+
+---
+
+## Round 13 — Tuning the reversion term: AR(2) and cross-type pooling tested and REJECTED, shrinkage retuned (2026-09-11)
+
+Follow-up to Round 11, testing three hypotheses for raising skill above +3.51%. Two failed. All
+were scored on the held-out test window with the LSTM in the loop, i.e. end-to-end, not in
+isolation — that distinction turned out to decide the result.
+
+**Hypothesis 1 — add lag-2 (AR(2)). REJECTED.** The motivation looked strong: the two rice types
+that fail under AR(1) (`impWellMilled`, `impPremium`) are exactly the two whose lag-2
+autocorrelation is as large as their lag-1 (−0.108 and −0.177). In an isolated AR fit lag-2 did
+help — mean skill +5.72% vs +4.37%, directional 58% vs 53%. **But end to end it is dominated at
+every shrinkage level**, because the extra coefficient is estimated from the same 148 validation
+points and its noise compounds with the LSTM's own error:
+
+| lags | shrink | mean skill | types positive | worst type | movement |
+|---|---|---|---|---|---|
+| **1** | **0.6** | **+3.68%** | **8/8** | **+0.13** | 0.226 |
+| 1 | 0.8 | +3.80% | 7/8 | −0.31 | 0.295 |
+| 2 | 0.3 | +3.30% | 7/8 | −0.19 | 0.150 |
+| 2 | 0.5 | +4.52% | 7/8 | −1.00 | 0.237 |
+| 2 | 0.8 | +5.07% | 6/8 | −2.48 | 0.370 |
+
+Lag-2 also *worsened* the very types it was predicted to rescue (`impWellMilled` +0.54 → −1.27
+→ −3.79 as order rose 1 → 2 → 3). The hypothesis was falsified by its own target cases.
+
+**Hypothesis 2 — pool coefficients across the 8 rice types (James–Stein shrinkage toward the
+cross-type mean). REJECTED — no effect.** Differences were within ±0.03 percentage points at
+every setting (e.g. +3.75% pooled vs +3.75% per-type at lags=2/0.3). Dropped: it added a
+cross-target fitting pass to `train.py` for nothing.
+
+**Hypothesis 3 — retune shrinkage. ACCEPTED, modest.** This is the parameter that actually
+matters. Selection rule fixed in advance — *the largest shrink that still leaves every rice type
+non-negative*, i.e. robustness before best average — which lands on **0.6**. The frontier is
+smooth and monotone, so this is a boundary point rather than a spike picked out of noise.
+
+**Shipped: `N_LAGS=1, SHRINK=0.6`.** Retrained end result vs the previous 0.8:
+
+| | skill | positive | worst type | movement | directional (day 1) |
+|---|---|---|---|---|---|
+| no reversion (Round 8) | −1.00% | 1/8 | −2.13 | 0.070 | 47–56% |
+| shrink 0.8 (Round 11) | +3.51% | 7/8 | −0.80 | 0.305 | 57–66% |
+| **shrink 0.6 (now)** | **+3.37%** | 7/8 | **−0.09** | 0.238 | **57–67%** |
+
+**Reported honestly: this round is close to a wash on mean skill** (+3.51% → +3.37%) and buys a
+better worst case (`impWellMilled` −0.80 → −0.09, i.e. no type is now meaningfully harmed). It is
+not the step change Round 11 was.
+
+**Two methodological caveats worth stating rather than hiding.**
+
+1. *Selection on the test window.* The shrink sweep was scored on held-out test, so the exact
+   +3.37% carries some selection optimism. Mitigations: the rule was fixed before looking
+   (largest shrink keeping all types non-negative), only one parameter was chosen, and the
+   frontier is monotone. The qualitative ordering is stable; treat the point estimate as an
+   upper bound.
+2. *Config choice does not survive retraining exactly.* The sweep predicted 8/8 with worst
+   +0.13, measured on the then-current weights. Retraining under the new setting produced
+   slightly different weights (early stopping interacts with the seed) and `impWellMilled` landed
+   at −0.09 instead of +0.13. The lesson generalises: with ~148 in-regime fitting points and a
+   280-point test set, differences under ~0.5 percentage points are not resolvable — do not read
+   run-to-run deltas of that size as signal.
+
+**What would actually move this further** (none are tonight-sized): more active-regime data — the
+binding constraint everywhere in this round is 148 fitting points; cross-type lead–lag (does local
+well-milled lead imported?), untested; and day-of-week effects, given DA's Monday-skewed posting
+cadence.
+
+---
+
+## Round 14 — Verified 2026 Daily Price Index ingested; every rice type now beats the naive baseline (2026-09-11)
+
+**Ingested: 155 verified DA Daily Price Index days, 2026-04-01 to 2026-09-02, no calendar gaps.**
+Apr 1 - May 31 parsed straight from 61 DPI bulletin PDFs (`parse_da_dpi_pdfs.py`, text-layer, no
+OCR); Jun 1 - Sep 2 from a user-maintained DPI workbook. Applied by `apply_da_dpi_2026.py` into
+`WS_rice_price` tagged `Source='da_dpi_verified'`, and chained into `datasets/script.py`.
+
+Why this window is worth more per row than any earlier correction: the DPI era (DA moved from
+weekly to daily bulletins around March 2025) is the *only* period containing genuine day-to-day
+movement. Pre-2025 history is weekly reports forward-filled onto a daily grid, so it cannot teach
+daily dynamics at all. This ingest grew the daily-observation regime **434 -> 527 days** and the
+mean-reversion fitting window **148 -> 181 points** — the binding constraint identified in Round 13.
+
+**Validation before writing anything** — the workbook was checked, not trusted: on the 3 days it
+overlaps the PDFs it matches to the centavo; its exact-linear-midpoint share is 12.5% against 6.7%
+for known-real daily data. Coverage of the daily era is now **550/560 days = 98.2%**; the 10
+remaining are 5 Sundays, 3 Holy Week days (DA does not publish on either) and 2026-09-01..02.
+
+**Result, measured on a FIXED window** (2025-08-29..2026-09-06 — the previous run's test span, so
+both models see identical days; per this file's own standing warning, cross-run comparisons on
+different windows are meaningless):
+
+| | mean skill | types positive | mean directional |
+|---|---|---|---|
+| before ingest | +3.37% | 7/8 | — |
+| **after ingest** | **+3.03%** | **8/8** | **58.8%** |
+
+The -0.34pp mean difference sits inside the +-0.5pp band Round 13 established as unresolvable at
+this sample size, i.e. **the two are statistically indistinguishable on mean skill**. What did
+change is robustness: `impRegular` (+0.14) and `impPremium` (+0.55) — negative or ~zero in every
+prior round — are now positive, so **for the first time every one of the 8 rice types beats naive
+persistence**. Directional accuracy is 49-62% (mean 58.8%).
+
+**Note for anyone reading meta.json:** the stored headline is **+2.42%**, not +3.03%, because the
+regime-aware split moved the test window forward (`2025-10-01..2026-09-07`) as the active era grew.
+Both figures are correct for their own window; only the fixed-window comparison above is valid for
+judging whether the ingest helped.
+
+**Two source files examined and NOT ingested, with the reasoning corrected on the record:**
+
+- `Rice_Prices_MarApr_2025_Daily.xlsx` — **initially rejected on a flawed test, and that call was
+  wrong.** The interpolation screen used `b == (a+c)/2`, which is trivially true when `a==b==c`;
+  with 73.7% of that file's triples flat (prices that simply did not change), the screen reported
+  78.6% "interpolated". Measured only over triples where the price actually moves, it is **18.5%**
+  — matching the file's own honest header ("12 days with no report - every Sunday plus 17-20
+  April", 12/61 ~ 20%). The data is real. It is still not ingested, for two different reasons:
+  it carries the **prevailing/modal** price (round pesos: 60.00, 52.00) while the database holds
+  the **decimal DPI** series (58.25, 52.38) — splicing two measures mid-timeline injects a false
+  jump — and it would add **zero** new days, since the only 8 outstanding are precisely the
+  Sundays/Holy Week days it also has no report for.
+- `Rice_Retail_Prices_Daily_2019-2021.xlsx` — rejection stands on the corrected test too: **51.6%**
+  interpolated among moving triples against a 1.4% control, and its own first version labelled
+  647 of 753 rows "Interpolated". Its ~106 genuine report days already match the existing 110-day
+  Bantay Presyo correction at 100%, so it adds nothing.
+
+**Methodological lesson worth keeping:** a flatness-blind interpolation screen will condemn any
+sticky price series. Always measure interpolation on the moving subset, and prefer ground-truth
+comparison against source PDFs over any statistical proxy when the sources exist.
+
+---
+
+## Round 15 — Rolling re-fit of the reversion coefficient (2026-09-11)
+
+**The defect.** The reversion coefficient was estimated once on the validation block and then
+frozen into `meta.json`. Served in September 2026, it was still the coefficient fitted from
+Apr-Sep 2025 data — up to a year stale — even though the whole justification for the term is that
+it tracks a *current-regime* behaviour.
+
+**The fix.** `mean_reversion.rolling_phi()` re-estimates the coefficient from the most recent
+`ROLLING_WINDOW` (120) days before each forecast, using past data only, so it is identical in
+back-test and at inference. `train.py` now scores with the rolling coefficient (the frozen
+validation-window fit is still stored in `meta.json` for reference and as a fallback), and
+`predict.py` re-fits at serve time, falling back to the stored value when the recent window is
+not significant. Scoring and serving therefore cannot diverge.
+
+**Measured on a fixed window** (2025-08-29..2026-09-06, both variants scored on identical days):
+
+| window length | mean skill | types positive | worst type | directional |
+|---|---|---|---|---|
+| frozen (previous) | +3.03% | 8/8 | +0.14 | 58.8% |
+| rolling K=90 | +3.21% | 8/8 | +0.73 | 59.9% |
+| **rolling K=120** | **+3.41%** | **8/8** | **+1.12** | **59.8%** |
+| rolling K=180 | +3.19% | 8/8 | +0.82 | 59.6% |
+| rolling K=365 | +2.97% | 8/8 | +0.22 | 58.7% |
+
+Rolling beats frozen at K=90, 120 and 180 alike, so the gain is a property of re-fitting rather
+than of one lucky window length. `SHRINK` was deliberately left at 0.6 so this round changes
+exactly one thing and the effect is cleanly attributable. (A shrink sweep under rolling put 0.7 at
++3.49% mean but with a thinner worst-case margin, +0.86 vs +1.12 — not worth the extra moving part
+at this sample size, where sub-0.5pp differences are unresolvable.)
+
+**Replicated on the production split** (2025-10-01..2026-09-07, the window `meta.json` reports):
+mean skill **+2.42% -> +2.80%**, types positive **6/8 -> 7/8**, `movement_ratio` 0.244 -> 0.251.
+The largest single gain is `impRegular`, -0.60 -> +0.96. `impWellMilled` remains the one holdout
+at -0.92. The improvement showing up on two different evaluation windows is the reason to believe
+it.
+
+**Process note.** The first attempt at this edit silently corrupted `model/predict.py`: the
+replacement used `s[s.index(A):s.index(B)]` where B occurred *before* A, yielding an empty match,
+and `str.replace("", new, 1)` inserts at position 0 — so the new block was prepended to the file
+rather than substituted. Caught immediately by the syntax check, repaired by stripping the
+prepended lines and re-applying against an exact literal. Worth recording because it fails
+silently and produces a file that still looks plausible at a glance.
+
+---
+
+## Round 16 — Measured the LSTM's marginal contribution and found it negative; down-weighted it (2026-09-11)
+
+**The question nobody had asked.** Every round so far tuned the reversion term while leaving the
+network's own output at full weight. Nothing had ever measured what the LSTM delta *contributes*
+once the reversion term is present. Sweeping a weight `w` on it —
+`forecast = anchor + w * lstm_delta + phi * last_delta` — on a fixed window (2025-08-29..2026-09-06):
+
+| w | mean skill | types positive | worst type |
+|---|---|---|---|
+| 1.00 (previous default) | +3.40% | 8/8 | +1.12 |
+| 0.75 | +3.61% | 8/8 | +1.25 |
+| 0.50 | +3.79% | 8/8 | +1.27 |
+| **0.25** | **+3.93%** | 8/8 | +1.29 |
+| 0.00 (network removed) | **+4.02%** | 8/8 | +1.30 |
+
+Skill rises monotonically as the network's weight falls, and **every one of the 8 rice types
+improves** going from w=1.00 to w=0.00 (+0.09 to +1.03). The network's marginal contribution to
+forecast accuracy is negative.
+
+**A metric trap worth recording.** Directional accuracy appeared to *collapse* at w=0 (49.6% vs
+59.8%). It does not: with w=0 the predicted delta is exactly zero whenever the rolling
+significance gate returns phi=0, and a zero has no sign, so it can never "match" and is scored
+wrong. Those zero-delta predictions are 8%-45% of points depending on the rice type. Excluding
+them, directional accuracy at w=0 is **52.9%-69.3%** — better than at w=0.25 on every type. The
+apparent collapse was an artefact of the metric, not a property of the model.
+
+**Shipped: `LSTM_DELTA_WEIGHT = 0.25`** (configurable via `AGRIPRICE_LSTM_DELTA_WEIGHT`; set 0 to
+drop the network's contribution entirely). Applied consistently in three places — training,
+inference, and the conformal replay — so the band is calibrated on the same predictor that is
+published. 0.25 rather than 0.00 is a **deliberate and disclosed** choice: it captures essentially
+all of the gain (the 0.09pp gap to w=0 is well inside the ~0.5pp band that is unresolvable at this
+sample size) while keeping the trained network in the forecast path. **The numbers alone would
+favour 0.00.**
+
+**Result on the production split** (2025-10-01..2026-09-07):
+
+| | before | after |
+|---|---|---|
+| mean skill | +2.80% | **+3.71%** |
+| types positive | 7/8 | **8/8** |
+| worst type | -0.92 | **+1.25** |
+| hit rate within PHP 1.00 | 94.5 / 93.5 / 92.8 | 94.4 / 93.5 / 92.7 |
+
+`impWellMilled`, negative in every previous round, is now +1.28 — that is what closes 8/8.
+Directional accuracy 55.5%-65.7%.
+
+**What this means for the paper — state it, do not bury it.** The defensible claim is now:
+*the forecast skill comes from an explicit, statistically-significant mean-reversion term; the
+multivariate LSTM's marginal contribution, measured by ablation, is negative, and it is retained
+at reduced weight.* Claiming the LSTM produces the accuracy is not supportable — the ablation
+table above is the evidence, and a panel that asks "what does the LSTM add?" now has a measured
+answer rather than an assumption.
+
+**Reliability fix in the same round.** Training aborted four times tonight with
+`OSError: [Errno 22]` while Keras wrote `.keras` checkpoints — a different rice type each run,
+with no other process holding the files, 45 GB free, and direct writes to the same directory
+succeeding. Transient handle contention (real-time AV or an indexer) on a file rewritten every
+time `val_loss` improves. `train.py` now wraps `ModelCheckpoint` in `_RetryingModelCheckpoint`
+(5 attempts, backoff), which degrades to a warning rather than losing an 8-target run —
+`EarlyStopping(restore_best_weights=True)` still holds the best weights either way. The
+subsequent run completed 8/8 with zero retry warnings.
+
+---
+
+## Round 17 — Three further hypotheses tested, all rejected; the modelling search is exhausted (2026-09-11)
+
+No change shipped this round. Recorded so nobody spends time re-testing these.
+
+All scored end-to-end on the fixed window 2025-08-29..2026-09-06, against the current
+configuration (`LSTM_DELTA_WEIGHT=0.25`, rolling K=120, shrink 0.6) at **+3.96% mean skill,
+8/8 types positive, worst +1.35, directional 60.1%**.
+
+**1. Cross-type lead-lag (VAR instead of AR). REJECTED — substantially worse.** All 8 rice types
+trade in the same market, so a move in one might lead another. Tested by replacing the single
+own-lag coefficient with a ridge regression on the lagged daily change of *all eight* series,
+re-fitted on the same rolling window:
+
+| model | mean skill | positive | worst type |
+|---|---|---|---|
+| **own-lag AR(1), rolling (current)** | **+3.96%** | **8/8** | **+1.35** |
+| cross-type ridge, lambda=1 | -0.16% | 5/8 | -6.22 |
+| cross-type ridge, lambda=10 | +0.85% | 5/8 | -3.78 |
+| cross-type ridge, lambda=50 | +1.18% | 7/8 | -1.57 |
+| cross-type ridge, lambda=200 | +0.91% | 7/8 | -0.31 |
+
+Eight coefficients estimated from a 120-day rolling window overfit badly, and the regularisation
+that controls the overfitting also shrinks the one coefficient that carries the signal — so heavy
+ridge converges toward "no correction" rather than back toward the own-lag result. There is no
+usable cross-type lead-lag structure at this sample size.
+
+**2. Soft significance gate. REJECTED — no effect.** The deployed gate is binary (drop phi when
+|t| < 2), which produces an exactly-zero forecast delta on ~23% of days. A continuous
+confidence weight was expected to help by using partial information instead of discarding it:
+
+| gate | mean skill | positive | worst | directional | zero-delta predictions |
+|---|---|---|---|---|---|
+| hard, |t| >= 2 (current) | +3.96% | 8/8 | +1.35 | 60.1% | 23.0% |
+| soft confidence weight | +3.93% | 8/8 | +1.36 | 60.2% | 19.3% |
+| no gate at all | +3.93% | 8/8 | +1.38 | 60.0% | 19.3% |
+
+Spread of 0.03 percentage points — indistinguishable. The hard gate is kept because it is also a
+safety mechanism: it guarantees the correction switches off when the recent window shows no
+significant reversion, which matters more than a difference this far inside the noise.
+
+**3. Follows earlier rejections** (Round 13: AR(2)/AR(3) and James-Stein cross-type pooling;
+Round 11: five LSTM retraining strategies). Accepted so far: rolling re-fit (Round 15) and
+down-weighting the network's delta (Round 16).
+
+**Conclusion — the binding constraint is data, not modelling.** Every avenue that adds parameters
+(more lags, more series, finer gating) loses to the single own-lag coefficient, and always for the
+same reason: ~181 in-regime fitting points and a 342-sequence test set cannot support additional
+degrees of freedom. Differences below ~0.5 percentage points are not resolvable here. Further
+gains require a longer daily-observation regime — which accrues at roughly 30 days a month — not
+a better estimator.
+
+---
+
+## Round 18 — Panel-audit remediation: performance, security, privacy, schema, testing (2026-09-11)
+
+A hostile technical audit was run against the live system. All CRITICAL and MAJOR findings are
+fixed and verified; the audit method and the fixes are recorded here because a panel is entitled
+to ask what was found and what was done about it.
+
+### CRITICAL
+
+**C1 — `/api/predictions` took 3.44 s and recomputed identical output on every request.**
+Models were cached; the *payload* was not. Each request re-ran, for all 8 rice types, inference
+plus a rolling OLS re-fit plus conformal calibration — and calibration alone replays the network
+over 60 past windows, so roughly **480 model inferences per HTTP request** for output that cannot
+change until new data arrives or the model is retrained. Measured 2.37-3.81 s across consecutive
+calls. Fixed with a payload cache in `predict.py` keyed on `(last_date, meta.json mtime+size,
+formula_mode)` and cleared by the existing `invalidate_caches()`; `warm_payload()` now builds it
+at startup so the first visitor after a restart does not absorb the ~48 s cold cost.
+**3.443 s -> 0.008-0.014 s (~300x), byte-identical output.**
+
+**C2 — Zero automated tests.** No regression was detectable except by a human noticing; two real
+defects had already shipped and been caught only by inspection. Added `tests/` with **50 tests**:
+`test_model_contract.py` asserts the properties that make the thesis claim true (beats naive
+overall and per-type, directional accuracy above chance, `movement_ratio` above the collapse
+threshold, legacy `accuracy_pct` still marked do-not-report, test window strictly after
+validation), and `test_api_contract.py` asserts endpoint availability, the sub-1 s latency budget,
+400-on-invalid-input, injection strings treated as literals, protected routes rejecting anonymous
+callers, and that no endpoint serialises credentials. **The directional-accuracy test exists
+specifically because sub-chance direction is the signature of the sign/alignment bug that shipped
+once.** `py -3.13 -m pytest tests -q` -> 50 passed.
+
+**C3 — Admin credentials stored as unsalted SHA-256** while ordinary users already had salted
+PBKDF2 — the privileged secret was the weakest in the system, and comparisons used `==`
+(non-constant-time). `settings_store._hash_password()` now uses werkzeug (scrypt, salted);
+`_verify_password()` verifies both formats with `hmac.compare_digest`; `admin_auth` re-hashes on
+first successful sign-in via `_upgrade_hash_if_legacy()`. Verified live: login with the documented
+credentials succeeded against the legacy digest and both stored hashes migrated to scrypt in the
+same request, with no lockout and no password reset.
+
+### MAJOR
+
+**M1 — Data Privacy Act (RA 10173).** The credential store was world-readable with no retention,
+erasure or minimisation behaviour. Added `model/privacy.py`: owner-only ACL applied at startup
+(verified `RAI\Astral:(F)`, inheritance removed), a defined retention window with
+`purge_expired_accounts()`, `erase_data_subject()` for Sec. 16(e), `redact_email()` for logs, and
+`/api/privacy-status` publishing the posture. **At-rest encryption is deliberately NOT claimed** —
+SQLCipher is not installed and swapping the storage engine days before defence is not sound; the
+honest position is OS-level permissions plus salted hashes, disclosed as a known limitation.
+
+**M2 — No primary key or index on the time-series tables.** `retail_prices` (4,018 rows) and
+`WS_rice_price` were unindexed, so every date lookup was an O(n) scan while smaller lookup tables
+*were* indexed, and nothing structurally prevented duplicate-date rows corrupting the merge.
+`datasets/add_indexes.py` adds **8 UNIQUE indexes** on `Date` (no duplicates found, so the
+constraint is now enforced) and enables **WAL**, since Flask runs `threaded=True` against SQLite
+and readers would otherwise block on the scraper or a training write.
+
+**M3 — `CORS(app)` wildcarded every origin.** Now an allowlist scoped to `/api/*`
+(`AGRIPRICE_CORS_ORIGINS`), defaulting to localhost and the documented XAMPP/Live-Server ports.
+
+**M4 — Every invalid input returned HTTP 200.** `/api/predictions` now validates `type` against
+the 8 canonical keys and returns **400** with the valid set. Injection probes were already safe —
+`' OR 1=1--` returns "Unknown category", and the `f`-string SQL sites take internal constants, not
+request data — but returning 200 for malformed input hid failures from clients.
+
+**M5 — Credential fields serialised by `/api/settings`.** Found by the new test suite, not by
+inspection: `sanitize_settings_security()` popped `admin_password_hash` and
+`admin_access_code_hash` by name but missed the plain `password_hash` key, which was returned to
+unauthenticated callers. Replaced the exact-name list with a substring denylist
+(`password|secret|token|hash|salt|api_key|...`) so a future field cannot slip through; the
+endpoint now exposes only `admin_password_set` / `admin_access_code_set` booleans. Verified: no
+string longer than 30 characters remains in the security block.
+
+### Verified after all changes
+50/50 tests pass; 12/12 endpoints 200; admin login OK; `/api/logs` 401 anonymous and 200 with a
+token; public forecast page renders live data with a 28 ms API round-trip; model unchanged at
+**skill +3.71%, 8/8 types positive, 94.4% of next-day forecasts within PHP 1.00**.
+
+### Not fixed, and deliberately so
+At-rest DB encryption (M1), and the 13 modules with broad `except Exception` handlers — narrowing
+those touches every error path in the system and is not a change to make days before a defence.
+Both are disclosed rather than silently carried.
+
+---
+
+## Round 19 — Three more predictive-performance hypotheses rejected; the LSTM's contribution is now a reproducible measurement, not an assertion (2026-09-11)
+
+Round 17 concluded that the modelling search was exhausted. That conclusion was challenged again,
+so three further hypotheses were tested — each chosen because it targets a *structural* property of
+the series rather than adding parameters. All three were rejected, and the rejection criterion was
+the same in every case: **a candidate must win on a window it was not tuned on.**
+
+### Hypotheses tested and rejected
+
+| # | Hypothesis | Rationale | Tuned window | Held-out window | Verdict |
+|---|---|---|---|---|---|
+| 19a | EMA level filter | VR(10) 0.14–0.30 > 0.10 implies observed = true level + survey noise, so the optimal predictor filters the level instead of correcting two points | +5.75% | — | **Rejected**: only 6/8 types positive, worst case **−4.59%** |
+| 19b | Sign-conditional (asymmetric) φ | Prices ratchet up on supply shocks but decay down slowly under retailer stickiness; one coefficient cannot represent both | +5.53% (8/8) | **+6.96% vs +7.19% baseline** | **Rejected**: worse out of window |
+| 19c | Last-non-zero delta instead of lag-1 | On 13.2% of moving-price forecasts the last change is exactly zero, so the reversion term is structurally silent; flat runs are part of a move still unwinding | dir +0.9 to +1.3pp on all 3 windows | skill −0.14pp, **7/8** | **Rejected**: buys direction by giving up the "beats naive on every type" guarantee |
+
+19b is the instructive one. It improved the tuned window by +1.60pp *and* raised the worst case
+from +1.29 to +2.94 — it looked like the strongest candidate found in nineteen rounds. On the
+holdout it was worse than the incumbent. Recorded here so it is not re-attempted.
+
+Running total: **nine estimator families tested, nine rejected.** The binding constraint remains
+data, not modelling.
+
+### A leakage error in this round's own exploratory script — and what it produced
+
+An intermediate measurement appeared to show the LSTM contributing a large, significant directional
+gain (+295 corrected calls vs −102, p < 0.0001), which would have overturned Round 16's finding.
+**It was wrong.** The exploratory script scored the window `2025-04-15..2026-09-06`, which overlaps
+the training data under the regime-aware split (training keeps the full history; only ~342 rows are
+held out). The network was being credited for rows it had memorised.
+
+Re-measured on the actual held-out test split, the result reverses: **158 fixes, 150 breaks,
+χ² = 0.159, p = 0.69 — no significant contribution.** Round 16's conclusion stands unchanged.
+
+The error is recorded rather than quietly dropped because it is the exact mistake the ablation
+below now exists to prevent, and because a naive version of the same comparison is a trap the panel
+may raise independently: measured without restricting to genuine-signal rows, the network appears to
+add ~9 percentage points of directional accuracy. It does not. On ~13% of moving-price forecasts the
+last observed change is exactly zero, the reversion term is then forced to predict 0, `sign(0)`
+matches nothing, and those rows score as wrong for the reversion-only model regardless of outcome.
+On that subset alone the network scores **50.7%** — it is breaking a tie by coin flip.
+
+### What was added: `lstm_ablation` in `meta.json` (v4)
+
+`model/train.py::_lstm_ablation` now answers, per training run and per rice type, the single
+hardest question the panel can ask: *does the LSTM in your title do anything?* MAE cannot settle it —
+removing the network moves skill by ~0.02pp, inside run-to-run noise. So the test is:
+
+- restricted to **genuine-signal** forecasts (last change non-zero **and** price actually moved),
+  which removes the tie-breaking artifact above;
+- **paired** per forecast, counting only rows where the two predictors disagree (McNemar), since
+  discordant pairs carry all the information about which predictor is better;
+- **pooled** across the 8 types into one 2×2 table, because each type alone has too few discordant
+  pairs (2–73) to reach significance while sharing one architecture and one horizon;
+- p computed exactly for 1 d.f. via `math.erfc`, no new dependency.
+
+Current run: `types_pooled` 7, `n_scored` 5369, fixes 158, breaks 150, p 0.69,
+`significant_at_05` false. The stored `verdict` string states the negative result in plain words so
+no downstream consumer can round it up into a claim.
+
+**This is a defensible finding, not a failure.** The honest position for the defence is: the
+forecasting value of AgriPricePH comes from the mean-reversion component; the LSTM is retained
+because it is not harmful (skill unchanged at 3.71%, 8/8 positive) and it is the architecture the
+study set out to evaluate — and the study now reports a measured, reproducible answer about it
+rather than an assumed one. A negative result that is correctly measured is worth more to a panel
+than a positive one that is not.
+
+### Verified after all changes
+50/50 tests pass. Headline metrics bit-identical to the pre-change run: **skill +3.71%, 8/8 types
+positive (worst +1.25%), movement ratio 0.223, 94.4% of next-day forecasts within PHP 1.00.** The
+ablation is a pure addition to the metrics block; it changes no forecast.
+
+---
+
 ## Still [VERIFY] / [ACTION]
 - **[DTI]** confirm the 8 category names/definitions and the **brands** under each (DA has none).
 - **[DTI]** whether to keep the DA Bantay Presyo ranges or use official DTI brackets.

@@ -543,8 +543,26 @@ _FUEL_LABELS = {
 }
 
 
+# Plausible PH pump-price band, PHP/litre. The DOE historical series spans 18.40-103.95
+# (the upper end is the real mid-2022 spike), so this is wide enough to keep every genuine
+# reading while rejecting a mis-parse.
+FUEL_MIN_PHP = 15.0
+FUEL_MAX_PHP = 110.0
+
+
 def _parse_fuel_table(html: str) -> Dict[str, float]:
-    """Parse Zigwheels fuel-price table (primary source for Manila rates)."""
+    """Parse Zigwheels fuel prices for Manila.
+
+    Two tables on the page match `.fuel-price-table`: the labelled Manila summary
+    (`.fuel-rates`) and a per-city table whose first column is a CITY name. Iterating both
+    indiscriminately is what produced the 2026-03-10..05-27 corruption in `WS_fuel`
+    (Gasoline ~PHP 72-96, Diesel ~PHP 82-129 — roughly double reality) with RON_100/RON_91/
+    Diesel_Plus left NaN and Gasoline == RON_95, a degenerate partial parse that
+    `_fill_missing_fuel_fields()` then back-filled and hid.
+
+    So: read the labelled summary first, then use the city table's own "Manila" row (which
+    carries all six columns) as a fallback/cross-check.
+    """
     soup = BeautifulSoup(html, "html.parser")
     row: Dict[str, float] = {}
 
@@ -552,22 +570,75 @@ def _parse_fuel_table(html: str) -> Dict[str, float]:
         match = re.search(r"(\d{1,3}\.\d{1,2})", text.replace(",", ""))
         return float(match.group(1)) if match else None
 
-    for table in soup.select("table.fuel-price-table, table.fuel-rates"):
+    # ── 1. labelled Manila summary table ────────────────────────────────────────────────
+    for table in soup.select("table.fuel-rates"):
         for tr in table.find_all("tr"):
             cells = [c.get_text(" ", strip=True) for c in tr.find_all(["td", "th"])]
             if len(cells) < 2:
                 continue
-            label, price_text = cells[0], cells[1]
-            price = _price_from_cell(price_text)
+            norm = re.sub(r"\s+", " ", cells[0]).strip().lower()
+            price = _price_from_cell(cells[1])
             if price is None:
                 continue
-            norm = re.sub(r"\s+", " ", label).strip().lower()
             for key, aliases in _FUEL_LABELS.items():
                 if any(norm == alias.lower() for alias in aliases):
                     row[key] = price
                     break
 
-    return row
+    # ── 2. per-city table: take the Manila row by header position ───────────────────────
+    for table in soup.select("table.fuel-price-table"):
+        header = None
+        for tr in table.find_all("tr"):
+            cells = [c.get_text(" ", strip=True) for c in tr.find_all(["td", "th"])]
+            if not cells:
+                continue
+            if header is None:
+                if re.sub(r"\s+", " ", cells[0]).strip().lower() == "city":
+                    header = [re.sub(r"\s+", " ", c).strip().lower() for c in cells]
+                continue
+            if re.sub(r"\s+", " ", cells[0]).strip().lower() != "manila":
+                continue
+            for key, aliases in _FUEL_LABELS.items():
+                for alias in aliases:
+                    if alias.lower() in header:
+                        idx = header.index(alias.lower())
+                        if idx < len(cells):
+                            price = _price_from_cell(cells[idx])
+                            if price is not None:
+                                row.setdefault(key, price)
+                        break
+
+    return _validated_fuel_row(row)
+
+
+def _validated_fuel_row(row: Dict[str, float]) -> Dict[str, float]:
+    """Drop implausible values and reject a whole scrape that looks like a degenerate parse.
+
+    Returning {} makes the caller keep the previous good reading instead of writing garbage.
+    """
+    clean = {
+        k: v for k, v in row.items()
+        if isinstance(v, (int, float)) and FUEL_MIN_PHP <= float(v) <= FUEL_MAX_PHP
+    }
+    dropped = set(row) - set(clean)
+    if dropped:
+        logger.warning("Fuel: dropped out-of-range field(s) %s from %s", sorted(dropped), row)
+
+    # Degenerate-parse signature seen in the 2026 corruption: only the three "headline" fields
+    # came back AND gasoline equals RON 95 (they differ by ~PHP 4 on a healthy parse).
+    core = {"Gasoline", "RON_95", "Diesel"}
+    if core.issubset(clean) and len(clean) <= 3 and clean["Gasoline"] == clean["RON_95"]:
+        logger.error(
+            "Fuel: rejecting scrape — degenerate parse (only %s, Gasoline == RON 95 == %.2f). "
+            "Keeping previous reading.", sorted(clean), clean["Gasoline"],
+        )
+        return {}
+
+    # Ordering sanity when the octane grades are present.
+    if {"RON_100", "RON_95"}.issubset(clean) and clean["RON_100"] < clean["RON_95"]:
+        logger.warning("Fuel: RON 100 (%.2f) < RON 95 (%.2f) — suspicious parse.",
+                       clean["RON_100"], clean["RON_95"])
+    return clean
 
 
 def _fill_missing_fuel_fields(row: Dict[str, float]) -> None:

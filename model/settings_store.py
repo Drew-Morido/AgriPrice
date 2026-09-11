@@ -55,15 +55,56 @@ DEFAULT_SETTINGS: dict[str, Any] = {
 
 
 def _hash_password(password: str) -> str:
+    """Hash a secret for storage.
+
+    Was unsalted SHA-256 — a single-pass fast hash, so identical passwords produced identical
+    digests (rainbow-table lookup) and offline brute force ran at GPU speed. Public user accounts
+    already used werkzeug's salted PBKDF2 via `user_auth.py`, so the ADMIN credential was the
+    weakest secret in the system. Now uses the same PBKDF2 as the public path.
+
+    Verify with `_verify_password()`, never by re-hashing and comparing: PBKDF2 digests embed a
+    random salt, so two hashes of the same password are intentionally different.
+    """
+    from werkzeug.security import generate_password_hash
+    return generate_password_hash(password or "")
+
+
+def _looks_legacy_sha256(stored: str) -> bool:
+    """True for the pre-migration format: bare 64-char hex, no algorithm prefix."""
+    if not stored or ":" in stored or stored.startswith(("pbkdf2", "scrypt", "argon2")):
+        return False
+    s = stored.strip()
+    return len(s) == 64 and all(c in "0123456789abcdefABCDEF" for c in s)
+
+
+def _verify_password(password: str, stored: str) -> bool:
+    """Constant-time verification that accepts both PBKDF2 and legacy SHA-256 digests.
+
+    Legacy support exists only so an existing deployment is not locked out on upgrade; callers
+    should re-hash with `_hash_password()` after a successful legacy verification so each
+    credential migrates on first use. Comparison is via `hmac.compare_digest` to remove the
+    timing side-channel the old `==` comparison had.
+    """
     import hashlib
-    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+    import hmac
+
+    if not stored:
+        return False
+    if _looks_legacy_sha256(stored):
+        digest = hashlib.sha256((password or "").encode("utf-8")).hexdigest()
+        return hmac.compare_digest(digest, stored.strip())
+    try:
+        from werkzeug.security import check_password_hash
+        return bool(check_password_hash(stored, password or ""))
+    except Exception:
+        return False
 
 
 def change_password(current: str, new_password: str) -> tuple[bool, str]:
     data = _load_raw()
     sec = data.get("security") or {}
     stored = sec.get("password_hash")
-    if stored and _hash_password(current) != stored:
+    if stored and not _verify_password(current, stored):
         return False, "Current password is incorrect."
     if len(new_password) < 6:
         return False, "New password must be at least 6 characters."

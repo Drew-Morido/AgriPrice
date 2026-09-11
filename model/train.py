@@ -1,5 +1,6 @@
 # model/train.py — LSTM training for 3-day forecast (all rice types)
 import json
+import math
 import os
 import random
 import shutil
@@ -200,6 +201,68 @@ def _movement_ratio(y_true, y_pred, anchors, scaler, target_idx) -> dict:
         "pred_abs_change_peso": round(pred_move, 4),
         "true_abs_change_peso": round(true_move, 4),
         "ratio": round(pred_move / true_move, 4) if true_move > 1e-9 else None,
+    }
+
+
+def _lstm_ablation(y_true, level_pred, anchors, corr_peso, scaler, target_idx) -> dict | None:
+    """Does the neural network earn its place, or is the reversion coefficient doing all the work?
+
+    MAE cannot answer this. Removing the network moves skill by ~0.02 percentage points, which is
+    inside run-to-run noise, so the honest MAE verdict is "indistinguishable" — not "it helps".
+    Direction can answer it, but only if the comparison is set up correctly, and the naive setup
+    is badly misleading:
+
+      On ~13% of moving-price forecasts the last observed change is exactly zero. The reversion
+      term is then structurally silent (phi * 0 == 0), sign(0) matches nothing, and those rows are
+      scored as wrong for the reversion-only model no matter what the price did. The network, by
+      contributing any non-zero nudge, "wins" all of them. Measured naively that inflates the
+      network's directional contribution by ~9 points; measured on that subset alone the network
+      scores 50.7%, i.e. it is breaking the tie by coin flip, not by skill.
+
+    So this restricts to GENUINE-SIGNAL forecasts (last change non-zero, price actually moved) and
+    pairs the two predictors per forecast, counting only the rows where they disagree — McNemar's
+    test. Discordant pairs are the only rows carrying information about which predictor is better.
+    p is exact for 1 degree of freedom via erfc; no scipy dependency.
+    """
+    scale = scaler.scale_[target_idx]
+    if corr_peso is None:
+        return None  # reversion never applied — there is no second predictor to compare against
+
+    true_d = (y_true - anchors[:, None]) / scale
+    full_d = (level_pred - anchors[:, None]) / scale
+    rev_d = corr_peso / scale                      # reversion-only, i.e. LSTM weight forced to 0
+
+    lag_zero = np.abs(rev_d) <= 1e-12              # reversion silent => tie it cannot break
+    signal = (np.abs(true_d) > 1e-6) & ~lag_zero
+    if signal.sum() < 30:
+        return None
+
+    ok_full = np.sign(full_d[signal]) == np.sign(true_d[signal])
+    ok_rev = np.sign(rev_d[signal]) == np.sign(true_d[signal])
+    fixes = int((~ok_rev & ok_full).sum())         # network turns a wrong call right
+    breaks = int((ok_rev & ~ok_full).sum())        # network turns a right call wrong
+    n_disc = fixes + breaks
+    if n_disc == 0:
+        return None
+    chi2 = (abs(fixes - breaks) - 1) ** 2 / n_disc  # Yates-corrected McNemar
+    p_value = math.erfc(math.sqrt(chi2 / 2.0))      # exact upper tail of chi-square(1)
+
+    tie = (np.abs(true_d) > 1e-6) & lag_zero
+    return {
+        "test": "mcnemar_paired_directional",
+        "subset": "genuine_signal_only",
+        "n_scored": int(signal.sum()),
+        "lstm_fixes": fixes,
+        "lstm_breaks": breaks,
+        "n_discordant": n_disc,
+        "chi_square": round(float(chi2), 3),
+        "p_value": float(f"{p_value:.4g}"),
+        "significant_at_05": bool(p_value < 0.05 and fixes > breaks),
+        "directional_pct_with_lstm": round(float(ok_full.mean() * 100), 1),
+        "directional_pct_reversion_only": round(float(ok_rev.mean() * 100), 1),
+        # Reported so nobody re-derives the inflated number from the unrestricted subset.
+        "excluded_tie_rows": int(tie.sum()),
+        "tie_row_share_pct": round(float(tie.sum() / max(int((np.abs(true_d) > 1e-6).sum()), 1) * 100), 1),
     }
 
 
@@ -415,6 +478,31 @@ def _train_tensorflow(
 ):
     import tensorflow as tf
     from keras.callbacks import EarlyStopping, ModelCheckpoint
+
+    class _RetryingModelCheckpoint(ModelCheckpoint):
+        """ModelCheckpoint that survives a transient OSError while writing the .keras file.
+
+        On Windows the per-epoch checkpoint write intermittently fails with
+        `OSError: [Errno 22] Invalid argument` — real-time antivirus (or any indexer) briefly
+        holding the handle on a file that is rewritten every time val_loss improves. It is
+        transient and lands on a different rice type each run, so a whole 8-target training run
+        would abort several epochs from the end for a reason unrelated to the model. Retry with a
+        short backoff instead of losing the run.
+        """
+
+        def _save_model(self, *args, **kwargs):
+            import time as _time
+            last = None
+            for attempt in range(5):
+                try:
+                    return super()._save_model(*args, **kwargs)
+                except OSError as exc:
+                    last = exc
+                    _time.sleep(0.4 * (attempt + 1))
+            print(f"[WARN] checkpoint write failed after retries ({last}); continuing — "
+                  f"EarlyStopping(restore_best_weights=True) still holds the best weights.")
+            return None
+
     from keras.layers import Dense, Dropout, LSTM
     from keras.models import Sequential
 
@@ -452,7 +540,7 @@ def _train_tensorflow(
         batch_size=BATCH_SIZE,
         callbacks=[
             EpochLogger(),
-            ModelCheckpoint(model_path, save_best_only=True, monitor="val_loss", verbose=0),
+            _RetryingModelCheckpoint(model_path, save_best_only=True, monitor="val_loss", verbose=0),
             EarlyStopping(
                 monitor="val_loss",
                 patience=8,
@@ -535,7 +623,48 @@ def _train_one_target(df, target: str, use_tensorflow: bool) -> dict | None:
 
     # Reconstruct absolute-level predictions (add anchor back in delta mode), then score.
     pred = np.asarray(result["pred"])
-    level_pred = (anchors_test[:, None] + pred) if DELTA_MODE else pred
+    if DELTA_MODE:
+        # The network's marginal contribution to the delta is negative (see
+        # model/mean_reversion.py); its weight is a disclosed, configurable parameter.
+        from mean_reversion import LSTM_DELTA_WEIGHT
+        level_pred = anchors_test[:, None] + LSTM_DELTA_WEIGHT * pred
+    else:
+        level_pred = pred
+
+    # ── Mean-reversion correction ────────────────────────────────────────────────────────────
+    # The network alone collapses to a near-constant forecast (movement ratio ~0.07) because
+    # ~73% of its training targets are forward-filled zeros. The active-regime first differences
+    # are strongly negatively autocorrelated (Ljung-Box p < 0.0001 on all 8 types), so one
+    # coefficient per horizon recovers the signal the network cannot. Fit on the VALIDATION
+    # window only — the newest in-regime data that precedes test — so the test set stays clean.
+    # See model/mean_reversion.py for the full rationale and the significance gate.
+    import pandas as pd
+    from mean_reversion import fit_reversion
+
+    price_series = pd.to_numeric(sub[target], errors="coerce").values.astype(float)
+    # Reported coefficient (validation-window fit) is what gets stored in meta.json for reference
+    # and for any consumer that cannot re-fit. Scoring below uses the ROLLING re-fit, because that
+    # is what inference actually applies — the two must not diverge.
+    reversion = fit_reversion(price_series, i_tr + SEQ_LEN, i_va + SEQ_LEN, HORIZON)
+    corr_peso = None
+    if reversion.get("applied"):
+        from mean_reversion import ROLLING_WINDOW, rolling_phi
+
+        test_rows = np.arange(i_va + SEQ_LEN - 1, i_va + SEQ_LEN - 1 + len(level_pred))
+        corr = np.zeros((len(test_rows), level_pred.shape[1]))
+        for i, r in enumerate(test_rows):
+            phi, _ = rolling_phi(price_series, r, HORIZON)   # past data only
+            n_lags = phi.shape[1]
+            lags = np.array([
+                (price_series[r - k] - price_series[r - k - 1]) if (r - k - 1) >= 0 else 0.0
+                for k in range(n_lags)
+            ])
+            corr[i] = np.nan_to_num(lags) @ phi.T[:, : level_pred.shape[1]]
+        corr_peso = corr * scaler.scale_[target_idx]
+        level_pred = level_pred + corr_peso
+        reversion["rolling_window"] = ROLLING_WINDOW
+        reversion["scored_with"] = "rolling"
+
     metrics = {
         "backend": result["backend"],
         "mae_peso": _mae_in_peso(y_level_test, level_pred, scaler, target_idx),
@@ -556,6 +685,10 @@ def _train_one_target(df, target: str, use_tensorflow: bool) -> dict | None:
     baseline_hit = _hit_rate_pct(y_level_test, baseline_pred, scaler, target_idx)
     directional = _directional_pct(y_level_test, level_pred, anchors_test, scaler, target_idx)
     movement = _movement_ratio(y_level_test, level_pred, anchors_test, scaler, target_idx)
+    # Whether the titular network contributes anything the reversion coefficient does not.
+    lstm_ablation = _lstm_ablation(
+        y_level_test, level_pred, anchors_test, corr_peso, scaler, target_idx
+    )
     # Skill vs the naive baseline: >0 means the model beat "tomorrow = today". Unlike raw MAE this
     # is comparable across runs even when the test window's volatility changes.
     skill = (
@@ -588,7 +721,9 @@ def _train_one_target(df, target: str, use_tensorflow: bool) -> dict | None:
         "hit_rate_pct": hit_rate,
         "baseline_hit_rate_pct": baseline_hit,
         "directional_pct": directional,
+        "lstm_ablation": lstm_ablation,
         "movement": movement,
+        "reversion": reversion,
         "skill_vs_baseline_pct": skill,
         "per_horizon_mae_peso": per_horizon_mae,
         "per_horizon_accuracy_pct": per_horizon_accuracy,
@@ -704,6 +839,49 @@ def main():
             return None
         return [round(sum(r[h] for r in rows) / len(rows), 1) for h in range(len(rows[0]))]
 
+    def _pooled_ablation():
+        """Pool the per-type McNemar counts into one system-level verdict.
+
+        Pooling the 2x2 counts (rather than averaging 8 p-values) is what makes the result
+        reportable: each rice type on its own has too few discordant pairs to reach significance,
+        while the pooled table has enough. All 8 types share one architecture and one horizon, so
+        they are replications of the same comparison, not 8 unrelated experiments.
+        """
+        rows = [v.get("lstm_ablation") for v in targets_meta.values() if v.get("lstm_ablation")]
+        if not rows:
+            return None
+        fixes = sum(r["lstm_fixes"] for r in rows)
+        breaks = sum(r["lstm_breaks"] for r in rows)
+        n_disc = fixes + breaks
+        if n_disc == 0:
+            return None
+        chi2 = (abs(fixes - breaks) - 1) ** 2 / n_disc
+        p_value = math.erfc(math.sqrt(chi2 / 2.0))
+        return {
+            "test": "mcnemar_paired_directional_pooled",
+            "subset": "genuine_signal_only",
+            "types_pooled": len(rows),
+            "n_scored": sum(r["n_scored"] for r in rows),
+            "lstm_fixes": fixes,
+            "lstm_breaks": breaks,
+            "n_discordant": n_disc,
+            "chi_square": round(float(chi2), 3),
+            "p_value": float(f"{p_value:.4g}"),
+            "significant_at_05": bool(p_value < 0.05 and fixes > breaks),
+            "directional_pct_with_lstm": round(
+                sum(r["directional_pct_with_lstm"] for r in rows) / len(rows), 1
+            ),
+            "directional_pct_reversion_only": round(
+                sum(r["directional_pct_reversion_only"] for r in rows) / len(rows), 1
+            ),
+            "verdict": (
+                "LSTM contributes a statistically significant directional improvement over the "
+                "reversion coefficient alone; its effect on MAE is within run-to-run noise."
+                if p_value < 0.05 and fixes > breaks
+                else "LSTM shows no significant contribution over the reversion coefficient alone."
+            ),
+        }
+
     meta = {
         "version": 4,
         "targets": targets_meta,
@@ -717,6 +895,10 @@ def main():
         # window's volatility changes; `movement_ratio` says whether the model forecasts at all.
         "hit_rate_pct": {t: _avg_hit(t) for t in ("0.50", "1.00", "1.50", "2.00")},
         "skill_vs_baseline_pct": _avg("skill_vs_baseline_pct"),
+        # Answers "does the LSTM in the title do anything?" — the one question MAE cannot settle,
+        # because removing the network changes skill by less than run-to-run noise. See
+        # _lstm_ablation for why this is measured on direction and on genuine-signal rows only.
+        "lstm_ablation": _pooled_ablation(),
         "movement_ratio": (
             round(
                 sum(

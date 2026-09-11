@@ -71,3 +71,13 @@ try:
     apply_bantay_presyo_corrections(verbose=True, backup=False)
 except Exception as e:
     print(f"DA Bantay Presyo corrections skipped: {e}")
+
+# Apply verified DA Daily Price Index prices for 2026 (155 days, 2026-04-01..09-02) into
+# WS_rice_price. This is the daily-observation era — the only period whose day-to-day dynamics
+# the model can learn from — so it matters more per row than the older corrections.
+try:
+    from apply_da_dpi_2026 import apply_corrections as apply_dpi_2026
+    print("Applying verified DA Daily Price Index 2026 prices...")
+    apply_dpi_2026(verbose=True, backup=False)
+except Exception as e:
+    print(f"DA DPI 2026 corrections skipped: {e}")

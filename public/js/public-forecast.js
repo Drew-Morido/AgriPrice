@@ -138,24 +138,45 @@ AgriPricePH.PublicForecast = (function () {
     }
   }
 
+  /* Describe reliability with the measured next-day hit rate — "X out of 100 forecasts landed
+     within ₱1.00" — instead of adjectives inferred from MAE. The old copy printed "Almost
+     always right" for any MAE ≤ ₱0.60, which overstated a model that only recently started
+     beating a no-change baseline at all. Falls back to MAE wording on pre-v4 metadata. */
   function applyMetrics(m) {
     if (!m) return;
     const mae = m.mae_peso != null ? Number(m.mae_peso) : 0.45;
+
+    // hit_rate_pct = { "1.00": [day1, day2, day3], ... } — day-1 within ₱1.00
+    let hit1 = null;
+    const hr = m.hit_rate_pct;
+    if (hr && hr['1.00'] != null) {
+      const v = hr['1.00'];
+      hit1 = Number(Array.isArray(v) ? v[0] : v);
+      if (!Number.isFinite(hit1)) hit1 = null;
+    }
+
     const accSub = $('#status-accuracy-sub');
-    if (accSub) accSub.textContent = `Usually off by only ₱${mae.toFixed(2)} per kilo`;
+    if (accSub) {
+      accSub.textContent = hit1 != null
+        ? `About ${Math.round(hit1)} out of 100 next-day forecasts land within ₱1.00 per kilo`
+        : `Usually off by about ₱${mae.toFixed(2)} per kilo`;
+    }
 
     const accTitle = $('#status-accuracy-title');
     if (accTitle) {
-      if (mae <= 0.5) accTitle.textContent = 'Very close';
-      else if (mae <= 1.2) accTitle.textContent = 'Fairly close';
-      else accTitle.textContent = 'Rough estimate';
+      if (hit1 != null) {
+        if (hit1 >= 90) accTitle.textContent = 'Usually within ₱1';
+        else if (hit1 >= 75) accTitle.textContent = 'Often within ₱1';
+        else accTitle.textContent = 'Rough guide';
+      } else {
+        accTitle.textContent = mae <= 0.5 ? 'Close' : (mae <= 1.2 ? 'Fairly close' : 'Rough guide');
+      }
     }
 
+    // Badge states what the forecast is for, not how "right" it is.
     const badge = $('#status-accuracy-badge');
     if (badge) {
-      if (mae <= 0.6) badge.textContent = 'Almost always right';
-      else if (mae <= 1.2) badge.textContent = 'Usually reliable';
-      else badge.textContent = 'Use as a guide';
+      badge.textContent = `Typically within ₱${(mae <= 0 ? 0.5 : mae).toFixed(2)}/kg`;
     }
   }
 

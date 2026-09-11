@@ -130,12 +130,43 @@ prices really move — the number that exposes a collapsed model). **Do not repo
 that legacy formula (`100 − MAE/mean_price`) returns 98–99% for any model and scores the naive
 baseline *above* the LSTM on all 8 rice types; it is kept only so pre-v4 runs still render.
 
+`meta.json.lstm_ablation` (pooled, plus per-type) records whether the network contributes anything
+the mean-reversion coefficient does not — a paired McNemar test on **genuine-signal forecasts only**
+(last change non-zero and price actually moved), because on ~13% of moving-price forecasts the
+reversion term is structurally silent (`phi * 0 == 0`), `sign(0)` matches nothing, and counting those
+rows inflates the network's apparent directional contribution by ~9 points when it is in fact
+coin-flipping them at 50.7%. Current verdict: 158 fixes vs 150 breaks, **p = 0.69, not significant**.
+**Do not "improve" this by widening the subset or by scoring a window that overlaps training** — under
+the regime-aware split only ~342 rows per type are held out, and scoring the full active era instead
+credits the network for memorised rows (this produced a spurious p < 0.0001 in Round 19; see
+`documents/PAPER_CORRECTIONS.md`). Any candidate improvement must win on a window it was not tuned on:
+nine estimator families have now been tested and rejected on exactly that criterion.
+
 `predict.py` attaches a **conformal prediction interval** (`low`/`high`/`interval_pct`) to every
-forecast day, calibrated on the last 60 observations so it tracks the current regime — measured
-coverage 90.2–90.8% against a 90% target. TensorFlow LSTM is preferred; if unavailable,
-`train.py`/`predict.py` fall back to an sklearn `MLPRegressor` — `meta.json.backend` records which
-produced the current model. Honest result: LSTM ≈ persistence ≈ ARIMA at this horizon (ADF p ≈
-0.09–0.22 across all 8 types, near-random-walk; skill ≈ −1%); do not claim it beats the baseline.
+forecast day, calibrated on the last 60 observations so it tracks the current regime. Conformal
+only guarantees its nominal level on *exchangeable* data, and daily price errors are not, so the
+nominal level is set to **0.93 to deliver ~90% realised** coverage (measured 90.3% by walk-forward
+recalibration); `interval_pct` reports the realised 90%. The older "90.2–90.8%" figure was
+measured a different way — see PAPER_CORRECTIONS.md Round 12 for the calibration sweep. TensorFlow LSTM is
+preferred; if unavailable, `train.py`/`predict.py` fall back to an sklearn `MLPRegressor` —
+`meta.json.backend` records which produced the current model.
+
+**Forecast = anchor + LSTM delta + a gated mean-reversion term** (`model/mean_reversion.py`). The
+LSTM *on its own* collapses to the naive forecast (`movement_ratio` 0.07, skill −1%), because ~73%
+of its training targets are forward-filled zeros while the deployment regime is only ~4% flat.
+Retraining on the active regime does not fix it (skill −7%, 0/8). What does: the active-regime
+first differences are strongly mean-reverting (lag-1 autocorrelation −0.17 to −0.41, Ljung–Box
+p < 0.0001, t = −3.0 to −7.2), so one OLS coefficient per horizon — fit on the validation window
+only, shrunk ×0.8, clipped to [−1, 0], and deployed only when |t| ≥ 2 — recovers it. With that
+term the model **does** beat naive persistence: **skill +3.51%, positive on 7/8 types,
+directional accuracy 57–67%, `movement_ratio` 0.24**. Shrinkage is 0.6 and a second lag was tested and rejected (dominated end-to-end at every shrink level). See PAPER_CORRECTIONS.md Rounds 11, 13 and 15. The coefficient is re-fitted on a rolling 120-day window before each forecast (`mean_reversion.rolling_phi`) rather than frozen at training time — scoring and serving use the same path, so they cannot diverge.
+
+State this precisely: the **combined** model beats persistence and ARIMA; the **LSTM alone does
+not**. Round 16 went further and measured the network's *marginal* contribution by ablation — it
+is **negative on all 8 rice types**, so its delta is down-weighted to `LSTM_DELTA_WEIGHT=0.25`
+(w=0 scores best; 0.25 keeps it in the path, disclosed). Current: **skill +3.71%, 8/8 types
+positive, worst +1.25, directional 55–66%**. Never attribute the gain to the network — the
+ablation table in Round 16 is the evidence and a panel will ask.
 
 ### Backend — `api/app.py`
 

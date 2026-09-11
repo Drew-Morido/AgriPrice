@@ -34,8 +34,8 @@
     "admin_display_name": "Admin User",
     "admin_username": "admin",
     "password_hash": null,
-    "admin_access_code_hash": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92",
-    "admin_password_hash": "e86f78a8a3caf0b60d8e74e5942aa6d86dc150cd3c03338aef25b7d2d7e3acc7"
+    "admin_access_code_hash": "scrypt:32768:8:1$rnNl7Qg8zBOkKbIJ$797ac0b6267e83b318e5ef0893dcfce4cc142cab8d45ebab57294f8f151ac9bde364e3d652563681ec9717b8230245c6a3c0926fbce1191178ad56d71155497e",
+    "admin_password_hash": "scrypt:32768:8:1$r2zaS4ToZKOkGx4c$53b3438ef0c4cbea8dc492df3d88ca51fe95463122c691c45d62b3e41d21c150e4b85c0439590a83c2b3f37d2c7e049c9ffe52fddf237e1d2629b3cbfcdc7ed6"
   },
-  "updated_at": "2026-05-25T21:58:54"
+  "updated_at": "2026-09-11T05:57:01"
 }

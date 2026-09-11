@@ -1025,7 +1025,15 @@ async function loadLiveData() {
   }
 
   const footnote = document.getElementById('table-footnote');
-  if (footnote) footnote.textContent = `Based on 9+ years of daily prices (2015–now) · Typically accurate within ${toPeso(maePeso)}`;
+  if (footnote) {
+    // Prefer the measured next-day hit rate over an MAE adjective: "92 of 100 forecasts landed
+    // within ₱1.00" is checkable, whereas an average error invites "accurate compared to what?".
+    const hr = pred?.metrics?.hit_rate_pct?.['1.00'];
+    const hit1 = Array.isArray(hr) ? Number(hr[0]) : Number(hr);
+    footnote.textContent = Number.isFinite(hit1)
+      ? `Based on 9+ years of daily prices (2015–now) · ${Math.round(hit1)} of 100 next-day forecasts landed within ₱1.00 on unseen data`
+      : `Based on 9+ years of daily prices (2015–now) · Typically within ${toPeso(maePeso)} per kilo`;
+  }
 
   const lastUpdatedEl = document.getElementById('last-updated-val');
   const lastUpdated = describeLastUpdated(pred);

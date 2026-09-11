@@ -1,0 +1,30 @@
+{
+ "A_baseline_all_rows": {
+  "mae": 0.3336,
+  "baseline": 0.3265,
+  "skill_pct": -2.16,
+  "movement": 0.1419,
+  "directional_pct": 51.5
+ },
+ "B_weight_flat_0.1": {
+  "mae": 0.3617,
+  "baseline": 0.3265,
+  "skill_pct": -10.78,
+  "movement": 0.3413,
+  "directional_pct": 48.5
+ },
+ "C_moving_only": {
+  "mae": 0.3693,
+  "baseline": 0.3265,
+  "skill_pct": -13.11,
+  "movement": 0.4356,
+  "directional_pct": 48.5
+ },
+ "D_recent_700_rows": {
+  "mae": 0.4074,
+  "baseline": 0.3265,
+  "skill_pct": -24.77,
+  "movement": 0.5946,
+  "directional_pct": 48.5
+ }
+}

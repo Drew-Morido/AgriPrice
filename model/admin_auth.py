@@ -8,7 +8,7 @@ import secrets
 import time
 from typing import Any
 
-from settings_store import _hash_password, _load_raw, _save_raw
+from settings_store import _hash_password, _load_raw, _looks_legacy_sha256, _save_raw, _verify_password
 
 MAX_ATTEMPTS = 5
 LOCKOUT_SECONDS = 15 * 60
@@ -44,13 +44,32 @@ def _security() -> dict:
     return sec
 
 
+def _upgrade_hash_if_legacy(field: str, plaintext: str) -> None:
+    """Re-hash a legacy unsalted-SHA-256 credential with PBKDF2 after it verifies correctly.
+
+    Migration happens on first successful sign-in, so upgrading the code never locks anyone out
+    and no password reset is required.
+    """
+    try:
+        data = _load_raw()
+        sec = data.get("security") or {}
+        stored = sec.get(field)
+        if stored and _looks_legacy_sha256(stored):
+            sec[field] = _hash_password(plaintext)
+            data["security"] = sec
+            _save_raw(data)
+    except Exception:
+        pass  # never block a valid login on a migration failure
+
+
 def verify_access_code(code: str) -> bool:
     digits = "".join(c for c in str(code) if c.isdigit())
     if len(digits) != 6:
         return False
     sec = _security()
     expected = sec.get("admin_access_code_hash")
-    if expected and _hash_password(digits) == expected:
+    if expected and _verify_password(digits, expected):
+        _upgrade_hash_if_legacy("admin_access_code_hash", digits)
         return True
     plain = sec.get("admin_access_code")
     return bool(plain and digits == str(plain).strip())
@@ -61,8 +80,9 @@ def verify_admin_password(username: str, password: str) -> tuple[bool, str]:
     user = (username or "").strip()
     if user != sec.get("admin_username", "admin"):
         return False, "Invalid sign-in details."
-    if _hash_password(password or "") != sec.get("admin_password_hash"):
+    if not _verify_password(password or "", sec.get("admin_password_hash")):
         return False, "Invalid sign-in details."
+    _upgrade_hash_if_legacy("admin_password_hash", password or "")
     return True, ""
 
 
@@ -71,8 +91,9 @@ def verify_admin_credentials(username: str, password: str, access_code: str) -> 
     user = (username or "").strip()
     if user != sec.get("admin_username", "admin"):
         return False, "Invalid sign-in details."
-    if _hash_password(password or "") != sec.get("admin_password_hash"):
+    if not _verify_password(password or "", sec.get("admin_password_hash")):
         return False, "Invalid sign-in details."
+    _upgrade_hash_if_legacy("admin_password_hash", password or "")
     if not verify_access_code(access_code):
         return False, "Invalid access code."
     return True, ""
@@ -91,13 +112,30 @@ def set_admin_access_code(new_code: str) -> tuple[bool, str]:
     return True, "Access code updated."
 
 
+# Any settings key whose name contains one of these is a credential and must never be serialised
+# to an API response. A denylist by substring rather than by exact name: the previous version
+# popped `admin_password_hash` and `admin_access_code_hash` explicitly but missed the plain
+# `password_hash` key, which /api/settings then returned to unauthenticated callers.
+_SECRET_KEY_MARKERS = ("password", "passwd", "secret", "token", "access_code", "hash", "salt",
+                       "api_key", "apikey", "private")
+
+
 def sanitize_settings_security(sec: dict) -> dict:
-    out = dict(sec or {})
-    out.pop("admin_password_hash", None)
-    out.pop("admin_access_code_hash", None)
-    out.pop("admin_access_code", None)
-    out["admin_access_code_set"] = True
-    out["admin_username"] = out.get("admin_username", "admin")
+    """Strip every credential-shaped field before settings leave the process.
+
+    Keeps only the booleans/labels the admin UI needs (e.g. `admin_access_code_set`) so the
+    frontend can render "configured / not configured" without ever seeing the value.
+    """
+    out = {}
+    for key, value in dict(sec or {}).items():
+        if any(marker in key.lower() for marker in _SECRET_KEY_MARKERS):
+            continue
+        out[key] = value
+    out["admin_access_code_set"] = bool(
+        (sec or {}).get("admin_access_code_hash") or (sec or {}).get("admin_access_code")
+    )
+    out["admin_password_set"] = bool((sec or {}).get("admin_password_hash"))
+    out["admin_username"] = (sec or {}).get("admin_username", "admin")
     return out
 
 

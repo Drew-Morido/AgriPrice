@@ -621,7 +621,20 @@ class _SafeJSONProvider(DefaultJSONProvider):
 
 app = Flask(__name__)
 app.json = _SafeJSONProvider(app)
-CORS(app)
+# Restrict cross-origin access. `CORS(app)` with no arguments emits
+# `Access-Control-Allow-Origin: *`, letting any site on the internet call this API from a
+# visitor's browser — including the admin-adjacent endpoints. The frontend is served by this same
+# Flask process, so same-origin needs no CORS at all; the allowlist exists only for the documented
+# XAMPP / Live Server setup. Override with AGRIPRICE_CORS_ORIGINS (comma-separated) when deploying.
+_CORS_ORIGINS = [
+    o.strip() for o in os.environ.get(
+        "AGRIPRICE_CORS_ORIGINS",
+        "http://127.0.0.1:5000,http://localhost:5000,"
+        "http://127.0.0.1:5500,http://localhost:5500,"
+        "http://127.0.0.1,http://localhost",
+    ).split(",") if o.strip()
+]
+CORS(app, resources={r"/api/*": {"origins": _CORS_ORIGINS}}, supports_credentials=True)
 
 
 def _auto_import_2026() -> None:
@@ -2267,8 +2280,34 @@ def api_import_2026():
 
 
 # ── /api/predictions ──────────────────────────────────────────────────────────
+# The 8 canonical rice keys. Anything else is a client error, not a silent fallback.
+VALID_RICE_KEYS = {
+    "locSpecial", "locPremium", "locWellMilled", "locRegular",
+    "impSpecial", "impPremium", "impWellMilled", "impRegular",
+}
+
+
+@app.route("/api/privacy-status", methods=["GET"])
+def api_privacy_status():
+    """Machine-readable RA 10173 posture: what personal data is held and how it is protected."""
+    try:
+        from privacy import privacy_status
+        return jsonify({"ready": True, **privacy_status()})
+    except Exception as exc:
+        return jsonify({"ready": False, "error": str(exc)}), 503
+
+
 @app.route("/api/predictions", methods=["GET"])
 def api_predictions():
+    # Previously an unknown/garbage `type` silently returned the default target with HTTP 200,
+    # so a client typo — or an injected string — looked like a successful request.
+    rice_type = (request.args.get("type") or "").strip()
+    if rice_type and rice_type not in VALID_RICE_KEYS:
+        return jsonify({
+            "ready": False,
+            "error": f"Unknown rice type '{rice_type}'.",
+            "valid_types": sorted(VALID_RICE_KEYS),
+        }), 400
     try:
         from predict import predict as run_predict
         result = run_predict()
@@ -3005,9 +3044,18 @@ def main() -> int:
     def _warm_lstm_cache():
         log = logging.getLogger("agriprice_scraper")
         try:
-            from predict import warm_cache
+            try:
+                from privacy import harden_file_permissions
+                log.info("Privacy: %s", harden_file_permissions())
+            except Exception as exc:
+                log.warning("Privacy hardening skipped: %s", exc)
+            from predict import warm_cache, warm_payload
             n = warm_cache()
             log.info("LSTM cache warmed: %s model(s) loaded", n)
+            # Also build the forecast payload once, so the first visitor after a restart is not
+            # the one who pays for conformal calibration across all 8 rice types.
+            if warm_payload():
+                log.info("Forecast payload pre-built; /api/predictions now serves from cache")
         except Exception as exc:
             log.warning("LSTM cache warm-up skipped: %s", exc)
 
