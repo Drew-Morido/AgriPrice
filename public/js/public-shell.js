@@ -70,10 +70,66 @@ AgriPricePH.PublicShell = (function () {
             </div>
             <button type="button" class="lp-nav-btn lp-nav-btn--ghost" id="public-btn-login">Log in</button>
             <button type="button" class="lp-nav-btn lp-nav-btn--primary" id="public-btn-signup">Sign up free →</button>
+            <button type="button" class="lp-nav-mobile-toggle" id="public-btn-mobile" aria-label="Open menu" aria-expanded="false" aria-controls="public-mobile-menu">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
           </div>
+        </div>
+        <div class="lp-nav-mobile-panel" id="public-mobile-menu" hidden>
+          <ul class="lp-nav-mobile-links">
+            ${NAV_ITEMS.map((item) => `<li><a href="${item.href}" class="${item.id === active ? 'active' : ''}">${item.label}</a></li>`).join('')}
+          </ul>
+          <div class="lp-nav-mobile-auth" id="public-mobile-auth"></div>
         </div>
       </nav>
     `;
+  }
+
+  /* Phones (≤640px) hide the inline links and the Log in / Sign up buttons for space, which left
+     guests with no way to change page or sign in. This menu is the phone replacement: every page
+     link, plus Log in / Sign up for guests or Settings for a signed-in retailer. */
+  function bindMobileMenu() {
+    const btn = document.getElementById('public-btn-mobile');
+    const panel = document.getElementById('public-mobile-menu');
+    if (!btn || !panel || btn.dataset.bound) return;
+    btn.dataset.bound = '1';
+
+    const renderAuth = () => {
+      const box = document.getElementById('public-mobile-auth');
+      if (!box) return;
+      const auth = AgriPricePH.PublicAuth;
+      if (auth?.isLoggedIn?.()) {
+        const name = auth.getSession?.()?.name || 'My account';
+        box.innerHTML = `
+          <div class="lp-nav-mobile-user">Signed in as <b></b></div>
+          <a href="settings.html" class="lp-nav-mobile-btn">Settings</a>`;
+        box.querySelector('b').textContent = name;
+      } else {
+        box.innerHTML = `
+          <a href="login.html" class="lp-nav-mobile-btn">Log in</a>
+          <a href="signup.html" class="lp-nav-mobile-btn primary">Sign up free</a>`;
+      }
+    };
+    const close = () => {
+      panel.hidden = true;
+      btn.setAttribute('aria-expanded', 'false');
+      btn.setAttribute('aria-label', 'Open menu');
+    };
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (panel.hidden) {
+        renderAuth();
+        panel.hidden = false;
+        btn.setAttribute('aria-expanded', 'true');
+        btn.setAttribute('aria-label', 'Close menu');
+      } else {
+        close();
+      }
+    });
+    panel.addEventListener('click', (e) => { if (!e.target.closest('a')) e.stopPropagation(); });
+    document.addEventListener('click', close);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+    window.addEventListener('resize', () => { if (window.innerWidth > 640) close(); });
   }
 
   /** Inject or refresh the one shared navbar at the top of the page */
@@ -89,6 +145,7 @@ AgriPricePH.PublicShell = (function () {
     document.documentElement.classList.add('public-site');
     document.body.classList.add('has-public-nav');
     AgriPricePH.PublicAuth?.updateTopbarUser?.();
+    bindMobileMenu();
   }
 
   function mountModuleLayout() {

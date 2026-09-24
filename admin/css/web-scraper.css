@@ -80,3 +80,17 @@
 .scraper-blink {
   animation: scraper-blink 1s step-start infinite;
 }
+/* Phones: the schedule rows are a fixed 4-column inline grid (1fr 110px 160px 90px = 360px+),
+   wider than a 375px screen's card. Re-flow to two lines: name + status pill, then
+   frequency + next run. (!important because the columns are set inline in web-scraper.html.) */
+@media (max-width: 600px) {
+  .schedule-item {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    row-gap: 4px !important;
+  }
+  .schedule-item .schedule-name { grid-column: 1; grid-row: 1; }
+  .schedule-item .pill { grid-column: 2; grid-row: 1; justify-self: end !important; }
+  .schedule-item .schedule-time { grid-column: 1; grid-row: 2; }
+  .schedule-item .schedule-next { grid-column: 2; grid-row: 2; text-align: right; }
+  .schedule-head { display: none !important; }
+}

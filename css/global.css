@@ -111,6 +111,9 @@ a { text-decoration: none; color: inherit; }
   position: fixed;
   top: 0; left: 0; bottom: 0;
   z-index: 100;
+  /* Static, never scrolls: instead of letting the menu run past the screen, its spacing scales
+     with the window height (the vh-based clamps in "Sidebar fit" below), so every link and the
+     Log Out button always fit — from a 1080p monitor down to a short laptop or a phone drawer. */
   overflow: hidden;
   transition: transform var(--transition);
 }
@@ -186,9 +189,32 @@ a { text-decoration: none; color: inherit; }
 
 .sidebar-footer {
   margin-top: auto;
-  padding: 8px 12px;
+  padding: 12px;
   border-top: 1px solid rgba(255,255,255,0.07);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
+
+.sidebar-logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--border-radius-sm);
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  color: var(--text-sidebar);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.sidebar-logout-btn:hover { background: var(--color-danger); border-color: var(--color-danger); color: #fff; }
+.sidebar-logout-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
 
 /* ── Main Content ── */
 .main-content {
@@ -197,6 +223,13 @@ a { text-decoration: none; color: inherit; }
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  /* A flex item's default min-width is `auto` (its content's min-content size), not 0 — so a
+     single wide descendant anywhere on the page (e.g. a table cell set to `white-space: nowrap`)
+     was quietly forcing this whole column, and every card in it, past the viewport width instead
+     of wrapping/shrinking. That's what made cards look "not responsive" even when their own CSS
+     had the right breakpoints: the breakpoints were correct, but the container never actually
+     shrank down to the width that should have triggered them. */
+  min-width: 0;
 }
 
 /* ── Topbar ── */
@@ -241,7 +274,23 @@ a { text-decoration: none; color: inherit; }
 
 .topbar-actions { display: flex; align-items: center; gap: 8px; }
 
-.topbar-user { display: flex; align-items: center; gap: 8px; cursor: pointer; margin-left: 4px; }
+.topbar-clock {
+  text-align: right;
+  padding-right: 12px;
+  margin-right: 4px;
+  border-right: 1px solid var(--border-color);
+  line-height: 1.3;
+}
+.topbar-clock-date { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+.topbar-clock-time { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); margin-top: 1px; }
+
+.topbar-user {
+  display: flex; align-items: center; gap: 8px; cursor: pointer; margin-left: 4px;
+  background: none; border: none; padding: 4px 6px; margin-right: -6px;
+  font: inherit; color: inherit; text-align: left; border-radius: var(--border-radius-sm);
+  transition: background var(--transition-fast);
+}
+.topbar-user:hover { background: var(--bg-input); }
 
 .topbar-avatar {
   width: 36px; height: 36px;
@@ -250,7 +299,10 @@ a { text-decoration: none; color: inherit; }
   display: flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 700; color: #fff;
   flex-shrink: 0; letter-spacing: 0.5px;
+  overflow: hidden;
 }
+
+.topbar-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
 .topbar-user-info h4 { font-size: 13px; font-weight: 600; color: var(--text-primary); line-height: 1.3; }
 .topbar-user-info span { font-size: 11px; color: var(--text-muted); font-weight: 400; }
@@ -485,6 +537,11 @@ a { text-decoration: none; color: inherit; }
 .stat-change { font-size: 11px; font-weight: 600; display: flex; align-items: center; gap: 4px; }
 .stat-change.up   { color: var(--color-accent); }
 .stat-change.down { color: var(--color-danger); }
+/* Cost indicators (currency, diesel): rising is the unwelcome direction, the opposite of the
+   ML "lower is better" cards above — same red-up/green-down convention the rice price ticker
+   already uses. */
+.stat-change.cost-up   { color: var(--color-danger); }
+.stat-change.cost-down { color: var(--color-accent); }
 
 /* ── Grids ── */
 .content-grid { display: grid; gap: 20px; }
@@ -669,6 +726,14 @@ html.theme-dark .pill-neutral { color: #9fb0bd; }
 }
 [data-tooltip]:hover::after, [data-tooltip]:focus-visible::after { opacity: 1; }
 
+/* The topbar sits flush against the top of the viewport, so the default upward-opening tooltip
+   has nowhere to render — it ends up clipped above the page, invisible on hover. Open downward
+   there instead. */
+.topbar-actions [data-tooltip]::after {
+  bottom: auto;
+  top: calc(100% + 6px);
+}
+
 /* Wide variant: multi-line explanatory tooltips (e.g. stat-card info icons).
    Opens BELOW the trigger, not above — these icons sit near the top of short
    cards, and an upward popover tall enough for a full sentence would cover the
@@ -762,6 +827,92 @@ html.theme-dark .pill-neutral { color: #9fb0bd; }
   .stat-grid { grid-template-columns: 1fr 1fr; }
   .grid-3 { grid-template-columns: 1fr; }
   .admin-burger { display: inline-flex; }
+}
+
+/* ── Sidebar fit ──
+   15 links in 4 groups + logo + Log Out need ~710px at full size, more than a laptop browser
+   window gives (a 1366×768 screen leaves ~650px). Every vertical gap below is a clamp() on the
+   viewport height: full desktop spacing on tall screens, tighter on short ones, never scrolling.
+   The widths/fonts stay the same so the menu looks identical, just less airy, when compressed. */
+.sidebar-logo { padding: clamp(8px, 1.8vh, 14px) 20px clamp(7px, 1.5vh, 12px); flex-shrink: 0; }
+.sidebar-logo .logo-icon { width: clamp(30px, 4.6vh, 38px); height: clamp(30px, 4.6vh, 38px); }
+.nav-section { padding: clamp(3px, 1.1vh, 10px) 12px 0; flex-shrink: 0; }
+.nav-label { margin-bottom: clamp(1px, 0.4vh, 4px); line-height: 1.3; }
+.nav-item { padding: clamp(2px, 0.72vh, 7px) 10px; line-height: 1.35; }
+.sidebar-footer { padding: clamp(6px, 1.4vh, 12px) 12px; flex-shrink: 0; }
+.sidebar-logout-btn { padding: clamp(5px, 1vh, 8px) 10px; }
+@media (max-height: 640px) {
+  /* Short windows: the four group labels become thin divider lines — the grouping stays
+     visible, and the ~60px they free up is what keeps Log Out on screen. */
+  .nav-label { display: none; }
+  .nav-section { padding-top: clamp(2px, 0.9vh, 6px); }
+  .nav-section + .nav-section { margin-top: clamp(2px, 0.6vh, 5px); border-top: 1px solid rgba(255,255,255,0.07); }
+}
+@media (max-height: 460px) {
+  /* Landscape phones (drawer): the logo steps aside and links tighten to fit. */
+  .sidebar-logo { display: none; }
+  .nav-item { font-size: 11.5px; padding-top: 1px; padding-bottom: 1px; }
+}
+
+/* ── Admin topbar: laptop → phone ──
+   The title never shrank, the search had a fixed 260px minimum, and the clock + user name were
+   always shown, so below ~900px the bar pushed the whole page sideways (every admin page scrolled
+   horizontally on tablets/phones). Each step below gives space back in order of importance. */
+.topbar-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1; }
+.search-bar { flex: 0 1 300px; }
+
+@media (max-width: 1200px) {
+  .search-bar { min-width: 180px; }
+}
+@media (max-width: 1024px) {
+  .topbar-clock { display: none; }
+  .topbar { gap: 12px; }
+}
+@media (max-width: 768px) {
+  :root { --content-padding: 16px; }
+  .topbar { padding: 0 16px; gap: 10px; }
+  .topbar-title { font-size: 16px; }
+  .topbar-user-info { display: none; }
+  .topbar-user { margin-left: 0; margin-right: 0; padding: 2px; }
+  .search-bar { min-width: 0; flex: 1 1 160px; max-width: 280px; padding: 7px 12px; }
+  .admin-burger { margin-right: 0; }
+  .section-header { flex-wrap: wrap; gap: 10px; }
+}
+/* Cards/grid cells must be allowed to shrink below their content's natural width — a flex/grid
+   item defaults to min-width:auto, so one long card header was widening its whole column past
+   the screen on phones. */
+.card, .stat-card, .content-grid > *, .grid-2 > *, .grid-3 > *, .grid-2-1 > * { min-width: 0; }
+/* Same for the page body itself: .page-content is a flex item of .main-content (admin and the
+   public shell), so a wide table inside it (e.g. the Rice Catalog's 720px table, which is meant
+   to scroll inside its own wrapper) was stretching the whole page past the phone screen. */
+.page-content { min-width: 0; }
+
+@media (max-width: 768px) {
+  /* Card headers (title + pills + buttons) wrap instead of forcing the card wider. */
+  .card-header { flex-wrap: wrap; gap: 8px 10px; padding: 14px 16px; }
+  .card-body { padding: 16px; }
+  .card-title { min-width: 0; overflow-wrap: anywhere; }
+}
+
+@media (max-width: 560px) {
+  /* Phones: search drops to its own full-width row under the title. */
+  .topbar { flex-wrap: wrap; height: auto; min-height: var(--topbar-height); padding: 10px 14px; row-gap: 10px; }
+  .topbar-actions { margin-left: auto; }
+  .search-bar { order: 3; flex: 1 1 100%; max-width: none; margin-left: 0; }
+  .topbar-alerts-panel { position: fixed; top: 64px; left: 12px; right: 12px; width: auto; }
+  .page-content { min-height: 0; }
+
+  /* Compact stat cards: two per row on a phone left ~150px each, so the desktop padding/type
+     made each card ~200px tall and badges like "Typical Miss" wrapped into the icon. */
+  .stat-grid { gap: 10px; margin-bottom: 16px; }
+  .stat-card { padding: 14px; gap: 8px; }
+  .stat-card:hover { transform: none; }
+  .stat-icon { width: 34px; height: 34px; }
+  .stat-icon svg { width: 17px; height: 17px; }
+  .stat-value { font-size: 19px; }
+  .stat-label { font-size: 11.5px; }
+  .stat-card .pill { font-size: 10px; padding: 2px 8px; white-space: nowrap; }
+  .section-title { font-size: 15px; }
 }
 
 /* Suppress the browser's native password-reveal / clear controls so our own SVG eye toggle is the

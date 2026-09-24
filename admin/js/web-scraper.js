@@ -243,11 +243,11 @@ AgriPricePH.WebScraper = (function () {
         if (dataObj.count === total) {
           if (kind === 'rice' && dataObj.is_estimated) {
             missingEl.textContent =
-              `✓ Estimated ${dataObj.latest_date} — papalitan kapag may DA bulletin na`;
+              `✓ Estimated for ${dataObj.latest_date} — replaced when the DA bulletin is published`;
             missingEl.style.color = 'var(--color-warning)';
           } else if (kind === 'rice' && dataObj.latest_date && !dataObj.is_today && calToday) {
             missingEl.textContent =
-              `✓ Complete — Bulletin ${dataObj.latest_date} (walang ${calToday} sa DA.gov.ph pa)`;
+              `✓ Up to date — latest DA bulletin ${dataObj.latest_date}`;
             missingEl.style.color = 'var(--color-success)';
           } else {
             missingEl.textContent = `✓ Complete${dateLabel ? ' — ' + dateLabel : ''}`;
@@ -274,9 +274,8 @@ AgriPricePH.WebScraper = (function () {
 
   // ─── SCHEDULE & COUNTDOWN ──────────────────────────────────────────────────
 
-  // Live scrapers (backend) vs planned (shown in schedule, not wired yet)
-  const _LIVE_SCRAPERS  = ['rice', 'fuel', 'rate'];
-  const _PLANNED_SCRAPERS = ['psa', 'pagasa'];
+  // Every source in the schedule table is a live backend scraper.
+  const _LIVE_SCRAPERS  = ['rice', 'fuel', 'rate', 'tariff'];
 
   function _formatScheduleNext(dt) {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -292,21 +291,13 @@ AgriPricePH.WebScraper = (function () {
     return `Next: ${months[dt.getMonth()]} ${dt.getDate()}`;
   }
 
-  function _nextMonthlyFirst(now) {
-    const d = new Date(now);
-    let next = new Date(d.getFullYear(), d.getMonth(), 1, 8, 0, 0, 0);
-    if (next <= d) next = new Date(d.getFullYear(), d.getMonth() + 1, 1, 8, 0, 0, 0);
-    return next;
-  }
-
   function _updateScheduleRows() {
     const now = new Date();
     const rows = [
       { id: 'rice',   next: _nextInterval(now, 4 * 60) },
       { id: 'fuel',   next: _nextWeekday(now, 1) },
       { id: 'rate',   next: _nextInterval(now, 60) },
-      { id: 'psa',    next: _nextMonthlyFirst(now) },
-      { id: 'pagasa', next: _nextInterval(now, 3 * 60) },
+      { id: 'tariff', next: _nextInterval(now, 24 * 60) },
     ];
     rows.forEach(({ id, next }) => _setText(`next-${id}`, _formatScheduleNext(next)));
   }
@@ -324,13 +315,6 @@ AgriPricePH.WebScraper = (function () {
         el.className = 'pill pill-green';
         el.style.animation = '';
       }
-    });
-    _PLANNED_SCRAPERS.forEach(key => {
-      const el = document.getElementById(`pill-${key}`);
-      if (!el) return;
-      el.textContent = 'Planned';
-      el.className = 'pill pill-gray';
-      el.style.animation = '';
     });
   }
 

@@ -1,0 +1,70 @@
+/* AgriPricePH — shared alert / confirm / loading dialogs (admin/js/ui-modals.js).
+   Themed entirely off css/global.css variables so it matches light/dark automatically. */
+
+.ui-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 20, 0.55);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+.ui-modal-overlay[hidden] { display: none !important; }
+.ui-modal-overlay.visible { opacity: 1; }
+
+.ui-modal-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 28px 26px;
+  width: 100%;
+  max-width: 380px;
+  text-align: center;
+  transform: scale(0.95) translateY(6px);
+  transition: transform 0.18s ease;
+}
+
+.ui-modal-overlay.visible .ui-modal-box { transform: scale(1) translateY(0); }
+
+.ui-modal-icon {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 14px;
+}
+
+.ui-modal-icon svg { width: 26px; height: 26px; }
+
+.ui-modal-icon-success { background: var(--color-success-bg); color: var(--color-success); }
+.ui-modal-icon-danger  { background: var(--color-danger-bg);  color: var(--color-danger); }
+.ui-modal-icon-warning { background: rgba(245, 158, 11, 0.14); color: var(--color-warning); }
+.ui-modal-icon-info    { background: var(--color-info-bg);    color: var(--color-info); }
+
+.ui-modal-title { font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+.ui-modal-text  { font-size: 13px; line-height: 1.6; color: var(--text-muted); }
+
+.ui-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+.ui-modal-box-loading { padding: 32px 26px; }
+
+.ui-modal-spinner {
+  width: 34px; height: 34px;
+  margin: 0 auto 16px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: ui-modal-spin 0.75s linear infinite;
+}
+
+@keyframes ui-modal-spin { to { transform: rotate(360deg); } }

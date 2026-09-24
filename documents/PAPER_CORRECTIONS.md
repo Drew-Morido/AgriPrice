@@ -1526,6 +1526,56 @@ ablation is a pure addition to the metrics block; it changes no forecast.
 
 ---
 
+## Round 20 — Admin → User Management module; multiple admin accounts (2026-09-25)
+
+**What the app does now.** A new admin module, **User Management** (`admin/pages/users.html`,
+`admin/js/users.js`, `model/user_management.py`, `/api/admin/accounts*`), lets admins **create,
+view, update, and deactivate** accounts:
+- **Retailer accounts** (the public site's single role, see Round 6), which any admin can manage.
+- **Admin accounts.** The built-in admin (`system_settings.json`) is always the **Super Admin** and
+  can't be deactivated. Additional admins live in `agriprice_users.db → admin_accounts`, each with
+  their own password and 6-digit access code, and have the role **Super Admin** (can also manage
+  admin accounts) or **Admin** (can manage retailers only). The server enforces this (403), not
+  just the UI.
+- **"Delete" is a soft deactivation.** The account and its email or username are kept, and it can be
+  reactivated. A deactivated retailer or admin is refused at sign-in (and at password reset) with
+  an explicit message, but only after the password verifies, so the account's state isn't
+  revealed to someone guessing. Deactivating an admin revokes their live sessions immediately.
+  Retailer sessions are browser-side only (Round 6), so a signed-in retailer is blocked at their
+  next sign-in, not mid-session.
+
+**Paper impact.** If the paper describes a **single administrator** or lists the admin modules,
+add User Management and the Super Admin / Admin distinction. Any claim that admins can "delete"
+users should say **deactivate**. Nothing ML-related changed.
+
+---
+
+## Round 21 — Responsiveness verified laptop → phone, admin and public (2026-09-25)
+
+Round-5 item 5 said the site "renders on mobile" by counting its breakpoints. That wasn't a
+measurement, and in practice it was only partly true. An automated audit (every admin page and
+every public page, at 1366 / 1024 / 768 / 375 / 360 px, flagging anything wider than the screen)
+found:
+- **Every admin page scrolled sideways on tablets and phones.** The topbar (title, 260px search,
+  clock, user name) never shrank.
+- Content cut off on 7 admin pages at phone width: card headers that wouldn't wrap, fixed-width
+  inputs, fixed grid tracks (Price Forecast table, Web Scraper schedule), and grid/flex items
+  stuck at `min-width:auto`.
+- **Public phone navigation was missing.** At ≤640px the page links and Log in were hidden, and
+  the only menu was for signed-in users with just "Settings", so guests on a phone couldn't
+  change page or log in. A proper mobile menu now fixes this.
+- Public Current Prices and Rice Catalog were stretched to ~640–750px on phones by layout bugs.
+- The admin sidebar couldn't scroll, so Log Out was unreachable on short screens.
+
+All are fixed. The same audit now reports **no horizontal overflow and no clipped content on
+any page at any of the five widths**; desktop (1366) layout is unchanged.
+
+**Paper impact.** The "desktop and mobile browsers" scope from item 5 is now true of **both the
+public site and the admin dashboard**, verified by measurement across 1366–360px. If the paper
+says the admin side is desktop-only, it can drop that restriction.
+
+---
+
 ## Still [VERIFY] / [ACTION]
 - **[DTI]** confirm the 8 category names/definitions and the **brands** under each (DA has none).
 - **[DTI]** whether to keep the DA Bantay Presyo ranges or use official DTI brackets.

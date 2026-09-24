@@ -36,16 +36,6 @@
   pointer-events: none;
 }
 
-.hero-tag {
-  display: inline-flex; align-items: center; gap: 6px;
-  background: rgba(76,175,110,0.25);
-  border: 1px solid rgba(76,175,110,0.4);
-  border-radius: 99px;
-  padding: 4px 12px;
-  font-size: 11px; font-weight: 700;
-  color: #A7F3C0; letter-spacing: 0.5px;
-}
-
 /* `min-width: 0` lets this column shrink instead of forcing the banner wider than its container
    at tablet widths; the basis keeps it readable until there is genuinely no room. */
 .hero-left { flex: 1 1 220px; min-width: 0; }
@@ -127,33 +117,12 @@
 .hero-toggle-btn.active { background: rgba(255,255,255,0.15); color: white; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
 .hero-toggle-btn:hover:not(.active) { color: rgba(255,255,255,0.8); }
 
-/* ── Model Status Strip ── */
-.model-status-strip {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.model-status-item {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
-  padding: 14px 16px;
-  display: flex; align-items: center; gap: 12px;
-}
-
-.model-status-icon {
-  width: 36px; height: 36px;
-  border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-}
-
-.model-status-label { font-size: 11px; color: var(--text-muted); font-weight: 500; margin-bottom: 2px; }
-.model-status-val   { font-size: 14px; font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); }
-
 /* ── Predictions Page Layout ── */
+/* Row 1: chart | Next Day Prediction, side by side and stretched to the same height (that's
+   what makes the sidebar card match the chart card's height instead of the old taller combined
+   chart+table column). Row 2: the table spans full width, sized to its own content instead of
+   being stretched to fill whatever height the sidebar happened to need — so a 3-row forecast
+   table renders as three compact lines instead of three lines padded out with empty space. */
 .pred-layout {
   display: grid;
   grid-template-columns: 1fr 300px;
@@ -161,23 +130,44 @@
   align-items: stretch;
 }
 
-.pred-main  { display: flex; flex-direction: column; gap: 20px; }
+.pred-table-row { grid-column: 1 / -1; }
 
 .pred-sidebar {
   display: flex; flex-direction: column; gap: 16px;
-  align-self: stretch;
 }
 
-.pred-slider-card { height: 100%; display: flex; flex-direction: column; }
+#pred-next-day-card { height: 100%; display: flex; flex-direction: column; }
+/* The card stretches to match the chart's height, but its content (price, change, confidence
+   bar) previously just sat at the top, leaving a growing dead zone below it on any wider screen.
+   Spreading the content across the card's own height instead of clumping it at the top puts that
+   height to use. */
+#pred-next-day-card .card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+}
 
 /* ── Forecast Table ── */
+/* No column gets `1fr` — giving Trend that flexible track made IT visibly bloated; moving `1fr`
+   to Price just relocated the exact same problem onto Price instead (its content is short and
+   left-aligned, so all the leftover width still piled up in one place, now after the price
+   figure). Every column is a fixed width instead, sized to its own content, and the leftover
+   width becomes the GAPS between columns via `justify-content: space-between` — the CSS-level
+   guarantee that every gap between adjacent columns is the same size, however much space is
+   actually left over. Date sits flush against the row's left padding, Accuracy flush against the
+   right, matching how a real table lines up its outer columns. */
 .forecast-row {
   display: grid;
-  grid-template-columns: 90px 1fr 90px 90px 90px;
+  grid-template-columns: 100px 108px 150px 72px 62px;
+  justify-content: space-between;
   align-items: center;
   padding: 12px 21px;
   border-bottom: 1px solid var(--border-color);
-  gap: 8px;
+  /* Floor, not the only source of spacing — `justify-content` above adds whatever extra room is
+     left on top of this once the columns are laid out, so columns never touch even when the row
+     is exactly as wide as the five columns' fixed widths. */
+  gap: 12px;
   transition: background var(--transition-fast);
 }
 
@@ -192,45 +182,34 @@
   pointer-events: none;
 }
 
+/* The header row disables pointer-events so its cells don't look clickable — re-enable it just
+   for the (i) tooltip triggers (Trend, Accuracy) so hover/focus still works on them. */
+.forecast-row.header .stat-info-icon { pointer-events: auto; }
+
 .forecast-date    { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
-/* The sparkline sits in a fixed-height, horizontally centred box so all three rows line up and
-   the column keeps the same footprint whether or not a canvas has been drawn into it yet. */
-.forecast-chart-cell {
-  height: 28px;
-  display: block;
-  margin: 0 auto;
-  max-width: 180px;
-}
+/* Plain text, not red/green — the Change column right beside it already carries the up/down
+   color signal for the same row; coloring Trend too read as a second, conflicting signal. */
+.forecast-trend   { font-size: 11.5px; font-weight: 600; font-family: var(--font-mono); color: var(--text-primary); }
 .forecast-price   { font-size: 13px; font-weight: 700; font-family: var(--font-mono); }
 .forecast-change  { font-size: 12px; font-weight: 600; }
 .forecast-change.up   { color: var(--color-danger); }
 .forecast-change.down { color: var(--color-accent); }
 .forecast-conf    { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
 
+/* ── Chart card header: title + the rice-type picker that drives both the chart and the table
+   below it, grouped together so it reads as "this changes what you're looking at" rather than
+   sitting off in the sidebar disconnected from the thing it controls. ── */
+.pred-chart-header { flex-wrap: wrap; align-items: flex-start; gap: 12px; }
+.pred-chart-header-left { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.pred-chart-title-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
 /* ── Confidence Band Legend ── */
 .conf-legend { display: flex; align-items: center; gap: 16px; font-size: 11px; color: var(--text-muted); }
 .conf-legend-item { display: flex; align-items: center; gap: 5px; }
 .conf-swatch { width: 12px; height: 12px; border-radius: 2px; }
 
-/* ── Confidence Bars (sidebar) ── */
-.pred-conf-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 7px 0;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.pred-conf-row:last-child { border-bottom: none; }
-.pred-conf-label { font-size: 11px; color: var(--text-muted); font-weight: 500; min-width: 36px; }
-
-.pred-conf-track { flex: 1; height: 6px; background: var(--bg-input); border-radius: 99px; overflow: hidden; }
-.pred-conf-fill  { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #4CAF6E, #2D8A50); transition: width 0.6s ease; }
-.pred-conf-pct   { font-size: 11px; font-weight: 700; font-family: var(--font-mono); color: var(--text-secondary); min-width: 30px; text-align: right; }
-
 /* ── Forecast Table Panel ── */
-#pred-view-table { flex: 1; display: flex; flex-direction: column; }
-#pred-view-table .card { flex: 1; display: flex; flex-direction: column; }
-#forecast-table-container { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
-#forecast-tbody { flex: 1; }
+#forecast-table-container { display: flex; flex-direction: column; }
 
 /* ── Custom Outlook Dropdown ── */
 .outlook-select-wrap { position: relative; user-select: none; }
@@ -352,30 +331,69 @@
 }
 
 @media (max-width: 1100px) {
-  .model-status-strip { grid-template-columns: 1fr 1fr; }
   .pred-layout { grid-template-columns: 1fr; }
   .pred-sidebar { flex-direction: row; flex-wrap: wrap; }
   .pred-sidebar .card { flex: 1; min-width: 240px; }
 }
-/* ── Forecast prices shown as calibrated ranges ── */
-/* Wider than a single figure, so the price column gets more room and the range never wraps. */
-.forecast-row { grid-template-columns: 90px 1fr 140px 80px 80px; }
-
 /* Trend column centred; the numeric columns keep their natural left alignment so the peso signs
    stay in a straight vertical line down the table. */
 .forecast-row > *:nth-child(2) { text-align: center; justify-self: stretch; }
 
 .forecast-price-range { white-space: nowrap; font-size: 12.5px; }
 
-/* .pred-bar-out lives in dashboard.css (loaded first in admin/index.html) and is shared by
-   this module's 3-Day Outlook bars. */
-
 @media (max-width: 700px) {
-  /* Drop the sparkline column entirely — including the header cell that labels it. Hiding only
-     the canvas left the header with five items in a four-column grid, so "Accuracy" wrapped onto
-     its own line while the data rows stayed single-line. */
-  .forecast-row { grid-template-columns: 92px 1fr 68px 66px; }
-  .forecast-row .forecast-chart-cell,
-  .forecast-row.header > span:nth-child(2) { display: none; }
+  /* The Trend column used to be dropped entirely here — a sparkline wide enough to read needed
+     more room than a narrow screen had. As plain text ("▲ +₱0.12/day") it's compact enough to
+     keep, so all five columns just tighten up instead of losing one. No flexible track here
+     either, same reasoning as the full-width layout above. */
+  .forecast-row { grid-template-columns: 70px 84px 96px 52px 46px; gap: 6px; }
   .forecast-price-range { font-size: 11.5px; }
+}
+
+/* ── Back to top ── */
+/* Same component/behavior as public/current-prices.html's .back-to-top, restyled with this
+   admin theme's tokens — this page is the longest scroll in the admin section (hero, chart,
+   table can all be off-screen at once), so a jump-to-top control earns its place here too. */
+.back-to-top {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  transition: opacity 0.2s, transform 0.2s, visibility 0.2s;
+  z-index: 150;
+}
+.back-to-top.show { opacity: 1; visibility: visible; transform: translateY(0); }
+.back-to-top:hover { background: var(--color-accent-hover); }
+
+@media (max-width: 600px) {
+  /* The side cards kept a 240px minimum even on a 375px phone; let them take the full row. */
+  .pred-sidebar .card { min-width: 0; flex-basis: 100%; }
+}
+
+@media (max-width: 480px) {
+  /* Even the tightened fixed tracks above total ~370px — more than a phone card's ~300px of
+     content width. Proportional tracks here so all five columns still fit on one row. */
+  .forecast-row {
+    grid-template-columns: 1.05fr 1fr 1.3fr 0.75fr 0.7fr;
+    justify-content: stretch;
+    gap: 6px;
+    padding: 10px 12px;
+  }
+  .forecast-row > * { min-width: 0; overflow-wrap: anywhere; }
+  .forecast-row.header { font-size: 10px; letter-spacing: 0.2px; }
+  .forecast-price-range { white-space: normal; font-size: 11px; }
 }

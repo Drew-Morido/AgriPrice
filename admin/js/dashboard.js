@@ -18,32 +18,8 @@ AgriPricePH.Dashboard = (function () {
   /** Last `current_prices` payload, kept so the ticker can be recomputed once
       the historical series arrives (the two API calls race). */
   let _currentPricesApi = null;
-  // Key Indicators / 3-Day Forecast card filters (independent of the
-  // predictions-table filter above, which has its own controls).
-  let _kiOrigin = 'local';
-  let _kiType = 'WellMilled';
-  let _fcOrigin = 'local';
-  let _fcType = 'WellMilled';
-
-  const ALERTS_PREVIEW_LIMIT = 3;
 
   const LSTM_TARGET = 'locWellMilled';
-
-  const TYPE_LABELS = {
-    WellMilled: 'Well-Milled',
-    Regular: 'Regular Milled',
-    Premium: 'Premium',
-    Special: 'Special',
-  };
-
-  /** 'local' + 'WellMilled' → 'locWellMilled' (the key used everywhere else). */
-  function riceKeyOf(origin, type) {
-    return `${origin === 'imported' ? 'imp' : 'loc'}${type}`;
-  }
-
-  function riceLabelOf(origin, type) {
-    return `${origin === 'imported' ? 'Imported' : 'Local'} ${TYPE_LABELS[type] || type}`;
-  }
 
   const RICE_TYPES = {
     local: [
@@ -85,6 +61,17 @@ AgriPricePH.Dashboard = (function () {
 
   const TREND_COLORS = ['#4CAF6E', '#3B82F6', '#8B5CF6', '#F59E0B'];
 
+  // Plain-language grade explainers for admin/IT staff who don't know DA's rice
+  // classifications by heart — shown as (i) tooltips on each legend chip. Order
+  // matches TREND_SERIES labels (Well Milled, Regular Milled, Premium, Special),
+  // which is the same for both local and imported.
+  const TREND_LABEL_DESCS = [
+    'Mid-tier DA grade — the default retail rice for most households, priced between Regular Milled and Premium.',
+    'Entry-level DA grade — the most affordable and least polished of the four grades tracked.',
+    'Higher-polish DA grade — priced above Well Milled and Regular Milled.',
+    'Top DA grade — the highest quality and typically the highest price of the four.',
+  ];
+
   function isPredOnline() {
     return !!_predHistSeries;
   }
@@ -107,51 +94,13 @@ AgriPricePH.Dashboard = (function () {
     syncStatInfoLabels();
     bindTrendDropdown();
     bindPredFilters();
-    bindCardFilters();
     _predLoading = true;
     renderPredTable();
     renderPriceTicker();
-    renderSparklines();
+    renderMarketStats();
     renderMainChart();
-    renderPredBar();
-    renderSourcesTable();
+    refreshSourceStatus();
     hydrateFromApi();
-    loadRecentAlerts();
-    document.getElementById('dash-pred-view-more')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      AgriPricePH.Router.navigate('predictions');
-    });
-    document.getElementById('dash-alerts-view-all')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      AgriPricePH.Router.navigate('alerts');
-    });
-  }
-
-  /** Origin + rice-type filters on the Key Indicators and 3-Day Forecast cards. */
-  function bindCardFilters() {
-    const bindOrigin = (id, onPick) => {
-      const group = document.getElementById(id);
-      if (!group) return;
-      group.querySelectorAll('.dash-pred-segment-btn').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          group.querySelectorAll('.dash-pred-segment-btn')
-            .forEach(b => b.classList.toggle('active', b === btn));
-          onPick(btn.dataset.origin || 'local');
-        });
-      });
-    };
-
-    bindOrigin('ki-origin-toggle', (origin) => { _kiOrigin = origin; renderSparklines(); });
-    document.getElementById('ki-type-select')?.addEventListener('change', (e) => {
-      _kiType = e.target.value || 'WellMilled';
-      renderSparklines();
-    });
-
-    bindOrigin('fc-origin-toggle', (origin) => { _fcOrigin = origin; renderPredBar(); });
-    document.getElementById('fc-type-select')?.addEventListener('change', (e) => {
-      _fcType = e.target.value || 'WellMilled';
-      renderPredBar();
-    });
   }
 
   function getTrendConfig() {
@@ -186,20 +135,13 @@ AgriPricePH.Dashboard = (function () {
     AgriPricePH.Data.historical.wellMilled = AgriPricePH.Data.historical.locWellMilled;
     AgriPricePH.Data.historical.regularMilled = AgriPricePH.Data.historical.locRegular;
     AgriPricePH.Data.historical.premium = AgriPricePH.Data.historical.locPremium;
-    renderSparklines();
+    renderMarketStats();
     renderMainChart();
     // The prices and history calls race; whichever lands second recomputes the
     // ticker so the day-over-day percentages have a real baseline to use.
     syncCurrentPricesFromApi();
     renderPriceTicker();
     return true;
-  }
-
-  function _fmtTrainDate(iso) {
-    if (!iso) return '';
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return String(iso);
-    return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
   function _mergeMetricsByTarget(primary, fallback) {
@@ -218,9 +160,6 @@ AgriPricePH.Dashboard = (function () {
     if (m.mae_peso != null) {
       _setStat('stat-mae', `₱${Number(m.mae_peso).toFixed(2)}`);
     }
-    if (m.rmse_peso != null) {
-      _setStat('stat-rmse', `₱${Number(m.rmse_peso).toFixed(2)}`);
-    }
     // Headline accuracy = day-1 hit rate within ₱1.00, NOT the legacy `accuracy_pct`
     // (100 − MAE/mean_price), which returns 98–99% for anything and rates the naive
     // "tomorrow = today" baseline above the trained model on all 8 rice types.
@@ -237,24 +176,7 @@ AgriPricePH.Dashboard = (function () {
 
     const trends = dm?.trends || {};
     _setStatTrend('stat-mae-change', trends.mae_peso_delta, 'mae');
-    _setStatTrend('stat-rmse-change', trends.rmse_peso_delta, 'rmse');
     _setStatTrend('stat-accuracy-change', trends.accuracy_pct_delta, 'accuracy');
-
-    const runId = dm?.model?.run_id;
-    const trained = _fmtTrainDate(dm?.model?.last_trained);
-    const src = dm?.source === 'training_history' ? 'Training History' : 'Saved model';
-    // Two short labelled lines, not one long "src · run 20260905-203122 · date"
-    // string — the run id is a timestamp token that wraps badly inside a tooltip.
-    const provenance = !dm?.ready && !trained
-      ? ['No trained model yet — start one in Model Training.']
-      : [
-        `Measured on: ${src}${trained ? `, ${trained}` : ''}`,
-        runId ? `Run ID: ${runId}` : '',
-      ].filter(Boolean);
-    const whyMoved = _baselineNote(trends);
-    _setStatSource('stat-mae', [provenance.join('\n'), whyMoved]);
-    _setStatSource('stat-rmse', [provenance.join('\n'), whyMoved]);
-    _setStatSource('stat-accuracy', [provenance.join('\n'), whyMoved, _honestyNote(m)]);
 
     // Pill thresholds are for the ₱1.00 hit rate, which sits far lower than the legacy
     // accuracy figure — 95/85 there would have read "Excellent" for every possible model.
@@ -274,77 +196,6 @@ AgriPricePH.Dashboard = (function () {
         accPill.className = 'pill pill-orange';
       }
     }
-  }
-
-  /**
-   * The one line that stops the headline number being over-read.
-   *
-   * A hit rate of ~90% looks like a strong result until you know the naive "tomorrow = today"
-   * forecast scores the same, because daily rice prices are close to a random walk (ADF p > 0.05
-   * on all 8 types). Skill is the model's error measured against that baseline: 0% means tied.
-   */
-  function _honestyNote(m) {
-    const skill = m?.skill_vs_baseline_pct;
-    const move = m?.movement_ratio;
-    if (skill == null && move == null) return '';
-    const parts = [];
-    if (skill != null) {
-      const s = Number(skill);
-      parts.push(
-        `Skill vs the naive "tomorrow = today" forecast: ${s > 0 ? '+' : ''}${s.toFixed(2)}% `
-        + `(${s > 0.5 ? 'the model beats it' : s < -0.5 ? 'the naive forecast is slightly ahead' : 'effectively tied'}).`
-      );
-    }
-    if (move != null) {
-      parts.push(`The model's forecasts move ${(Number(move) * 100).toFixed(0)}% as far as prices really move.`);
-    }
-    return parts.join('\n');
-  }
-
-  /**
-   * Explains a run-over-run move in MAE/RMSE/accuracy.
-   *
-   * A rise in MAE reads as "the model got worse", but that is only one of two
-   * possible causes. The naive persistence baseline ("tomorrow = today") has no
-   * parameters and nothing to learn, so it can only move when the test window
-   * itself changes. When the baseline moves alongside the model, the run-over-run
-   * difference is the prices becoming more (or less) volatile — a property of the
-   * data, not a regression — and the card says so rather than leaving "(worse)"
-   * to imply something that isn't true.
-   */
-  function _baselineNote(trends) {
-    const now = trends?.baseline_mae_peso;
-    const prev = trends?.baseline_mae_peso_prev;
-    const bDelta = trends?.baseline_mae_peso_delta;
-    const mDelta = trends?.mae_peso_delta;
-    if (now == null || prev == null || bDelta == null || mDelta == null) return '';
-    const line = `Reference: the naive "tomorrow = today" baseline moved from `
-      + `₱${Number(prev).toFixed(2)} to ₱${Number(now).toFixed(2)} across the same two runs.`;
-    const sameDirection = (bDelta > 0) === (mDelta > 0);
-    const largeEnough = Math.abs(mDelta) > 0 && Math.abs(bDelta) >= Math.abs(mDelta) * 0.5;
-    if (!sameDirection || !largeEnough) return line;
-    return `${line}\nThat baseline has nothing to learn, so most of this change comes from prices `
-      + `becoming ${bDelta > 0 ? 'more' : 'less'} volatile between the two training sets — `
-      + `not from the model itself getting ${bDelta > 0 ? 'worse' : 'better'}.`;
-  }
-
-  // A stat card shows only two things: the headline number and the one-line
-  // trend ("▼ ₱0.50 (better)"). Everything else — what the metric means and
-  // where the number came from — lives in the card's ⓘ tooltip, so the card stays
-  // scannable instead of stacking three grey lines of prose under the label.
-  // `blocks` entries are separate paragraphs; each may contain its own newlines.
-  function _setStatSource(statId, blocks) {
-    const card = document.getElementById(statId);
-    if (!card) return;
-    // Older builds rendered this as a visible footnote line; drop it if present.
-    card.querySelector('.stat-footnote')?.remove();
-    const icon = card.querySelector('.stat-info-icon');
-    const body = (Array.isArray(blocks) ? blocks : [blocks]).filter(Boolean).join('\n\n');
-    if (!icon || !body) return;
-    // Keep the hand-written explanation from the HTML as the base so repeated
-    // refreshes replace the source block instead of appending to it.
-    if (icon.dataset.tooltipBase == null) icon.dataset.tooltipBase = icon.dataset.tooltip || '';
-    setStatTooltip(icon, `${icon.dataset.tooltipBase}\n\n${body}`);
   }
 
   function setStatTooltip(icon, text) {
@@ -392,13 +243,6 @@ AgriPricePH.Dashboard = (function () {
         el.className = 'stat-change text-muted';
         el.textContent = `${n.toLocaleString()} rows`;
       }
-      const latest = _fmtTrainDate(labels[labels.length - 1]);
-      _setStatSource('stat-records', [
-        [
-          `In the database: ${n.toLocaleString()} merged daily rows (rice + fuel + FX)`,
-          latest ? `Newest row: ${latest}` : '',
-        ].filter(Boolean).join('\n'),
-      ]);
     }
   }
 
@@ -508,9 +352,7 @@ AgriPricePH.Dashboard = (function () {
     }
 
     _predForecastLoading = false;
-    // renderPredBar reads _allForecasts, so it has to come after this.
     buildAllForecasts();
-    renderPredBar();
     renderPredTable();
     updatePredSubtitle();
   }
@@ -538,12 +380,29 @@ AgriPricePH.Dashboard = (function () {
     impSpecial: 'Imported Special',
   };
 
-  /** Yesterday's observed price for a rice type, from the merged daily history. */
-  function previousObservedPrice(riceKey) {
+  /**
+   * Yesterday's observed price for a rice type, from the merged daily history.
+   *
+   * `/api/historical` reads the DB live and `/api/predictions` (the source of
+   * `current_prices`) reads from a cached merged frame, so their "last row" isn't
+   * always the same calendar day — the history array can end one day ahead of
+   * `current_prices`. Blindly taking history[-2] as "yesterday" then compares
+   * today against itself whenever that happens, which is why every row in
+   * Today's Rice Prices was reading "→ 0.00%". Locating today's actual value in
+   * the series first (searching from the end) and stepping back one from there
+   * keeps the comparison correct regardless of which side is ahead.
+   */
+  function previousObservedPrice(riceKey, currentPrice) {
     const series = _predHistSeries?.[riceKey] || AgriPricePH.Data.historical?.[riceKey];
     if (!Array.isArray(series) || series.length < 2) return null;
     const vals = series.map(histPriceAt).filter(v => !Number.isNaN(v) && v > 0);
-    return vals.length >= 2 ? vals[vals.length - 2] : null;
+    if (vals.length < 2) return null;
+    if (currentPrice != null) {
+      for (let i = vals.length - 1; i >= 1; i--) {
+        if (Math.abs(vals[i] - currentPrice) < 0.01) return vals[i - 1];
+      }
+    }
+    return vals[vals.length - 2];
   }
 
   /**
@@ -563,7 +422,7 @@ AgriPricePH.Dashboard = (function () {
     Object.entries(TICKER_NAMES).forEach(([key, name]) => {
       const p = Number(_currentPricesApi[key]);
       if (Number.isNaN(p) || p <= 0) return;
-      const prev = previousObservedPrice(key);
+      const prev = previousObservedPrice(key, p);
       const change = prev != null ? p - prev : null;
       const pct = prev ? (change / prev) * 100 : null;
       next[name] = { price: p, change, pct, prev };
@@ -679,23 +538,12 @@ AgriPricePH.Dashboard = (function () {
 
   function bindPredFilters() {
     const originToggle = document.getElementById('dash-pred-origin-toggle');
-    const dayToggle = document.getElementById('dash-pred-day-toggle');
 
     originToggle?.querySelectorAll('.dash-pred-segment-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         originToggle.querySelectorAll('.dash-pred-segment-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         _predOrigin = btn.dataset.origin || 'local';
-        renderPredTable();
-        updatePredSubtitle();
-      });
-    });
-
-    dayToggle?.querySelectorAll('.dash-pred-segment-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        dayToggle.querySelectorAll('.dash-pred-segment-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        _predDay = parseInt(btn.dataset.day, 10) || 1;
         renderPredTable();
         updatePredSubtitle();
       });
@@ -811,14 +659,24 @@ AgriPricePH.Dashboard = (function () {
     // The column now reports the accuracy measured for the selected forecast day,
     // so the heading has to say which day it is.
     const accHead = document.getElementById('dash-pred-acc-head');
+    const accInfo = document.getElementById('dash-pred-acc-info');
     const keys = types.map(t => t.key);
     const isHit = usingHitRate(keys);
     if (accHead) {
       const perDay = isHit
         || types.some(t => Array.isArray(_metricsByTarget?.[t.key]?.per_horizon_accuracy_pct));
+      // "Day 1 within ₱1" read as jargon to a non-technical admin with no context for what
+      // "within ₱1" refers to. "Hit Rate" names the metric (matches hit_rate_pct elsewhere in
+      // the app); which day it covers lives in the (i) tooltip instead of the header itself,
+      // since the Day 1/2/3 toggle right above the table already makes that obvious.
       accHead.textContent = !perDay
         ? 'Accuracy'
-        : isHit ? `Day ${_predDay} within ₱1` : `Day ${_predDay} accuracy`;
+        : isHit ? 'Hit Rate (±₱1)' : `Day ${_predDay} accuracy`;
+      if (accInfo) {
+        setStatTooltip(accInfo, isHit
+          ? `How many of the Day ${_predDay} forecasts landed within ₱1.00 of the real price, measured on data the model never saw during training. Higher is better.`
+          : `Day ${_predDay} hold-out test accuracy (legacy formula).`);
+      }
     }
 
     const originKeys = types.map(t => t.key);
@@ -909,76 +767,6 @@ AgriPricePH.Dashboard = (function () {
       + `₱${Number(row.low).toFixed(2)} – ₱${Number(row.high).toFixed(2)}</span>`;
   }
 
-  async function loadRecentAlerts() {
-    const container = document.getElementById('dash-recent-alerts');
-    const badge = document.getElementById('dash-alerts-badge');
-    if (!container) return;
-
-    const dotClass = { danger: 'red', warning: 'orange', info: 'blue', success: 'blue' };
-
-    try {
-      const summary = await AgriPricePH.API.alertsSummary();
-      const recent = summary?.recent || [];
-      const today = summary?.triggered_today ?? 0;
-      if (badge) badge.textContent = today > 0 ? `${today} today` : 'OK';
-
-      if (recent.length) {
-        AgriPricePH.Data.notifLog = recent.map(n => ({
-          type: n.type,
-          title: n.title,
-          desc: n.desc,
-          time: n.time,
-        }));
-      }
-
-      renderRecentAlerts(
-        container,
-        recent.length ? recent : (AgriPricePH.Data.notifLog || []),
-        dotClass
-      );
-    } catch (e) {
-      console.warn('Dashboard: alerts API offline', e);
-      renderRecentAlerts(container, AgriPricePH.Data.notifLog || [], dotClass);
-      if (badge) badge.textContent = 'Offline';
-    }
-  }
-
-  function renderRecentAlerts(container, items, dotClass) {
-    const footer = document.getElementById('dash-alerts-footer');
-    const more = document.getElementById('dash-alerts-more');
-    if (!items.length) {
-      if (footer) footer.hidden = true;
-      container.innerHTML = `
-        <div class="text-muted" style="font-size:12px;line-height:1.5;">
-          No price alerts triggered yet.
-          <a href="#alerts" style="color:var(--color-accent);font-weight:600;">Configure rules →</a>
-        </div>`;
-      return;
-    }
-    // Preview the newest few only — the full log lives in the Alerts module.
-    const shown = items.slice(0, ALERTS_PREVIEW_LIMIT);
-    const hidden = items.length - shown.length;
-    if (footer) footer.hidden = false;
-    if (more) {
-      more.textContent = hidden > 0
-        ? `${hidden} more alert${hidden === 1 ? '' : 's'} not shown`
-        : `Showing all ${items.length}`;
-    }
-    container.innerHTML = shown.map(n => {
-      const dot = dotClass[n.type] || 'blue';
-      const text = n.desc || n.title || '';
-      const title = n.title && n.desc ? `<strong>${escapeHtml(n.title)}</strong> — ` : '';
-      return `
-        <div class="alert-item">
-          <span class="alert-dot ${dot}"></span>
-          <div>
-            <div class="alert-text">${title}${escapeHtml(text)}</div>
-            <div class="alert-time">${escapeHtml(n.time || '—')}</div>
-          </div>
-        </div>`;
-    }).join('');
-  }
-
   function escapeHtml(s) {
     if (s == null) return '';
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -1012,7 +800,7 @@ AgriPricePH.Dashboard = (function () {
     if (legendEl) {
       legendEl.innerHTML = cfg.labels.map((label, i) => `
         <span class="dash-legend-item">
-          <span class="dash-legend-swatch" style="background:${TREND_COLORS[i]};"></span>${label}
+          <span class="dash-legend-swatch" style="background:${TREND_COLORS[i]};"></span>${label}<i class="ti ti-info-circle stat-info-icon tooltip-wide${i === cfg.labels.length - 1 ? ' tooltip-right' : ''}" tabindex="0" role="img" data-tooltip="${escapeHtml(TREND_LABEL_DESCS[i] || '')}"></i>
         </span>`).join('');
     }
   }
@@ -1073,27 +861,44 @@ AgriPricePH.Dashboard = (function () {
     });
   }
 
-  function renderSparklines() {
+  /**
+   * Currency (USD/PHP) and Diesel stat cards. Replaced the old Key Indicators sparkline card —
+   * that lived in the same spot Market Drivers already covers in depth, so the dashboard now just
+   * shows each rate's latest value and its move since yesterday.
+   */
+  function renderMarketStats() {
     const hist = AgriPricePH.Data.historical;
-    const riceKey = riceKeyOf(_kiOrigin, _kiType);
-    const riceLabelEl = document.getElementById('ki-rice-label');
-    if (riceLabelEl) riceLabelEl.textContent = riceLabelOf(_kiOrigin, _kiType);
-    const sparkData = {
-      'spark-rice': { data: hist[riceKey], color: '#4CAF6E', valueEl: 'ki-rice' },
-      'spark-fuel': { data: hist.fuel, color: '#F59E0B', valueEl: 'ki-fuel' },
-      'spark-usd':  { data: hist.exchange, color: '#8B5CF6', valueEl: 'ki-usd' },
+    const series = (arr) => (arr || []).filter((v) => typeof v === 'number' && Number.isFinite(v));
+
+    const dayChange = (arr) => {
+      const s = series(arr);
+      if (!s.length) return null;
+      const last = s[s.length - 1];
+      const prev = s.length > 1 ? s[s.length - 2] : last;
+      const pct = prev ? ((last - prev) / prev) * 100 : 0;
+      return { last, pct };
     };
-    Object.entries(sparkData).forEach(([id, cfg]) => {
-      const el = document.getElementById(id);
-      if (el && cfg.data?.length) AgriPricePH.Charts.sparkline(el, cfg.data, cfg.color, true);
-      // Key Indicators: show the latest real value of the same series the sparkline draws.
-      // These used to be hardcoded in dashboard.html with no id, so they never updated.
-      const valEl = cfg.valueEl && document.getElementById(cfg.valueEl);
-      if (valEl) {
-        const series = (cfg.data || []).filter((v) => typeof v === 'number' && Number.isFinite(v));
-        valEl.textContent = series.length ? `₱${series[series.length - 1].toFixed(2)}` : '—';
+
+    const setCard = (valueId, changeId, entry, unit) => {
+      const valueEl = document.getElementById(valueId);
+      const changeEl = document.getElementById(changeId);
+      if (valueEl) valueEl.textContent = entry ? `₱${entry.last.toFixed(2)}${unit || ''}` : '—';
+      if (!changeEl) return;
+      if (!entry || Math.abs(entry.pct) < 0.05) {
+        changeEl.textContent = 'No change vs. yesterday';
+        changeEl.className = 'stat-change text-muted';
+        return;
       }
-    });
+      const up = entry.pct > 0;
+      const arrow = up ? '▲' : '▼';
+      changeEl.innerHTML = `<span>${arrow} ${Math.abs(entry.pct).toFixed(1)}% vs. yesterday</span>`;
+      // Rising cost is the unwelcome direction here (unlike the ML "lower is better" cards),
+      // matching the same red-up/green-down convention the rice price ticker already uses.
+      changeEl.className = `stat-change ${up ? 'cost-up' : 'cost-down'}`;
+    };
+
+    setCard('stat-currency-value', 'stat-currency-change', dayChange(hist.exchange), null);
+    setCard('stat-diesel-value', 'stat-diesel-change', dayChange(hist.fuel), '/L');
   }
 
   function renderMainChart() {
@@ -1123,76 +928,12 @@ AgriPricePH.Dashboard = (function () {
     });
   }
 
-  function renderPredBar() {
-    const container = document.getElementById('dash-pred-bars');
-    if (!container) return;
-    const key = riceKeyOf(_fcOrigin, _fcType);
-    const sub = document.getElementById('dash-fc-subtitle');
-    if (sub) sub.textContent = `${riceLabelOf(_fcOrigin, _fcType)} · LSTM Model`;
-    // Live per-type forecast when we have one. The mock series stands in only
-    // while the API is unreachable — once any real forecast has arrived, falling
-    // back would label another rice type's numbers as this one's.
-    const live = _allForecasts[key];
-    const apiHasForecasts = Object.values(_allForecasts).some(a => a?.length);
-    const data = (live?.length && live)
-      || (apiHasForecasts ? [] : (AgriPricePH.Data.forecast2d || AgriPricePH.Data.forecast7d?.slice(0, 3) || []));
-    if (!data.length) {
-      container.innerHTML = '<div class="text-muted" style="font-size:12px;">No forecast for this rice type yet.</div>';
-      return;
-    }
-    const prices = data.map(d => d.price ?? d.wm);
-    const maxP = Math.max(...prices);
-    const minP = Math.min(...prices);
-    container.innerHTML = data.map((d, i) => {
-      const price = d.price ?? d.wm;
-      const label = d.date?.split?.(' ')?.[1] || `Day ${d.day || i + 1}`;
-      const pct = ((price - minP) / ((maxP - minP) || 1)) * 60 + 35;
-      // The bar's own value is the range; the point estimate stays only as a hover, for the same
-      // reason as the predictions table — the band is what the model can actually support.
-      const hasBand = d.low != null && d.high != null;
-      const barVal = hasBand
-        ? `₱${Number(d.low).toFixed(2)} – ₱${Number(d.high).toFixed(2)}`
-        : `₱${Number(price).toFixed(2)}`;
-      const barTitle = hasBand
-        ? `Central estimate ₱${Number(price).toFixed(2)} · ${d.interval_pct || 90}% range`
-        : '';
-      // The value sits OUTSIDE the bar: a range is roughly twice as wide as a single price and
-      // would be clipped by the bar's `overflow:hidden` on a short bar or a narrow column.
-      return `
-        <div class="pred-day">
-          <span class="pred-day-label">${label}</span>
-          <div class="pred-bar-wrap">
-            <div class="pred-bar" style="width:${pct}%"></div>
-          </div>
-          <span class="pred-bar-out" title="${escapeHtml(barTitle)}">${barVal}</span>
-        </div>`;
-    }).join('');
-    const note = document.getElementById('dash-fc-note');
-    if (note) {
-      const pct = data.find(d => d.interval_pct)?.interval_pct;
-      note.textContent = pct ? `Shaded range = ${pct}% of past forecasts landed inside a band this wide.` : '';
-      note.hidden = !pct;
-    }
-  }
-
   /**
-   * Data Sources card.
-   *
-   * This used to render `AgriPricePH.Data.dataSources` — a hardcoded array in js/data.js that
-   * nothing in the codebase ever writes to. Every visit therefore reported all three sources
-   * "Active", last fetched "2 mins ago", "+128 today", whether or not the scraper had ever run.
-   * Fabricated operational status is worse than no status, so the card now reads /api/data-sources
-   * (the same endpoint the Data Sources module uses) and says so plainly when it cannot.
+   * Source-status dots. This used to also render a full "Data Sources" table on the dashboard —
+   * a straight duplicate of the dedicated Data Sources page — so it now only does the one thing
+   * nothing else on this page can: keep the strip's dots honest.
    */
-  async function renderSourcesTable() {
-    const container = document.getElementById('dash-sources-table');
-    if (!container) return;
-    const header = `
-      <div class="ds-row ds-header">
-        <span>Source</span><span>Type</span><span>Last Fetch</span><span>Today</span><span>Status</span>
-      </div>`;
-    container.innerHTML = `${header}<div class="ds-row"><span class="text-muted">Loading sources…</span></div>`;
-
+  async function refreshSourceStatus() {
     let sources = null;
     try {
       const ds = await AgriPricePH.API.dataSources();
@@ -1200,31 +941,6 @@ AgriPricePH.Dashboard = (function () {
     } catch (e) {
       console.warn('Dashboard: data-sources API offline', e);
     }
-
-    if (!sources) {
-      container.innerHTML = `${header}
-        <div class="ds-row"><span class="text-muted" style="font-size:12px;">
-          Source status unavailable — start the API server to see it.
-        </span></div>`;
-      renderSourceStrip(null);
-      return;
-    }
-
-    const rows = sources.map(s => {
-      const active = (s.status || '').toLowerCase() === 'active';
-      const name = String(s.name || '').split('–')[0].trim();
-      const fetched = s.lastFetchRelative || s.lastFetch || '—';
-      const today = s.recordsToday;
-      return `
-        <div class="ds-row">
-          <span class="ds-name" style="color:${escapeHtml(s.color || 'inherit')};">${escapeHtml(name)}</span>
-          <span class="ds-type">${escapeHtml(s.type || '—')}</span>
-          <span class="ds-fetch">${escapeHtml(String(fetched))}</span>
-          <span class="ds-today">${today == null ? '—' : `+${escapeHtml(String(today))}`}</span>
-          <span><span class="pill ${active ? 'pill-green' : 'pill-gray'}">${active ? 'Active' : 'Idle'}</span></span>
-        </div>`;
-    }).join('');
-    container.innerHTML = header + rows;
     renderSourceStrip(sources);
   }
 

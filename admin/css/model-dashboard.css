@@ -167,3 +167,13 @@ html.theme-dark .mdl-status-warning { background: rgba(180,83,9,.14); color: #f0
   .mdl-metrics-grid { grid-template-columns: 1fr 1fr; }
   .mdl-err-stats-grid { grid-template-columns: 1fr; }
 }
+
+/* `1fr` tracks can't shrink below their content's min width, which left the stacked chart cards
+   a few px wider than a 360px phone. minmax(0, 1fr) lets them shrink; padding eases on phones. */
+.mdl-content-grid > *, .mdl-two-col > * { min-width: 0; }
+@media (max-width: 1000px) {
+  .mdl-content-grid, .mdl-two-col { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .mdl-card { padding: 16px; border-radius: 16px; }
+}

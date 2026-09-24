@@ -33,10 +33,24 @@ USER_AGENT = (
 DA_URL = "https://www.da.gov.ph/price-monitoring/"
 FUEL_URL = "https://www.zigwheels.ph/fuel-price"
 RATE_URL = "https://open.er-api.com/v6/latest/USD"
+TARIFF_FINDER_URL = "https://finder.tariffcommission.gov.ph"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Aakyat tayo ng isang folder (papuntang AGRIPRICEPH V3 root)
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
+
+# The tariff scraper stages candidates via api/catalog_service.py (validation + audit trail
+# already live there for the admin "Add rate" form) instead of writing tariff_schedule directly,
+# so there is exactly one place that code exists. Mirrors the sys.path.insert api/app.py already
+# does in the other direction to import this module.
+API_DIR = os.path.join(PROJECT_ROOT, "api")
+if API_DIR not in sys.path:
+    sys.path.insert(0, API_DIR)
+try:
+    from catalog_service import TARIFF_BAND_MAX, TARIFF_BAND_MIN, add_scraped_tariff_candidate
+except ImportError:
+    add_scraped_tariff_candidate = None
+    TARIFF_BAND_MIN, TARIFF_BAND_MAX = 15.0, 35.0
 
 # Tapos papasok tayo sa existing 'datasets' folder para ma-access ang db
 def _resolve_db_path() -> str:
@@ -512,6 +526,117 @@ def fetch_exchange_rates() -> bool:
         return False
 
 
+# ── Rice import tariff (EO 105 s.2025 / IAGRTA Circular 2025-001) ──────────────────────────────
+# "Other" milled rice, Out-Quota — the general commercial import line, not a named specialty
+# variety (Basmati/glutinous/Hom Mali/etc.), matching this app's Imported Well-Milled/Regular/
+# Premium/Special categories. Resolved by AHTN code via /item_search rather than a hardcoded
+# numeric item id, since that id is the Tariff Commission's own internal database key and isn't
+# guaranteed stable across their data releases. Confirmed by hand (2026-09-24) that the MFN rate
+# on this line and on rice-in-husk both read "15 /l" with the identical IAGRTA footnote — the
+# EO 105 rate applies uniformly across the rice heading, not per sub-line.
+TARIFF_AHTN_CODE = "1006.30.99.200"
+TARIFF_MFN_AGREEMENT_CODE = "MFN"
+
+
+def _current_quarter_start(d: Optional[date] = None) -> Tuple[date, str]:
+    d = d or datetime.now().date()
+    q = (d.month - 1) // 3 + 1
+    return date(d.year, 3 * (q - 1) + 1, 1), f"Q{q} {d.year}"
+
+
+def _resolve_tariff_item_id(code: str) -> Optional[int]:
+    resp = SESSION.get(
+        f"{TARIFF_FINDER_URL}/item_search", params={"search": code}, timeout=REQUEST_TIMEOUT
+    )
+    resp.raise_for_status()
+    for item in resp.json().get("data", []):
+        if item.get("code") == code:
+            return item.get("id")
+    return None
+
+
+def fetch_tariff_rate() -> bool:
+    """Watches the Tariff Commission's own Philippine Tariff Finder for the current MFN rice
+    import tariff and stages it in `tariff_schedule` for admin review — it never publishes a rate
+    on its own. Unlike rice/fuel/currency, this number carries real legal weight (it sets a
+    national import duty) and feeds the public consumer-price calculator, and it changes at most
+    quarterly, so the payoff of full automation is low next to the cost of a bad number going
+    live unattended. This function only ever proposes a candidate via
+    add_scraped_tariff_candidate(); an admin must open the linked Tariff Finder page and click
+    Activate on the Taxes & Import Charges page before it can affect anything.
+    """
+    if add_scraped_tariff_candidate is None:
+        logger.error("Tariff fetch skipped — api/catalog_service.py not importable.")
+        return False
+    try:
+        item_id = _resolve_tariff_item_id(TARIFF_AHTN_CODE)
+        if item_id is None:
+            logger.error("Tariff Finder: could not resolve AHTN code %s to an item id.", TARIFF_AHTN_CODE)
+            return False
+
+        year = datetime.now().year
+        resp = SESSION.get(
+            f"{TARIFF_FINDER_URL}/rate-pivot",
+            params={"item": item_id, "years": year, "fta": 1},  # fta=1 == MFN in their agreement table
+            timeout=REQUEST_TIMEOUT,
+        )
+        resp.raise_for_status()
+        rows = resp.json()
+        mfn_row = next(
+            (r for r in rows if (r.get("agreement") or {}).get("code") == TARIFF_MFN_AGREEMENT_CODE),
+            None,
+        )
+        if not mfn_row:
+            logger.error("Tariff Finder: no MFN row for item %s, year %s.", item_id, year)
+            return False
+
+        raw_rate = str(mfn_row.get("rate") or "")
+        match = re.match(r"\s*([\d.]+)", raw_rate)
+        if not match:
+            logger.error("Tariff Finder: could not parse a numeric rate from %r.", raw_rate)
+            return False
+        rate_pct = float(match.group(1))
+        if not (TARIFF_BAND_MIN <= rate_pct <= TARIFF_BAND_MAX):
+            logger.error(
+                "Tariff Finder: parsed rate %.1f%% is outside the legal %.0f-%.0f%% band — "
+                "refusing to stage (likely a parsing mistake, not a real rate).",
+                rate_pct, TARIFF_BAND_MIN, TARIFF_BAND_MAX,
+            )
+            return False
+
+        footnotes = mfn_row.get("producttarifffootnotes") or []
+        foot_desc = (footnotes[0].get("foots") or {}).get("foot_desc") if footnotes else ""
+
+        quarter_start, quarter_label = _current_quarter_start()
+        source_url = f"{TARIFF_FINDER_URL}/search-by-code"
+
+        result = add_scraped_tariff_candidate(
+            rate_pct=rate_pct,
+            effective_start=quarter_start.isoformat(),
+            quarter_label=quarter_label,
+            legal_basis=foot_desc or "EO 105 s.2025 / IAGRTA Circular No. 2025-001",
+            da_certification_url=source_url,
+            source=f"Philippine Tariff Finder (Tariff Commission) — AHTN {TARIFF_AHTN_CODE}, MFN",
+        )
+        if result.get("ok"):
+            logger.info(
+                "Tariff Finder: staged %s @ %.1f%% for admin review (id %s).",
+                quarter_label, rate_pct, result.get("id"),
+            )
+            return True
+        if result.get("duplicate"):
+            logger.info(
+                "Tariff Finder: %s already has a tariff row (id %s) — nothing new to stage.",
+                quarter_label, result.get("id"),
+            )
+            return True
+        logger.error("Tariff Finder: could not stage candidate — %s", result.get("error"))
+        return False
+    except Exception as e:
+        logger.error("Tariff rate fetch failed: %s", e)
+        return False
+
+
 def _clean_text_lines(html: str) -> List[str]:
     soup = BeautifulSoup(html, "html.parser")
     text = soup.get_text("\n", strip=True)
@@ -715,7 +840,8 @@ def run_cycle() -> bool:
     rice_ok = fetch_rice_prices()
     rate_ok = fetch_exchange_rates()
     fuel_ok = fetch_fuel_prices()
-    ok = rice_ok or rate_ok or fuel_ok
+    tariff_ok = fetch_tariff_rate()
+    ok = rice_ok or rate_ok or fuel_ok or tariff_ok
     if ok:
         logger.info("Cycle finished.")
     else:

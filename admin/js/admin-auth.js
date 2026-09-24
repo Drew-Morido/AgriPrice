@@ -20,61 +20,14 @@
   }
 
   function confirmLogoutModal() {
-    return new Promise((resolve) => {
-      const backdrop = document.createElement('div');
-      backdrop.setAttribute('role', 'dialog');
-      backdrop.setAttribute('aria-modal', 'true');
-      backdrop.setAttribute('aria-label', 'Confirm logout');
-      backdrop.style.cssText = [
-        'position:fixed',
-        'inset:0',
-        'background:rgba(3,10,6,0.66)',
-        'display:flex',
-        'align-items:center',
-        'justify-content:center',
-        'z-index:9999',
-        'padding:18px',
-      ].join(';');
-
-      const panel = document.createElement('div');
-      panel.style.cssText = [
-        'width:min(430px,96vw)',
-        'background:#fff',
-        'border-radius:14px',
-        'padding:20px',
-        'box-shadow:0 18px 48px rgba(0,0,0,0.35)',
-        'font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif',
-      ].join(';');
-      panel.innerHTML = `
-        <h3 style="margin:0 0 8px;font-size:18px;color:#143624">Log out admin session?</h3>
-        <p style="margin:0 0 16px;font-size:13px;color:#365846;line-height:1.45">
-          You will be signed out and redirected to the public landpage.
-        </p>
-        <div style="display:flex;justify-content:flex-end;gap:10px">
-          <button type="button" data-action="cancel" style="border:1px solid #b9c8be;background:#fff;color:#1f3d2c;padding:8px 14px;border-radius:9px;cursor:pointer">Cancel</button>
-          <button type="button" data-action="confirm" style="border:1px solid #1f6f4a;background:#2a8a5c;color:#fff;padding:8px 14px;border-radius:9px;cursor:pointer">Yes, log out</button>
-        </div>
-      `;
-      backdrop.appendChild(panel);
-      document.body.appendChild(backdrop);
-
-      function close(val) {
-        backdrop.remove();
-        resolve(val);
-      }
-
-      backdrop.addEventListener('click', (e) => {
-        if (e.target === backdrop) close(false);
-      });
-      panel.querySelector('[data-action="cancel"]')?.addEventListener('click', () => close(false));
-      panel.querySelector('[data-action="confirm"]')?.addEventListener('click', () => close(true));
-      const onEsc = (e) => {
-        if (e.key === 'Escape') {
-          document.removeEventListener('keydown', onEsc);
-          close(false);
-        }
-      };
-      document.addEventListener('keydown', onEsc, { once: true });
+    // Shared on-theme confirm dialog (admin/js/ui-modals.js) — matches light/dark theme
+    // instead of the fixed white panel this used to hardcode.
+    return AgriPricePH.Modals.confirm({
+      title: 'Log out admin session?',
+      text: 'You will be signed out and redirected to the public landpage.',
+      type: 'warning',
+      okText: 'Yes, log out',
+      cancelText: 'Cancel',
     });
   }
 

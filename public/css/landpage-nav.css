@@ -276,6 +276,10 @@ body[data-page="home"] {
 }
 
 #public-app .page-content {
+  /* width:100% matters: `margin: 0 auto` inside the column-flex shell makes the box shrink-wrap
+     to its content, so a wide table (Rice Catalog, 720px min, meant to scroll in its own
+     wrapper) stretched the page to ~750px on phones. max-width still centres it on desktop. */
+  width: 100%;
   max-width: 1180px;
   margin: 0 auto;
   padding: 28px;
@@ -299,11 +303,88 @@ body[data-page="home"] {
   }
 }
 
+/* ── Phone menu (public-shell.js bindMobileMenu) ── */
+.lp-site-nav .lp-nav-mobile-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid var(--lp-border-md, #cfe0d4);
+  background: var(--lp-bg, #fff);
+  color: var(--lp-text-primary, #1f3d2c);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.lp-site-nav .lp-nav-mobile-toggle[aria-expanded="true"] {
+  background: var(--lp-green-50, #e8f3ec);
+  color: var(--lp-green-700, #1f5a3d);
+}
+.lp-site-nav .lp-nav-mobile-panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--lp-bg, #fff);
+  border-bottom: 1px solid var(--lp-border, #e2ece5);
+  box-shadow: 0 16px 30px rgba(20, 50, 34, 0.12);
+  padding: 10px 16px 16px;
+  max-height: calc(100vh - 70px);
+  overflow-y: auto;
+}
+.lp-site-nav .lp-nav-mobile-panel[hidden] { display: none; }
+.lp-site-nav .lp-nav-mobile-links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.lp-site-nav .lp-nav-mobile-links a {
+  display: block;
+  padding: 12px 12px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--lp-text-primary, #1f3d2c);
+  text-decoration: none;
+}
+.lp-site-nav .lp-nav-mobile-links a.active,
+.lp-site-nav .lp-nav-mobile-links a:hover { background: var(--lp-green-50, #e8f3ec); color: var(--lp-green-700, #1f5a3d); font-weight: 600; }
+.lp-site-nav .lp-nav-mobile-auth {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--lp-border, #e2ece5);
+}
+.lp-site-nav .lp-nav-mobile-user { flex-basis: 100%; font-size: 12.5px; color: var(--lp-text-secondary, #5a7060); }
+.lp-site-nav .lp-nav-mobile-btn {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 42px;
+  border-radius: 10px;
+  border: 1px solid var(--lp-border-md, #cfe0d4);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--lp-text-primary, #1f3d2c);
+  text-decoration: none;
+  background: var(--lp-bg, #fff);
+}
+.lp-site-nav .lp-nav-mobile-btn.primary { background: var(--lp-green-600, #2d6a4f); border-color: var(--lp-green-600, #2d6a4f); color: #fff; }
+
 @media (max-width: 640px) {
   .lp-site-nav .nav-links,
   .lp-site-nav .lp-nav-btn--ghost {
     display: none;
   }
+
+  /* The phone menu now carries Log in / Sign up and Settings, so the inline sign-up button, the
+     user's name, and the signed-in burger step aside to keep the bar on one line. */
+  .lp-site-nav .lp-nav-mobile-toggle { display: inline-flex; }
+  .lp-site-nav .lp-nav-btn--primary,
+  .lp-site-nav .lp-nav-user-name,
+  .lp-site-nav .lp-nav-burger,
+  .lp-site-nav .lp-nav-menu { display: none !important; }
+  .lp-site-nav .nav-actions { gap: 8px; }
 
   #public-app .page-content {
     padding: 20px 16px;

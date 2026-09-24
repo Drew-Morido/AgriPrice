@@ -1,255 +1,354 @@
 /* AgriPricePH — Admin "Rice Brands" module.
 
-   Phase 1: groups the branded rice products under the 8 forecast categories the LSTM already
-   predicts. Sourced from GET /api/catalog (categories + brands).
-
-   Phase 2 ("patong" / variance weight): each brand can carry its own canvassed price variance
-   vs. the category's plain forecast price (price = base_price × (1 + weight_pct/100)). That
-   figure and the current weight come from GET /api/brand-prices, and admins edit it inline via
+   Branded rice products grouped under the 8 forecast categories the LSTM already predicts
+   (GET /api/catalog), each with a display price from GET /api/brand-prices:
+     brand price = category base price × (1 + weight_pct / 100)
+   where weight_pct is the brand's canvassed variance ("patong"), edited via
    POST /api/brand-prices/:id/weight.
 
-   Phase 3 (full CRUD + governance): admins can add a brand, edit one, change its verification
-   status (unverified / field_verified / dti_verified), soft-delete (deactivate) and restore it,
-   and see a small per-brand change-history view — all through POST/PUT/DELETE /api/brands/*,
-   each of which writes a brand_audit row server-side. A duplicate (category, name, package) and
-   a missing source are both blocked server-side; this page mirrors those same checks client-side
-   so the error shows up before a round-trip, not just after.
+   Full CRUD + governance through POST/PUT/DELETE /api/brands/* — add, edit, verification status
+   (unverified / field_verified / dti_verified), soft-delete (deactivate) and restore, plus a
+   per-brand change history (brand_audit). Duplicate (category, name, package) and a missing
+   source are blocked server-side; the same checks run here first so errors show before a
+   round-trip.
 
-   Nothing here touches model/ or the retail_prices series the LSTM trains on — brand (its price
-   weight, and its governance record) is a read/write display layer on top of the existing 8
-   categories, never an input to the forecast itself. */
+   Layout: a category rail (All / Local / Imported) beside ONE filtered, paginated table, with
+   add/edit, weight, and details/history in dialogs — so the page never becomes a long scroll
+   of 8 stacked tables.
+
+   Nothing here touches model/ or the retail_prices series the LSTM trains on — brand data is a
+   display/governance layer on top of the 8 categories, never a forecast input. */
 window.AgriPricePH = window.AgriPricePH || {};
 
 AgriPricePH.RiceBrands = (function () {
   const $ = (id) => document.getElementById(id);
   const peso = (v) => (v == null || isNaN(v)) ? '—' : `₱${Number(v).toFixed(2)}`;
-  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-  // Local before Imported, matching the source workbook's ordering.
   const SEGMENT_ORDER = { Local: 0, Imported: 1 };
   const WEIGHT_MIN = -70, WEIGHT_MAX = 200; // mirrors BRAND_WEIGHT_BAND_MIN/MAX in catalog_service.py
+  // Rows per page adapt to the window height so the page fits without scrolling (see fitPageSize).
+  const PAGE_MIN = 5, PAGE_MAX = 15;
+  let PAGE_SIZE = 8;
   const VERIFICATION_LABELS = {
     unverified: 'Unverified', field_verified: 'Field-verified', dti_verified: 'DTI-verified',
   };
   const VERIFICATION_PILL_CLASS = {
     unverified: 'pill-verify-unverified', field_verified: 'pill-verify-field', dti_verified: 'pill-verify-dti',
   };
+  const ICON = {
+    edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+    view: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
+    off: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>',
+    on: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>',
+    grid: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>',
+  };
 
-  let _categories = [];       // /api/catalog categories, include_inactive=1 (each with .brands)
-  let _priceByKey = {};       // canonical_key -> plain category base price (or null)
-  let _brandInfoById = {};    // brand id -> the matching brand object from /api/brand-prices
-  let _historyOpenFor = null; // brand id whose change-history row is expanded, or null
-  let _historyCache = {};     // brand id -> audit rows (fetched once, cleared after any edit)
+  let _categories = [];       // /api/catalog categories (include_inactive=1), each with .brands
+  let _priceByKey = {};       // canonical_key -> category base price (or null)
+  let _brandInfoById = {};    // brand id -> /api/brand-prices brand object (price, weight, sample…)
+  let _historyCache = {};     // brand id -> audit rows
+  let _pricesLoaded = false;
+
+  // View state
+  let _cat = 'all';           // 'all' or a canonical_key
+  let _query = '';
+  let _verify = 'all';
+  let _status = 'active';
+  let _page = 1;
+  let _weightBrandId = null;
+  let _detailBrandId = null;
 
   function adminToken() {
     try { return JSON.parse(sessionStorage.getItem('agriprice_admin_session') || 'null')?.token || ''; }
     catch { return ''; }
   }
 
-  function renderStats() {
-    const wrap = $('rb-stats');
-    if (!wrap) return;
-    const allBrands = _categories.reduce((acc, c) => acc.concat(c.brands || []), []);
-    const activeBrands = allBrands.filter(b => b.active);
-    const totalBrands = activeBrands.length;
-    const withBrands = _categories.filter(c => (c.brands || []).some(b => b.active)).length;
-    const empty = _categories.length - withBrands;
-    const verified = activeBrands.filter(b => b.verification_status !== 'unverified').length;
-    const weighted = activeBrands.filter(b => (_brandInfoById[b.id] || {}).weight_pct != null).length;
-    const deactivated = allBrands.length - totalBrands;
-
-    wrap.innerHTML = `
-      <div class="rb-stat">
-        <p class="rb-stat-label">Total brands</p>
-        <p class="rb-stat-value accent">${totalBrands}<small> across ${_categories.length} categories</small></p>
-      </div>
-      <div class="rb-stat">
-        <p class="rb-stat-label">Categories covered</p>
-        <p class="rb-stat-value">${withBrands}<small> of ${_categories.length}</small></p>
-      </div>
-      <div class="rb-stat">
-        <p class="rb-stat-label">Verified</p>
-        <p class="rb-stat-value">${verified}<small> of ${totalBrands}</small></p>
-      </div>
-      <div class="rb-stat">
-        <p class="rb-stat-label">Canvassed weight</p>
-        <p class="rb-stat-value">${weighted}<small> of ${totalBrands} brands</small></p>
-      </div>
-      <div class="rb-stat">
-        <p class="rb-stat-label">Deactivated</p>
-        <p class="rb-stat-value">${deactivated}<small> kept for history</small></p>
-      </div>`;
-  }
-
-  function weightCellHtml(b, info) {
-    const w = info ? info.weight_pct : null;
-    const val = w != null ? w : '';
-    return `
-      <div class="rb-weight-cell">
-        <input type="number" class="form-input rb-weight-input" id="rb-wt-${b.id}"
-          value="${val}" placeholder="—" step="0.1" min="${WEIGHT_MIN}" max="${WEIGHT_MAX}" ${b.active ? '' : 'disabled'}>
-        <button type="button" class="btn btn-outline btn-sm rb-weight-save" data-brand-id="${b.id}" ${b.active ? '' : 'disabled'}>Save</button>
-        ${w != null ? `<button type="button" class="btn btn-ghost btn-sm rb-weight-clear" data-brand-id="${b.id}" ${b.active ? '' : 'disabled'}>Clear</button>` : ''}
-      </div>
-      <div class="rb-weight-msg" id="rb-wt-msg-${b.id}"></div>`;
-  }
-
-  function priceCellHtml(info, categoryPrice) {
-    const price = info ? info.price : categoryPrice;
-    const estimated = !!(info && info.estimated);
-    const pill = estimated
-      ? '<span class="pill pill-info">Estimated</span>'
-      : '<span class="pill pill-neutral">Category price</span>';
-    const dateNote = estimated && info.sample_date
-      ? `<div class="rb-sample-note">surveyed ${esc(info.sample_date)}${info.sample_locations ? ' · ' + esc(info.sample_locations) : ''}</div>`
-      : '';
-    return `<div style="font-weight:700;">${peso(price)}/kg</div>${pill}${dateNote}`;
-  }
-
-  function statusCellHtml(b) {
-    const status = b.verification_status || 'unverified';
-    const pill = `<span class="pill ${VERIFICATION_PILL_CLASS[status] || 'pill-verify-unverified'}">${VERIFICATION_LABELS[status] || status}</span>`;
-    const inactive = b.active ? '' : '<span class="pill rb-inactive-badge">Inactive</span>';
-    return `<div class="rb-pill-row">${pill}${inactive}</div>`;
-  }
-
-  function actionsCellHtml(b) {
-    const historyOpen = _historyOpenFor === b.id;
-    const editBtn = b.active
-      ? `<button type="button" class="rb-icon-btn rb-edit-btn" data-brand-id="${b.id}">Edit</button>` : '';
-    const toggleBtn = b.active
-      ? `<button type="button" class="rb-icon-btn danger rb-deactivate-btn" data-brand-id="${b.id}" data-brand-name="${esc(b.brand_name)}">Deactivate</button>`
-      : `<button type="button" class="rb-icon-btn rb-reactivate-btn" data-brand-id="${b.id}" data-brand-name="${esc(b.brand_name)}">Reactivate</button>`;
-    const historyBtn = `<button type="button" class="rb-icon-btn rb-history-btn" data-brand-id="${b.id}">${historyOpen ? 'Hide history' : 'History'}</button>`;
-    return `<div class="rb-actions-cell">${editBtn}${toggleBtn}${historyBtn}</div>`;
-  }
-
-  function historyRowHtml(b, colspan) {
-    if (_historyOpenFor !== b.id) return '';
-    const rows = _historyCache[b.id];
-    let body;
-    if (!rows) {
-      body = `<div class="rb-history-empty">Loading…</div>`;
-    } else if (!rows.length) {
-      body = `<div class="rb-history-empty">No changes recorded yet.</div>`;
-    } else {
-      body = `<div class="rb-history-list">${rows.map(r => `
-        <div class="rb-history-item">
-          <span class="rb-history-action">${esc(r.action)}</span>
-          <span class="rb-history-detail">${esc(r.detail || '')}</span>
-          <span class="rb-history-meta">${esc(r.actor || '—')} · ${esc(r.created_at || '')}</span>
-        </div>`).join('')}</div>`;
-    }
-    return `<tr class="rb-history-row"><td colspan="${colspan}">${body}</td></tr>`;
-  }
-
-  function brandRowHtml(b) {
-    const info = _brandInfoById[b.id] || null;
-    const rowClass = b.active ? '' : 'rb-inactive-row';
-    return `
-      <tr class="${rowClass}">
-        <td>
-          <div style="font-weight:600;">${esc(b.brand_name)}</div>
-        </td>
-        <td>${esc(b.package || '—')}</td>
-        <td>${esc(b.location || '—')}</td>
-        <td class="rb-source-cell">${esc(b.source || '—')}</td>
-        <td>${statusCellHtml(b)}</td>
-        <td>${priceCellHtml(info, _priceByKey[b._categoryKey])}</td>
-        <td>${weightCellHtml(b, info)}</td>
-        <td>${actionsCellHtml(b)}</td>
-      </tr>${historyRowHtml(b, 8)}`;
-  }
-
-  function matchesQuery(b, query) {
-    return String(b.brand_name || '').toLowerCase().includes(query) ||
-      String(b.package || '').toLowerCase().includes(query) ||
-      String(b.location || '').toLowerCase().includes(query) ||
-      String(b.source || '').toLowerCase().includes(query);
-  }
-
-  function groupHtml(cat, query, showInactive) {
-    let brands = (cat.brands || []).filter(b => showInactive || b.active);
-    if (query) brands = brands.filter(b => matchesQuery(b, query));
-    if ((query || !showInactive) && !brands.length) return ''; // hide empty-after-filter categories
-
-    const activeCount = (cat.brands || []).filter(b => b.active).length;
-    const price = _priceByKey[cat.canonical_key];
-    const priceHtml = price != null
-      ? `<div class="rb-group-price"><span class="rb-price-label">Category price</span><span class="rb-price-value">${peso(price)}/kg</span></div>`
-      : '';
-
-    const bodyHtml = brands.length
-      ? brands.map(b => brandRowHtml({ ...b, _categoryKey: cat.canonical_key })).join('')
-      : `<tr><td colspan="8"><div class="rb-empty-cat">No brands catalogued yet for this category.</div></td></tr>`;
-
-    return `
-      <div class="card rb-group">
-        <div class="card-header rb-group-header">
-          <div class="rb-group-heading">
-            <span class="rb-group-name">${esc(cat.name)}</span>
-            <span class="pill rb-segment-pill ${esc(cat.segment)}">${esc(cat.segment)}</span>
-            <span class="rb-group-count">${activeCount} brand${activeCount === 1 ? '' : 's'}</span>
-          </div>
-          ${priceHtml}
-        </div>
-        <div class="table-wrap" style="overflow-x:auto;">
-          <table class="data-table">
-            <thead>
-              <tr><th>Brand</th><th>Package / Variety</th><th>Location</th><th>Source</th><th>Status</th><th>Price</th><th>Weight %</th><th>Actions</th></tr>
-            </thead>
-            <tbody>${bodyHtml}</tbody>
-          </table>
-        </div>
-      </div>`;
-  }
-
-  function render() {
-    const wrap = $('rb-groups');
-    const countEl = $('rb-result-count');
-    if (!wrap) return;
-
-    if (!_categories.length) {
-      wrap.innerHTML = `<div class="empty-state"><h3>Catalog not available</h3><p>Backend unreachable, or the catalog schema hasn't been initialized yet.</p></div>`;
-      if (countEl) countEl.textContent = '';
-      return;
-    }
-
-    const query = ($('rb-search')?.value || '').trim().toLowerCase();
-    const showInactive = !!$('rb-show-inactive')?.checked;
-    const sorted = _categories.slice().sort((a, b) => {
+  function sortedCategories() {
+    return _categories.slice().sort((a, b) => {
       const s = (SEGMENT_ORDER[a.segment] ?? 9) - (SEGMENT_ORDER[b.segment] ?? 9);
       return s !== 0 ? s : String(a.name).localeCompare(String(b.name));
     });
+  }
 
-    const html = sorted.map(c => groupHtml(c, query, showInactive)).join('');
-    wrap.innerHTML = html || `<div class="empty-state"><h3>No matches</h3><p>No brands match "${esc(query)}".</p></div>`;
+  function allBrands() {
+    return sortedCategories().reduce((acc, c) =>
+      acc.concat((c.brands || []).map(b => ({ ...b, _cat: c }))), []);
+  }
 
-    if (countEl) {
-      const visible = sorted.reduce((n, c) =>
-        n + (c.brands || []).filter(b => (showInactive || b.active) && (!query || matchesQuery(b, query))).length, 0);
-      const total = _categories.reduce((n, c) => n + (c.brands || []).filter(b => b.active).length, 0);
-      countEl.textContent = (query || showInactive) ? `${visible} brand${visible === 1 ? '' : 's'} shown` : `${total} brand${total === 1 ? '' : 's'}`;
+  function findBrand(brandId) {
+    const id = Number(brandId);
+    for (const c of _categories) {
+      const b = (c.brands || []).find(x => x.id === id);
+      if (b) return { brand: b, category: c };
+    }
+    return null;
+  }
+
+  // ================= Stats =================
+  function renderStats() {
+    const wrap = $('rb-stats');
+    if (!wrap) return;
+    const brands = allBrands();
+    const active = brands.filter(b => b.active);
+    const covered = _categories.filter(c => (c.brands || []).some(b => b.active)).length;
+    const verified = active.filter(b => b.verification_status && b.verification_status !== 'unverified').length;
+    const unverified = active.length - verified;
+    const weighted = active.filter(b => (_brandInfoById[b.id] || {}).weight_pct != null).length;
+    const stat = (label, value, sub, tone, filterAttr) => `
+      <button type="button" class="rb-stat ${filterAttr ? 'is-link' : ''}" ${filterAttr || 'tabindex="-1"'}>
+        <span class="rb-stat-label">${label}</span>
+        <span class="rb-stat-value ${tone || ''}">${value}</span>
+        <span class="rb-stat-sub">${sub}</span>
+      </button>`;
+    wrap.innerHTML =
+      stat('Active brands', active.length, `across ${_categories.length} categories`, 'accent') +
+      stat('Categories covered', `${covered}<small>/${_categories.length}</small>`, covered < _categories.length ? `${_categories.length - covered} with no brands yet` : 'all categories have brands') +
+      stat('Need verification', unverified, 'click to review', unverified ? 'warn' : '', 'data-quick="unverified"') +
+      stat('With price weight', `${weighted}<small>/${active.length}</small>`, _pricesLoaded ? 'canvassed variance set' : 'loading prices…') +
+      stat('Deactivated', brands.length - active.length, 'click to review', '', 'data-quick="inactive"');
+  }
+
+  // ================= Category rail =================
+  function renderRail() {
+    const rail = $('rb-rail');
+    const sel = $('rb-rail-select');
+    if (!rail) return;
+    const cats = sortedCategories();
+    const activeCount = (c) => (c.brands || []).filter(b => b.active).length;
+    const unverifiedCount = (c) => (c.brands || []).filter(b => b.active && (b.verification_status || 'unverified') === 'unverified').length;
+    const total = cats.reduce((n, c) => n + activeCount(c), 0);
+
+    let html = `
+      <button type="button" class="rb-rail-item ${_cat === 'all' ? 'active' : ''}" data-cat="all">
+        <span class="rb-rail-icon">${ICON.grid}</span>
+        <span class="rb-rail-name">All brands</span>
+        <span class="rb-rail-count">${total}</span>
+      </button>`;
+    ['Local', 'Imported'].forEach(seg => {
+      const group = cats.filter(c => c.segment === seg);
+      if (!group.length) return;
+      html += `<div class="rb-rail-group">${seg}</div>`;
+      html += group.map(c => {
+        const n = activeCount(c);
+        const u = unverifiedCount(c);
+        const price = _priceByKey[c.canonical_key];
+        const tip = `${c.name} — ${n} active brand${n === 1 ? '' : 's'}`
+          + (price != null ? `, category price ${peso(price)}/kg` : '')
+          + (u ? `, ${u} unverified` : '');
+        return `
+          <button type="button" class="rb-rail-item ${_cat === c.canonical_key ? 'active' : ''} ${n ? '' : 'is-empty'}" data-cat="${esc(c.canonical_key)}" title="${esc(tip)}">
+            <span class="rb-rail-dot ${esc(seg)}"></span>
+            <span class="rb-rail-name">${esc(c.name.replace(/^(Local|Imported)\s+/, ''))}</span>
+            ${u ? `<span class="rb-rail-flag" aria-label="${u} unverified">${u}</span>` : ''}
+            <span class="rb-rail-count">${n}</span>
+          </button>`;
+      }).join('');
+    });
+    rail.innerHTML = html;
+
+    if (sel) {
+      sel.innerHTML = `<option value="all">All brands (${total})</option>` + cats.map(c =>
+        `<option value="${esc(c.canonical_key)}">${esc(c.name)} (${activeCount(c)})</option>`).join('');
+      sel.value = _cat;
+    }
+  }
+
+  function setCategory(key) {
+    _cat = key || 'all';
+    _page = 1;
+    renderRail();
+    renderMain();
+  }
+
+  // ================= Main table =================
+  function matchesQuery(b, q) {
+    return [b.brand_name, b.package, b.location, b.source].some(v => String(v || '').toLowerCase().includes(q));
+  }
+
+  function visibleBrands() {
+    const q = _query.trim().toLowerCase();
+    return allBrands().filter(b => {
+      if (_cat !== 'all' && b._cat.canonical_key !== _cat) return false;
+      if (_status === 'active' && !b.active) return false;
+      if (_status === 'inactive' && b.active) return false;
+      if (_verify !== 'all' && (b.verification_status || 'unverified') !== _verify) return false;
+      if (q && !matchesQuery(b, q)) return false;
+      return true;
+    });
+  }
+
+  function renderMainHeader() {
+    const cat = _categories.find(c => c.canonical_key === _cat);
+    const segEl = $('rb-main-segment');
+    const priceWrap = $('rb-main-price');
+    if (!cat) {
+      $('rb-main-title').textContent = 'All brands';
+      $('rb-main-sub').textContent = 'Every brand across the 8 forecast categories';
+      if (segEl) segEl.hidden = true;
+      if (priceWrap) priceWrap.hidden = true;
+      return;
+    }
+    $('rb-main-title').textContent = cat.name;
+    const n = (cat.brands || []).filter(b => b.active).length;
+    $('rb-main-sub').textContent = `${n} active brand${n === 1 ? '' : 's'} · brand prices are this category's price adjusted by each brand's weight`;
+    if (segEl) {
+      segEl.hidden = false;
+      segEl.textContent = cat.segment;
+      segEl.className = `pill rb-segment-pill ${cat.segment}`;
+    }
+    if (priceWrap) {
+      const p = _priceByKey[cat.canonical_key];
+      priceWrap.hidden = !_pricesLoaded;
+      $('rb-main-price-value').textContent = p != null ? `${peso(p)}/kg` : 'Not available';
+    }
+  }
+
+  function renderMain() {
+    renderMainHeader();
+    const thead = $('rb-thead');
+    const tbody = $('rb-tbody');
+    if (!thead || !tbody) return;
+
+    const showCat = _cat === 'all';
+    const cols = 6;
+    thead.innerHTML = `<tr>
+      <th>Brand</th>
+      <th>Location</th>
+      <th>Verification</th>
+      <th class="rb-num">Price / kg</th>
+      <th class="rb-num">Weight</th>
+      <th class="rb-col-actions">Actions</th>
+    </tr>`;
+
+    if (!_categories.length) {
+      tbody.innerHTML = `<tr><td colspan="${cols}" class="rb-empty">Catalog not available — backend unreachable, or the catalog hasn't been initialized yet.</td></tr>`;
+      $('rb-result-count').textContent = '';
+      $('rb-pager').innerHTML = '';
+      return;
     }
 
-    wrap.querySelectorAll('.rb-weight-save').forEach(btn =>
-      btn.addEventListener('click', () => saveWeight(btn.dataset.brandId)));
-    wrap.querySelectorAll('.rb-weight-clear').forEach(btn =>
-      btn.addEventListener('click', () => clearWeight(btn.dataset.brandId)));
-    wrap.querySelectorAll('.rb-edit-btn').forEach(btn =>
-      btn.addEventListener('click', () => openEditForm(btn.dataset.brandId)));
-    wrap.querySelectorAll('.rb-deactivate-btn').forEach(btn =>
-      btn.addEventListener('click', () => deactivateBrand(btn.dataset.brandId, btn.dataset.brandName)));
-    wrap.querySelectorAll('.rb-reactivate-btn').forEach(btn =>
-      btn.addEventListener('click', () => reactivateBrand(btn.dataset.brandId, btn.dataset.brandName)));
-    wrap.querySelectorAll('.rb-history-btn').forEach(btn =>
-      btn.addEventListener('click', () => toggleHistory(btn.dataset.brandId)));
+    const rows = visibleBrands();
+    const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+    _page = Math.min(Math.max(1, _page), pages);
+    const start = (_page - 1) * PAGE_SIZE;
+    const pageRows = rows.slice(start, start + PAGE_SIZE);
+
+    if (!rows.length) {
+      const cat = _categories.find(c => c.canonical_key === _cat);
+      const noneAtAll = cat && !(cat.brands || []).length;
+      const msg = noneAtAll
+        ? `No brands catalogued for ${esc(cat.name)} yet. Use “Add Brand” to add the first one.`
+        : 'No brands match the current search or filters.';
+      tbody.innerHTML = `<tr><td colspan="${cols}" class="rb-empty">${msg}</td></tr>`;
+    } else {
+      tbody.innerHTML = pageRows.map(b => rowHtml(b, showCat)).join('');
+    }
+
+    $('rb-result-count').textContent = rows.length
+      ? `Showing ${start + 1}–${start + pageRows.length} of ${rows.length} brand${rows.length === 1 ? '' : 's'}`
+      : '0 brands';
+    renderPager(pages);
+  }
+
+  function rowHtml(b, showCat) {
+    const info = _brandInfoById[b.id] || null;
+    const status = b.verification_status || 'unverified';
+    const catPrice = _priceByKey[b._cat.canonical_key];
+    const price = info && info.price != null ? info.price : catPrice;
+    const w = info ? info.weight_pct : null;
+
+    const priceHtml = _pricesLoaded
+      ? `<div class="rb-price">${peso(price)}</div>
+         <div class="rb-price-tag">${info && info.estimated ? 'brand estimate' : 'category price'}</div>`
+      : '<span class="rb-muted">…</span>';
+
+    const weightHtml = b.active
+      ? `<button type="button" class="rb-weight-chip ${w != null ? (w >= 0 ? 'up' : 'down') : 'none'}" data-act="weight" data-id="${b.id}" title="Set price weight">
+           ${w != null ? `${w > 0 ? '+' : ''}${Number(w).toFixed(1)}%` : 'Set'}
+         </button>`
+      : `<span class="rb-muted">${w != null ? `${w > 0 ? '+' : ''}${Number(w).toFixed(1)}%` : '—'}</span>`;
+
+    const actions = `
+      <button type="button" class="rb-icon-btn" data-act="view" data-id="${b.id}" title="Details &amp; history" aria-label="Details for ${esc(b.brand_name)}">${ICON.view}</button>
+      ${b.active ? `<button type="button" class="rb-icon-btn" data-act="edit" data-id="${b.id}" title="Edit brand" aria-label="Edit ${esc(b.brand_name)}">${ICON.edit}</button>` : ''}
+      ${b.active
+        ? `<button type="button" class="rb-icon-btn danger" data-act="deactivate" data-id="${b.id}" title="Deactivate" aria-label="Deactivate ${esc(b.brand_name)}">${ICON.off}</button>`
+        : `<button type="button" class="rb-icon-btn success" data-act="reactivate" data-id="${b.id}" title="Reactivate" aria-label="Reactivate ${esc(b.brand_name)}">${ICON.on}</button>`}`;
+
+    return `
+      <tr class="${b.active ? '' : 'rb-inactive-row'}">
+        <td>
+          <button type="button" class="rb-brand" data-act="view" data-id="${b.id}" title="${esc(b.brand_name)}${b.package ? ' — ' + esc(b.package) : ''}">
+            <span class="rb-brand-name">${esc(b.brand_name)}${b.active ? '' : ' <span class="pill rb-inactive-badge">Inactive</span>'}</span>
+            <span class="rb-brand-sub">${showCat
+              ? `<span class="rb-cat-tag"><span class="rb-rail-dot ${esc(b._cat.segment)}"></span>${esc(b._cat.name)}</span>${b.package ? ` · ${esc(b.package)}` : ''}`
+              : esc(b.package || 'No package / variety recorded')}</span>
+          </button>
+        </td>
+        <td class="rb-loc"><span title="${esc(b.location || '')}">${esc(b.location || '—')}</span></td>
+        <td><span class="pill ${VERIFICATION_PILL_CLASS[status] || 'pill-verify-unverified'}">${VERIFICATION_LABELS[status] || esc(status)}</span></td>
+        <td class="rb-num">${priceHtml}</td>
+        <td class="rb-num">${weightHtml}</td>
+        <td class="rb-col-actions"><div class="rb-actions">${actions}</div></td>
+      </tr>`;
+  }
+
+  function renderPager(pages) {
+    const el = $('rb-pager');
+    if (!el) return;
+    if (pages <= 1) { el.innerHTML = ''; return; }
+    // First, last, and the current page ±1, with "…" for the gaps — stays short on any width.
+    const span = window.innerWidth < 600 ? 0 : 1;
+    const shown = [...new Set([1, pages, ...Array.from({ length: 2 * span + 1 }, (_, i) => _page - span + i)])]
+      .filter(p => p >= 1 && p <= pages).sort((a, b) => a - b);
+    let html = `<button type="button" class="rb-page-btn" data-page="${_page - 1}" ${_page === 1 ? 'disabled' : ''} aria-label="Previous page">‹</button>`;
+    shown.forEach((p, i) => {
+      if (i && p - shown[i - 1] > 1) html += '<span class="rb-page-gap">…</span>';
+      html += `<button type="button" class="rb-page-btn ${p === _page ? 'active' : ''}" data-page="${p}" aria-label="Page ${p}">${p}</button>`;
+    });
+    html += `<button type="button" class="rb-page-btn" data-page="${_page + 1}" ${_page === pages ? 'disabled' : ''} aria-label="Next page">›</button>`;
+    el.innerHTML = html;
+  }
+
+  function renderAll() {
+    renderStats();
+    renderRail();
+    renderMain();
+    fitPageSize();
+  }
+
+  // Pick how many rows fit between the table header and the bottom of the window, so the whole
+  // module stays on one screen (≈5 rows at 768px tall, ≈12 at 1080px). Narrow/phone layouts
+  // stack the rail above the table, so they just use the minimum.
+  function fitPageSize() {
+    const tbody = $('rb-tbody');
+    if (!tbody) return;
+    let size = PAGE_MIN;
+    if (window.innerWidth > 900) {
+      const firstRow = tbody.querySelector('tr');
+      const rowH = Math.max(40, firstRow && tbody.children.length > 1 ? firstRow.offsetHeight : 49);
+      const top = tbody.getBoundingClientRect().top + window.scrollY;
+      const reserve = ($('rb-pager')?.closest('.rb-footer')?.offsetHeight || 42) + 14 + 28 + 26;
+      size = Math.floor((window.innerHeight - top - reserve) / rowH);
+      size = Math.max(PAGE_MIN, Math.min(PAGE_MAX, size));
+    }
+    if (size !== PAGE_SIZE) {
+      const firstIndex = (_page - 1) * PAGE_SIZE;
+      PAGE_SIZE = size;
+      _page = Math.floor(firstIndex / PAGE_SIZE) + 1;
+      renderMain();
+    }
+  }
+
+  let _resizeTimer = null;
+  function onResize() {
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(() => { if ($('rb-tbody')) fitPageSize(); }, 150);
   }
 
   // ================= Data loading =================
-  // Admin view always pulls include_inactive=1 so deactivated brands can still be reviewed and
-  // restored — the "Show deactivated" toggle only controls whether render() displays them.
   async function loadBrandPrices() {
     _priceByKey = {};
     _brandInfoById = {};
@@ -262,133 +361,87 @@ AgriPricePH.RiceBrands = (function () {
         _priceByKey[c.canonical_key] = null;
       }
     }));
+    _pricesLoaded = true;
   }
 
   async function load() {
-    const wrap = $('rb-groups');
-    if (wrap) wrap.innerHTML = `<div class="empty-state"><h3>Loading…</h3></div>`;
     try {
       const d = await AgriPricePH.API.catalog(true);
       _categories = (d && d.ready) ? (d.categories || []) : [];
     } catch (e) {
       _categories = [];
     }
-    renderStats();
-    render();
+    if (_cat !== 'all' && !_categories.some(c => c.canonical_key === _cat)) _cat = 'all';
     populateCategorySelect();
+    renderAll();
     await loadBrandPrices();
-    renderStats();
-    render(); // re-render once prices + weights are in
+    renderAll(); // again once prices + weights are in
   }
 
   function populateCategorySelect() {
     const sel = $('rf-category');
     if (!sel) return;
-    const sorted = _categories.slice().sort((a, b) => {
-      const s = (SEGMENT_ORDER[a.segment] ?? 9) - (SEGMENT_ORDER[b.segment] ?? 9);
-      return s !== 0 ? s : String(a.name).localeCompare(String(b.name));
+    sel.innerHTML = sortedCategories().map(c => `<option value="${esc(c.canonical_key)}">${esc(c.name)}</option>`).join('');
+  }
+
+  // ================= Dialog helpers =================
+  function mountOverlays() {
+    document.querySelectorAll('body > .rb-modal-overlay').forEach(el => el.remove());
+    ['rb-form-overlay', 'rb-weight-overlay', 'rb-detail-overlay'].forEach(id => {
+      const el = $(id);
+      if (!el) return;
+      el.addEventListener('mousedown', (e) => { if (e.target === el) closeOverlay(id); });
+      el.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', () => closeOverlay(id)));
+      document.body.appendChild(el);
     });
-    sel.innerHTML = sorted.map(c => `<option value="${esc(c.canonical_key)}">${esc(c.name)}</option>`).join('');
   }
 
-  // ================= Weight (Phase 2) =================
-  async function saveWeight(brandId) {
-    const input = $(`rb-wt-${brandId}`);
-    const msg = $(`rb-wt-msg-${brandId}`);
-    if (!input) return;
-    const raw = input.value.trim();
-    if (raw === '') { if (msg) { msg.textContent = 'Enter a % or use Clear.'; msg.className = 'rb-weight-msg error'; } return; }
-    const weight = parseFloat(raw);
-    if (isNaN(weight) || weight < WEIGHT_MIN || weight > WEIGHT_MAX) {
-      if (msg) { msg.textContent = `Must be between ${WEIGHT_MIN}% and ${WEIGHT_MAX}%.`; msg.className = 'rb-weight-msg error'; }
-      return;
-    }
-    const info = _brandInfoById[brandId];
-    const sampleDate = prompt('Date this weight was surveyed (YYYY-MM-DD)?', new Date().toISOString().slice(0, 10));
-    if (sampleDate === null) return; // cancelled
-    if (msg) { msg.textContent = 'Saving…'; msg.className = 'rb-weight-msg'; }
-    try {
-      const res = await AgriPricePH.API.brandWeightSet(brandId, {
-        weight_pct: weight,
-        sample_date: sampleDate || null,
-        sample_locations: info?.sample_locations || null,
-        sample_n: info?.sample_n || null,
-        source_notes: info?.source_notes || null,
-      }, adminToken());
-      if (res.ok && res.data.ok) {
-        await loadBrandPrices();
-        renderStats();
-        render();
-      } else if (msg) {
-        msg.textContent = res.data.error || (res.status === 401 ? 'Admin session required — re-login.' : 'Failed to save.');
-        msg.className = 'rb-weight-msg error';
-      }
-    } catch (e) {
-      if (msg) { msg.textContent = 'Backend unreachable.'; msg.className = 'rb-weight-msg error'; }
-    }
+  function openOverlay(id) { const el = $(id); if (el) el.hidden = false; }
+  function closeOverlay(id) { const el = $(id); if (el) el.hidden = true; }
+
+  function onKeydown(e) {
+    if (e.key !== 'Escape') return;
+    // The shared confirm/alert dialog handles its own Escape; don't also close ours underneath it.
+    const shared = $('ui-modal-overlay');
+    if (shared && !shared.hidden) return;
+    ['rb-weight-overlay', 'rb-form-overlay', 'rb-detail-overlay'].some(id => {
+      const el = $(id);
+      if (el && !el.hidden) { closeOverlay(id); return true; }
+      return false;
+    });
   }
 
-  async function clearWeight(brandId) {
-    if (!confirm('Clear this brand\'s canvassed weight? It will revert to showing the plain category price.')) return;
-    const msg = $(`rb-wt-msg-${brandId}`);
-    if (msg) { msg.textContent = 'Clearing…'; msg.className = 'rb-weight-msg'; }
-    try {
-      const res = await AgriPricePH.API.brandWeightSet(brandId, { weight_pct: null }, adminToken());
-      if (res.ok && res.data.ok) {
-        await loadBrandPrices();
-        renderStats();
-        render();
-      } else if (msg) {
-        msg.textContent = res.data.error || 'Failed to clear.';
-        msg.className = 'rb-weight-msg error';
-      }
-    } catch (e) {
-      if (msg) { msg.textContent = 'Backend unreachable.'; msg.className = 'rb-weight-msg error'; }
-    }
+  function showMsg(id, text) {
+    const el = $(id);
+    if (!el) return;
+    el.textContent = text || '';
+    el.hidden = !text;
   }
 
-  // ================= Add / edit brand form (Phase 3) =================
-  function findBrand(brandId) {
-    const id = Number(brandId);
-    for (const c of _categories) {
-      const b = (c.brands || []).find(x => x.id === id);
-      if (b) return { brand: b, category: c };
-    }
-    return null;
+  function apiError(res, fallback) {
+    return res?.data?.error || (res?.status === 401 ? 'Your admin session has expired — please sign in again.' : fallback);
   }
 
-  function resetForm() {
-    ['rf-brand-id', 'rf-brand-name', 'rf-package', 'rf-location', 'rf-source', 'rf-source-url',
-      'rf-last-verified', 'rf-classification-note', 'rf-notes'].forEach(id => { const el = $(id); if (el) el.value = ''; });
-    const v = $('rf-verification'); if (v) v.value = 'unverified';
-    const msg = $('rf-msg'); if (msg) { msg.textContent = ''; msg.className = 'rb-form-msg'; }
-    $('rf-deactivate')?.setAttribute('hidden', '');
-  }
+  // ================= Add / edit brand =================
+  const FORM_FIELDS = ['rf-brand-id', 'rf-brand-name', 'rf-package', 'rf-location', 'rf-source',
+    'rf-source-url', 'rf-last-verified', 'rf-classification-note', 'rf-notes'];
 
   function openAddForm() {
-    resetForm();
-    setFormTitle('Add a new brand');
-    const panel = $('rb-form');
-    panel?.classList.add('open');
-    panel?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    $('rf-brand-name')?.focus();
-  }
-
-  function setFormTitle(text) {
-    const title = $('rb-form-title');
-    if (!title) return;
-    // Keep the leading <svg>, replace only the trailing text node.
-    const svg = title.querySelector('svg');
-    title.textContent = ' ' + text;
-    if (svg) title.prepend(svg);
+    FORM_FIELDS.forEach(id => { const el = $(id); if (el) el.value = ''; });
+    $('rf-verification').value = 'unverified';
+    $('rf-category').value = _cat !== 'all' ? _cat : (sortedCategories()[0]?.canonical_key || '');
+    $('rb-form-title').textContent = 'Add Brand';
+    $('rb-form-sub').textContent = 'Adds a branded product under one of the 8 forecast categories.';
+    $('rf-save').textContent = 'Add Brand';
+    showMsg('rf-msg', '');
+    openOverlay('rb-form-overlay');
+    setTimeout(() => $('rf-brand-name')?.focus(), 30);
   }
 
   function openEditForm(brandId) {
     const found = findBrand(brandId);
     if (!found) return;
     const { brand: b, category: cat } = found;
-    resetForm();
-    setFormTitle(`Edit ${b.brand_name}`);
     $('rf-brand-id').value = b.id;
     $('rf-category').value = cat.canonical_key;
     $('rf-brand-name').value = b.brand_name || '';
@@ -400,153 +453,297 @@ AgriPricePH.RiceBrands = (function () {
     $('rf-classification-note').value = b.classification_note || '';
     $('rf-notes').value = b.notes || '';
     $('rf-verification').value = b.verification_status || 'unverified';
-    $('rf-deactivate')?.removeAttribute('hidden');
-    const panel = $('rb-form');
-    panel?.classList.add('open');
-    panel?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    $('rf-brand-name')?.focus();
-  }
-
-  function closeForm() {
-    $('rb-form')?.classList.remove('open');
-  }
-
-  function toggleAddForm() {
-    const panel = $('rb-form');
-    if (!panel) return;
-    if (panel.classList.contains('open')) { closeForm(); } else { openAddForm(); }
+    $('rb-form-title').textContent = `Edit ${b.brand_name}`;
+    $('rb-form-sub').textContent = `${cat.name} · every change is recorded in the brand's history.`;
+    $('rf-save').textContent = 'Save Changes';
+    showMsg('rf-msg', '');
+    closeOverlay('rb-detail-overlay');
+    openOverlay('rb-form-overlay');
+    setTimeout(() => $('rf-brand-name')?.focus(), 30);
   }
 
   function formPayload() {
+    const v = (id) => ($(id)?.value || '').trim();
     return {
       category_key: $('rf-category')?.value || '',
-      brand_name: ($('rf-brand-name')?.value || '').trim(),
-      package: ($('rf-package')?.value || '').trim() || null,
-      location: ($('rf-location')?.value || '').trim() || null,
-      source: ($('rf-source')?.value || '').trim(),
-      source_url: ($('rf-source-url')?.value || '').trim() || null,
-      last_verified: ($('rf-last-verified')?.value || '').trim() || null,
-      classification_note: ($('rf-classification-note')?.value || '').trim() || null,
-      notes: ($('rf-notes')?.value || '').trim() || null,
+      brand_name: v('rf-brand-name'),
+      package: v('rf-package') || null,
+      location: v('rf-location') || null,
+      source: v('rf-source'),
+      source_url: v('rf-source-url') || null,
+      last_verified: v('rf-last-verified') || null,
+      classification_note: v('rf-classification-note') || null,
+      notes: v('rf-notes') || null,
       verification_status: $('rf-verification')?.value || 'unverified',
     };
   }
 
   async function saveBrand() {
-    const msg = $('rf-msg');
     const payload = formPayload();
-    // Client-side mirror of the server's required-field checks — catches the common miss before
-    // a round-trip; the server still re-validates (never trust the client alone).
-    if (!payload.brand_name) {
-      if (msg) { msg.textContent = 'Brand name is required.'; msg.className = 'rb-form-msg error'; }
-      return;
+    if (!payload.brand_name) { showMsg('rf-msg', 'Brand name is required.'); return; }
+    if (!payload.source) { showMsg('rf-msg', 'A source is required — where did this entry come from?'); return; }
+    if (payload.source_url && !/^https?:\/\/\S+$/i.test(payload.source_url)) {
+      showMsg('rf-msg', 'Source URL must start with http:// or https://'); return;
     }
-    if (!payload.source) {
-      if (msg) { msg.textContent = 'A source is required — where did this entry come from?'; msg.className = 'rb-form-msg error'; }
-      return;
-    }
+    showMsg('rf-msg', '');
     const brandId = $('rf-brand-id')?.value;
     const saveBtn = $('rf-save');
     if (saveBtn) saveBtn.disabled = true;
-    if (msg) { msg.textContent = 'Saving…'; msg.className = 'rb-form-msg'; }
     try {
       const res = brandId
         ? await AgriPricePH.API.brandUpdate(brandId, payload, adminToken())
         : await AgriPricePH.API.brandAdd(payload, adminToken());
       if (res.ok && res.data.ok) {
-        if (msg) { msg.textContent = `Saved '${res.data.brand_name}'.`; msg.className = 'rb-form-msg ok'; }
         if (brandId) delete _historyCache[brandId];
-        closeForm();
+        closeOverlay('rb-form-overlay');
+        if (!brandId) { _cat = payload.category_key; _status = 'active'; syncFilters(); }
         await load();
-      } else if (msg) {
-        msg.textContent = res.data.error || (res.status === 401 ? 'Admin session required — re-login.' : 'Failed to save.');
-        msg.className = 'rb-form-msg error';
+        AgriPricePH.Modals.alert({
+          title: brandId ? 'Brand updated' : 'Brand added',
+          text: `'${res.data.brand_name || payload.brand_name}' was saved.`,
+          type: 'success',
+        });
+      } else {
+        showMsg('rf-msg', apiError(res, 'Could not save this brand.'));
       }
     } catch (e) {
-      if (msg) { msg.textContent = 'Backend unreachable.'; msg.className = 'rb-form-msg error'; }
+      showMsg('rf-msg', 'Backend unreachable — please try again.');
     } finally {
       if (saveBtn) saveBtn.disabled = false;
     }
   }
 
-  async function deactivateFromForm() {
-    const brandId = $('rf-brand-id')?.value;
-    const name = $('rf-brand-name')?.value || `#${brandId}`;
-    if (!brandId) return;
-    if (!(await confirmDeactivate(name))) return;
-    await deactivateBrand(brandId, name, /* fromForm */ true);
+  // ================= Price weight =================
+  function openWeight(brandId) {
+    const found = findBrand(brandId);
+    if (!found) return;
+    const { brand: b, category: cat } = found;
+    const info = _brandInfoById[b.id] || {};
+    _weightBrandId = b.id;
+    $('rb-weight-title').textContent = `Price weight — ${b.brand_name}`;
+    $('rb-weight-sub').textContent = cat.name + (info.sample_date ? ` · last surveyed ${info.sample_date}` : '');
+    $('rw-weight').value = info.weight_pct != null ? info.weight_pct : '';
+    $('rw-weight').min = WEIGHT_MIN; $('rw-weight').max = WEIGHT_MAX;
+    $('rw-range').textContent = `Allowed range ${WEIGHT_MIN}% to +${WEIGHT_MAX}%`;
+    $('rw-date').value = info.sample_date || new Date().toISOString().slice(0, 10);
+    $('rw-clear').hidden = info.weight_pct == null;
+    showMsg('rw-msg', '');
+    updateWeightPreview();
+    openOverlay('rb-weight-overlay');
+    setTimeout(() => $('rw-weight')?.focus(), 30);
   }
 
-  function confirmDeactivate(name) {
-    return Promise.resolve(confirm(
-      `Deactivate '${name}'?\n\nIt will stop showing on the public catalog and in brand-prices, ` +
-      `but its price/weight and change history are kept and it can be reactivated later.`));
+  function updateWeightPreview() {
+    const found = findBrand(_weightBrandId);
+    if (!found) return;
+    const base = _priceByKey[found.category.canonical_key];
+    const w = parseFloat($('rw-weight').value);
+    $('rw-base').textContent = base != null ? `${peso(base)}/kg` : 'Not available';
+    $('rw-result').textContent = (base != null && !isNaN(w)) ? `${peso(base * (1 + w / 100))}/kg` : '—';
   }
 
-  // ================= Deactivate / reactivate (Phase 3) =================
-  async function deactivateBrand(brandId, name, fromForm) {
-    if (!fromForm && !(await confirmDeactivate(name))) return;
+  async function saveWeight() {
+    const raw = $('rw-weight').value.trim();
+    const weight = parseFloat(raw);
+    if (raw === '' || isNaN(weight)) { showMsg('rw-msg', 'Enter a weight in %, or use “Clear weight”.'); return; }
+    if (weight < WEIGHT_MIN || weight > WEIGHT_MAX) { showMsg('rw-msg', `Weight must be between ${WEIGHT_MIN}% and +${WEIGHT_MAX}%.`); return; }
+    const info = _brandInfoById[_weightBrandId] || {};
+    const btn = $('rw-save');
+    if (btn) btn.disabled = true;
     try {
-      const res = await AgriPricePH.API.brandDeactivate(brandId, adminToken());
+      const res = await AgriPricePH.API.brandWeightSet(_weightBrandId, {
+        weight_pct: weight,
+        sample_date: $('rw-date').value || null,
+        sample_locations: info.sample_locations || null,
+        sample_n: info.sample_n || null,
+        source_notes: info.source_notes || null,
+      }, adminToken());
       if (res.ok && res.data.ok) {
-        delete _historyCache[brandId];
-        if (fromForm) closeForm();
-        await load();
+        closeOverlay('rb-weight-overlay');
+        delete _historyCache[_weightBrandId];
+        await loadBrandPrices();
+        renderAll();
       } else {
-        alert(res.data.error || (res.status === 401 ? 'Admin session required — re-login.' : 'Could not deactivate.'));
+        showMsg('rw-msg', apiError(res, 'Could not save the weight.'));
       }
     } catch (e) {
-      alert('Backend unreachable.');
+      showMsg('rw-msg', 'Backend unreachable — please try again.');
+    } finally {
+      if (btn) btn.disabled = false;
     }
   }
 
-  async function reactivateBrand(brandId, name) {
-    if (!confirm(`Reactivate '${name}'? It will show up again on the public catalog.`)) return;
+  async function clearWeight() {
+    const ok = await AgriPricePH.Modals.confirm({
+      title: 'Clear this price weight?',
+      text: 'The brand will show its plain category price again. You can set a new weight at any time.',
+      type: 'warning', okText: 'Clear weight', danger: true,
+    });
+    if (!ok) return;
     try {
-      const res = await AgriPricePH.API.brandReactivate(brandId, adminToken());
+      const res = await AgriPricePH.API.brandWeightSet(_weightBrandId, { weight_pct: null }, adminToken());
       if (res.ok && res.data.ok) {
-        delete _historyCache[brandId];
-        await load();
+        closeOverlay('rb-weight-overlay');
+        delete _historyCache[_weightBrandId];
+        await loadBrandPrices();
+        renderAll();
       } else {
-        alert(res.data.error || (res.status === 401 ? 'Admin session required — re-login.' : 'Could not reactivate.'));
+        showMsg('rw-msg', apiError(res, 'Could not clear the weight.'));
       }
     } catch (e) {
-      alert('Backend unreachable.');
+      showMsg('rw-msg', 'Backend unreachable — please try again.');
     }
   }
 
-  // ================= Change-history (Phase 3) =================
-  async function toggleHistory(brandId) {
-    const id = Number(brandId);
-    if (_historyOpenFor === id) {
-      _historyOpenFor = null;
-      render();
-      return;
-    }
-    _historyOpenFor = id;
-    render(); // shows "Loading…" immediately
-    if (!_historyCache[id]) {
+  // ================= Details + history =================
+  async function openDetails(brandId) {
+    const found = findBrand(brandId);
+    if (!found) return;
+    const { brand: b, category: cat } = found;
+    const info = _brandInfoById[b.id] || {};
+    const status = b.verification_status || 'unverified';
+    _detailBrandId = b.id;
+
+    $('rb-detail-title').textContent = b.brand_name;
+    $('rb-detail-sub').textContent = `${cat.name} · ${b.active ? 'Active' : 'Deactivated'}`;
+    $('rb-detail-edit').hidden = !b.active;
+
+    const item = (label, value, wide) => `
+      <div class="rb-detail-item ${wide ? 'wide' : ''}">
+        <span class="rb-detail-label">${label}</span>
+        <span class="rb-detail-value">${value}</span>
+      </div>`;
+    const link = b.source_url
+      ? `<a href="${esc(b.source_url)}" target="_blank" rel="noopener noreferrer">${esc(b.source_url)}</a>` : '—';
+    const w = info.weight_pct;
+    $('rb-detail-grid').innerHTML =
+      item('Package / variety', esc(b.package || '—')) +
+      item('Location', esc(b.location || '—')) +
+      item('Verification', `<span class="pill ${VERIFICATION_PILL_CLASS[status]}">${VERIFICATION_LABELS[status] || esc(status)}</span>`) +
+      item('Last verified', esc(b.last_verified || '—')) +
+      item('Brand price', info.price != null ? `${peso(info.price)}/kg${info.estimated ? ' <span class="rb-muted">(estimate)</span>' : ''}` : '—') +
+      item('Price weight', w != null ? `${w > 0 ? '+' : ''}${Number(w).toFixed(1)}%${info.sample_date ? ` <span class="rb-muted">· surveyed ${esc(info.sample_date)}</span>` : ''}` : '—') +
+      item('Source', esc(b.source || '—'), true) +
+      item('Source URL', link, true) +
+      (b.classification_note ? item('Classification note', esc(b.classification_note), true) : '') +
+      (b.notes ? item('Notes', esc(b.notes), true) : '');
+
+    openOverlay('rb-detail-overlay');
+    const hist = $('rb-detail-history');
+    if (!_historyCache[b.id]) {
+      hist.innerHTML = '<div class="rb-history-empty">Loading history…</div>';
       try {
-        const d = await AgriPricePH.API.brandAudit(id, adminToken());
-        _historyCache[id] = d.audit || [];
+        const d = await AgriPricePH.API.brandAudit(b.id, adminToken());
+        _historyCache[b.id] = d.audit || [];
       } catch (e) {
-        _historyCache[id] = [];
+        _historyCache[b.id] = null;
       }
     }
-    render();
+    if (_detailBrandId !== b.id) return; // user moved on while loading
+    const rows = _historyCache[b.id];
+    hist.innerHTML = rows == null
+      ? '<div class="rb-history-empty">Couldn’t load the change history.</div>'
+      : !rows.length
+        ? '<div class="rb-history-empty">No changes recorded yet.</div>'
+        : rows.map(r => `
+          <div class="rb-history-item">
+            <span class="rb-history-action">${esc(r.action)}</span>
+            <span class="rb-history-detail">${esc(r.detail || '')}</span>
+            <span class="rb-history-meta">${esc(r.actor || '—')} · ${esc(r.created_at || '')}</span>
+          </div>`).join('');
+  }
+
+  // ================= Deactivate / reactivate =================
+  async function setActive(brandId, activate) {
+    const found = findBrand(brandId);
+    if (!found) return;
+    const name = found.brand.brand_name;
+    const ok = await AgriPricePH.Modals.confirm(activate
+      ? { title: `Reactivate '${name}'?`, text: 'It will show on the public catalog and in brand prices again.', type: 'info', okText: 'Reactivate' }
+      : { title: `Deactivate '${name}'?`, text: 'It stops showing on the public catalog and in brand prices. Its price weight and change history are kept, and you can reactivate it later.', type: 'warning', okText: 'Deactivate', danger: true });
+    if (!ok) return;
+    try {
+      const res = activate
+        ? await AgriPricePH.API.brandReactivate(brandId, adminToken())
+        : await AgriPricePH.API.brandDeactivate(brandId, adminToken());
+      if (res.ok && res.data.ok) {
+        delete _historyCache[brandId];
+        await load();
+      } else {
+        AgriPricePH.Modals.alert({ title: 'Action failed', text: apiError(res, 'Could not update this brand.'), type: 'danger' });
+      }
+    } catch (e) {
+      AgriPricePH.Modals.alert({ title: 'Backend unreachable', text: 'Please try again.', type: 'danger' });
+    }
+  }
+
+  // ================= Wiring =================
+  function syncFilters() {
+    if ($('rb-search')) $('rb-search').value = _query;
+    if ($('rb-verify-filter')) $('rb-verify-filter').value = _verify;
+    if ($('rb-status-filter')) $('rb-status-filter').value = _status;
+  }
+
+  function bindEvents() {
+    $('rb-add-btn')?.addEventListener('click', openAddForm);
+    $('rb-rail')?.addEventListener('click', (e) => {
+      const item = e.target.closest('[data-cat]');
+      if (item) setCategory(item.dataset.cat);
+    });
+    $('rb-rail-select')?.addEventListener('change', (e) => setCategory(e.target.value));
+    $('rb-search')?.addEventListener('input', (e) => { _query = e.target.value; _page = 1; renderMain(); });
+    $('rb-verify-filter')?.addEventListener('change', (e) => { _verify = e.target.value; _page = 1; renderMain(); });
+    $('rb-status-filter')?.addEventListener('change', (e) => { _status = e.target.value; _page = 1; renderMain(); });
+    $('rb-pager')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-page]');
+      if (!btn || btn.disabled) return;
+      _page = Number(btn.dataset.page);
+      renderMain();
+    });
+    $('rb-stats')?.addEventListener('click', (e) => {
+      const q = e.target.closest('[data-quick]')?.dataset.quick;
+      if (!q) return;
+      _cat = 'all'; _query = ''; _page = 1;
+      if (q === 'unverified') { _verify = 'unverified'; _status = 'active'; }
+      if (q === 'inactive') { _verify = 'all'; _status = 'inactive'; }
+      syncFilters();
+      renderRail();
+      renderMain();
+    });
+    $('rb-tbody')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-act]');
+      if (!btn) return;
+      const id = btn.dataset.id;
+      switch (btn.dataset.act) {
+        case 'view': openDetails(id); break;
+        case 'edit': openEditForm(id); break;
+        case 'weight': openWeight(id); break;
+        case 'deactivate': setActive(id, false); break;
+        case 'reactivate': setActive(id, true); break;
+      }
+    });
+    $('rb-form')?.addEventListener('submit', (e) => { e.preventDefault(); saveBrand(); });
+    $('rb-weight-form')?.addEventListener('submit', (e) => { e.preventDefault(); saveWeight(); });
+    $('rw-weight')?.addEventListener('input', updateWeightPreview);
+    $('rw-clear')?.addEventListener('click', clearWeight);
+    $('rb-detail-edit')?.addEventListener('click', () => openEditForm(_detailBrandId));
+    document.addEventListener('keydown', onKeydown);
+    window.addEventListener('resize', onResize);
   }
 
   function init() {
+    _cat = 'all'; _query = ''; _verify = 'all'; _status = 'active'; _page = 1;
+    _pricesLoaded = false; _historyCache = {};
+    mountOverlays();
+    bindEvents();
     load();
-    $('rb-search')?.addEventListener('input', render);
-    $('rb-show-inactive')?.addEventListener('change', render);
-    $('rb-add-toggle')?.addEventListener('click', toggleAddForm);
-    $('rf-cancel')?.addEventListener('click', closeForm);
-    $('rf-save')?.addEventListener('click', saveBrand);
-    $('rf-deactivate')?.addEventListener('click', deactivateFromForm);
   }
 
-  function destroy() {}
+  function destroy() {
+    document.querySelectorAll('body > .rb-modal-overlay').forEach(el => el.remove());
+    document.removeEventListener('keydown', onKeydown);
+    window.removeEventListener('resize', onResize);
+  }
 
   return { init, destroy };
 })();

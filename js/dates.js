@@ -48,19 +48,16 @@ AgriPricePH.Dates = (function () {
 
   function _startLiveTicker(lastUpdated) {
     if (_tickHandle) clearInterval(_tickHandle);
-    const tags = document.querySelectorAll('[data-dynamic-date="forecast-tag"]');
     const refreshers = document.querySelectorAll('[data-dynamic-date="refresh"]');
-    if (!tags.length && !refreshers.length) return;
+    if (!refreshers.length) return;
 
     const tick = () => {
       // If the router has replaced the page, these nodes are detached — stop the timer.
-      if (![...tags, ...refreshers].some(el => el.isConnected)) {
+      if (![...refreshers].some(el => el.isConnected)) {
         clearInterval(_tickHandle);
         _tickHandle = null;
         return;
       }
-      const now = today();
-      tags.forEach(el => { el.textContent = `Realtime — ${formatClock(now)} · ${formatDisplay(now)}`; });
       // Counts up from when the data was actually fetched, so "Just now" becomes "1 min ago" on
       // its own instead of staying frozen at the value it had on first paint.
       refreshers.forEach(el => { el.textContent = `Updated ${relativeTime(lastUpdated)}`; });
@@ -75,28 +72,25 @@ AgriPricePH.Dates = (function () {
       || (apiData?.as_of_date ? formatDisplay(new Date(apiData.as_of_date + 'T12:00:00')) : null)
       || formatDisplay(today());
 
-    // The clock and the "updated" counter tick every second rather than being written once on
-    // load, where they would sit at "Just now" for as long as the tab stayed open.
+    // The "updated" counter ticks every second rather than being written once on load, where it
+    // would sit at "Just now" for as long as the tab stayed open.
     _startLiveTicker(today());
-
-    // The wall clock is not the same thing as the date the data covers, so the as-of date moves to
-    // the tag's hover rather than being dropped.
-    document.querySelectorAll('[data-dynamic-date="forecast-tag"]').forEach(el => {
-      el.title = `Prices as of ${asOf}`;
-    });
 
     const heroSub = document.querySelector('[data-dynamic-date="forecast-subtitle"]');
     const fc = apiData?.forecast;
     if (heroSub && fc?.length) {
       // Derive the horizon from the API response instead of hardcoding "2-day": the model
       // forecasts HORIZON days (currently 3) and this line used to disagree with the table
-      // rendered right below it.
+      // rendered right below it. Stated as a plain date range rather than naming the model or its
+      // window size — that's an implementation detail, not something a reader needs to make a
+      // decision from.
       const days = fc.length;
+      const toDate = (iso) => new Date(iso + 'T12:00:00');
       const span = days === 1
-        ? fc[0].date_iso
-        : `${fc[0].date_iso} – ${fc[days - 1].date_iso}`;
-      heroSub.textContent =
-        `Powered by LSTM · ${days}-day ahead (${span}) · 30-day sliding window`;
+        ? formatShort(toDate(fc[0].date_iso))
+        : `${formatShort(toDate(fc[0].date_iso))} – ${formatShort(toDate(fc[days - 1].date_iso))}`;
+      heroSub.textContent = `Forecast for ${span}`;
+      heroSub.title = `Prices as of ${asOf}`;
     }
   }
 

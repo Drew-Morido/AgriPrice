@@ -471,6 +471,10 @@ body{
   .page{padding:0 24px}
 }
 @media(max-width:640px){
+  /* Footer stats row (3 stats, 32px gaps, 28px padding) was ~8px wider than a 375px screen. */
+  .footer-inner{padding:0 18px}
+  .footer-inner > *{min-width:0}
+  .footer-stats{gap:16px;padding:16px 14px;flex-wrap:wrap;justify-content:center}
   .stats-page-shell{padding:0}
   .hero-left{padding:44px 22px}
   .hero-right{padding:38px 22px}

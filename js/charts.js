@@ -221,6 +221,20 @@ AgriPricePH.Charts = (function () {
         });
       }
 
+      // Optional axis title along the left edge — opt-in, so a bare price axis (no unit visible
+      // anywhere on the chart) can say what it's actually measuring without every existing caller
+      // having to pass one.
+      if (opts.yAxisLabel) {
+        ctx.save();
+        ctx.font = '10px DM Sans, sans-serif';
+        ctx.fillStyle = '#8FA896';
+        ctx.textAlign = 'center';
+        ctx.translate(12, pad.top + plotH / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText(opts.yAxisLabel, 0, 0);
+        ctx.restore();
+      }
+
       active.forEach(ds => {
         const data = ds.data;
         const color = ds.color || COLORS.primary;
@@ -303,7 +317,14 @@ AgriPricePH.Charts = (function () {
                   pointValues.push({ label: ds.label || 'Value', val: Number(ds.data[i]), color: ds.color });
               }
           });
-          hoverData.push({ x: idxToX(i, totalPoints), label: tooltipLabels ? tooltipLabels[i] : i, values: pointValues });
+          hoverData.push({
+              x: idxToX(i, totalPoints),
+              label: tooltipLabels ? tooltipLabels[i] : i,
+              values: pointValues,
+              // Extra per-point lines (e.g. "Accuracy: 95.4%") a caller wants under the series
+              // values at this index — opt-in via opts.pointNotes[i], same length as opts.labels.
+              note: opts.pointNotes ? opts.pointNotes[i] : null,
+          });
       }
 
       canvasEl.onmousemove = function(e) {
@@ -333,6 +354,9 @@ AgriPricePH.Charts = (function () {
                 <span style="font-family:monospace; font-weight:bold;">${v.val.toFixed(2)}</span>
              </div>`;
           });
+          if (closest.note) {
+             html += `<div style="margin-top:6px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.1); color:#C5D9CA; font-size:11px;">${closest.note}</div>`;
+          }
 
           tooltip.innerHTML = html;
           tooltip.style.display = 'block';

@@ -161,7 +161,12 @@ only, shrunk ×0.8, clipped to [−1, 0], and deployed only when |t| ≥ 2 — r
 term the model **does** beat naive persistence: **skill +3.51%, positive on 7/8 types,
 directional accuracy 57–67%, `movement_ratio` 0.24**. Shrinkage is 0.6 and a second lag was tested and rejected (dominated end-to-end at every shrink level). See PAPER_CORRECTIONS.md Rounds 11, 13 and 15. The coefficient is re-fitted on a rolling 120-day window before each forecast (`mean_reversion.rolling_phi`) rather than frozen at training time — scoring and serving use the same path, so they cannot diverge.
 
-State this precisely: the **combined** model beats persistence and ARIMA; the **LSTM alone does
+State this precisely: the **combined** model beats persistence on all 8 types, but beats
+**ARIMA(1,1,1) on only 3 of 8** (`meta.json` per-type `beats_arima`) — on `locWellMilled` ARIMA is
+ahead, PHP 0.2741 vs 0.2940. Do not write "beats ARIMA" without that qualifier; the panel can check
+it in one command. The defensible framing is that the two are close, and that this system adds
+prediction intervals, 8 simultaneous targets, and a daily operational pipeline that a single-series
+ARIMA does not. The **LSTM alone does
 not**. Round 16 went further and measured the network's *marginal* contribution by ablation — it
 is **negative on all 8 rice types**, so its delta is down-weighted to `LSTM_DELTA_WEIGHT=0.25`
 (w=0 scores best; 0.25 keeps it in the path, disclosed). Current: **skill +3.71%, 8/8 types
@@ -202,7 +207,7 @@ hashes the 6-digit security code server-side, and locks out after 5 failed attem
 - `admin/js/` — staff dashboard, built as a lightweight SPA: `router.js` loads HTML fragments
   from `admin/pages/*.html` into `admin/index.html`'s shell, one JS module per module
   (`training.js`, `predictions.js`, `historical.js`, `web-scraper.js`, `data-sources.js`,
-  `alerts.js`, `settings.js`, `reports.js`, `dashboard.js`) each calling the matching `/api/*`
+  `alerts.js`, `settings.js`, `reports.js`, `dashboard.js`, `users.js`) each calling the matching `/api/*`
   endpoints and, for training/scraping, consuming the SSE log streams directly.
 
 `public/` and `admin/` are deliberately separated (different audiences, different auth), but

@@ -277,8 +277,11 @@ canvas{width:100%!important;height:100%!important}
   .kpi-q:nth-child(even){border-right:none}
 }
 @media(max-width:860px){
-  .main{flex-direction:column}
+  /* Stretch, not flex-start: in a column layout flex-start makes each child shrink-wrap to its
+     widest content (the hero/table), which left .fc-content ~640px wide on a 375px phone. */
+  .main{flex-direction:column;align-items:stretch}
   .side-panel{width:auto}
+  .fc-content{width:100%}
 }
 @media(max-width:900px){
   .chart-bottom{grid-template-columns:1fr}.divider-v{display:none}

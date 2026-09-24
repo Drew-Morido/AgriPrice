@@ -1,106 +1,391 @@
 /* ============================================
-   AgriPricePH - Data Sources CSS
+   AgriPricePH - Data Sources (admin/pages/data-sources.html, admin/js/data-sources.js)
+   ============================================
+   Health summary row, then one card split into the source list (left) and the selected
+   source's detail (right). Built from css/global.css tokens so it follows light/dark theme.
+   On a laptop/desktop the card fills the rest of the viewport (no page scroll); narrower
+   screens stack list over detail and scroll normally.
    ============================================ */
 
-.source-cards-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 16px;
+.ds-page {
+  display: flex; flex-direction: column;
+  /* Exactly the space under the topbar, so header + KPIs + panel fill the screen without a page
+     scroll; the panel takes whatever is left (flex: 1) and its detail pane scrolls internally. */
+  height: calc(100vh - var(--topbar-height) - 2 * var(--content-padding));
+  min-height: 440px;
 }
+.ds-header { gap: 12px; flex-wrap: wrap; }
 
-.source-card {
+/* ---- Live chip ---- */
+.ds-live-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  font-size: 12px; font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.ds-live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); }
+.ds-live-chip.is-live { color: var(--color-success); border-color: rgba(45,138,80,0.3); background: var(--color-success-bg); }
+.ds-live-chip.is-live .ds-live-dot { background: var(--color-success); animation: ds-pulse 2s infinite; }
+.ds-live-chip.is-running { color: var(--color-info); border-color: rgba(59,130,246,0.3); background: var(--color-info-bg); }
+.ds-live-chip.is-running .ds-live-dot { background: var(--color-info); animation: ds-pulse 0.9s infinite; }
+.ds-live-chip.is-down { color: var(--color-danger); border-color: rgba(239,68,68,0.3); background: var(--color-danger-bg); }
+.ds-live-chip.is-down .ds-live-dot { background: var(--color-danger); }
+@keyframes ds-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+/* ---- KPI row ---- */
+.ds-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.ds-kpi {
+  display: flex; align-items: center; gap: 13px;
+  min-width: 0;
+  padding: 14px 16px;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius-lg);
-  padding: 20px;
   box-shadow: var(--shadow-sm);
-  transition: box-shadow var(--transition-fast);
+}
+.ds-kpi.is-loading { height: 76px; background: linear-gradient(90deg, var(--bg-card), var(--bg-input), var(--bg-card)); background-size: 200% 100%; animation: ds-shimmer 1.4s infinite; }
+@keyframes ds-shimmer { to { background-position: -200% 0; } }
+.ds-kpi-icon {
+  width: 40px; height: 40px; flex-shrink: 0;
+  border-radius: 11px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.ds-kpi-icon svg { width: 19px; height: 19px; }
+.ds-kpi-icon.ok      { background: var(--color-success-bg); color: var(--color-success); }
+.ds-kpi-icon.warn    { background: rgba(245,158,11,0.14); color: #B45309; }
+.ds-kpi-icon.info    { background: var(--color-info-bg); color: var(--color-info); }
+.ds-kpi-icon.neutral { background: var(--bg-input); color: var(--text-secondary); }
+.ds-kpi-body { min-width: 0; }
+.ds-kpi-label { font-size: 11.5px; font-weight: 600; color: var(--text-muted); }
+.ds-kpi-value { font-size: 20px; font-weight: 700; line-height: 1.25; color: var(--text-primary); font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds-kpi-value small { font-size: 13px; font-weight: 500; color: var(--text-muted); }
+.ds-kpi-sub { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---- Main panel: list + detail ---- */
+.ds-panel {
+  display: grid;
+  grid-template-columns: 290px minmax(0, 1fr);
+  overflow: hidden;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
-.source-card:hover { box-shadow: var(--shadow-md); }
-
-.source-card-loading {
-  min-height: 180px;
-  opacity: 0.85;
+.ds-list {
+  border-right: 1px solid var(--border-color);
+  background: var(--bg-body);
+  padding: 14px 10px;
+  display: flex; flex-direction: column;
+  min-width: 0;
 }
-
-.source-loading-bar {
-  height: 12px;
-  border-radius: 6px;
-  background: linear-gradient(90deg, rgba(76,175,110,0.15) 25%, rgba(76,175,110,0.35) 50%, rgba(76,175,110,0.15) 75%);
-  background-size: 200% 100%;
-  animation: ds-shimmer 1.2s infinite;
-  margin-bottom: 8px;
+html.theme-dark .ds-list { background: rgba(0,0,0,0.12); }
+.ds-list-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 0 8px 10px;
 }
+.ds-list-items { display: flex; flex-direction: column; gap: 4px; }
+.ds-list-empty { font-size: 12.5px; color: var(--text-muted); padding: 10px 8px; }
 
-.source-loading-bar.short { width: 60%; }
-
-@keyframes ds-shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+.ds-item {
+  display: flex; align-items: center; gap: 11px;
+  width: 100%;
+  padding: 10px 10px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: transparent;
+  font-family: var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
+.ds-item:hover { background: var(--bg-card); }
+.ds-item.active { background: var(--bg-card); border-color: var(--border-color); box-shadow: var(--shadow-sm); }
+.ds-item.active .ds-item-name { color: var(--color-accent-hover); }
+.ds-item:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
 
-.source-card-header {
-  display: flex; align-items: center; gap: 12px;
-  margin-bottom: 14px;
-}
-
-.source-icon {
-  width: 44px; height: 44px;
+.ds-item-icon {
+  width: 36px; height: 36px; flex-shrink: 0;
   border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
 }
+.ds-item-icon svg { width: 18px; height: 18px; }
+.ds-item-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.ds-item-name { font-size: 13px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds-item-sub { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.ds-item-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.ds-item-time { font-size: 10.5px; color: var(--text-muted); white-space: nowrap; }
 
-.source-name {
-  font-size: 14px; font-weight: 700;
-  color: var(--text-primary);
+/* Freshness badges (list) — same tones as the detail banner */
+.ds-badge {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 10.5px; font-weight: 700;
+  white-space: nowrap;
 }
+.ds-badge.ok   { background: var(--color-success-bg); color: var(--color-success); }
+.ds-badge.warn { background: rgba(245,158,11,0.14); color: #B45309; }
+.ds-badge.info { background: var(--color-info-bg); color: #1D4ED8; }
+.ds-badge.bad  { background: var(--color-danger-bg); color: #B91C1C; }
+html.theme-dark .ds-badge.warn { color: #F5C069; }
+html.theme-dark .ds-badge.info { color: #93B8FF; }
+html.theme-dark .ds-badge.bad  { color: #F59A9A; }
 
-.source-type {
-  font-size: 11px; color: var(--text-muted); font-weight: 500;
-  margin-top: 1px;
+/* ---- Detail ---- */
+.ds-detail {
+  padding: 16px 22px;
+  min-width: 0;
+  overflow-y: auto;
+  display: flex; flex-direction: column; gap: 12px;
 }
+/* Keep each block at its natural height — as flex children they'd otherwise be squashed (the
+   facts grid collapsed to 4px) instead of letting the pane scroll on short screens. */
+.ds-detail > * { flex-shrink: 0; }
+.ds-detail-empty { margin: auto; font-size: 13px; color: var(--text-muted); text-align: center; max-width: 320px; }
 
-.source-stat-row {
-  display: grid; grid-template-columns: 1fr 1fr;
-  gap: 10px; margin-top: 12px;
+.ds-detail-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.ds-detail-icon {
+  width: 48px; height: 48px; flex-shrink: 0;
+  border-radius: 13px;
+  display: inline-flex; align-items: center; justify-content: center;
 }
+.ds-detail-icon svg { width: 22px; height: 22px; }
+.ds-detail-title { flex: 1; min-width: 180px; }
+.ds-detail-title h3 { font-size: 17px; font-weight: 700; color: var(--text-primary); line-height: 1.3; }
+.ds-detail-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; overflow-wrap: anywhere; }
+.ds-detail-sub a { color: var(--color-accent-hover); text-decoration: underline; text-underline-offset: 2px; }
+.ds-detail-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.ds-detail-actions svg { width: 13px; height: 13px; }
+.ds-detail-actions .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.source-stat-item label {
-  font-size: 10px; color: var(--text-muted);
-  text-transform: uppercase; letter-spacing: 0.5px;
-  font-weight: 600;
+.ds-banner {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--border-radius);
+  border: 1px solid;
+  border-left-width: 4px;
 }
+.ds-banner-icon { display: inline-flex; flex-shrink: 0; }
+.ds-banner-icon svg { width: 20px; height: 20px; }
+.ds-banner-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.ds-banner-text b { font-size: 13.5px; color: var(--text-primary); }
+.ds-banner-text span { font-size: 12.5px; color: var(--text-secondary); line-height: 1.45; }
+.ds-banner.ok   { background: var(--color-success-bg); border-color: rgba(45,138,80,0.28); border-left-color: var(--color-success); }
+.ds-banner.ok .ds-banner-icon { color: var(--color-success); }
+.ds-banner.warn { background: rgba(245,158,11,0.10); border-color: rgba(245,158,11,0.3); border-left-color: var(--color-warning); }
+.ds-banner.warn .ds-banner-icon { color: #B45309; }
+.ds-banner.info { background: var(--color-info-bg); border-color: rgba(59,130,246,0.28); border-left-color: var(--color-info); }
+.ds-banner.info .ds-banner-icon { color: var(--color-info); }
+.ds-banner.bad  { background: var(--color-danger-bg); border-color: rgba(239,68,68,0.28); border-left-color: var(--color-danger); }
+.ds-banner.bad .ds-banner-icon { color: var(--color-danger); }
 
-.source-stat-item .val {
-  font-size: 13px; color: var(--text-primary); font-weight: 600;
-  font-family: var(--font-mono);
-  margin-top: 2px;
+.ds-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  overflow: hidden;
 }
-
-.source-card-actions {
-  display: flex; gap: 8px; margin-top: 14px;
+.ds-fact {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 9px 14px;
+  min-width: 0;
+  border-right: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
 }
+.ds-fact:nth-child(3n) { border-right: none; }
+.ds-fact:nth-child(n+4) { border-bottom: none; }
+.ds-fact:last-child { grid-column: span 2; }
+.ds-fact-label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-muted); }
+.ds-fact-value { font-size: 13px; font-weight: 600; color: var(--text-primary); line-height: 1.4; }
+.ds-fact-sub { font-size: 11.5px; color: var(--text-muted); }
+.ds-link {
+  align-self: flex-start;
+  border: none; background: none; padding: 0;
+  font-family: var(--font-sans); font-size: 12px; font-weight: 600;
+  color: var(--color-accent-hover);
+  cursor: pointer;
+}
+.ds-link:hover { text-decoration: underline; text-underline-offset: 2px; }
 
-.source-data-type {
-  font-size: 12px;
+.ds-section-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase;
   color: var(--text-muted);
-  margin-bottom: 10px;
+  margin-bottom: -4px;
+}
+.ds-values-meta { font-size: 11.5px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+.ds-values {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+.ds-values.is-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.ds-value {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 8px 12px;
+  border-radius: var(--border-radius-sm);
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  min-width: 0;
+}
+.ds-value-label { font-size: 11.5px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds-value-num { font-size: 15px; font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.ds-value-num small { font-size: 11px; font-weight: 500; color: var(--text-muted); margin-left: 1px; }
+.ds-values-empty { font-size: 12.5px; color: var(--text-muted); }
+
+/* DA rice prices: origin × grade matrix */
+.ds-matrix {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  overflow: hidden;
+  table-layout: fixed;
+}
+.ds-matrix th, .ds-matrix td { padding: 7px 12px; text-align: right; border-bottom: 1px solid var(--border-color); }
+.ds-matrix tr:last-child th, .ds-matrix tr:last-child td { border-bottom: none; }
+.ds-matrix thead th {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+  color: var(--text-muted); background: var(--bg-input);
+}
+.ds-matrix thead th:first-child, .ds-matrix tbody th { text-align: left; }
+.ds-matrix tbody th { font-size: 12px; font-weight: 700; color: var(--text-secondary); width: 22%; }
+.ds-matrix td { font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+html.theme-dark .ds-matrix thead th { background: rgba(0,0,0,0.15); }
+
+/* ---- Fit-to-screen density ----
+   The page is sized to exactly the space under the topbar (.ds-page above). These tighter
+   paddings/type are what let a whole source — header, status, facts and all 8 rice prices —
+   fit that space without the detail pane scrolling, down to a ~620px-tall laptop window. */
+.ds-page > .section-header { margin-bottom: 12px; }
+.ds-kpis { gap: 12px; margin-bottom: 12px; }
+.ds-kpi { padding: 10px 14px; gap: 12px; }
+.ds-kpi-icon { width: 36px; height: 36px; border-radius: 10px; }
+.ds-kpi-icon svg { width: 17px; height: 17px; }
+.ds-kpi-value { font-size: 18px; }
+.ds-list { padding: 12px 10px; }
+.ds-item { padding: 8px 10px; }
+.ds-detail { padding: 14px 20px 12px; gap: 10px; }
+.ds-detail-icon { width: 42px; height: 42px; border-radius: 12px; }
+.ds-detail-icon svg { width: 20px; height: 20px; }
+.ds-detail-title h3 { font-size: 16px; }
+.ds-banner { padding: 9px 12px; }
+/* Title and explanation run on as one sentence instead of two stacked lines. */
+.ds-banner-text { flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: 6px; }
+.ds-fact { padding: 8px 14px; }
+.ds-value { padding: 7px 11px; }
+.ds-value-num { font-size: 14px; }
+
+/* ---- Responsive ---- */
+@media (max-width: 1280px) {
+  .ds-panel { grid-template-columns: 240px minmax(0, 1fr); }
+}
+@media (max-width: 1100px) {
+  .ds-panel { grid-template-columns: 200px minmax(0, 1fr); }
+  .ds-kpi { padding: 9px 12px; gap: 10px; }
+  .ds-kpi-icon { width: 32px; height: 32px; }
+  .ds-kpi-value { font-size: 16px; }
+  .ds-item-meta .ds-item-time { display: none; }
+  .ds-detail { padding: 12px 16px 10px; gap: 8px; }
+  .ds-values { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); }
+  .ds-value { padding: 6px 10px; }
+  /* Keep the source header on one line: title truncates, Visit becomes icon-only. */
+  .ds-detail-head { flex-wrap: nowrap; gap: 12px; }
+  .ds-detail-title { min-width: 0; }
+  .ds-detail-title h3, .ds-detail-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ds-btn-label { display: none; }
+  .ds-fact { padding: 7px 12px; }
+  .ds-fact-value { font-size: 12.5px; }
+  .ds-fact-note { display: none; }
+  .ds-values.is-grid .ds-value { flex-direction: row; justify-content: space-between; align-items: baseline; gap: 6px; padding: 6px 10px; }
+  .ds-values.is-grid .ds-value-label { flex: 1 1 auto; min-width: 0; }
+  .ds-values.is-grid .ds-value-num { font-size: 13px; flex-shrink: 0; }
+  .ds-matrix th, .ds-matrix td { padding: 6px 8px; }
+  .ds-matrix td { font-size: 13px; }
+}
+/* Short laptop windows: drop the secondary lines (the KPI captions and the banner's second
+   sentence, which stays available as a tooltip) so everything still fits without scrolling. */
+@media (max-height: 700px) and (min-width: 901px) {
+  .ds-page > .section-header { margin-bottom: 8px; }
+  .ds-kpis { margin-bottom: 10px; }
+  .ds-kpi { padding: 8px 12px; }
+  .ds-kpi-sub { display: none; }
+  .ds-banner-text span { display: none; }
+  .ds-detail { gap: 8px; }
+  .ds-fact-note { display: none; }
+  .ds-values.is-grid .ds-value { flex-direction: row; justify-content: space-between; align-items: baseline; gap: 6px; padding: 6px 10px; }
+  .ds-values.is-grid .ds-value-label { flex: 1 1 auto; min-width: 0; }
+  .ds-values.is-grid .ds-value-num { font-size: 13px; flex-shrink: 0; }
+  .ds-matrix th, .ds-matrix td { padding: 5px 10px; }
+}
+/* Very short windows (or short + narrow laptops): KPI cards become single-line chips
+   (label + value, no icon). */
+@media (max-height: 620px) and (min-width: 901px), (max-height: 700px) and (max-width: 1100px) and (min-width: 901px) {
+  .ds-kpi { padding: 7px 12px; }
+  .ds-kpi-icon { display: none; }
+  .ds-kpi-body { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  .ds-kpi-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ds-kpi-value { font-size: 15px; }
+  .ds-detail-icon { width: 36px; height: 36px; }
+  .ds-detail { padding-top: 10px; padding-bottom: 8px; }
+  .ds-banner { padding: 7px 12px; }
+}
+/* Tablets and phones: stack the list over the detail and let the page scroll normally. */
+@media (max-width: 900px) {
+  .ds-page { height: auto; min-height: 0; }
+  .ds-panel { flex: none; grid-template-columns: 1fr; }
+  /* Undo the one-line laptop header: stacked screens have room to wrap the actions below. */
+  .ds-detail-head { flex-wrap: wrap; }
+  .ds-detail-title h3, .ds-detail-sub { white-space: normal; }
+  .ds-btn-label { display: inline; }
+  .ds-detail { overflow: visible; }
+  .ds-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ds-list { border-right: none; border-bottom: 1px solid var(--border-color); }
+  .ds-list-items { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .ds-item-sub { display: none; }
+  .ds-item-meta .ds-item-time { display: inline; }
+  .ds-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ds-fact { border-right: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); }
+  .ds-fact:nth-child(3n) { border-right: 1px solid var(--border-color); }
+  .ds-fact:nth-child(2n) { border-right: none; }
+  .ds-fact:last-child { grid-column: 1 / -1; border-bottom: none; }
+  .ds-values.is-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .ds-kpis { gap: 10px; }
+  /* Two KPIs per row leaves ~150px each: icon on top, text below, allowed to wrap. */
+  .ds-kpi { padding: 12px; gap: 8px; flex-direction: column; align-items: flex-start; }
+  .ds-kpi-icon { width: 32px; height: 32px; }
+  .ds-kpi-value { font-size: 17px; white-space: normal; }
+  .ds-kpi-sub { white-space: normal; }
+  .ds-list-items { grid-template-columns: 1fr; }
+  .ds-detail { padding: 16px; }
+  .ds-detail-actions { width: 100%; }
+  .ds-detail-actions > * { flex: 1; justify-content: center; }
+  .ds-facts { grid-template-columns: 1fr; }
+  .ds-fact, .ds-fact:nth-child(3n), .ds-fact:nth-child(2n) { border-right: none; }
+  .ds-fact:nth-child(n+4) { border-bottom: 1px solid var(--border-color); }
+  .ds-fact:last-child { border-bottom: none; }
+  .ds-matrix th, .ds-matrix td { padding: 6px 5px; }
+  .ds-matrix td { font-size: 11.5px; }
+  .ds-matrix thead th { font-size: 9px; letter-spacing: 0.2px; }
+  .ds-matrix tbody th { font-size: 11px; width: 24%; }
 }
 
-.source-stat-hint {
-  font-size: 10px;
-  color: var(--text-muted);
-  font-weight: 500;
-  margin-top: 2px;
-}
-
-.endpoint-val {
-  font-size: 10px;
-  word-break: break-all;
-}
-
+/* ============================================
+   Shared ds-modal dialogs — still used by admin/js/training.js
+   ============================================ */
 /* Modals */
 .ds-modal-overlay {
   position: fixed;

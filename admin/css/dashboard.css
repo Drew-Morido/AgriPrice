@@ -2,6 +2,16 @@
    AgriPricePH - Dashboard Module CSS
    ============================================ */
 
+/* ── Market stat cards ──
+   The top row mixes two different kinds of cards — market indicators (Currency, Diesel) and
+   model-performance indicators (MAE, Hit Rate, Records). A tinted background + left accent
+   border was tried here first, but that exact treatment (rgba tint + border-left accent) is
+   already this app's vocabulary for a system warning/notice (see .tx-alert-banner in
+   taxes.css) — using it on ordinary market data reads as "something needs attention" when
+   nothing does. The "Market" pill text already does the job of telling these two apart from
+   the model-performance cards, the same way every other stat card's pill carries its own
+   category (Strong/Fair/Review, Typical Miss, Live) — so no extra card-level styling needed. */
+
 /* ── Rice Type Price Row ── */
 .rice-price-row {
   display: flex;
@@ -44,17 +54,8 @@
 .rice-trend.down { color: var(--color-accent); }
 .rice-trend.flat { color: var(--text-muted); }
 
-/* ── Alert Item ── */
-.alert-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.alert-item:last-child { border-bottom: none; }
-
+/* .alert-dot is still used by the topbar notification panel (admin/js/topbar.js) even though
+   the dashboard's own Recent Alerts card (the only other user of this block) was removed. */
 .alert-dot {
   width: 8px; height: 8px;
   border-radius: 50%;
@@ -65,23 +66,6 @@
 .alert-dot.red    { background: var(--color-danger); }
 .alert-dot.orange { background: var(--color-warning); }
 .alert-dot.blue   { background: var(--color-info); }
-
-.alert-text {
-  font-size: 12px;
-  color: var(--text-secondary);
-  line-height: 1.5;
-}
-
-.alert-text strong {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.alert-time {
-  font-size: 10px;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
 
 /* ── Mini Sparkline ── */
 .sparkline-row {
@@ -126,77 +110,75 @@
   min-height: 30px;
 }
 
-/* ── Prediction Timeline ── */
-.pred-timeline {
-  display: flex;
+/* ── Rice Price Trend card header ── */
+/* Stacked: a top row (title/description + the Local/Imported switch), then the
+   grade legend as its own full-width row underneath. The legend used to share
+   the top row as a `flex:1` filler next to the title — its wrapping point then
+   depended on how much space the title happened to leave beside it, so the same
+   four chips wrapped differently at different window widths. Giving it its own
+   row makes it wrap the same way at every width instead. */
+.dash-trend-header {
   flex-direction: column;
-  gap: 8px;
-}
-
-.pred-day {
-  display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 10px;
 }
 
-.pred-day-label {
-  font-size: 11px;
-  color: var(--text-muted);
-  min-width: 28px;
-  font-weight: 500;
-}
-
-.pred-bar-wrap {
-  flex: 1;
-  height: 22px;
-  background: var(--bg-input);
-  border-radius: 4px;
-  overflow: hidden;
-  position: relative;
-}
-
-.pred-bar {
-  height: 100%;
-  border-radius: 4px;
-  background: linear-gradient(90deg, var(--color-accent), #2D8A50);
+.dash-trend-header-top {
   display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding-right: 8px;
-  transition: width 0.6s ease;
-}
-
-.pred-bar-val {
-  font-size: 10px;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  color: white;
-  white-space: nowrap;
-}
-
-/* ── Rice Price Trend card header ── */
-.dash-trend-header {
   flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 12px;
+  width: 100%;
+}
+
+.dash-trend-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.dash-trend-title-line {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.dash-trend-subtitle {
+  line-height: 1.4;
 }
 
 .dash-trend-legend {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px 14px;
+  gap: 8px 10px;
   font-size: 11px;
   color: var(--text-muted);
-  flex: 1;
-  justify-content: center;
-  min-width: 200px;
+  width: 100%;
 }
 
+/* Chip treatment (was bare text) — gives each grade its own tappable/hoverable
+   surface so the (i) explainer reads as part of the chip, not a stray icon
+   floating after the label, and matches the pill language used elsewhere on
+   the dashboard (.pill, .dash-pred-segment-btn). */
 .dash-legend-item {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   white-space: nowrap;
+  padding: 4px 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.dash-legend-item:hover {
+  border-color: var(--color-accent);
+  background: var(--color-success-bg);
 }
 
 .dash-legend-swatch {
@@ -207,24 +189,40 @@
   flex-shrink: 0;
 }
 
+.dash-legend-item .stat-info-icon {
+  font-size: 12px;
+  margin-left: 1px;
+}
+
 .dash-trend-select-wrap {
-  margin-left: auto;
   flex-shrink: 0;
 }
 
-@media (max-width: 900px) {
-  .dash-trend-header {
-    justify-content: space-between;
+/* Below ~380px (small phones) even the select trigger's fixed width can crowd
+   the title — let the switch drop to its own line rather than compress. */
+@media (max-width: 380px) {
+  .dash-trend-header-top {
+    flex-direction: column;
+    align-items: stretch;
   }
-  .dash-trend-legend {
-    order: 3;
-    width: 100%;
-    justify-content: flex-start;
+  /* `flex: 1 1 220px` is a WIDTH basis in the default row layout above — flipping
+     the container to `column` here turns that same 220px into a HEIGHT basis
+     instead, stretching this element to a 220px-tall empty box. Reset it to a
+     content-sized block now that it's stacking, not sharing a row. */
+  .dash-trend-header-left {
+    flex: 0 0 auto;
   }
 }
 
 /* ── Rice price predictions table (dashboard) ── */
-.dash-predictions-card { overflow: hidden; }
+/* Previously `overflow: hidden` on the card, which clipped the header row's background so it
+   didn't poke past the card's rounded corners — but that also clipped the (i) tooltip popover
+   on the "Hit Rate" column, cutting it off and making it unreadable. Round the header row's own
+   corners to match the card instead, so the card no longer needs to clip its contents. */
+.dash-pred-row-head:first-child {
+  border-top-left-radius: var(--border-radius-lg);
+  border-top-right-radius: var(--border-radius-lg);
+}
 
 .dash-pred-header {
   flex-wrap: wrap;
@@ -328,6 +326,10 @@
   pointer-events: none;
 }
 
+/* The header row disables pointer-events so its cells don't look clickable — re-enable it
+   just for the (i) tooltip trigger so hover/focus still works. */
+.dash-pred-row-head .stat-info-icon { pointer-events: auto; }
+
 html.theme-dark .dash-pred-row-head { background: var(--bg-input); }
 
 .dash-pred-row:hover:not(.dash-pred-row-head) {
@@ -401,9 +403,13 @@ html.theme-dark .dash-pred-row-head { background: var(--bg-input); }
   grid-template-columns: 2fr 1fr;
   gap: 20px;
   margin-top: 20px;
+  /* Each column holds exactly one card now (trend chart / today's prices) — grid's default
+     `stretch` is what we want here, so they read as one even two-card row instead of whichever
+     card's content happens to be taller dictating its own height. */
 }
 
 .dashboard-col { display: flex; flex-direction: column; gap: 20px; }
+.dashboard-col > .card { height: 100%; }
 
 /* ── Data source pill strip ── */
 .source-strip {
@@ -438,140 +444,9 @@ html.theme-dark .dash-pred-row-head { background: var(--bg-input); }
   .dashboard-grid { grid-template-columns: 1fr; }
 }
 
-.ds-row {
-  display: grid;
-  grid-template-columns: 2fr 2fr 1fr 1fr 1fr;
-  align-items: center;
-  padding: 9px 16px;
-  border-bottom: 1px solid var(--border-color);
-  gap: 8px;
-  font-size: 12px;
-  transition: background var(--transition-fast);
-}
-
-.ds-row:hover { background: var(--bg-body); }
-.ds-row:last-child { border-bottom: none; }
-
-.ds-header {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  background: #FAFCFB;
-  pointer-events: none;
-}
-
-.ds-name {
-  font-weight: 700;
-  font-size: 12px;
-}
-
-.ds-type {
-  color: var(--text-secondary);
-  font-size: 11px;
-}
-
-.ds-fetch {
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 11px;
-}
-
-.ds-today {
-  color: var(--color-accent);
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 12px;
-}
-
 .pill-gray {
   background: var(--bg-input);
   color: var(--text-muted);
   border: 1px solid var(--border-color);
-}
-
-/* ── Filterable card headers (Key Indicators, 3-Day Forecast) ── */
-.dash-filter-header {
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.dash-filter-header-left {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.dash-filter-controls {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-/* Sized to sit level with .dash-pred-segment next to it */
-.dash-filter-select {
-  padding: 6px 8px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius-sm);
-  cursor: pointer;
-  max-width: 130px;
-}
-
-.dash-filter-select:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
-}
-
-/* Key Indicators: two tiles side by side, the third spanning the full row so a
-   3-tile card doesn't leave an empty cell in the 2-column grid. */
-.ki-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-.ki-tile-wide { grid-column: 1 / -1; }
-
-.ki-tile-label {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.ki-tile-value {
-  font-size: 13px;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  margin-top: 4px;
-}
-
-/* ── Recent Alerts footer ── */
-.dash-alerts-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 10px 20px;
-  border-top: 1px solid var(--border-color);
-}
-
-/* Forecast value rendered beside the bar, not inside it: a price RANGE is about twice as wide as
-   a single figure and gets clipped by .pred-bar's overflow on a short bar or in a narrow column. */
-.pred-bar-out {
-  font-size: 10.5px;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  color: var(--text-primary);
-  white-space: nowrap;
-  flex-shrink: 0;
 }
 

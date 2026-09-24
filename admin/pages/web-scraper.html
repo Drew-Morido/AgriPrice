@@ -75,7 +75,7 @@
       <div class="schedule-list" style="display:flex;flex-direction:column;gap:0;">
 
         <!-- Header row -->
-        <div style="display:grid;grid-template-columns:1fr 110px 160px 90px;gap:8px;
+        <div class="schedule-head" style="display:grid;grid-template-columns:1fr 110px 160px 90px;gap:8px;
           padding:6px 12px 8px;border-bottom:1px solid rgba(76,175,110,0.15);
           font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;
           color:var(--text-muted,#8aad99);">
@@ -106,18 +106,11 @@
           <span id="pill-rate" class="pill pill-green" style="text-align:center;justify-self:center;">Active</span>
         </div>
 
-        <div class="schedule-item" style="display:grid;grid-template-columns:1fr 110px 160px 90px;gap:8px;align-items:center;padding:11px 12px;border-bottom:1px solid rgba(76,175,110,0.08);">
-          <span class="schedule-name">PSA Stock Level</span>
-          <span class="schedule-time" style="font-size:12px;">Monthly 1st</span>
-          <span class="schedule-next" id="next-psa" style="font-size:12px;">Next: —</span>
-          <span id="pill-psa" class="pill pill-gray" style="text-align:center;justify-self:center;">Planned</span>
-        </div>
-
         <div class="schedule-item" style="display:grid;grid-template-columns:1fr 110px 160px 90px;gap:8px;align-items:center;padding:11px 12px;">
-          <span class="schedule-name">PAGASA Rainfall</span>
-          <span class="schedule-time" style="font-size:12px;">Every 3h</span>
-          <span class="schedule-next" id="next-pagasa" style="font-size:12px;">Next: —</span>
-          <span id="pill-pagasa" class="pill pill-gray" style="text-align:center;justify-self:center;">Planned</span>
+          <span class="schedule-name">Tariff Commission (Rice Tariff)</span>
+          <span class="schedule-time" style="font-size:12px;">Daily check</span>
+          <span class="schedule-next" id="next-tariff" style="font-size:12px;">Next: —</span>
+          <span id="pill-tariff" class="pill pill-green" style="text-align:center;justify-self:center;">Active</span>
         </div>
 
       </div>

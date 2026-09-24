@@ -314,7 +314,13 @@ def add_tariff_quarter(rate_pct: float, effective_start: str, effective_end: str
 
 def set_tariff_active(tariff_id: int, active: bool, actor: str = "admin") -> dict:
     """Activate/deactivate a tariff row (keeps the record for history/audit). An inactive row is
-    never selected by _applicable_tariff()/consumer_price(), so it cannot affect calculations."""
+    never selected by _applicable_tariff()/consumer_price(), so it cannot affect calculations.
+
+    Activating a row whose entry_type is 'SCRAPED' (staged by the automated tariff-finder scraper,
+    see add_scraped_tariff_candidate) also promotes it to verified/OFFICIAL: the admin's click to
+    activate a scraped candidate, after checking the linked source, IS the human confirmation this
+    system requires before a legally-binding, consumer-facing rate goes live. Activating any other
+    row, or deactivating, behaves exactly as before."""
     try:
         tid = int(tariff_id)
     except (TypeError, ValueError):
@@ -325,23 +331,87 @@ def set_tariff_active(tariff_id: int, active: bool, actor: str = "admin") -> dic
         if not _has_table(conn, "tariff_schedule"):
             return {"ok": False, "error": "Tariff schedule not initialized."}
         row = conn.execute(
-            "SELECT id,rate_pct,effective_start,effective_end,quarter_label,active "
+            "SELECT id,rate_pct,effective_start,effective_end,quarter_label,active,entry_type "
             "FROM tariff_schedule WHERE id=?", (tid,)).fetchone()
         if not row:
             return {"ok": False, "error": f"Tariff #{tid} not found."}
         if int(row["active"]) == active_int:
             return {"ok": True, "id": tid, "active": bool(active_int),
                     "quarter_label": row["quarter_label"], "unchanged": True}
-        conn.execute("UPDATE tariff_schedule SET active=? WHERE id=?", (active_int, tid))
+        promote = active_int == 1 and str(row["entry_type"] or "").upper() == "SCRAPED"
+        if promote:
+            conn.execute(
+                "UPDATE tariff_schedule SET active=1, verified=1, entry_type='OFFICIAL', "
+                "approved_by=?, approved_at=datetime('now') WHERE id=?", (actor, tid))
+        else:
+            conn.execute("UPDATE tariff_schedule SET active=? WHERE id=?", (active_int, tid))
         conn.execute(
             "INSERT INTO tariff_audit(action,rate_pct,effective_start,effective_end,quarter_label,"
             "actor,detail) VALUES (?,?,?,?,?,?,?)",
             ("activate" if active_int else "deactivate", row["rate_pct"], row["effective_start"],
              row["effective_end"], row["quarter_label"], actor,
-             f"status {int(row['active'])}->{active_int}"))
+             f"status {int(row['active'])}->{active_int}" +
+             (" (approved scraped candidate -> OFFICIAL, verified)" if promote else "")))
         conn.commit()
         return {"ok": True, "id": tid, "active": bool(active_int),
-                "quarter_label": row["quarter_label"], "rate_pct": row["rate_pct"]}
+                "quarter_label": row["quarter_label"], "rate_pct": row["rate_pct"],
+                "promoted": promote}
+    finally:
+        conn.close()
+
+
+def add_scraped_tariff_candidate(rate_pct: float, effective_start: str, effective_end: str | None = None,
+                                 quarter_label: str | None = None, legal_basis: str | None = None,
+                                 da_certification_url: str | None = None, source: str | None = None) -> dict:
+    """Stage a tariff rate detected by the automated scraper (tools/scrap.py::fetch_tariff_rate,
+    which reads the Tariff Commission's own Philippine Tariff Finder) as an INACTIVE, unverified
+    candidate row — never live, never auto-applied. _applicable_tariff() and consumer_price() only
+    ever consider active=1 rows, so this cannot affect a public price until an admin reviews the
+    linked source and clicks Activate (see set_tariff_active's promotion behavior above).
+
+    Skips silently — returns {"ok": False, "duplicate": True} — when a row (pending or live)
+    already exists for this exact effective_start, so a daily scrape re-run doesn't pile up
+    repeat candidates for a quarter that's already been staged or confirmed."""
+    try:
+        rate = float(rate_pct)
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "rate_pct must be a number."}
+    if not (TARIFF_BAND_MIN <= rate <= TARIFF_BAND_MAX):
+        return {"ok": False,
+                "error": f"rate_pct {rate} outside the legal {TARIFF_BAND_MIN:.0f}-{TARIFF_BAND_MAX:.0f}% "
+                         "band — refusing to stage what the source itself would flag as invalid."}
+    try:
+        _dt.date.fromisoformat((effective_start or "")[:10])
+    except (ValueError, TypeError):
+        return {"ok": False, "error": "effective_start must be YYYY-MM-DD."}
+    conn = _connect()
+    try:
+        if not _has_table(conn, "tariff_schedule"):
+            return {"ok": False, "error": "Tariff schedule not initialized."}
+        _ensure_entry_type(conn)
+        existing = conn.execute(
+            "SELECT id,active FROM tariff_schedule WHERE effective_start=?",
+            (effective_start[:10],)).fetchone()
+        if existing:
+            return {"ok": False, "duplicate": True, "id": existing["id"],
+                    "error": f"A tariff row already exists for {effective_start[:10]} "
+                             f"({'active' if existing['active'] else 'pending review'})."}
+        qlabel = quarter_label or _quarter_label(effective_start)
+        cur = conn.execute(
+            "INSERT INTO tariff_schedule(rate_pct,effective_start,effective_end,quarter_label,"
+            "legal_basis,da_certification_url,source,verified,approved_by,approved_at,active,"
+            "entry_type,notes) VALUES (?,?,?,?,?,?,?,0,NULL,NULL,0,'SCRAPED',?)",
+            (rate, effective_start[:10], (effective_end or None), qlabel, legal_basis,
+             da_certification_url, source,
+             "Detected by the automated Tariff Finder scraper — pending admin review before "
+             "it can take effect."))
+        conn.execute(
+            "INSERT INTO tariff_audit(action,rate_pct,effective_start,effective_end,quarter_label,"
+            "actor,detail) VALUES ('scrape_detect',?,?,?,?,'scraper',?)",
+            (rate, effective_start[:10], (effective_end or None), qlabel,
+             f"Auto-detected via {source or 'scraper'}; staged inactive pending admin approval."))
+        conn.commit()
+        return {"ok": True, "id": cur.lastrowid, "quarter_label": qlabel, "rate_pct": rate, "staged": True}
     finally:
         conn.close()
 

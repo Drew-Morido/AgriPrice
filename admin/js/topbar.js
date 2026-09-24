@@ -68,6 +68,8 @@ AgriPricePH.Topbar = (function () {
       keywords: ['alerts', 'price alert', 'alert rules', 'notification', 'notifications'] },
     { id: 'reports', group: 'Modules', label: 'Reports & Export', route: 'reports',
       keywords: ['reports', 'export', 'csv export', 'download'] },
+    { id: 'users', group: 'Modules', label: 'User Management', route: 'users',
+      keywords: ['users', 'user management', 'accounts', 'admin accounts', 'retailers', 'deactivate', 'manage users'] },
     { id: 'settings', group: 'Modules', label: 'System Settings', route: 'settings',
       keywords: ['settings', 'config', 'configuration', 'email alerts'] },
     { id: 'logs', group: 'Modules', label: 'System Logs', route: 'logs',
@@ -82,10 +84,74 @@ AgriPricePH.Topbar = (function () {
   function init() {
     bindSearch();
     bindAlertPanels();
+    bindAccountLink();
     refreshAlertBadge();
     setInterval(refreshAlertBadge, 60_000);
     refreshSidebarBadges();
     setInterval(refreshSidebarBadges, 120_000);
+    refreshUserBadge();
+    bindTopbarClock();
+  }
+
+  /** "September 24, 2026" / "02:45 PM" in the navbar, refreshed on a light interval since the
+      display only shows minutes, not seconds. */
+  function bindTopbarClock() {
+    const dateEl = document.getElementById('topbar-clock-date');
+    const timeEl = document.getElementById('topbar-clock-time');
+    if (!dateEl || !timeEl) return;
+    const update = () => {
+      const now = new Date();
+      dateEl.textContent = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      timeEl.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    };
+    update();
+    setInterval(update, 15_000);
+  }
+
+  function bindAccountLink() {
+    document.getElementById('topbar-account-btn')?.addEventListener('click', () => {
+      closeAlertsPanel();
+      AgriPricePH.Router.navigate('account');
+    });
+  }
+
+  function _initials(name) {
+    const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return 'AD';
+    return (parts[0][0] + (parts[1]?.[0] || '')).toUpperCase();
+  }
+
+  /* Reflects the saved admin profile (name/role/avatar) in the topbar. Called on load and again
+     after Account Profile saves a change, so the topbar never shows a stale name/photo. */
+  async function refreshUserBadge() {
+    try {
+      // Additional admins (Admin → User Management) have their own name/role; only the built-in
+      // admin's profile lives in /api/settings.
+      const me = await AgriPricePH.API.get('/api/admin/me', { noCache: true }).then((r) => r.admin).catch(() => null);
+      if (me && me.kind === 'account') {
+        paintUserBadge(me.name, me.role === 'super_admin' ? 'Super Admin' : 'Admin', null);
+        return;
+      }
+      const data = await AgriPricePH.API.get('/api/settings');
+      if (!data.ready) return;
+      const sec = data.settings?.security || {};
+      paintUserBadge(sec.admin_display_name || 'Admin User', sec.admin_role || 'System Admin', sec.admin_avatar);
+    } catch {
+      /* offline — keep whatever is currently rendered */
+    }
+  }
+
+  function paintUserBadge(name, role, avatar) {
+    const nameEl = document.getElementById('topbar-user-name');
+    const roleEl = document.getElementById('topbar-user-role');
+    const avatarEl = document.getElementById('topbar-avatar');
+    if (nameEl) nameEl.textContent = name;
+    if (roleEl) roleEl.textContent = role;
+    if (avatarEl) {
+      avatarEl.innerHTML = avatar
+        ? `<img src="${avatar}" alt="${escapeHtml(name)}" />`
+        : escapeHtml(_initials(name));
+    }
   }
 
   /* Sidebar nav counters. These were hardcoded in admin/index.html ("2" alerts, "3" sources,
@@ -240,17 +306,11 @@ AgriPricePH.Topbar = (function () {
 
   function bindAlertPanels() {
     const notifBtn = document.getElementById('topbar-notif-btn');
-    const infoBtn = document.getElementById('topbar-info-btn');
-    const panel = document.getElementById('topbar-alerts-panel');
     const closeBtn = document.getElementById('topbar-alerts-close');
 
     notifBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
-      toggleAlertsPanel('notifications');
-    });
-    infoBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleAlertsPanel('info');
+      toggleAlertsPanel();
     });
     closeBtn?.addEventListener('click', closeAlertsPanel);
     document.getElementById('topbar-alerts-view-all')?.addEventListener('click', () => {
@@ -265,22 +325,17 @@ AgriPricePH.Topbar = (function () {
     });
   }
 
-  async function toggleAlertsPanel(mode) {
+  async function toggleAlertsPanel() {
     const panel = document.getElementById('topbar-alerts-panel');
-    const title = document.getElementById('topbar-alerts-panel-title');
     if (!panel) return;
 
-    if (_panelOpen && panel.dataset.mode === mode) {
+    if (_panelOpen) {
       closeAlertsPanel();
       return;
     }
 
     _panelOpen = true;
-    panel.dataset.mode = mode;
     panel.hidden = false;
-    if (title) {
-      title.textContent = mode === 'info' ? 'Alerts & System Info' : 'Notifications';
-    }
     panel.querySelector('.topbar-alerts-body').innerHTML =
       '<div class="text-muted" style="padding:16px;font-size:12px;">Loading alerts…</div>';
     await loadAlertsPanel();
@@ -329,9 +384,7 @@ AgriPricePH.Topbar = (function () {
     }
 
     if (footer) {
-      footer.textContent = document.getElementById('topbar-alerts-panel')?.dataset.mode === 'info'
-        ? 'Price alerts from your active rules. Open Price Alerts to manage rules.'
-        : 'Latest triggered price alerts from the notification log.';
+      footer.textContent = 'Latest triggered price alerts from the notification log.';
     }
   }
 
@@ -372,5 +425,5 @@ AgriPricePH.Topbar = (function () {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
-  return { init, refreshAlertBadge, closeAlertsPanel };
+  return { init, refreshAlertBadge, closeAlertsPanel, refreshUserBadge };
 })();

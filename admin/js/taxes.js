@@ -185,9 +185,11 @@ AgriPricePH.Taxes = (function () {
     const defaultCharges = _taxRows.filter(t => t.kind !== 'tariff'); // always active, not toggleable
     const totalCharges = defaultCharges.length + _tariffSchedule.length;
     const activeCharges = defaultCharges.length + _tariffSchedule.filter(r => r.active).length;
-    const deactivated = _tariffSchedule.filter(r => !r.active).length;
+    // Pending scraped candidates are excluded here — they're not deactivated history, they're new
+    // and waiting on a first look (counted in "Needs review" below instead).
+    const deactivated = _tariffSchedule.filter(r => !r.active && !isPendingScraped(r)).length;
     const unverified = defaultCharges.filter(t => !t.verified).length
-      + _tariffSchedule.filter(r => r.active && !r.verified).length;
+      + _tariffSchedule.filter(r => (r.active && !r.verified) || isPendingScraped(r)).length;
 
     const percentRates = [
       ...defaultCharges.filter(t => t.rate_pct != null).map(t => Number(t.rate_pct)),
@@ -229,10 +231,18 @@ AgriPricePH.Taxes = (function () {
     renderStats();
   }
 
+  // A candidate the tariff-finder scraper detected and staged — inactive, unverified, never
+  // auto-applied (see api/catalog_service.py::add_scraped_tariff_candidate). Distinct from a
+  // row an admin manually deactivated: that's history; this is waiting for a first look.
+  function isPendingScraped(r) {
+    return !r.active && String(r.entry_type || '').toUpperCase() === 'SCRAPED';
+  }
+
   // ================= Tariff schedule (the real editable resource) =================
   async function loadTariff() {
     const chip = $('tariff-status-chip');
     const staleWrap = $('tariff-stale-wrap');
+    const pendingWrap = $('tariff-pending-wrap');
     try {
       const d = await AgriPricePH.API.tariff();
       _tariffSchedule = d.schedule || [];
@@ -245,6 +255,25 @@ AgriPricePH.Taxes = (function () {
         } else {
           chip.innerHTML = `<span class="tx-pulse-dot"></span> No tariff rate loaded`;
         }
+      }
+
+      if (pendingWrap) {
+        // The scraper only ever stages a candidate — it never touches the live rate. This banner
+        // is what makes that staging visible without an admin having to think to check
+        // "Show deactivated"; the row itself is also always shown regardless of that toggle
+        // (see renderTariffTable's isPendingScraped check).
+        const pending = _tariffSchedule.filter(isPendingScraped);
+        cleanupMovedPopovers(pendingWrap);
+        pendingWrap.innerHTML = pending.length
+          ? `<div class="tx-alert-banner tx-alert-info">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+              ${pending.length === 1
+                ? `A new rate candidate (${esc(pending[0].quarter_label || '')} @ ${pending[0].rate_pct}%) was found by the Tariff Finder scraper and is waiting for review below.`
+                : `${pending.length} new rate candidates from the Tariff Finder scraper are waiting for review below.`}
+              ${infoBtnHtml('pendingInfoBtn', 'Why this needs a human',
+                'The scraper reads the Tariff Commission\'s own Philippine Tariff Finder, but a wrong import-duty figure would misinform the public consumer-price calculator — so it only ever stages a candidate here. Open the linked source, confirm the rate, then click Activate to publish it.')}
+            </div>`
+          : '';
       }
 
       if (staleWrap) {
@@ -286,7 +315,10 @@ AgriPricePH.Taxes = (function () {
     // schedule — currently just VAT. The Tariff default isn't duplicated here: it's whichever
     // schedule row below is currently applicable, marked with the same "Default" badge.
     let defaultCharges = _taxRows.filter(t => t.kind !== 'tariff');
-    let rows = _tariffSchedule.filter(r => showInactive || r.active);
+    // A scraper-staged candidate stays visible even with "Show deactivated" unchecked — it isn't
+    // deactivated history, it's a new thing waiting on the admin, and hiding it behind a checkbox
+    // nobody thinks to tick defeats the point of staging it here at all.
+    let rows = _tariffSchedule.filter(r => showInactive || r.active || isPendingScraped(r));
     if (query) {
       defaultCharges = defaultCharges.filter(t =>
         String(t.name || '').toLowerCase().includes(query) ||
@@ -337,15 +369,18 @@ AgriPricePH.Taxes = (function () {
     const scheduleRowsHtml = rows.map(r => {
       const isActive = !!r.active;
       const isDefault = !!(_tariffApplicable && r.id === _tariffApplicable.id);
-      const isAdmin = String(r.entry_type || 'OFFICIAL').toUpperCase() === 'ADMIN';
-      const addedByBadge = isAdmin
-        ? '<span class="pill pill-admin">Admin Entry</span>'
-        : '<span class="pill pill-success">Official / System</span>';
+      const entryType = String(r.entry_type || 'OFFICIAL').toUpperCase();
+      const pending = isPendingScraped(r);
+      const addedByBadge = pending
+        ? '<span class="pill pill-info">Scraped — Pending Review</span>'
+        : entryType === 'ADMIN'
+          ? '<span class="pill pill-admin">Admin Entry</span>'
+          : '<span class="pill pill-success">Official / System</span>';
       const identity = r.approved_by && r.approved_by !== 'seed'
         ? `<div class="text-xs text-muted" style="margin-top:3px;">${esc(r.approved_by)}${r.approved_at ? ' · ' + esc(String(r.approved_at).slice(0, 10)) : ''}</div>`
         : '';
       return `
-        <tr class="${isActive ? '' : 'tx-inactive-row'} ${r.id === _lastAddedTariffId ? 'tx-just-added' : ''}">
+        <tr class="${isActive ? '' : 'tx-inactive-row'} ${pending ? 'tx-pending-row' : ''} ${r.id === _lastAddedTariffId ? 'tx-just-added' : ''}">
           <td>
             <div class="tx-charge-name">${esc(r.quarter_label || '—')}</div>
             <div class="tx-pill-row">
@@ -363,11 +398,11 @@ AgriPricePH.Taxes = (function () {
           </td>
           <td class="tx-source-cell">${srcCell(r.da_certification_url, r.source)}</td>
           <td>${addedByBadge}${identity}</td>
-          <td>${isActive ? '<span class="pill pill-success">Active</span>' : '<span class="pill pill-neutral">Deactivated</span>'}</td>
+          <td>${isActive ? '<span class="pill pill-success">Active</span>' : pending ? '<span class="pill pill-info">Pending Review</span>' : '<span class="pill pill-neutral">Deactivated</span>'}</td>
           <td>
             <div class="tx-row-actions">
-              <button type="button" class="tx-icon-btn${isActive ? ' danger' : ''}" title="${isActive ? 'Deactivate' : 'Activate'}"
-                data-id="${r.id}" data-active="${isActive ? 1 : 0}" data-label="${esc(r.quarter_label || ('#' + r.id))}">
+              <button type="button" class="tx-icon-btn${isActive ? ' danger' : ''}" title="${isActive ? 'Deactivate' : pending ? 'Approve' : 'Activate'}"
+                data-id="${r.id}" data-active="${isActive ? 1 : 0}" data-pending="${pending ? 1 : 0}" data-label="${esc(r.quarter_label || ('#' + r.id))}">
                 ${isActive
                   ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>'
                   : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>'}
@@ -388,12 +423,18 @@ AgriPricePH.Taxes = (function () {
   async function toggleTariff(btn) {
     const id = btn.dataset.id;
     const isActive = btn.dataset.active === '1';
+    const pending = btn.dataset.pending === '1';
     const label = btn.dataset.label || ('#' + id);
     const prompt = isActive
       ? `Deactivate Tariff (${label})?\n\nThis tariff will no longer be used in current tariff / ` +
         `import-charge calculations, but the record will remain available for historical reference.`
-      : `Activate Tariff (${label})?\n\nThis tariff may become eligible for current tariff / ` +
-        `import-charge calculations according to its effective dates.`;
+      : pending
+        ? `Approve this scraped candidate (${label})?\n\nThis rate was detected automatically from the ` +
+          `Tariff Commission's Philippine Tariff Finder and has not been reviewed. Open the source link ` +
+          `in the table first and confirm it's correct — approving marks it Official/Verified and makes ` +
+          `it eligible for current tariff / import-charge calculations.`
+        : `Activate Tariff (${label})?\n\nThis tariff may become eligible for current tariff / ` +
+          `import-charge calculations according to its effective dates.`;
     if (!confirm(prompt)) return;
     btn.disabled = true;
     try {

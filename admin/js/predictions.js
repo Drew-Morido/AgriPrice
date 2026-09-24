@@ -55,9 +55,32 @@ AgriPricePH.Predictions = (function () {
   function init() {
     AgriPricePH.Dates?.applyPageDates(null);
     bindHeroToggle();
-    initSlider();
     bindOutlookDropdown();
+    bindBackToTop();
     loadPredictions();
+  }
+
+  /**
+   * Back-to-top button — same behavior as public/current-prices.html's.
+   *
+   * This page's DOM gets replaced wholesale by the SPA router on every navigation, but a
+   * `window` scroll listener doesn't die with it — without the `isConnected` check this would
+   * leak a listener (referencing a detached button) every time a visitor left and came back to
+   * this page.
+   */
+  function bindBackToTop() {
+    const btn = document.getElementById('pred-back-to-top');
+    if (!btn) return;
+    const onScroll = () => {
+      if (!btn.isConnected) {
+        window.removeEventListener('scroll', onScroll);
+        return;
+      }
+      btn.classList.toggle('show', window.scrollY > 400);
+    };
+    window.addEventListener('scroll', onScroll);
+    btn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    onScroll();
   }
 
   function getSelectedRiceKey() {
@@ -141,7 +164,6 @@ AgriPricePH.Predictions = (function () {
       }
       _forecast = data;
       _metricsByTarget = _mergeMetricsByTarget(dm?.metrics?.by_target, data.metrics?.by_target);
-      applyMetrics(dm?.metrics || data.metrics, dm);
       renderHeroFromApi(data, _heroType);
       AgriPricePH.Dates?.applyPageDates(data);
       refreshSelectedRiceView();
@@ -165,41 +187,6 @@ AgriPricePH.Predictions = (function () {
     });
     renderHeroPrices(_heroType);
     setTimeout(() => refreshSelectedRiceView(), 50);
-  }
-
-  function applyMetrics(m, dm) {
-    if (!m) return;
-    const items = document.querySelectorAll('.model-status-item');
-    const valAt = (i) => items[i]?.querySelector('.model-status-val');
-    const labelAt = (i) => items[i]?.querySelector('.model-status-label');
-    if (valAt(1) && m.mae_peso != null) {
-      valAt(1).textContent = `₱${Number(m.mae_peso).toFixed(2)}`;
-    }
-    if (valAt(2) && m.rmse_peso != null) {
-      valAt(2).textContent = `₱${Number(m.rmse_peso).toFixed(2)}`;
-    }
-    // Headline is the day-1 hit rate within ₱1.00, matching the dashboard card and the per-day
-    // figures below. The legacy `accuracy_pct` (100 − MAE/mean_price) is only a fallback for
-    // models trained before meta v4: it returns 98–99% for any model and rates the naive
-    // "tomorrow = today" baseline above the LSTM on all 8 rice types.
-    const hit1 = (dm?.metrics?.hit_rate_pct ?? m.hit_rate_pct)?.['1.00']?.[0];
-    const legacyAcc = m.avg_accuracy_pct ?? m.accuracy_pct;
-    const shown = hit1 ?? legacyAcc;
-    if (shown != null && valAt(0)) {
-      if (labelAt(0)) {
-        labelAt(0).textContent = hit1 != null
-          ? 'Forecasts within ₱1.00'
-          : 'Avg hold-out accuracy (legacy)';
-      }
-      valAt(0).textContent = `${Number(shown).toFixed(1)}%`;
-      valAt(0).style.color = accuracyBarColor(shown, hit1 != null);
-    }
-    if (dm?.model?.last_trained && valAt(3)) {
-      const d = new Date(dm.model.last_trained);
-      valAt(3).textContent = Number.isNaN(d.getTime())
-        ? String(dm.model.last_trained)
-        : d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
-    }
   }
 
   function isoPlusDays(n) {
@@ -311,10 +298,8 @@ AgriPricePH.Predictions = (function () {
     }
 
     updateTitles(label, riceKey);
-    renderForecastChart(hist, forecast);
+    renderForecastChart(hist, forecast, riceKey);
     renderForecastTable(forecast, lastPrice, riceKey);
-    renderSidebarBars(forecast, label);
-    renderConfBars(forecast, riceKey);
     updateTomorrowCard(forecast[0], label, lastPrice, riceKey);
   }
 
@@ -331,7 +316,7 @@ AgriPricePH.Predictions = (function () {
   }
 
   function updateTomorrowCard(day1, label, lastPrice, riceKey) {
-    const slide = document.querySelector('#pred-slider-card .pred-slide[data-slide="0"] .card-body');
+    const slide = document.querySelector('#pred-next-day-card .card-body');
     if (!slide || !day1) return;
     const accPct = trainAccuracyPct(riceKey, day1);
     const isHit = usingHitRate(riceKey);
@@ -421,36 +406,79 @@ AgriPricePH.Predictions = (function () {
     }).join('');
   }
 
-  function renderForecastChart(hist, forecast) {
+  function isoToMdy(iso) {
+    if (!iso) return null;
+    const [y, m, d] = iso.split('-');
+    return `${m}/${d}/${y}`;
+  }
+
+  function renderForecastChart(hist, forecast, riceKey) {
     const canvas = document.getElementById('forecast-main-chart');
     if (!canvas) return;
     const histVals = hist.values || [];
     const histLabels = hist.labels || [];
     const pred = (forecast || []).map(f => f.price);
     const predLabels = (forecast || []).map(f => f.date);
+    const anchorIdx = histVals.length - 1;
+
+    // Walk-forward backtest from the API (model/predict.py::_backtest_recent_days) — what the
+    // currently-deployed model would have predicted for each past day, using only data available
+    // up to the day before. Real, measured figures, not a fabrication: matched onto the chart's
+    // date labels so the "Predicted" line runs continuously across past AND future days instead
+    // of only appearing for the 3 upcoming ones, which is what makes "Forecast VS Historical"
+    // actually comparable on a past date.
+    const backtest = _forecast?.history_backtest?.[riceKey] || [];
+    const backtestByLabel = new Map(backtest.map(p => [isoToMdy(p.date_iso), p]));
+    const historicalPredicted = histLabels.map(lb => backtestByLabel.get(lb)?.predicted ?? null);
 
     // The Forecast series used to be [...histVals, ...pred] — i.e. it duplicated the ENTIRE
     // historical series before appending the forecast. Hovering any historical point therefore
     // listed "Historical" and "Forecast" with the same number, because for that region they were
-    // literally the same array. The forecast now exists only where a forecast exists: nulls over
-    // the historical span, anchored at the last observed price so the dashed line still joins the
-    // solid one, then the predicted days.
-    const anchorIdx = histVals.length - 1;
-    const forecastSeries = histVals.map((v, i) => (i === anchorIdx ? v : null)).concat(pred);
+    // literally the same array. It's now the backtested prediction for each past day, joined to
+    // the future forecast at the anchor (today's actual price, so the two segments meet without a
+    // visible seam) rather than duplicating the historical series.
+    const forecastSeries = historicalPredicted.slice();
+    forecastSeries[anchorIdx] = histVals[anchorIdx];
+    const combinedPredicted = forecastSeries.concat(pred);
     // Historical is padded on the right so both series span the same index range and the tooltip's
     // per-index lookup stays aligned with the labels.
     const historicalSeries = histVals.concat(pred.map(() => null));
 
+    // Hover notes: a past day with a backtested prediction shows how far off that prediction was;
+    // an upcoming forecast day shows the model's measured hold-out accuracy instead (there's no
+    // backtest for a day that hasn't happened yet).
+    const pointNotes = new Array(histLabels.length + predLabels.length).fill(null);
+    histLabels.forEach((lb, i) => {
+      const p = backtestByLabel.get(lb);
+      if (!p) return;
+      const err = Math.abs(p.predicted - p.actual);
+      pointNotes[i] = `Predicted that day: ₱${p.predicted.toFixed(2)} · off by ₱${err.toFixed(2)}${err <= 1 ? ' (within ₱1.00)' : ''}`;
+    });
+    (forecast || []).forEach((f, i) => {
+      const acc = trainAccuracyPct(riceKey, f);
+      const isHit = usingHitRate(riceKey);
+      pointNotes[histLabels.length + i] = acc != null
+        ? `Accuracy (day ${f.day}): ${acc.toFixed(1)}%${isHit ? ' of forecasts land within ₱1.00' : ' hold-out accuracy'}`
+        : `Accuracy (day ${f.day}): not available`;
+    });
+
     AgriPricePH.Charts.lineChart(canvas, [
       // Labels match the legend swatches above the chart.
-      { data: forecastSeries, color: '#8B5CF6', fill: false, lineWidth: 1.5, dashed: true, label: 'Predicted' },
-      { data: historicalSeries, color: '#4CAF6E', fill: true, lineWidth: 2.5, label: 'Historical' },
-    ], { labels: [...histLabels, ...predLabels], padding: { top: 20, right: 20, bottom: 36, left: 54 } });
+      { data: combinedPredicted, color: '#8B5CF6', fill: false, lineWidth: 1.5, dashed: true, label: 'Predicted' },
+      { data: historicalSeries, color: '#4CAF6E', fill: true, lineWidth: 2.5, label: 'Historical (actual)' },
+    ], {
+      labels: [...histLabels, ...predLabels],
+      padding: { top: 20, right: 20, bottom: 36, left: 54 },
+      yAxisLabel: '₱ per kg',
+      pointNotes,
+    });
   }
 
   function renderForecastTable(forecast, lastPrice, riceKey) {
     const tbody = document.getElementById('forecast-tbody');
     if (!tbody) return;
+    const hist = getHistoricalSlice(riceKey);
+    const tail = (hist.values || []).filter(v => Number.isFinite(v) && v > 0).slice(-10);
     let prev = lastPrice;
     tbody.innerHTML = (forecast || []).map((f, i) => {
       const delta = f.price - prev;
@@ -466,71 +494,35 @@ AgriPricePH.Predictions = (function () {
         : isHit
           ? `${accStr} of day-${f.day} forecasts landed within ₱1.00 of the real price`
           : 'Hold-out test accuracy (legacy formula)';
+      const upTo = (forecast || []).slice(0, i + 1).map(d => Number(d.price)).filter(Number.isFinite);
       return `
         <div class="forecast-row">
           <span class="forecast-date">Day ${f.day} · ${f.date}</span>
-          <canvas class="forecast-chart-cell" id="mini-chart-${i}" style="width:100%;height:28px;"></canvas>
+          ${trendCellHtml([...tail, ...upTo], tail.length, f.day)}
           <span class="forecast-price">${priceRangeHtml(f)}</span>
           <span class="forecast-change ${dir}">${arrow} ${sign}${delta.toFixed(2)}</span>
           <span class="forecast-conf" title="${escapeAttr(accTitle)}" style="color:${accuracyBarColor(acc, isHit)}">${accStr}</span>
         </div>`;
     }).join('');
-    drawTrendCells(forecast, riceKey);
   }
 
   /**
-   * The Trend column's mini sparklines.
+   * The Trend column, as a number rather than a mini sparkline.
    *
-   * The <canvas> elements were created by renderForecastTable but nothing ever drew into them, so
-   * the column had been rendering blank since it was added — there were no values to be accurate
-   * or inaccurate. Each row now shows the recent observed prices followed by the forecast path up
-   * to and including that row's day, so Day 1 / 2 / 3 are visibly different lines.
+   * The average day-over-day price change across the last 10 observed days plus the forecast path
+   * up to and including this row's day — the same window the old sparkline plotted, just reduced to
+   * its one summary number instead of a chart a reader had to eyeball the slope of. Plain text, not
+   * red/green: the Change column beside it already carries the up/down color for this row, so
+   * coloring Trend too was a second, sometimes-conflicting signal rather than a clarifying one.
    */
-  function drawTrendCells(forecast, riceKey) {
-    if (!AgriPricePH.Charts?.sparkline) return;
-    const hist = getHistoricalSlice(riceKey);
-    const tail = (hist.values || []).filter(v => Number.isFinite(v) && v > 0).slice(-10);
-    (forecast || []).forEach((f, i) => {
-      const el = document.getElementById(`mini-chart-${i}`);
-      if (!el) return;
-      const upTo = (forecast || []).slice(0, i + 1).map(d => Number(d.price)).filter(Number.isFinite);
-      const series = [...tail, ...upTo];
-      if (series.length < 2) return;
-      // Green when this day's forecast sits at or above the last observed price, red when below —
-      // the same up/down convention as the Change column beside it.
-      const rising = series[series.length - 1] >= (tail[tail.length - 1] ?? series[0]);
-      el.title = `Last ${tail.length} observed prices, then the forecast through day ${f.day}`;
-      drawWhenSized(el, () => {
-        AgriPricePH.Charts.sparkline(el, series, rising ? '#4CAF6E' : '#EF4444', true);
-      });
-    });
-  }
-
-  /**
-   * Run `draw` once the canvas actually has a width.
-   *
-   * Charts.setupDPI sizes the backing store from getBoundingClientRect(). This table is rendered
-   * while its view panel can still be laid out at zero width (the module paints during the router's
-   * page swap), and a canvas sized 0×0 silently draws nothing — which is why the Trend column
-   * appeared blank even though the sparkline call was being made. Retry across a few frames, then
-   * fall back to a ResizeObserver so the cells also repaint when the panel is revealed or the
-   * window is resized.
-   */
-  function drawWhenSized(el, draw, attempt = 0) {
-    if (el.getBoundingClientRect().width > 0) { draw(); return; }
-    if (attempt < 5) {
-      requestAnimationFrame(() => drawWhenSized(el, draw, attempt + 1));
-      return;
-    }
-    if (typeof ResizeObserver === 'undefined' || el._sizeObserver) return;
-    el._sizeObserver = new ResizeObserver(() => {
-      if (el.getBoundingClientRect().width > 0) {
-        el._sizeObserver.disconnect();
-        el._sizeObserver = null;
-        draw();
-      }
-    });
-    el._sizeObserver.observe(el);
+  function trendCellHtml(series, observedCount, day) {
+    if (series.length < 2) return '<span class="forecast-trend">—</span>';
+    const perDay = (series[series.length - 1] - series[0]) / (series.length - 1);
+    const flat = Math.abs(perDay) < 0.005;
+    const arrow = flat ? '—' : perDay > 0 ? '▲' : '▼';
+    const sign = perDay > 0 ? '+' : '';
+    const title = `Average day-over-day change across the last ${observedCount} observed days through day ${day}'s forecast`;
+    return `<span class="forecast-trend" title="${escapeAttr(title)}">${arrow} ${sign}₱${perDay.toFixed(2)}/day</span>`;
   }
 
   /**
@@ -547,65 +539,6 @@ AgriPricePH.Predictions = (function () {
     const title = `Central estimate ${point} · ${pct}% of past forecasts landed inside a band this wide`;
     return `<span class="forecast-price-range" title="${escapeAttr(title)}">`
       + `₱${Number(f.low).toFixed(2)} – ₱${Number(f.high).toFixed(2)}</span>`;
-  }
-
-  function renderSidebarBars(forecast, label) {
-    const container = document.getElementById('pred-sidebar-bars');
-    if (!container) return;
-    const prices = (forecast || []).map(f => f.price);
-    if (!prices.length) return;
-    const maxP = Math.max(...prices);
-    const minP = Math.min(...prices);
-    container.innerHTML = forecast.map(f => {
-      const pct = ((f.price - minP) / ((maxP - minP) || 1)) * 55 + 35;
-      const hasBand = f.low != null && f.high != null;
-      const val = hasBand
-        ? `₱${Number(f.low).toFixed(2)} – ₱${Number(f.high).toFixed(2)}`
-        : `₱${Number(f.price).toFixed(2)}`;
-      const title = hasBand
-        ? `Central estimate ₱${Number(f.price).toFixed(2)} · ${f.interval_pct || 90}% range`
-        : '';
-      // Value sits beside the bar: a range would be clipped by .pred-bar's overflow on a short bar.
-      return `
-        <div class="pred-day">
-          <span class="pred-day-label">Day ${f.day}</span>
-          <div class="pred-bar-wrap">
-            <div class="pred-bar" style="width:${pct}%"></div>
-          </div>
-          <span class="pred-bar-out" title="${escapeAttr(title)}">${val}</span>
-        </div>`;
-    }).join('');
-  }
-
-  function renderConfBars(forecast, riceKey) {
-    const container = document.getElementById('pred-conf-bars');
-    if (!container) return;
-    const isHit = usingHitRate(riceKey);
-    const caption = document.getElementById('pred-conf-caption');
-    if (caption) {
-      caption.textContent = isHit
-        ? 'Share of forecasts within ₱1.00 of the real price, per forecast day'
-        : 'Hold-out test accuracy per forecast day';
-    }
-    container.innerHTML = (forecast || []).map(f => {
-      const acc = trainAccuracyPct(riceKey, f);
-      const pctNum = acc != null ? acc : (f.confidence != null ? f.confidence * 100 : null);
-      const pct = pctNum != null ? Math.min(100, pctNum).toFixed(0) : '—';
-      const color = accuracyBarColor(pctNum, isHit);
-      const title = pctNum == null
-        ? 'Not available — retrain the model'
-        : isHit
-          ? `${Number(pctNum).toFixed(1)}% of day-${f.day} forecasts landed within ₱1.00 of the real price, on hold-out test data`
-          : `Day ${f.day} hold-out accuracy (legacy formula)`;
-      return `
-        <div class="pred-conf-row" title="${escapeAttr(title)}">
-          <span class="pred-conf-label">Day ${f.day}</span>
-          <div class="pred-conf-track">
-            <div class="pred-conf-fill" style="width:${pct}%;background:${color};"></div>
-          </div>
-          <span class="pred-conf-pct" style="color:${color};">${pctNum != null ? `${Number(pctNum).toFixed(1)}%` : '—'}</span>
-        </div>`;
-    }).join('');
   }
 
   function escapeAttr(s) {
@@ -685,29 +618,6 @@ AgriPricePH.Predictions = (function () {
     document.addEventListener('click', (e) => {
       if (!wrap.contains(e.target)) closeOutlookDropdown();
     });
-  }
-
-  function initSlider() {
-    let current = 0;
-    const slides = document.querySelectorAll('#pred-slider-card .pred-slide');
-    const dots   = document.querySelectorAll('#pred-slider-card .pred-dot');
-    const total  = slides.length;
-    function goTo(index) {
-      if (index === current) return;
-      slides[current].classList.remove('active');
-      slides[current].classList.add('fade-out');
-      setTimeout(() => slides[current].classList.remove('fade-out'), 350);
-      current = (index + total) % total;
-      slides[current].classList.add('fade-in');
-      setTimeout(() => {
-        slides[current].classList.remove('fade-in');
-        slides[current].classList.add('active');
-      }, 10);
-      dots.forEach((d, i) => d.classList.toggle('active', i === current));
-    }
-    document.getElementById('pred-zone-left')?.addEventListener('click', () => goTo(current - 1));
-    document.getElementById('pred-zone-right')?.addEventListener('click', () => goTo(current + 1));
-    dots.forEach(dot => dot.addEventListener('click', () => goTo(parseInt(dot.dataset.dot))));
   }
 
   function applySearchContext(ctx) {

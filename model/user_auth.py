@@ -32,7 +32,9 @@ from typing import Any
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from mailer import send_reset_code_email
-from user_store import create_user, get_user_by_email, update_password_hash
+from user_store import create_user, get_user_by_email, touch_user_login, update_password_hash
+
+DEACTIVATED_MSG = "This account has been deactivated. Please contact the AgriPricePH administrator."
 
 MAX_ATTEMPTS = 5
 LOCKOUT_SECONDS = 15 * 60
@@ -115,6 +117,11 @@ def login_user(email: str, password: str) -> tuple[bool, str, dict[str, Any] | N
     user = get_user_by_email(email)
     if not user or not check_password_hash(user["password_hash"], password or ""):
         return False, "Email or password is incorrect.", None
+    # Checked only after the password verifies, so the deactivated state is never revealed to
+    # someone who doesn't already know the credentials.
+    if user.get("status") == "deactivated":
+        return False, DEACTIVATED_MSG, None
+    touch_user_login(email)
     return True, "", {"name": user["name"], "email": user["email"], "role": user["role"]}
 
 
@@ -153,12 +160,15 @@ def request_reset(email: str) -> tuple[str, str]:
       "sent"          — a fresh code was generated and emailed
       "already_sent"  — a valid code from a recent request is still active; nothing re-sent
       "not_found"     — no account with this email
+      "deactivated"   — account exists but an admin deactivated it (User Management)
       "mail_error"    — account exists, but the email failed to send (message is the SMTP error)
     """
     email = (email or "").strip().lower()
     user = get_user_by_email(email)
     if not user:
         return "not_found", "No AgriPricePH account is registered with that email."
+    if user.get("status") == "deactivated":
+        return "deactivated", DEACTIVATED_MSG
 
     existing = _RESET_CODES.get(email)
     if existing and existing.get("code_hash") and existing["expires_at"] > time.time():

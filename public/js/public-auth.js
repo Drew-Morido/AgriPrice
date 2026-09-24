@@ -214,6 +214,9 @@ AgriPricePH.PublicAuth = (function () {
       if (res.status === 429) {
         return { ok: false, message: res.data?.error || 'Too many attempts. Try again later.' };
       }
+      if (res.status === 403 && res.data?.code === 'deactivated') {
+        return { ok: false, deactivated: true, message: res.data.error };
+      }
       const migrated = await migrateLegacyAccount(email, password);
       if (migrated) {
         setSession(migrated);

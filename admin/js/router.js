@@ -15,8 +15,10 @@ AgriPricePH.Router = (function () {
     'taxes':        { title: 'Taxes & Import Charges',     module: 'Taxes' },
     'rice-brands':  { title: 'Rice Brands',               module: 'RiceBrands' },
     'alerts':       { title: 'Price Alerts',             module: 'Alerts' },
+    'users':        { title: 'User Management',          module: 'UserManagement' },
     'settings':     { title: 'System Settings',          module: 'Settings' },
     'logs':         { title: 'System Logs',              module: 'SystemLogs' },
+    'account':      { title: 'Account Profile',          module: 'AccountProfile' },
   };
 
   const pageCache  = {};

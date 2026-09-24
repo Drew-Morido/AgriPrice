@@ -1,7 +1,28 @@
-<div class="section-header">
-  <div>
-    <div class="section-title">Connected Data Sources</div>
-    <div class="section-subtitle" id="data-sources-subtitle">Loading…</div>
+<div class="ds-page">
+
+  <div class="section-header ds-header">
+    <div>
+      <div class="section-title">Connected Data Sources</div>
+      <div class="section-subtitle" id="data-sources-subtitle">Connecting to database…</div>
+    </div>
+    <span class="ds-live-chip" id="ds-live-chip"><span class="ds-live-dot"></span><span id="ds-live-text">Connecting…</span></span>
   </div>
+
+  <!-- ===== At-a-glance health ===== -->
+  <div class="ds-kpis" id="ds-kpis">
+    <div class="ds-kpi is-loading"></div><div class="ds-kpi is-loading"></div>
+    <div class="ds-kpi is-loading"></div><div class="ds-kpi is-loading"></div>
+  </div>
+
+  <!-- ===== Source list + selected source detail ===== -->
+  <div class="card ds-panel">
+    <aside class="ds-list" aria-label="Data sources">
+      <div class="ds-list-title">Sources</div>
+      <div class="ds-list-items" id="ds-list" role="tablist" aria-orientation="vertical"></div>
+    </aside>
+    <section class="ds-detail" id="ds-detail" role="tabpanel" aria-live="polite">
+      <div class="ds-detail-empty">Loading sources…</div>
+    </section>
+  </div>
+
 </div>
-<div class="source-cards-grid" id="source-cards-grid"></div>

@@ -102,6 +102,10 @@ window.AgriPricePH = window.AgriPricePH || {};
           });
           return;
         }
+        if (userResult.deactivated) {
+          Alert()?.authFailure?.(userResult.message);
+          return;
+        }
       }
 
       // Not a matching user account — try it as an admin username.

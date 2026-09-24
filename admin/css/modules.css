@@ -453,3 +453,20 @@
   .training-metrics { grid-template-columns: 1fr 1fr; }
 }
 
+
+/* ── Phone widths: per-module fixes found by the responsive audit (375px) ── */
+@media (max-width: 600px) {
+  /* System Logs: level filters + search wrap; search takes the full row. */
+  .log-viewer-toolbar { flex-wrap: wrap; gap: 8px; }
+  .log-level-filter { flex-wrap: wrap; }
+  #log-search { width: 100% !important; margin-left: 0 !important; }
+
+  /* Settings: label/description stack above their control, and inline fixed-width inputs
+     (e.g. the 240px API URL field) stretch to the row instead of overflowing it. */
+  .settings-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .settings-row > div { min-width: 0; }
+  .settings-row input.form-input, .settings-row select.form-input, .settings-row .form-select { width: 100% !important; max-width: none; }
+  .settings-row > div[style*="display:flex"] { flex-wrap: wrap; width: 100%; }
+  .settings-row > div[style*="display:flex"] input.form-input { flex: 1 1 180px; }
+  .settings-row-desc { max-width: none; }
+}

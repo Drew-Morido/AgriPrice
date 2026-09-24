@@ -2,10 +2,205 @@
   AgriPricePH v3 — BUONG SYSTEM GUIDE
   Kasama ang detalyadong computation ng Machine Learning Training
 ================================================================================
-  Petsa ng dokumento: Mayo 23, 2026
-  Target forecast: Local Well-Milled Rice (PHP/kg), 2 araw ahead
+  Petsa ng dokumento: Setyembre 11, 2026
+  Target forecast: 8 rice types (PHP/kg), 3 araw ahead (72h)
+  BASAHIN MUNA ANG SEKSYON 0 - ito ang cheat sheet para sa panel defence.
 ================================================================================
 
+
+================================================================================
+  0. PANEL DEFENCE CHEAT SHEET  ***BASAHIN ITO BAGO MAG-DEFENCE***
+================================================================================
+
+  Paano gamitin: hanapin ang tanong, basahin ang SAGOT, at kung pipilitin ka,
+  ituro ang EBIDENSYA. Lahat ng numero dito ay galing sa tumatakbong system
+  (model/meta.json), hindi sa tantiya.
+
+  ANG ISANG PANGUNGUSAP NA DAPAT KABISADO:
+  "AgriPricePH gives Filipino households and vendors an early warning on rice
+   prices - so they can decide WHEN to buy, not just WHAT to buy."
+
+--------------------------------------------------------------------------------
+  BUOD NG MGA NUMERO (kabisaduhin ang apat na ito)
+--------------------------------------------------------------------------------
+    94.4%      ng next-day forecasts ay nasa loob ng PHP 1.00 sa totoong presyo
+    8/8        rice types ay natatalo ang naive na hula ("bukas = ngayon")
+    +3.71%     skill vs naive baseline (worst type +1.25%)
+    50/50      automated tests pumapasa
+
+--------------------------------------------------------------------------------
+  Q1. Ano ang layunin ng system? (CORE PURPOSE)
+--------------------------------------------------------------------------------
+  SAGOT: Maagang babala sa presyo ng bigas. Kinokolekta namin ang opisyal na
+  datos ng DA araw-araw, at nagbibigay kami ng 3-araw na forecast para sa 8 uri
+  ng bigas, may kasamang range kung gaano kasigurado ang hula.
+
+--------------------------------------------------------------------------------
+  Q2. Bakit LSTM? Gumagana ba talaga ang LSTM ninyo?   *** ANG PINAKAMAHIRAP ***
+--------------------------------------------------------------------------------
+  SAGOT (huwag mag-alinlangan, sabihin nang diretso):
+  "We measured it. The forecasting value comes from the mean-reversion
+   component. The network is retained because it is not harmful and it is the
+   architecture the study set out to evaluate. We report the measured answer
+   rather than an assumed one."
+
+  Ang detalye kung tatanungin pa:
+    - Sinukat namin gamit ang paired McNemar test sa held-out data.
+    - Resulta: 158 fixes vs 150 breaks, p = 0.69 -> HINDI significant.
+    - Hindi ito kabiguan. Karamihan ng papel, sinasabing gumagana ang modelo
+      nila nang hindi sinusukat. Sinukat namin, at totoo ang inulat namin.
+
+  EBIDENSYA: meta.json -> "lstm_ablation"; PAPER_CORRECTIONS.md Rounds 16 at 19.
+
+--------------------------------------------------------------------------------
+  Q3. Gaano katumpak?
+--------------------------------------------------------------------------------
+  SAGOT: 94.4% ng day-1 forecasts ay nasa loob ng PHP 1.00. Day 2: 93.5%.
+  Day 3: 92.7%. Average error ay PHP 0.29/kg.
+
+  HUWAG SABIHIN ANG "99%". May lumang accuracy formula sa system (Seksyon 6.7)
+  na nagbibigay ng 99.3% - pero binibigay niya rin ang 99% sa kahit anong
+  modelo, kaya deprecated na ito. Hit rate ang tamang isagot.
+
+--------------------------------------------------------------------------------
+  Q4. Mas magaling ba kaysa sa basta-hula? / Sa ARIMA?
+--------------------------------------------------------------------------------
+  SAGOT (dalawang bahagi - sabihin pareho, huwag itago ang pangalawa):
+    1. Kumpara sa naive ("bukas = presyo ngayon"): OO, panalo sa 8/8 types.
+    2. Kumpara sa ARIMA(1,1,1): panalo lang sa 3/8 types. Sa locWellMilled,
+       mas mababa ang ARIMA (PHP 0.274 kumpara sa amin na PHP 0.294).
+
+  Kung tatanungin "bakit hindi ninyo ginamit ang ARIMA?":
+    "Magkalapit sila. Ang ARIMA ay single-series; ang sa amin ay multivariate at
+     nagbibigay ng prediction interval at araw-araw na operational pipeline.
+     Iniulat namin ang ARIMA bilang baseline kahit minsan siya ang mas mahusay."
+
+  EBIDENSYA: meta.json -> per-type "arima" at "beats_arima".
+
+--------------------------------------------------------------------------------
+  Q5. Gaano kalaki ang lamang ninyo? (mapanghamong tanong)
+--------------------------------------------------------------------------------
+  SAGOT: Manipis - mga isang sentimo kada kilo. Alam namin, at nakasulat.
+  Ang dahilan: halos random walk ang presyo ng bigas sa araw-araw (ADF p-value
+  0.084-0.214, ibig sabihin mahina ang predictable na pattern).
+  Kailangan ng mas mahabang araw-araw na datos, hindi mas komplikadong modelo.
+
+  Kung sasabihin nilang "kulang pala ang modelo": sumagot ng
+  "Siyam na klase ng estimator ang sinubukan namin at siyam ang tinanggihan dahil
+   hindi sila nanalo sa datos na hindi namin ginamit sa pag-tune. Data-bound ito,
+   hindi model-bound."
+
+--------------------------------------------------------------------------------
+  Q6. Saan galing ang data? Verified ba?
+--------------------------------------------------------------------------------
+  SAGOT: DA Bantay Presyo / Price Watch bulletins, DA-AMAS weekly files, at DA
+  Daily Price Index PDFs. Dagdag pa: presyo ng gasolina at diesel, USD/PHP
+  exchange rate, at rice stock inventory.
+
+  Verified na periods:
+    2019-10 hanggang 2021-10   - 110 araw, per-bulletin PDF
+    2021-01 hanggang 2023-12   - 1,085 araw, DA-AMAS weekly
+    2023-12 hanggang 2025-12   - DA bulletin corrections
+    2026-04 hanggang 2026-09   - 155 araw, DA Daily Price Index
+
+--------------------------------------------------------------------------------
+  Q7. May datos ba kayong hindi ma-verify? (SAGUTIN NANG TAPAT)
+--------------------------------------------------------------------------------
+  SAGOT: Opo. Ang 2015 hanggang Setyembre 2019 ay hindi namin ma-verify -
+  walang available na source na tugma sa format. Flat at hindi realistiko ang
+  ilang bahagi, kaya sinmooth namin - at nakasulat ang bawat pagbabago sa
+  documents/PAPER_CORRECTIONS.md. Walang tinago.
+
+  Bakit okay pa rin: ang 2015-2019 ay ginagamit lang sa training background.
+  Ang sinusukat na performance ay galing sa daily-observation era (2025 pataas).
+
+--------------------------------------------------------------------------------
+  Q8. Paano ang train/test split? Sigurado bang walang data leakage?
+--------------------------------------------------------------------------------
+  SAGOT: Regime-aware chronological split - walang shuffle kailanman.
+    - Training: buong kasaysayan
+    - Validation at Test: parehong kinuha sa daily-observation era (2025-04-01+)
+    - Halimbawa (locWellMilled): train 3,713 / val 183 / test 342
+
+  Bakit hindi 70/15/15: sa lumang split, 88% ng validation rows ay
+  forward-filled na "walang pagbabago" - kaya pumipili ng weights ang early
+  stopping base sa halos hindi gumagalaw na datos.
+
+  Anti-leakage: ang MinMaxScaler ay fit sa training rows lang; ang reversion
+  coefficient ay fit sa validation window lang; seeded ang runs (seed 42).
+
+--------------------------------------------------------------------------------
+  Q9. Ano ang prediction interval / yung range?
+--------------------------------------------------------------------------------
+  SAGOT: Conformal prediction interval. Bawat forecast ay may low-high range.
+  Target namin ang 90% coverage, at 90.3% ang nasukat.
+
+  Teknikal: nominal 0.93 ang setting para makuha ang ~90% totoong coverage,
+  dahil hindi exchangeable ang daily price errors.
+
+--------------------------------------------------------------------------------
+  Q10. Bakit maliit ang galaw ng forecast ninyo? (movement ratio 0.223)
+--------------------------------------------------------------------------------
+  SAGOT: Gumagalaw ang forecast namin ng 22% ng totoong galaw ng presyo.
+  Sinasadya ito - kapag hindi sigurado, mas ligtas ang konserbatibo.
+  Ang mahalaga: DATI, 0.07 lang ito (halos kinokopya lang ang kahapon).
+  Ngayon 0.223 - talagang nag-fo-forecast na.
+
+--------------------------------------------------------------------------------
+  Q11. Ano ang mga features? Ilan?
+--------------------------------------------------------------------------------
+  SAGOT: 13 features kada rice type. Lima ang raw (fuel RON-95, diesel, rice
+  stock, farmgate price, USD/PHP), at ang iba ay engineered (seasonal sin/cos,
+  7-day rolling averages, at lag-1/lag-7/rolling-7 ng target mismo).
+  30 araw ang input window, 3 araw ang forecast.
+
+--------------------------------------------------------------------------------
+  Q12. Paano ang security at privacy?
+--------------------------------------------------------------------------------
+  SAGOT: Hashed ang passwords (werkzeug scrypt), server-side session tokens,
+  5 failed attempts = 15-minutong lockout, at CORS allowlist. May data-subject
+  erasure at account purging alinsunod sa RA 10173.
+
+  HUWAG SABIHIN: "encrypted ang database." WALA kaming at-rest encryption at
+  nakasulat ito bilang kilalang limitasyon. Huwag mag-angkin ng wala.
+
+--------------------------------------------------------------------------------
+  Q13. Paano ninyo alam na hindi sira ang system? / Testing?
+--------------------------------------------------------------------------------
+  SAGOT: 50 automated tests. Binabantayan nila ang model contract (dapat
+  natatalo ang naive baseline sa lahat ng type, directional > 50%, movement
+  ratio > 0.05, latency < 1 segundo) at ang API contract (400 sa maling input,
+  walang tumatagas na credentials). Tumatakbo sila bago ang bawat pagbabago.
+
+  Pang-demo na numero: ~5 milliseconds ang response ng /api/predictions.
+
+--------------------------------------------------------------------------------
+  Q14. Ano ang limitasyon at future work?
+--------------------------------------------------------------------------------
+  SAGOT (tapat at maikli):
+    1. Manipis ang lamang sa naive baseline - mga isang sentimo kada kilo.
+    2. Hindi significant ang marginal contribution ng LSTM.
+    3. Hindi ma-verify ang 2015 - Set 2019 na datos.
+    4. Walang at-rest encryption ang database.
+    5. Talo ng ARIMA sa 5 sa 8 rice types.
+  Future work: mas mahabang daily-observation data (~30 rows kada buwan),
+  at pagdagdag ng DTI brand-level data.
+
+--------------------------------------------------------------------------------
+  KUNG WALA KANG ALAM SA SAGOT
+--------------------------------------------------------------------------------
+  Sabihin: "Hindi po ako sigurado sa numerong iyan - nakatala po ito sa
+  meta.json at sa PAPER_CORRECTIONS.md, at maibibigay ko po agad."
+  HUWAG MANG-IMBENTO NG NUMERO. Mas mabigat ang parusa sa hulang numero kaysa
+  sa inaming hindi alam.
+
+--------------------------------------------------------------------------------
+  SAAN NAKATAGO ANG EBIDENSYA
+--------------------------------------------------------------------------------
+  model/meta.json                  - lahat ng metrics kada rice type
+  documents/PAPER_CORRECTIONS.md   - 19 rounds ng pagbabago at mga tinanggihan
+  tests/                           - 50 automated tests
+  CLAUDE.md                        - buod ng arkitektura at mga babala
 
 ================================================================================
   1. ANO ANG AgriPricePH?
@@ -14,13 +209,15 @@
 AgriPricePH ay isang rice price prediction system para sa Pilipinas. Kinokolekta
 nito ang historical at live data (presyo ng bigas, diesel, USD/PHP, ulan, stock),
 iniimbak sa SQLite database, tina-train ang LSTM (o fallback MLP) model, at
-nagbibigay ng 2-araw na forecast sa web dashboard.
+nagbibigay ng 3-araw na forecast sa web dashboard para sa LAHAT ng 8 uri
+ng bigas.
 
 Mga pangunahing layunin:
   - I-visualize ang presyo ng bigas at related factors (charts)
   - Mag-scrape ng bagong data mula sa DA, fuel site, at exchange API
   - Mag-train ng time-series model batay sa merged daily data
-  - Mag-predict ng Local Well-Milled price para sa Day 1 at Day 2
+  - Mag-predict ng presyo para sa Day 1, Day 2 at Day 3 (hiwalay na modelo
+    kada rice type - 8 modelo lahat)
 
 
 ================================================================================
@@ -83,7 +280,7 @@ BACKEND (API Server)
 MACHINE LEARNING
   model/data_pipeline.py  — Load DB, merge tables, make_sequences()
   model/train.py            — Training script (TensorFlow LSTM o sklearn MLP)
-  model/predict.py          — 2-day inference
+  model/predict.py          — 3-day inference (lahat ng 8 rice types)
   model/lstm_model.keras    — Saved best LSTM (kung TensorFlow available)
   model/rice_mlp.joblib     — Fallback model (kung walang TensorFlow)
   model/scaler.joblib       — MinMaxScaler na ginamit sa training
@@ -117,21 +314,36 @@ Pangunahing tables sa agriprice_database.db:
   weather_data      — Rainfall (mm) mula sa PAGASA dataset
   rice_stock        — Rice stock inventory (metric tons)
 
-FEATURE COLUMNS (ginagamit ng model — 5 inputs + 1 target):
+FEATURE COLUMNS — 13 features kada rice type (5 raw + 7 engineered + target)
 
-  Input features (FEATURE_COLUMNS):
-    1. locWellMilled  — Local Well-Milled rice price (PHP/kg)
-    2. locPremium     — Local Premium rice price
-    3. fuel           — Diesel price (proxy sa transport cost)
-    4. exchange       — USD/PHP exchange rate
-    5. rainfall       — Rainfall mm (weather factor)
+  Raw inputs (FEATURE_COLUMNS sa data_pipeline.py):
+    1. fuel_ron95     — Gasolina RON-95 (PHP/L)
+    2. fuel_diesel    — Diesel (proxy sa transport cost)
+    3. stock          — Rice stock inventory (metric tons)
+    4. farmgate       — Farmgate price ng palay
+    5. exchange       — USD/PHP exchange rate
 
-  Target (TARGET_COLUMN):
-    locWellMilled     — Ito ang ipo-forecast (2 araw ahead)
+  Engineered (add_engineered_features()):
+    6. season_sin     — Seasonal cycle (sine)
+    7. season_cos     — Seasonal cycle (cosine)
+    8. fuel_diesel_roll7  — 7-day rolling average ng diesel
+    9. exchange_roll7     — 7-day rolling average ng exchange rate
+   10. <target>_lag1      — Presyo kahapon
+   11. <target>_lag7      — Presyo 7 araw ang nakalipas
+   12. <target>_roll7     — 7-day rolling average ng target
+   13. <target>           — Ang target mismo, kasama sa input window
+
+  TANDAAN: ang rainfall ay NASA database (weather_data) pero HINDI ginagamit
+  bilang model feature. Huwag sabihin sa panel na weather-driven ang modelo.
+
+  Target (TARGET_COLUMN): may hiwalay na modelo ang bawat isa sa 8 rice types —
+  locWellMilled, locRegular, locPremium, locSpecial, at ang imported na katumbas
+  (impWellMilled, impRegular, impPremium, impSpecial). Ang locWellMilled ang
+  default na ipinapakita.
 
   Constants (data_pipeline.py):
     SEQ_LEN  = 30     — 30 araw na window bilang input sequence
-    HORIZON  = 2      — 2 araw na forecast output
+    HORIZON  = 3      — 3 araw na forecast output (48-72h)
 
 
 ================================================================================
@@ -185,7 +397,8 @@ Bawat feature column (5 columns) ay i-scale sa range [0, 1]:
     scaled = scaler.fit_transform(df[features].values)
 
   Bakit: Para pantay ang magnitude ng presyo (40-60 PHP), fuel, exchange (50+),
-         at rainfall — mas stable ang neural network training.
+         at stock — mas stable ang neural network training.
+         (TANDAAN: hindi feature ang rainfall — tingnan ang Seksyon 4.)
 
 
 --------------------------------------------------------------------------------
@@ -199,7 +412,7 @@ Gamit ang scaled matrix (N rows × 5 features), bumubuo ng sliding windows:
     X[i] = scaled[i : i+30]           # shape: (30, 5) — 30 araw × 5 features
     y[i] = scaled[i+30 : i+32, target_idx]   # 2 values — target column lang
 
-  Halimbawa kung SEQ_LEN=30, HORIZON=2, target_idx=0 (locWellMilled):
+  Halimbawa kung SEQ_LEN=30, HORIZON=3, target_idx=0 (locWellMilled):
     - Input: araw 1-30 ng lahat ng features
     - Output: araw 31 at 32 na locWellMilled (scaled)
 
@@ -215,17 +428,31 @@ Gamit ang scaled matrix (N rows × 5 features), bumubuo ng sliding windows:
   6.3 TRAIN / TEST SPLIT
 --------------------------------------------------------------------------------
 
-  split = int(len(X) * 0.8)    # 80% train, 20% test (time-ordered, HINDI shuffle)
+  REGIME-AWARE CHRONOLOGICAL SPLIT (train.py::_split_indices) — HINDI 80/20,
+  at HINDI kailanman shuffled.
 
-  X_train = X[0:split]
-  X_test  = X[split:]
-  y_train = y[0:split]
-  y_test  = y[split:]
+    Training   : buong kasaysayan (2015 pataas)
+    Validation : kinuha sa daily-observation era (ACTIVE_FROM = 2025-04-01)
+    Test       : kasunod ng validation, nasa parehong era
 
-  Halimbawa (mula sa meta.json):
-    train_samples = 3304
-    test_samples  = 826
-    Total sequences ≈ 4130
+  Aktwal (locWellMilled, mula sa meta.json):
+    train_samples = 3713
+    val_samples   =  183
+    test_samples  =  342
+
+  BAKIT HINDI 70/15/15 (itanong ito ng panel):
+  Sa lumang split, 88% ng validation rows ay forward-filled na "walang
+  pagbabago sa presyo". Kaya pumipili ng weights ang early stopping base sa
+  halos hindi gumagalaw na datos, habang sinusukat ang modelo sa panahong
+  gumagalaw ang presyo. Measurement fix ito, HINDI performance fix — pareho
+  ang score ng luma at bagong modelo kapag sinukat sa parehong test window.
+
+  Para ma-reproduce ang lumang behaviour: AGRIPRICE_LEGACY_SPLIT=1
+
+  ANTI-LEAKAGE (mahalaga sa panel):
+    - MinMaxScaler ay fit sa TRAINING rows lamang
+    - Reversion coefficient ay fit sa VALIDATION window lamang
+    - Seeded ang runs (AGRIPRICE_SEED, default 42) kaya reproducible
 
 
 --------------------------------------------------------------------------------
@@ -239,7 +466,7 @@ Architecture (Sequential):
   Layer 3: LSTM(32, return_sequences=False)
   Layer 4: Dropout(0.2)
   Layer 5: Dense(16, relu)
-  Layer 6: Dense(2)   # HORIZON = 2 outputs
+  Layer 6: Dense(3)   # HORIZON = 3 outputs
 
 Compile:
   optimizer = "adam"
@@ -315,15 +542,32 @@ Ang y_true at y_pred ay nasa scaled space pa. Para sa interpretable error:
   6.7 ACCURACY PERCENTAGE (estimated)
 --------------------------------------------------------------------------------
 
-  avg_price = mean ng actual locWellMilled sa buong dataset
+  *** DEPRECATED — HUWAG IULAT SA PANEL ANG NUMERONG ITO ***
+
+  avg_price = mean ng actual price sa buong dataset
   accuracy = max(0, min(99.9, 100 - (mae_peso / max(avg_price, 1) * 100)))
 
   Halimbawa:
-    mae_peso = 0.2739 PHP/kg
-    avg_price ≈ 44 PHP/kg (hal.)
-    accuracy ≈ 100 - (0.2739/44*100) ≈ 99.38%
+    mae_peso = 0.294 PHP/kg, avg_price ~ 44 PHP/kg  ->  ~99.3%
 
-  NOTE: Ito ay simplified accuracy metric para sa UI, hindi formal R².
+  BAKIT DEPRECATED: ang formula na ito ay nagbibigay ng 98-99% sa KAHIT ANONG
+  modelo, at mas mataas pa ang ibinibigay niya sa naive na "bukas = ngayon"
+  baseline kaysa sa trained model sa lahat ng 8 rice types. Walang saysay
+  bilang panukat. Nananatili lang siya para ma-render pa rin ang mga lumang
+  (pre-v4) training runs.
+
+  ANG TAMANG IULAT — HONEST METRICS (meta.json v4):
+    hit_rate_pct          — % ng forecasts na nasa loob ng PHP 0.50/1.00/1.50/2.00
+                            Aktwal: 94.4% / 93.5% / 92.7% sa loob ng PHP 1.00
+    skill_vs_baseline_pct — lamang kumpara sa naive. Aktwal: +3.71%, 8/8 positive
+    directional_pct       — tama ang direksyon (taas/baba). Aktwal: ~60-65%
+    movement_ratio        — gaano gumalaw ang forecast vs totoong galaw.
+                            Aktwal: 0.223 (dati 0.07 = kinokopya lang ang kahapon)
+    lstm_ablation         — may naiaambag ba ang LSTM? p = 0.69, hindi significant
+
+  Ang UI ay nagpapakita na ng hit rate (94.4%), hindi ng 99.3%. Ang lumang
+  numero ay ginagamit lang bilang fallback para sa pre-v4 runs, at naka-label
+  na "(legacy)" kapag nangyari iyon.
 
 
 --------------------------------------------------------------------------------
@@ -390,6 +634,7 @@ Hakbang 6: Forecast dates
   anchor = petsa ngayon (date.today())
   Day 1 = anchor + 1 araw
   Day 2 = anchor + 2 araw
+  Day 3 = anchor + 3 araw
 
 Hakbang 7: Change at confidence
   change[i] = price[i] - previous_price
@@ -437,7 +682,7 @@ Ang merged pipeline ay automatic na kasama ang WS_* tables sa training data.
   GET  /api/stream-training     — SSE training logs
   GET  /api/model-status        — May model na ba? meta.json contents
 
-  GET  /api/predictions         — 2-day forecast JSON
+  GET  /api/predictions         — 3-day forecast JSON (may conformal interval)
   POST /api/import-2026         — Sync 2026 XLSX files
   POST /api/save-export         — Save CSV export mula sa frontend
 
@@ -481,7 +726,7 @@ HAKBANG 5 — Predictions:
 ================================================================================
 
   Dashboard       — Overview metrics, quick stats
-  Predictions     — 2-day live forecast (Local Well-Milled)
+  Predictions     — 3-day live forecast (mapipili ang alinman sa 8 rice types)
   Historical Data — Charts mula sa /api/historical-data
   Training        — Start training, loss curves, training history
   Web Scraper     — Manual/auto scrape, live terminal logs
@@ -538,7 +783,8 @@ HAKBANG 5 — Predictions:
   Sequence X:       scaled[t-30 : t]     (30 days × 5 features)
   Sequence y:       scaled[t : t+2, target_col]   (2 days target)
 
-  Train/test:       80% / 20% chronological split
+  Train/val/test:   regime-aware chronological split (tingnan ang Seksyon 6.3)
+                    locWellMilled: 3713 train / 183 val / 342 test
 
   LSTM loss:        MSE = mean((y - ŷ)²)
   LSTM metric:      MAE = mean(|y - ŷ|)   [scaled]
@@ -573,7 +819,7 @@ HAKBANG 5 — Predictions:
    [train.py]      [predict.py]
    MinMaxScaler    same scaler
    sequences       last 30-day window
-   LSTM/MLP        2-day output
+   LSTM/MLP        3-day output
          |               |
          v               v
   lstm_model.keras   /api/predictions

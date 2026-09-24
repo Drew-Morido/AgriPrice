@@ -373,6 +373,104 @@ def _run_lstm_inference(
     return days
 
 
+def _backtest_recent_days(
+    df: pd.DataFrame,
+    target: str,
+    target_meta: dict,
+    meta: dict | None,
+    n_days: int = 30,
+) -> list:
+    """Walk-forward 1-day-ahead backtest for the chart's hover tooltip.
+
+    What the CURRENTLY-DEPLOYED model (same trained weights and scaler as the live forecast)
+    would have predicted for each of the last `n_days` days, using only data available up to the
+    day before. The LSTM weights/scaler are frozen at their trained values — only the
+    mean-reversion coefficient is re-estimated per cutoff via `rolling_phi`, which is explicitly
+    documented as "safe to call at inference time and in back-tests alike" because it only ever
+    looks at rows before its anchor. This is a fixed-model backtest, not a fully retrained
+    walk-forward one; it answers "how has today's deployed model been doing lately", not "what
+    would a model trained fresh at each past date have said".
+
+    Before this, the admin dashboard's chart had no way to show a predicted price for a past
+    date — only the actual. A reader hovering a historical point could see what happened, but not
+    what the model would have said, which made the chart's "Forecast VS Historical" title only
+    half true for anything but the 3 upcoming days.
+
+    Returns a list of {date_iso, predicted, actual}, most recent last; empty when there's no LSTM
+    model for this target or not enough history to fill even one window.
+    """
+    meta = meta or {}
+    keras_path, scaler_path, _mlp_path = _resolve_paths(target)
+    if not scaler_path or not keras_path:
+        return []
+    model = _get_keras(keras_path)
+    if model is None:
+        return []
+
+    sub, features = build_feature_frame(df, target)
+    if len(sub) < SEQ_LEN + 2:
+        return []
+    scaler = _get_scaler(scaler_path)
+    expected = getattr(scaler, "n_features_in_", len(features))
+    if expected != len(features):
+        return []
+    target_idx = features.index(target)
+    scaled = scaler.transform(sub[features].values.astype(float))
+    n_rows = len(scaled)
+
+    # Row r's window (r-SEQ_LEN+1 .. r) predicts row r+1, so r needs a full SEQ_LEN history behind
+    # it and a known outcome (r+1) ahead of it.
+    last_r = n_rows - 2
+    first_r = max(SEQ_LEN - 1, last_r - n_days + 1)
+    if last_r < first_r:
+        return []
+    rs = list(range(first_r, last_r + 1))
+
+    # One batched forward pass for every cutoff day, same shape as the conformal calibration
+    # above — far cheaper than calling the model n_days separate times.
+    X = np.stack([scaled[r - SEQ_LEN + 1 : r + 1] for r in rs]).reshape(len(rs), SEQ_LEN, len(features))
+    pred_scaled = np.asarray(model.predict(X, verbose=0))
+    pred_scaled_1d = pred_scaled[:, 0]  # 1-day-ahead only — matches what the chart's next point needs
+
+    delta_mode = bool(target_meta.get("delta_mode", meta.get("delta_mode", False)))
+    if delta_mode:
+        anchor_scaled = scaled[rs, target_idx]
+        from mean_reversion import LSTM_DELTA_WEIGHT
+        pred_scaled_1d = anchor_scaled + LSTM_DELTA_WEIGHT * pred_scaled_1d
+
+    pred_price = _inverse_target(pred_scaled_1d, scaler, target_idx)
+    ser = pd.to_numeric(sub[target], errors="coerce").values.astype(float)
+    dates = sub["Date"] if "Date" in sub.columns else None
+
+    out: list = []
+    for idx, r in enumerate(rs):
+        if (r + 1) >= len(ser):
+            continue
+        actual = float(ser[r + 1])
+        if actual <= 0:
+            continue
+        predicted = float(pred_price[idx])
+        try:
+            from mean_reversion import apply_reversion, rolling_phi
+            _, rev = rolling_phi(ser, r, 1)
+            if rev.get("applied"):
+                n_lags = int(rev.get("n_lags", 1))
+                lags = [
+                    float(ser[r - k] - ser[r - 1 - k]) if (r - 1 - k) >= 0 else 0.0
+                    for k in range(n_lags)
+                ]
+                predicted = float(apply_reversion([predicted], lags, rev)[0])
+        except Exception:
+            pass  # never let the correction break a backtest point — fall back to the raw LSTM figure
+        d = dates.iloc[r + 1] if dates is not None else None
+        out.append({
+            "date_iso": pd.Timestamp(d).strftime("%Y-%m-%d") if d is not None else None,
+            "predicted": round(predicted, 2),
+            "actual": round(actual, 2),
+        })
+    return out
+
+
 # ── Conformal prediction intervals ────────────────────────────────────────────
 # Target coverage of the published price range, and how many recent forecast days to calibrate it
 # on. A short window is deliberate: it lets the interval track the current regime instead of an
@@ -589,6 +687,21 @@ def _build_forecasts_by_key(df: pd.DataFrame, meta: dict) -> dict:
     return out
 
 
+def _build_backtests_by_key(df: pd.DataFrame, meta: dict, n_days: int = 30) -> dict:
+    """Per rice type: `_backtest_recent_days` for the last `n_days`, skipping types with no LSTM
+    model (e.g. still on the trend fallback) rather than returning an empty/misleading entry."""
+    per_target_meta = _targets_meta(meta)
+    out: dict = {}
+    for col in RICE_PRICE_COLUMNS:
+        if col not in df.columns:
+            continue
+        tmeta = per_target_meta.get(col, meta if col == TARGET_COLUMN else {})
+        points = _backtest_recent_days(df, col, tmeta, meta, n_days=n_days)
+        if points:
+            out[col] = points
+    return out
+
+
 def _payload_cache_key(meta: dict) -> tuple:
     """Identity of the inputs a forecast depends on.
 
@@ -642,6 +755,9 @@ def predict():
     hist_tail = 30
     labels = [d.strftime("%m/%d/%Y") for d in df["Date"].iloc[-hist_tail:]]
     history = [round(float(v), 2) for v in df[TARGET_COLUMN].iloc[-hist_tail:]]
+    # Same window as `history` above, so the admin chart's hover can show a real predicted price
+    # for a past date alongside the actual one instead of just the actual.
+    backtests_by_key = _build_backtests_by_key(df, meta, n_days=hist_tail)
 
     all_rice = {}
     for col in RICE_PRICE_COLUMNS:
@@ -727,6 +843,10 @@ def predict():
             "formula_mode": formula_mode_enabled(),
         },
         "history": {"labels": labels, "values": history},
+        # Walk-forward 1-day-ahead backtest per rice type, same window as `history` — see
+        # `_backtest_recent_days` for exactly what "predicted" means here (frozen model/scaler,
+        # rolling-refit reversion, never the future). Absent/empty for a type with no LSTM model.
+        "history_backtest": backtests_by_key,
     }
 
     _PAYLOAD_CACHE["key"] = cache_key

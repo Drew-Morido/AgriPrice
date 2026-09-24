@@ -1,30 +1,44 @@
 <div class="stat-grid">
+  <div class="stat-card" id="stat-currency">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div class="stat-icon" style="background:rgba(59,130,246,0.12);">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg>
+      </div>
+      <span class="pill pill-blue">Market</span>
+    </div>
+    <div class="stat-value" id="stat-currency-value">—</div>
+    <div class="stat-label">USD/PHP Rate
+      <i class="ti ti-info-circle stat-info-icon tooltip-wide" tabindex="0" role="img" data-tooltip="How many pesos one US dollar buys today. Rice is partly imported, so a weaker peso can push import costs — and prices — up."></i>
+    </div>
+    <div class="stat-change text-muted" id="stat-currency-change">Loading…</div>
+  </div>
+
+  <div class="stat-card" id="stat-diesel">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div class="stat-icon" style="background:rgba(245,158,11,0.12);">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 22a1 1 0 0 1-1-1V3a1 1 0 0 1 2 0v18a1 1 0 0 1-1 1z"/><path d="M13 22V9a1 1 0 0 0-1-1H5"/><path d="M13 8h1a3 3 0 0 1 3 3v2h1a2 2 0 0 1 2 2v7"/><path d="M5 8V3"/></svg>
+      </div>
+      <span class="pill pill-orange">Market</span>
+    </div>
+    <div class="stat-value" id="stat-diesel-value">—</div>
+    <div class="stat-label">Diesel Price
+      <i class="ti ti-info-circle stat-info-icon tooltip-wide" tabindex="0" role="img" data-tooltip="Current pump price per liter (Zigwheels). Diesel moves transport and farm costs, which feed into rice prices."></i>
+    </div>
+    <div class="stat-change text-muted" id="stat-diesel-change">Loading…</div>
+  </div>
+
   <div class="stat-card" id="stat-mae">
     <div style="display:flex;align-items:center;justify-content:space-between;">
       <div class="stat-icon" style="background:rgba(76,175,110,0.12);">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4CAF6E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
       </div>
-      <span class="pill pill-green">MAE</span>
+      <span class="pill pill-green">Typical Miss</span>
     </div>
     <div class="stat-value">—</div>
-    <div class="stat-label">Forecast Error (MAE)
-      <i class="ti ti-info-circle stat-info-icon tooltip-wide" tabindex="0" role="img" data-tooltip="How many pesos off the forecast usually is, checked on data the model never saw during training.&#10;&#10;Lower is better. The arrow below compares this with the previous training run."></i>
+    <div class="stat-label">Average Forecast Error (MAE)
+      <i class="ti ti-info-circle stat-info-icon tooltip-wide" tabindex="0" role="img" data-tooltip="On average, a forecast is about this many pesos off from the real price (MAE). Lower is better."></i>
     </div>
     <div class="stat-change text-muted" id="stat-mae-change">Loading from training history…</div>
-  </div>
-
-  <div class="stat-card" id="stat-rmse">
-    <div style="display:flex;align-items:center;justify-content:space-between;">
-      <div class="stat-icon" style="background:rgba(59,130,246,0.12);">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>
-      </div>
-      <span class="pill pill-blue">RMSE</span>
-    </div>
-    <div class="stat-value">—</div>
-    <div class="stat-label">RMSE Score
-      <i class="ti ti-info-circle stat-info-icon tooltip-wide" tabindex="0" role="img" data-tooltip="Same idea as MAE, but big misses count much more. A value far above MAE means the model sometimes makes large errors.&#10;&#10;Lower is better. The arrow below compares this with the previous training run."></i>
-    </div>
-    <div class="stat-change text-muted" id="stat-rmse-change">Loading from training history…</div>
   </div>
 
   <div class="stat-card" id="stat-accuracy">
@@ -36,7 +50,7 @@
     </div>
     <div class="stat-value">—</div>
     <div class="stat-label" id="stat-accuracy-label">Forecasts within ₱1.00
-      <i class="ti ti-info-circle stat-info-icon tooltip-wide" tabindex="0" role="img" data-tooltip="Out of every 100 next-day forecasts, how many landed within ₱1.00 of the real price — averaged over all 8 rice types, on data the model never saw during training.&#10;&#10;Higher is better. The arrow below compares this with the previous training run."></i>
+      <i class="ti ti-info-circle stat-info-icon tooltip-wide" tabindex="0" role="img" data-tooltip="Share of next-day forecasts that landed within ₱1.00 of the real price. Higher is better."></i>
     </div>
     <div class="stat-change text-muted" id="stat-accuracy-change">Loading from training history…</div>
   </div>
@@ -50,7 +64,7 @@
     </div>
     <div class="stat-value">—</div>
     <div class="stat-label">Daily Records
-      <i class="ti ti-info-circle stat-info-icon tooltip-wide" tabindex="0" role="img" data-tooltip="Days of rice price, fuel, and exchange-rate data merged into one table and used to train the model.&#10;&#10;It grows on its own every time new data is scraped or imported."></i>
+      <i class="ti ti-info-circle stat-info-icon tooltip-wide" tabindex="0" role="img" data-tooltip="Days of rice, fuel, and exchange-rate data used to train the model. Grows on its own as new data comes in."></i>
     </div>
     <div class="stat-change text-muted" id="stat-records-change">Loading database…</div>
   </div>
@@ -60,7 +74,7 @@
      they used to be hardcoded `active`, so they read green even with the scraper down. -->
 <div class="source-strip" id="dash-source-strip">
   <div class="source-pill" data-source-id="da"><span class="dot"></span>DA Rice Prices</div>
-  <div class="source-pill" data-source-id="doe"><span class="dot"></span>DOE Fuel</div>
+  <div class="source-pill" data-source-id="doe"><span class="dot"></span>Zigwheels Fuel</div>
   <div class="source-pill" data-source-id="api"><span class="dot"></span>USD/PHP API</div>
 </div>
 
@@ -78,12 +92,6 @@
         <button type="button" class="dash-pred-segment-btn active" data-origin="local">Local</button>
         <button type="button" class="dash-pred-segment-btn" data-origin="imported">Imported</button>
       </div>
-      <div class="dash-pred-segment" id="dash-pred-day-toggle" role="group" aria-label="Forecast day">
-        <button type="button" class="dash-pred-segment-btn active" data-day="1">Day 1</button>
-        <button type="button" class="dash-pred-segment-btn" data-day="2">Day 2</button>
-        <button type="button" class="dash-pred-segment-btn" data-day="3">Day 3</button>
-      </div>
-      <a href="#predictions" class="btn btn-ghost btn-sm" id="dash-pred-view-more">Full Predictions →</a>
     </div>
   </div>
   <div class="card-body dash-pred-body">
@@ -93,7 +101,10 @@
         <span>Last Price</span>
         <span>Forecast Price</span>
         <span>Change</span>
-        <span id="dash-pred-acc-head">Accuracy</span>
+        <span class="dash-pred-acc-head-cell">
+          <span id="dash-pred-acc-head">Accuracy</span>
+          <i class="ti ti-info-circle stat-info-icon tooltip-wide tooltip-left" id="dash-pred-acc-info" tabindex="0" role="img" data-tooltip="How many forecasts landed within ₱1.00 of the real price, measured on data the model never saw during training. Higher is better."></i>
+        </span>
         <span>Model</span>
       </div>
       <div id="dash-pred-rows">
@@ -107,22 +118,30 @@
   <div class="dashboard-col">
     <div class="card">
       <div class="card-header dash-trend-header">
-        <span class="card-title" id="dash-trend-title">Rice Price Trend — Last 90 Days (Local)</span>
-        <div class="dash-trend-legend" id="dash-trend-legend">
-          <span class="dash-legend-item"><span class="dash-legend-swatch" style="background:#4CAF6E;"></span>Well Milled</span>
-          <span class="dash-legend-item"><span class="dash-legend-swatch" style="background:#3B82F6;"></span>Regular Milled</span>
-          <span class="dash-legend-item"><span class="dash-legend-swatch" style="background:#8B5CF6;"></span>Premium</span>
-          <span class="dash-legend-item"><span class="dash-legend-swatch" style="background:#F59E0B;"></span>Special</span>
+        <div class="dash-trend-header-top">
+          <div class="dash-trend-header-left">
+            <span class="dash-trend-title-line">
+              <span class="card-title" id="dash-trend-title">Rice Price Trend — Last 90 Days (Local)</span>
+              <i class="ti ti-info-circle stat-info-icon tooltip-wide" tabindex="0" role="img" data-tooltip="Daily average retail price (₱/kg) per rice grade over the last 90 days, from DA price bulletins and the live scraper. A steady climb or drop on a line here is usually what's driving that grade's Forecast Price in the Predictions table above."></i>
+            </span>
+            <span class="text-xs text-muted dash-trend-subtitle">Daily retail price by rice grade that helps explain why a forecast moved.</span>
+          </div>
+          <div class="outlook-select-wrap dash-trend-select-wrap" id="dash-trend-select-wrap">
+            <div class="outlook-select-trigger" id="dash-trend-select-trigger">
+              <span id="dash-trend-select-label">Local</span>
+              <svg class="outlook-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="outlook-dropdown" id="dash-trend-dropdown">
+              <div class="outlook-option active" data-value="local">Local</div>
+              <div class="outlook-option" data-value="imported">Imported</div>
+            </div>
+          </div>
         </div>
-        <div class="outlook-select-wrap dash-trend-select-wrap" id="dash-trend-select-wrap">
-          <div class="outlook-select-trigger" id="dash-trend-select-trigger">
-            <span id="dash-trend-select-label">Local</span>
-            <svg class="outlook-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-          </div>
-          <div class="outlook-dropdown" id="dash-trend-dropdown">
-            <div class="outlook-option active" data-value="local">Local</div>
-            <div class="outlook-option" data-value="imported">Imported</div>
-          </div>
+        <div class="dash-trend-legend" id="dash-trend-legend">
+          <span class="dash-legend-item"><span class="dash-legend-swatch" style="background:#4CAF6E;"></span>Well Milled<i class="ti ti-info-circle stat-info-icon tooltip-wide" tabindex="0" role="img" data-tooltip="Mid-tier DA grade — the default retail rice for most households, priced between Regular Milled and Premium."></i></span>
+          <span class="dash-legend-item"><span class="dash-legend-swatch" style="background:#3B82F6;"></span>Regular Milled<i class="ti ti-info-circle stat-info-icon tooltip-wide" tabindex="0" role="img" data-tooltip="Entry-level DA grade — the most affordable and least polished of the four grades tracked."></i></span>
+          <span class="dash-legend-item"><span class="dash-legend-swatch" style="background:#8B5CF6;"></span>Premium<i class="ti ti-info-circle stat-info-icon tooltip-wide" tabindex="0" role="img" data-tooltip="Higher-polish DA grade — priced above Well Milled and Regular Milled."></i></span>
+          <span class="dash-legend-item"><span class="dash-legend-swatch" style="background:#F59E0B;"></span>Special<i class="ti ti-info-circle stat-info-icon tooltip-wide tooltip-right" tabindex="0" role="img" data-tooltip="Top DA grade — the highest quality and typically the highest price of the four."></i></span>
         </div>
       </div>
       <div class="card-body">
@@ -130,53 +149,6 @@
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-header dash-filter-header">
-        <div class="dash-filter-header-left">
-          <span class="card-title">Key Indicators</span>
-          <span class="text-xs text-muted">Last 90 days</span>
-        </div>
-        <div class="dash-filter-controls">
-          <div class="dash-pred-segment" id="ki-origin-toggle" role="group" aria-label="Rice origin">
-            <button type="button" class="dash-pred-segment-btn active" data-origin="local">Local</button>
-            <button type="button" class="dash-pred-segment-btn" data-origin="imported">Imported</button>
-          </div>
-          <select class="dash-filter-select" id="ki-type-select" aria-label="Rice type">
-            <option value="WellMilled">Well-Milled</option>
-            <option value="Regular">Regular Milled</option>
-            <option value="Premium">Premium</option>
-            <option value="Special">Special</option>
-          </select>
-        </div>
-      </div>
-      <div class="card-body ki-grid">
-        <div>
-          <div class="ki-tile-label" id="ki-rice-label">Local Well-Milled</div>
-          <canvas id="spark-rice" style="width:100%;height:44px;display:block;"></canvas>
-          <div id="ki-rice" class="ki-tile-value">—</div>
-        </div>
-        <div>
-          <div class="ki-tile-label">Diesel Price</div>
-          <canvas id="spark-fuel" style="width:100%;height:44px;display:block;"></canvas>
-          <div id="ki-fuel" class="ki-tile-value">—</div>
-        </div>
-        <div class="ki-tile-wide">
-          <div class="ki-tile-label">USD/PHP Rate</div>
-          <canvas id="spark-usd" style="width:100%;height:44px;display:block;"></canvas>
-          <div id="ki-usd" class="ki-tile-value">—</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card" style="flex:1;">
-      <div class="card-header">
-        <span class="card-title">Data Sources</span>
-        <span class="text-xs text-muted">3 sources configured</span>
-      </div>
-      <div class="card-body" style="padding:0;">
-        <div id="dash-sources-table"></div>
-      </div>
-    </div>
   </div>
 
   <div class="dashboard-col">
@@ -189,45 +161,6 @@
         </span>
       </div>
       <div class="card-body" id="dash-price-list"></div>
-    </div>
-
-    <div class="card">
-      <div class="card-header dash-filter-header">
-        <div class="dash-filter-header-left">
-          <span class="card-title">3-Day Forecast</span>
-          <span class="text-xs text-muted" id="dash-fc-subtitle">Local Well-Milled · LSTM Model</span>
-        </div>
-        <div class="dash-filter-controls">
-          <div class="dash-pred-segment" id="fc-origin-toggle" role="group" aria-label="Rice origin">
-            <button type="button" class="dash-pred-segment-btn active" data-origin="local">Local</button>
-            <button type="button" class="dash-pred-segment-btn" data-origin="imported">Imported</button>
-          </div>
-          <select class="dash-filter-select" id="fc-type-select" aria-label="Rice type">
-            <option value="WellMilled">Well-Milled</option>
-            <option value="Regular">Regular Milled</option>
-            <option value="Premium">Premium</option>
-            <option value="Special">Special</option>
-          </select>
-        </div>
-      </div>
-      <div class="card-body">
-        <div class="pred-timeline" id="dash-pred-bars"></div>
-        <div class="text-xs text-muted" id="dash-fc-note" style="margin-top:10px;" hidden></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Recent Alerts</span>
-        <span class="pill pill-red" id="dash-alerts-badge">—</span>
-      </div>
-      <div class="card-body" id="dash-recent-alerts">
-        <div class="text-muted" style="font-size:12px;">Loading alerts…</div>
-      </div>
-      <div class="card-footer dash-alerts-footer" id="dash-alerts-footer" hidden>
-        <span class="text-xs text-muted" id="dash-alerts-more"></span>
-        <a href="#alerts" class="btn btn-ghost btn-sm" id="dash-alerts-view-all">View all alerts →</a>
-      </div>
     </div>
   </div>
 </div>

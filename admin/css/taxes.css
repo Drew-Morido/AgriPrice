@@ -108,6 +108,13 @@ html.theme-dark .tx-status-chip { background: rgba(245,158,11,0.16); color: #F5C
 .tx-alert-banner svg { flex-shrink: 0; }
 .tx-alert-banner .tx-info-btn { margin-left: auto; }
 
+/* Same shape as the stale-rate banner but informational, not a warning — a scraped candidate
+   waiting for review is expected, routine behavior, not something gone wrong. */
+.tx-alert-banner.tx-alert-info {
+  background: var(--color-info-bg); border-color: rgba(59,130,246,0.25);
+  border-left-color: var(--color-info); color: #1D4ED8;
+}
+
 .tx-intro-line { display: flex; align-items: flex-start; gap: 6px; font-size: 13px; color: var(--text-secondary); margin: 10px 0 0; }
 
 /* ---- Toolbar ---- */
@@ -136,6 +143,13 @@ html.theme-dark .tx-status-chip { background: rgba(245,158,11,0.16); color: #F5C
 tr.tx-inactive-row { opacity: 0.55; }
 tr.tx-just-added { animation: txRowIn 0.6s ease-out; }
 @keyframes txRowIn { from { background: var(--color-accent-light); } to { background: transparent; } }
+
+/* A pending scraped candidate is inactive (so it also matches .tx-inactive-row above) but isn't
+   dimmed history — it's new and wants attention, so this overrides the dimming with the same
+   info-blue tint as the banner above the table instead. Declared after .tx-inactive-row so it
+   wins the tie on equal specificity. */
+tr.tx-pending-row { opacity: 1; background: var(--color-info-bg); }
+tr.tx-pending-row:hover { background: var(--color-info-bg); }
 
 /* ---- Add-rate slide-down form (replaces the old <details> disclosure) ---- */
 .tx-form-panel {
@@ -183,3 +197,10 @@ tr.tx-just-added { animation: txRowIn 0.6s ease-out; }
 
 /* ---- Panel sub-title (reuses .card-title's sizing convention at one step down) ---- */
 .tx-panel-sub { font-size: 12.5px; color: var(--text-muted); margin: 2px 0 0; }
+
+@media (max-width: 600px) {
+  /* Status/countdown chips wrap under the panel title instead of pushing past the card. */
+  .tx-chip-row { flex-shrink: 1; min-width: 0; max-width: 100%; }
+  .tx-status-chip, .tx-countdown-chip { white-space: normal; }
+  .tx-panel-heading { flex: 1 1 100%; }
+}

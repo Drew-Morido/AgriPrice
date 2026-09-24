@@ -1,6 +1,14 @@
 /* ============================================
    AgriPricePH - Data Sources (live DB only — no mock fallback)
-   ============================================ */
+   ============================================
+   Layout: a health summary row, then a source list (left) beside the selected source's detail
+   (right): freshness status, key facts (what it provides, cadence, which part of the system uses
+   it), the latest values it brought in, and a Fetch Now action.
+
+   Everything shown comes from GET /api/data-sources (or /api/scrape-status as a fallback). The
+   old per-source "Configure" dialog was removed on purpose: it only saved to this browser's
+   localStorage and never changed the backend, which checks every source on one 24-hour
+   auto-scrape cycle (api/app.py) — showing it implied control the admin didn't actually have. */
 
 window.AgriPricePH = window.AgriPricePH || {};
 
@@ -8,21 +16,41 @@ AgriPricePH.DataSources = (function () {
 
   const POLL_MS = 5_000;
   const POLL_RUN_MS = 2_000;
-  const CONFIG_KEY = 'agriprice_ds_config';
 
   const SOURCE_DEFS = [
     { id: 'da', key: 'rice', preview: 'preview_rice', name: 'DA – Dept. of Agriculture',
       type: 'Web Scraper (BeautifulSoup + PDF)', dataType: 'Daily Rice Prices (8 types)',
       url: 'https://www.da.gov.ph/price-monitoring/', color: '#4CAF6E', bgColor: 'rgba(76,175,110,0.12)' },
-    { id: 'doe', key: 'fuel', preview: 'preview_fuel', name: 'DOE – Dept. of Energy',
+    { id: 'doe', key: 'fuel', preview: 'preview_fuel', name: 'Zigwheels (Fuel)',
       type: 'Web Scraper (BeautifulSoup)', dataType: 'Diesel & Fuel Prices (Weekly)',
       url: 'https://www.zigwheels.ph/fuel-price', color: '#F59E0B', bgColor: 'rgba(245,158,11,0.12)' },
     { id: 'api', key: 'rates', preview: 'preview_rates', name: 'ExchangeRate API',
       type: 'REST API (JSON)', dataType: 'USD/PHP, THB/PHP, VND/PHP',
       url: 'https://open.er-api.com/v6/latest/USD', color: '#3B82F6', bgColor: 'rgba(59,130,246,0.12)' },
+    // Only ever stages a candidate rate for admin review (see Taxes & Import Charges) — never
+    // writes a live value on its own. These fields are only the fallback used when
+    // /api/data-sources is unreachable; the primary path gets real data from _build_tariff_source().
+    { id: 'tc', key: 'tariff', preview: null, name: 'Tariff Commission (PH Tariff Finder)',
+      type: 'REST API (JSON)', dataType: 'Rice Import Tariff Rate (Quarterly, admin-approved)',
+      url: 'https://finder.tariffcommission.gov.ph', color: '#8B5CF6', bgColor: 'rgba(139,92,246,0.12)' },
   ];
 
-  const LIVE_IDS = ['da', 'doe', 'api'];
+  /* Facts that aren't in the API payload. "usedBy" must stay true to the code: the DA prices are
+     the 8 forecast targets; RON 95 + diesel and USD/PHP are model input features
+     (model/data_pipeline.py FEATURE_COLUMNS); the tariff only feeds imported-rice consumer prices
+     after an admin approves it. */
+  const SOURCE_FACTS = {
+    da:  { short: 'Rice prices', cadence: 'Daily price bulletin (business days)',
+           usedBy: 'Forecast targets — all 8 rice types', unit: '/kg', route: 'predictions', routeLabel: 'Price Forecast' },
+    doe: { short: 'Fuel prices', cadence: 'Weekly pump-price adjustments',
+           usedBy: 'Forecast inputs — RON 95 & diesel', unit: '/L', route: 'correlation', routeLabel: 'Market Drivers' },
+    api: { short: 'Exchange rates', cadence: 'Daily reference rates',
+           usedBy: 'Forecast input — USD/PHP rate', unit: '', route: 'correlation', routeLabel: 'Market Drivers' },
+    tc:  { short: 'Rice import tariff', cadence: 'Quarterly rate (checked daily)',
+           usedBy: 'Imported-rice consumer prices, after admin approval', unit: '', route: 'taxes', routeLabel: 'Taxes & Import Charges' },
+  };
+
+  const LIVE_IDS = ['da', 'doe', 'api', 'tc'];
   const RICE_FIELDS = [
     'Local Special', 'Local Premium', 'Local Well Milled', 'Local Regular Milled',
     'Imported Special', 'Imported Premium', 'Imported Well Milled', 'Imported Regular Milled',
@@ -30,11 +58,14 @@ AgriPricePH.DataSources = (function () {
 
   let _mounted = false;
   let _pollTimer = null;
-  let _bound = false;
   let _sources = [];
-  let _live = false;
+  let _summary = null;
   let _scraperRunning = false;
   let _apiOk = false;
+  let _selected = 'da';
+  let _lastRenderKey = '';
+
+  // ── formatting helpers ──────────────────────────────────────────────────
 
   function _formatCount(val) {
     if (val == null || val === '') return '0';
@@ -48,28 +79,18 @@ AgriPricePH.DataSources = (function () {
     const ts = new Date(iso);
     if (Number.isNaN(ts.getTime())) return null;
     const secs = Math.floor((Date.now() - ts.getTime()) / 1000);
-    if (secs < 0) return 'Just now';
-    if (secs < 60) return `${secs}s ago`;
+    if (secs < 60) return 'Just now';
     if (secs < 3600) return `${Math.floor(secs / 60)} min ago`;
-    if (secs < 86400) return `${Math.floor(secs / 3600)} hr ago`;
-    return `${Math.floor(secs / 86400)} day ago`;
+    if (secs < 86400) { const h = Math.floor(secs / 3600); return `${h} hr${h === 1 ? '' : 's'} ago`; }
+    const d = Math.floor(secs / 86400);
+    return `${d} day${d === 1 ? '' : 's'} ago`;
   }
 
   function _displayLastFetch(s) {
-    if (s.lastFetchAt) {
-      return _relativeFromIso(s.lastFetchAt) || s.lastFetchRelative || 'Never';
-    }
+    if (s.lastFetchAt) return _relativeFromIso(s.lastFetchAt) || s.lastFetchRelative || 'Never';
     if (s.lastFetchRelative) return s.lastFetchRelative;
     const lf = (s.lastFetch || '').trim();
-    if (!lf || lf === 'Never' || lf === 'Not connected') return lf || 'Never';
-    if (/ago$/i.test(lf) || lf === 'Just now') return lf;
-    return lf;
-  }
-
-  function _displayRecordsToday(s) {
-    if (s.hasDataToday === true) return _formatCount(s.recordsToday);
-    if (s.hasDataToday === false) return '0';
-    return _formatCount(s.recordsToday);
+    return lf || 'Never';
   }
 
   function _esc(str) {
@@ -88,128 +109,64 @@ AgriPricePH.DataSources = (function () {
     return summary.filter((r) => RICE_FIELDS.includes(r.label)).length;
   }
 
-  /** Fix DA + drop PSA/PAGASA — works even if API returns old payload */
+  /** Fix DA + drop PSA/PAGASA — works even if the API returns an old payload */
   function _normalizeSources(list) {
     return list
       .filter((s) => LIVE_IDS.includes(s.id))
       .map((s) => {
         if (s.id !== 'da') return s;
-        const summary = (s.dataSummary && s.dataSummary.length)
-          ? s.dataSummary
-          : (s.todaySummary || []);
+        const summary = (s.dataSummary && s.dataSummary.length) ? s.dataSummary : (s.todaySummary || []);
         const riceN = _riceFilledCount(summary) || Number(s.recordsToday) || 0;
-        if (riceN >= 6) {
-          return {
-            ...s,
-            hasDataToday: true,
-            recordsToday: riceN,
-            todaySummary: summary,
-            dataSummary: summary,
-          };
-        }
+        if (riceN >= 6) return { ...s, hasDataToday: true, recordsToday: riceN, todaySummary: summary, dataSummary: summary };
         return s;
       });
-  }
-
-  function _summaryTableHtml(summary, title) {
-    if (!summary || !summary.length) {
-      return '<p class="ds-summary-empty">No row details in database yet.</p>';
-    }
-    const rows = summary.map(item => `
-      <tr><td>${_esc(item.label)}</td><td>${_esc(item.value)}</td></tr>`).join('');
-    return `
-      ${title ? `<p class="ds-summary-title">${_esc(title)}</p>` : ''}
-      <table class="ds-summary-table"><tbody>${rows}</tbody></table>`;
-  }
-
-  function showModal(opts) {
-    const overlay = document.createElement('div');
-    overlay.className = 'ds-modal-overlay';
-    const wide = opts.wide ? ' ds-modal-wide ds-modal-summary' : '';
-    const box = document.createElement('div');
-    box.className = `ds-modal-box${wide}`;
-    box.innerHTML = `
-      ${opts.icon ? `<div class="ds-modal-icon">${opts.icon}</div>` : ''}
-      <h3 class="ds-modal-title">${_esc(opts.title)}</h3>
-      <div class="ds-modal-text">${opts.html || _esc(opts.text || '')}</div>
-      <div class="ds-modal-actions">
-        ${opts.showCancel ? '<button type="button" class="btn btn-ghost btn-sm" data-modal="cancel">Cancel</button>' : ''}
-        <button type="button" class="btn btn-primary btn-sm" data-modal="confirm">${_esc(opts.confirmText || 'OK')}</button>
-      </div>`;
-    overlay.appendChild(box);
-    document.body.appendChild(overlay);
-    requestAnimationFrame(() => overlay.classList.add('visible'));
-
-    const close = () => {
-      overlay.classList.remove('visible');
-      setTimeout(() => overlay.remove(), 200);
-    };
-    box.querySelector('[data-modal="confirm"]').onclick = () => { close(); if (opts.onConfirm) opts.onConfirm(); };
-    const cancelBtn = box.querySelector('[data-modal="cancel"]');
-    if (cancelBtn) cancelBtn.onclick = () => { close(); if (opts.onCancel) opts.onCancel(); };
-    overlay.addEventListener('click', (e) => { if (e.target === overlay && opts.closeOnBackdrop !== false) close(); });
   }
 
   function _buildFromScrapeStatus(data) {
     const st = data.stats || {};
     const lastRun = st.last_run || null;
-
     return SOURCE_DEFS.map(def => {
       const block = st[def.key] || {};
-      const preview = (data[def.preview] || [])[0];
+      const preview = def.preview ? (data[def.preview] || [])[0] : null;
       const summary = _rowToSummary(preview);
-      const filled = block.count || (def.id === 'da'
-        ? _riceFilledCount(summary)
-        : summary.filter(r => r.label !== 'Date').length);
+      const filled = block.count || (def.id === 'da' ? _riceFilledCount(summary) : summary.filter(r => r.label !== 'Date').length);
       let hasToday = !!block.is_today;
       const isEstimated = def.id === 'da' && !!block.is_estimated;
       if (def.id === 'da' && filled >= 6) hasToday = true;
       else if (def.id !== 'da' && filled >= 3) hasToday = true;
       const countKey = { rice: 'rice_count', fuel: 'fuel_count', rates: 'rates_count' }[def.key];
       const total = st[countKey] ?? 0;
-
       let status = 'idle';
       if (st.running) status = 'running';
       else if (hasToday || total > 0) status = 'active';
-
       return {
-        id: def.id, name: def.name, type: def.type, dataType: def.dataType,
-        status,
-        lastFetch: block.latest_date ? (hasToday ? `Today (${block.latest_date})` : block.latest_date) : 'Never',
+        id: def.id, name: def.name, type: def.type, dataType: def.dataType, status,
+        lastFetch: block.latest_date || 'Never',
         lastFetchRelative: lastRun ? _relativeFromIso(lastRun) : null,
         lastFetchAt: lastRun,
         hasDataToday: hasToday,
         recordsToday: hasToday ? (def.id === 'da' ? _riceFilledCount(summary) || filled : filled) : 0,
-        todaySummary: hasToday ? summary : [],
-        dataSummary: summary,
-        hasCalendarToday: !!block.is_today,
-        isEstimated,
-        totalRecords: total,
-        historicalRecords: null,
-        scrapedRecords: total,
-        url: def.url, color: def.color, bgColor: def.bgColor,
-        live: true, implemented: true,
+        todaySummary: hasToday ? summary : [], dataSummary: summary,
+        hasCalendarToday: !!block.is_today, isEstimated,
+        totalRecords: total, historicalRecords: null, scrapedRecords: total,
+        url: def.url, color: def.color, bgColor: def.bgColor, live: true, implemented: true,
       };
     });
   }
 
+  // ── lifecycle / data ─────────────────────────────────────────────────────
+
   function init() {
-    if (_mounted) { _fetch(); return; }
     _mounted = true;
-    _renderLoading();
-    _updateSubtitle(null, 'connecting');
-    _bindActions();
-    _fetch();
+    _lastRenderKey = '';
+    _bind();
+    if (_sources.length) _render(true);
     _poll();
   }
 
   function destroy() {
     clearTimeout(_pollTimer);
     _mounted = false;
-    if (_bound) {
-      document.removeEventListener('click', _onClick);
-      _bound = false;
-    }
   }
 
   function _poll() {
@@ -222,198 +179,357 @@ AgriPricePH.DataSources = (function () {
 
   async function _fetch() {
     if (!AgriPricePH.API) return;
-
     try {
       const data = await AgriPricePH.API.dataSources();
       if (data.sources && data.sources.length) {
         _sources = _normalizeSources(data.sources);
-        _live = true;
+        _summary = data.summary || {};
+        _scraperRunning = !!_summary.scraper_running;
         _apiOk = true;
-        _scraperRunning = !!(data.summary && data.summary.scraper_running);
-        _updateSubtitle(_mergeSummary(data.summary), 'live');
         _render();
         return;
       }
-    } catch { /* try scrape-status */ }
+    } catch { /* fall back to scrape-status */ }
 
     try {
       const status = await AgriPricePH.API.scrapeStatus();
       _sources = _normalizeSources(_buildFromScrapeStatus(status));
-      _live = true;
-      _apiOk = true;
       _scraperRunning = !!status.stats?.running;
-      _updateSubtitle({
-        total: _sources.length,
-        active: _sources.filter(s => s.status === 'active' || s.status === 'running').length,
+      _summary = {
         last_updated: status.stats?.last_run ? _relativeFromIso(status.stats.last_run) : '—',
         scraper_running: _scraperRunning,
-      }, 'live');
+      };
+      _apiOk = true;
       _render();
       return;
     } catch { /* API down */ }
 
-    _live = false;
     _apiOk = false;
     _scraperRunning = false;
-    _updateSubtitle(null, 'error');
-    if (!_sources.length) _renderLoading();
-    else _render();
+    _render(true);
   }
 
-  function _mergeSummary(apiSummary) {
-    const active = _sources.filter(s => s.status === 'active' || s.status === 'running').length;
-    return {
-      ...(apiSummary || {}),
-      total: _sources.length,
-      active,
-    };
-  }
+  // ── derived status ───────────────────────────────────────────────────────
 
-  function _updateSubtitle(summary, mode) {
-    const el = document.getElementById('data-sources-subtitle');
-    if (!el) return;
+  function _isActive(s) { return s.status === 'active' || s.status === 'running'; }
 
-    if (mode === 'connecting') {
-      el.textContent = 'Connecting to database…';
-      el.style.color = 'var(--text-muted)';
-      return;
+  /* One freshness verdict per source, used by the list badge and the detail banner. */
+  function _freshness(s) {
+    if (s.status === 'running' || (_scraperRunning && _isActive(s))) {
+      return { tone: 'info', badge: 'Syncing', title: 'Fetching now…', text: 'The scraper is running — values update here as soon as it finishes.' };
     }
-    if (mode === 'error') {
+    if (s.id === 'tc') {
+      const rate = (s.dataSummary || []).find(r => r.label === 'Current rate')?.value;
+      const q = (s.dataSummary || []).find(r => r.label === 'Quarter')?.value;
+      return s.hasDataToday
+        ? { tone: 'info', badge: 'Review', title: 'New rate waiting for approval', text: 'A rate was detected on the Tariff Finder. It won’t be used until an admin approves it in Taxes & Import Charges.', action: true }
+        : { tone: 'ok', badge: 'Current', title: `In effect: ${rate || '—'}${q ? ` (${q})` : ''}`, text: 'The confirmed quarterly rate is in the database. New quarters are detected automatically and staged for approval.' };
+    }
+    const asOf = (s.dataSummary || []).find(r => r.label === 'Date')?.value;
+    if (s.id === 'da' && s.isEstimated) {
+      return { tone: 'warn', badge: 'Estimated', title: `Estimated for ${asOf || 'today'}`, text: 'DA hasn’t published today’s bulletin yet. This temporary estimate is replaced automatically when it is.' };
+    }
+    if (s.hasDataToday) {
+      return { tone: 'ok', badge: 'Up to date', title: `Up to date${asOf ? ` — ${asOf}` : ''}`, text: 'The latest data from this source is already in the database.' };
+    }
+    if (!_isActive(s)) {
+      return { tone: 'bad', badge: 'Offline', title: 'No data received', text: 'This source hasn’t returned data yet. Try Fetch Now, or check the Web Scraper log.' };
+    }
+    return { tone: 'warn', badge: 'Not today', title: 'No data for today yet', text: 'The next automatic check runs within 24 hours — or fetch it now.' };
+  }
+
+  // ── rendering ────────────────────────────────────────────────────────────
+
+  function _render(force) {
+    const key = JSON.stringify([_sources, _summary, _scraperRunning, _apiOk, _selected]);
+    if (!force && key === _lastRenderKey) return;
+    _lastRenderKey = key;
+    if (!_sources.some(s => s.id === _selected) && _sources.length) _selected = _sources[0].id;
+    _renderHeader();
+    _renderKpis();
+    _renderList();
+    _renderDetail();
+  }
+
+  function _renderHeader() {
+    const sub = document.getElementById('data-sources-subtitle');
+    const chip = document.getElementById('ds-live-chip');
+    const chipText = document.getElementById('ds-live-text');
+    if (!sub || !chip) return;
+    if (!_apiOk) {
       const api = AgriPricePH.API?.BASE || 'http://127.0.0.1:5000';
-      el.textContent = `Cannot reach API at ${api} — start the server (run_backend.bat), then refresh`;
-      el.style.color = 'var(--warning, #d97706)';
+      sub.textContent = `Cannot reach the API at ${api} — start the backend (run_backend.bat), then refresh.`;
+      chip.className = 'ds-live-chip is-down';
+      chipText.textContent = 'Offline';
       return;
     }
-
-    el.style.color = '#2D8A50';
-    const updated = (summary && summary.last_updated) || '—';
-    const tag = summary && summary.scraper_running ? ' · Scraper running…' : ' · Live from database';
-    el.textContent = `${summary.total} sources · ${summary.active} active · ${updated}${tag}`;
+    sub.textContent = 'Where AgriPricePH’s data comes from, how fresh it is, and what each source feeds.';
+    chip.className = `ds-live-chip ${_scraperRunning ? 'is-running' : 'is-live'}`;
+    chipText.textContent = _scraperRunning ? 'Scraper running…' : 'Live from database';
   }
 
-  function _renderLoading() {
-    const grid = document.getElementById('source-cards-grid');
-    if (!grid) return;
-    grid.innerHTML = Array(3).fill(0).map(() => `
-      <div class="source-card source-card-loading">
-        <div class="source-loading-bar"></div>
-        <div class="source-loading-bar short"></div>
-        <p style="font-size:12px;color:var(--text-muted);margin-top:12px;">Querying database…</p>
-      </div>`).join('');
+  function _renderKpis() {
+    const wrap = document.getElementById('ds-kpis');
+    if (!wrap) return;
+    if (!_apiOk && !_sources.length) {
+      wrap.innerHTML = '';
+      return;
+    }
+    const total = _sources.length;
+    const active = _sources.filter(_isActive).length;
+    const daily = _sources.filter(s => s.id !== 'tc');
+    const fresh = daily.filter(s => s.hasDataToday && !(s.id === 'da' && s.isEstimated)).length;
+    const estimated = daily.filter(s => s.id === 'da' && s.isEstimated).length;
+    const records = _sources.reduce((n, s) => n + (Number(s.totalRecords) || 0), 0);
+    const kpi = (icon, tone, label, value, sub) => `
+      <div class="ds-kpi">
+        <span class="ds-kpi-icon ${tone}">${icon}</span>
+        <div class="ds-kpi-body">
+          <div class="ds-kpi-label">${label}</div>
+          <div class="ds-kpi-value">${value}</div>
+          <div class="ds-kpi-sub">${sub}</div>
+        </div>
+      </div>`;
+    const I = {
+      plug: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></svg>',
+      check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>',
+      db: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>',
+      clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+    };
+    wrap.innerHTML =
+      kpi(I.plug, active === total ? 'ok' : 'warn', 'Connected sources', `${active}<small>/${total}</small>`,
+        active === total ? 'All sources responding' : `${total - active} not responding`) +
+      kpi(I.check, fresh === daily.length ? 'ok' : 'warn', 'Fresh today', `${fresh}<small>/${daily.length}</small>`,
+        estimated ? `${estimated} estimated, awaiting DA` : (fresh === daily.length ? 'Rice, fuel & exchange feeds' : 'Some feeds not updated yet')) +
+      kpi(I.db, 'info', 'Records in database', _formatCount(records), 'Across all sources') +
+      kpi(I.clock, _scraperRunning ? 'info' : 'neutral', 'Last sync', _esc((_summary && _summary.last_updated) || '—'),
+        _scraperRunning ? 'Scraper running now' : 'Auto-sync every 24 hours');
   }
 
-  function _findSource(id) {
-    return _sources.find(s => s.id === id);
+  function _icon(id) {
+    const map = { da: svgLeaf, doe: svgFuel, api: svgGlobe, tc: svgPercent };
+    return (map[id] || svgGlobe)();
   }
 
-  function _bindActions() {
+  function _renderList() {
+    const list = document.getElementById('ds-list');
+    if (!list) return;
+    if (!_sources.length) {
+      list.innerHTML = `<div class="ds-list-empty">${_apiOk ? 'No sources configured.' : 'Waiting for the backend…'}</div>`;
+      return;
+    }
+    list.innerHTML = _sources.map(s => {
+      const f = _freshness(s);
+      const facts = SOURCE_FACTS[s.id] || {};
+      const on = s.id === _selected;
+      return `
+        <button type="button" class="ds-item ${on ? 'active' : ''}" data-source="${s.id}" role="tab" aria-selected="${on}">
+          <span class="ds-item-icon" style="background:${s.bgColor};color:${s.color}">${_icon(s.id)}</span>
+          <span class="ds-item-text">
+            <span class="ds-item-name">${_esc(facts.short || s.name)}</span>
+            <span class="ds-item-sub">${_esc(s.name)}</span>
+          </span>
+          <span class="ds-item-meta">
+            <span class="ds-badge ${f.tone}">${f.badge}</span>
+            <span class="ds-item-time">${_esc(_displayLastFetch(s))}</span>
+          </span>
+        </button>`;
+    }).join('');
+  }
+
+  function _prettyLabel(label) {
+    return String(label)
+      .replace(/_to_/g, ' → ')
+      .replace(/^RON_/, 'RON ')
+      .replace(/_/g, ' ');
+  }
+
+  function _prettyValue(s, item) {
+    const v = item.value;
+    if (typeof v !== 'number') return _esc(v);
+    if (s.id === 'api') return `₱${v.toFixed(v < 1 ? 4 : 2)}`;
+    const unit = (SOURCE_FACTS[s.id] || {}).unit || '';
+    return `₱${v.toFixed(2)}<small>${unit}</small>`;
+  }
+
+  function _renderValues(s) {
+    const rows = (s.dataSummary && s.dataSummary.length ? s.dataSummary : s.todaySummary) || [];
+    const meta = rows.filter(r => ['Date', 'Source'].includes(r.label));
+    const vals = rows.filter(r => !['Date', 'Source'].includes(r.label));
+    if (!vals.length) return '<div class="ds-values-empty">No values in the database yet.</div>';
+    const metaLine = meta.length
+      ? `<span class="ds-values-meta">${meta.map(m => `${_esc(m.label === 'Date' ? 'As of' : m.label)} ${_esc(m.value)}`).join(' · ')}</span>` : '';
+
+    // The 8 DA rice prices read best as a 2×4 matrix (origin × grade) — the same structure the
+    // forecast uses — and it's far more compact than eight separate tiles.
+    const byLabel = Object.fromEntries(vals.map(r => [r.label, r.value]));
+    if (s.id === 'da' && RICE_FIELDS.every(f => f in byLabel)) {
+      const grades = [['Special', 'Special'], ['Premium', 'Premium'], ['Well Milled', 'Well-Milled'], ['Regular Milled', 'Regular']];
+      const cell = (v) => typeof v === 'number' ? `₱${v.toFixed(2)}` : _esc(v);
+      return `
+        <div class="ds-section-head"><span>Latest values · ₱ per kg</span>${metaLine}</div>
+        <table class="ds-matrix">
+          <thead><tr><th></th>${grades.map(([, short]) => `<th>${short}</th>`).join('')}</tr></thead>
+          <tbody>
+            ${['Local', 'Imported'].map(origin => `
+              <tr><th scope="row">${origin}</th>${grades.map(([g]) => `<td>${cell(byLabel[`${origin} ${g}`])}</td>`).join('')}</tr>`).join('')}
+          </tbody>
+        </table>`;
+    }
+    return `
+      <div class="ds-section-head"><span>Latest values</span>${metaLine}</div>
+      <div class="ds-values ${vals.length > 4 ? 'is-grid' : ''}">
+        ${vals.map(r => `
+          <div class="ds-value">
+            <span class="ds-value-label" title="${_esc(_prettyLabel(r.label))}">${_esc(_prettyLabel(r.label))}</span>
+            <span class="ds-value-num">${_prettyValue(s, r)}</span>
+          </div>`).join('')}
+      </div>`;
+  }
+
+  function _renderDetail() {
+    const el = document.getElementById('ds-detail');
+    if (!el) return;
+    const s = _sources.find(x => x.id === _selected);
+    if (!s) {
+      el.innerHTML = `<div class="ds-detail-empty">${_apiOk ? 'Select a source.' : 'Can’t reach the backend. Start run_backend.bat, then refresh this page.'}</div>`;
+      return;
+    }
+    const f = _freshness(s);
+    const facts = SOURCE_FACTS[s.id] || {};
+    const host = (s.url || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const hist = s.historicalRecords != null ? _formatCount(s.historicalRecords) : null;
+    const scraped = s.scrapedRecords != null ? _formatCount(s.scrapedRecords) : null;
+    const breakdown = hist != null
+      ? (s.id === 'tc' ? `${hist} confirmed · ${scraped} detected` : `${hist} historical · ${scraped} scraped`) : 'Total stored';
+    // `note` is secondary detail (exact timestamp, record breakdown): it's also the tooltip, so
+    // the CSS can hide the visible line on tight screens without losing it.
+    const fact = (label, value, sub, note) => `
+      <div class="ds-fact"${note ? ` title="${note}"` : ''}>
+        <span class="ds-fact-label">${label}</span>
+        <span class="ds-fact-value">${value}</span>
+        ${sub ? `<span class="ds-fact-sub">${sub}</span>` : ''}
+        ${note ? `<span class="ds-fact-sub ds-fact-note">${note}</span>` : ''}
+      </div>`;
+    const fetchIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
+    const extIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+    const toneIcon = {
+      ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>',
+      warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+      info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+      bad: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+    };
+    const lastAbs = s.lastFetchAt
+      ? new Date(s.lastFetchAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+      : '';
+
+    el.innerHTML = `
+      <div class="ds-detail-head">
+        <span class="ds-detail-icon" style="background:${s.bgColor};color:${s.color}">${_icon(s.id)}</span>
+        <div class="ds-detail-title">
+          <h3>${_esc(s.name)}</h3>
+          <div class="ds-detail-sub">${_esc(s.type)} · <a href="${_esc(s.url)}" target="_blank" rel="noopener noreferrer">${_esc(host)}</a></div>
+        </div>
+        <div class="ds-detail-actions">
+          <a class="btn btn-outline btn-sm" href="${_esc(s.url)}" target="_blank" rel="noopener noreferrer" title="Open ${_esc(host)}">${extIcon}<span class="ds-btn-label">Visit</span></a>
+          <button type="button" class="btn btn-primary btn-sm" data-action="fetch-now" data-source-id="${s.id}" ${_scraperRunning ? 'disabled' : ''}>${fetchIcon}<span>${_scraperRunning ? 'Fetching…' : 'Fetch Now'}</span></button>
+        </div>
+      </div>
+
+      <div class="ds-banner ${f.tone}" title="${_esc(f.title + ' — ' + f.text)}">
+        <span class="ds-banner-icon">${toneIcon[f.tone] || toneIcon.info}</span>
+        <div class="ds-banner-text"><b>${_esc(f.title)}</b><span>${_esc(f.text)}</span></div>
+        ${f.action ? '<button type="button" class="btn btn-outline btn-sm" data-goto="taxes">Review rate</button>' : ''}
+      </div>
+
+      <div class="ds-facts">
+        ${fact('Provides', _esc(s.dataType))}
+        ${fact('Update cadence', _esc(facts.cadence || '—'))}
+        ${fact('Last fetched', _esc(_displayLastFetch(s)), '', _esc(lastAbs))}
+        ${fact(s.id === 'tc' ? 'Quarters tracked' : 'Records in database', _formatCount(s.totalRecords), '', _esc(breakdown))}
+        ${fact('Used by', _esc(facts.usedBy || '—'), facts.route ? `<button type="button" class="ds-link" data-goto="${facts.route}">Open ${_esc(facts.routeLabel)} →</button>` : '')}
+      </div>
+
+      ${_renderValues(s)}`;
+  }
+
+  // ── actions ──────────────────────────────────────────────────────────────
+
+  let _bound = false;
+  function _bind() {
     if (_bound) return;
     _bound = true;
-    document.addEventListener('click', _onClick);
-  }
-
-  function _onClick(e) {
-    const fetchBtn = e.target.closest('[data-action="fetch-now"]');
-    const cfgBtn = e.target.closest('[data-action="configure"]');
-    if (fetchBtn) { e.preventDefault(); _handleFetchNow(fetchBtn.dataset.sourceId); }
-    else if (cfgBtn) { e.preventDefault(); _handleConfigure(cfgBtn.dataset.sourceId); }
-  }
-
-  function _showTodaySummaryModal(source) {
-    const summary = source.todaySummary?.length ? source.todaySummary : (source.dataSummary || []);
-    const daNote = source.id === 'da' && source.hasCalendarToday === false
-      ? '<p style="font-size:12px;color:var(--text-muted);">Latest DA bulletin prices are in the database (8 rice types). Date shown is the official price bulletin date.</p>'
-      : '';
-    const estNote = source.id === 'da' && source.isEstimated
-      ? '<p style="font-size:12px;color:var(--text-muted);">Temporary estimate from recent DA prices — auto-replaces when da.gov.ph posts today\'s bulletin.</p>'
-      : '';
-    const daNoteBlock = daNote || estNote
-      ? (daNote + estNote)
-      : '';
-    const html = `
-      <p>Data already available for <strong>${_esc(source.name)}</strong> — no need to scrape again.</p>
-      ${daNoteBlock}
-      ${_summaryTableHtml(summary, 'Price summary (from database)')}
-      <p style="font-size:12px;margin-top:12px;color:var(--text-muted);">Last fetch: <strong>${_esc(_displayLastFetch(source))}</strong></p>`;
-    showModal({
-      title: 'Data Already Available Today',
-      html,
-      wide: true,
-      confirmText: 'OK',
-      icon: '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4CAF6E" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+    document.addEventListener('click', (e) => {
+      if (!_mounted) return;
+      const item = e.target.closest('#ds-list [data-source]');
+      if (item) {
+        _selected = item.dataset.source;
+        _render(true);
+        // Stacked layout (tablet/phone): the detail sits below the list, so bring it into view.
+        if (window.innerWidth <= 860) document.getElementById('ds-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+      const fetchBtn = e.target.closest('#ds-detail [data-action="fetch-now"]');
+      if (fetchBtn) { _handleFetchNow(fetchBtn.dataset.sourceId); return; }
+      const go = e.target.closest('#ds-detail [data-goto]');
+      if (go) AgriPricePH.Router?.navigate(go.dataset.goto);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (!_mounted || !e.target.closest?.('#ds-list')) return;
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+      e.preventDefault();
+      const i = _sources.findIndex(s => s.id === _selected);
+      const next = _sources[(i + (e.key === 'ArrowDown' ? 1 : -1) + _sources.length) % _sources.length];
+      if (!next) return;
+      _selected = next.id;
+      _render(true);
+      document.querySelector(`#ds-list [data-source="${next.id}"]`)?.focus();
     });
   }
 
   async function _handleFetchNow(sourceId) {
+    const M = AgriPricePH.Modals;
     await _fetch();
-    const source = _findSource(sourceId);
+    const source = _sources.find(s => s.id === sourceId);
     if (!source) return;
-
-    if (source.implemented === false || source.live === false) {
-      showModal({
-        title: 'Not Available',
-        text: `<strong>${_esc(source.name)}</strong> scraper is not implemented yet.`,
-        confirmText: 'OK',
-      });
-      return;
-    }
-
     if (!_apiOk) {
-      showModal({
-        title: 'API Not Reachable',
-        html: `Start <strong>run_backend.bat</strong>, then refresh. API target: <strong>${AgriPricePH.API?.BASE || 'http://127.0.0.1:5000'}</strong>`,
-        confirmText: 'OK',
-      });
+      await M.alert({ title: 'Backend not reachable', text: `Start run_backend.bat, then refresh. API target: ${AgriPricePH.API?.BASE || 'http://127.0.0.1:5000'}`, type: 'danger' });
       return;
     }
-
-    if (source.hasDataToday) {
-      _showTodaySummaryModal(source);
-      return;
-    }
-
-    showModal({
-      title: 'Confirm Web Scrape',
-      html: `Run web scraper now for <strong>${_esc(source.name)}</strong>?<br><br><span style="font-size:12px;color:#94a3b8;">${_esc(source.url)}</span>`,
-      confirmText: 'Run Scraper',
-      showCancel: true,
-      onConfirm: () => _runScrape(sourceId, source.name),
-    });
-  }
-
-  function _showLoading(text) {
-    const overlay = document.createElement('div');
-    overlay.className = 'ds-modal-overlay visible';
-    overlay.innerHTML = `<div class="ds-modal-box"><h3 class="ds-modal-title">Scraping…</h3><p class="ds-modal-text">${text}</p><div class="ds-modal-spinner"></div></div>`;
-    document.body.appendChild(overlay);
-    return () => overlay.remove();
+    const upToDate = source.hasDataToday && !(source.id === 'da' && source.isEstimated) && source.id !== 'tc';
+    const ok = await M.confirm(upToDate
+      ? { title: 'Already up to date', text: `Today's data from ${source.name} is already in the database. Fetch again anyway?`, type: 'info', okText: 'Fetch again' }
+      : { title: `Fetch from ${source.name}?`, text: `Runs the scraper for this source now (${(source.url || '').replace(/^https?:\/\//, '')}). This can take up to a minute.`, type: 'info', okText: 'Fetch now' });
+    if (!ok) return;
+    await _runScrape(sourceId, source.name);
   }
 
   async function _runScrape(sourceId, name) {
-    const hideLoading = _showLoading(`Fetching <strong>${_esc(name)}</strong>…`);
+    const M = AgriPricePH.Modals;
+    M.loading(`Fetching from ${name}…`);
     try {
       const { ok, data } = await AgriPricePH.API.runScraper(sourceId);
-      hideLoading();
       if (!ok) {
-        showModal({ title: 'Scrape Failed', text: data.message || 'Could not start scraper.', confirmText: 'OK' });
+        M.hideLoading();
+        await M.alert({ title: 'Couldn’t start the scraper', text: data?.message || data?.error || 'The backend refused the request.', type: 'danger' });
         return;
       }
       _scraperRunning = true;
+      _render(true);
       await _waitForScrape();
       _scraperRunning = false;
       await _fetch();
-      const updated = _findSource(sourceId);
-      const summary = updated?.dataSummary || updated?.todaySummary || [];
-      showModal({
-        title: 'Scrape Complete',
-        html: `<p>Finished <strong>${_esc(name)}</strong>. Saved to database:</p>${_summaryTableHtml(summary, 'Fetched data')}`,
-        wide: true,
-        confirmText: 'OK',
-        icon: '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4CAF6E" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+      M.hideLoading();
+      const s = _sources.find(x => x.id === sourceId);
+      const f = s ? _freshness(s) : null;
+      await M.alert({
+        title: 'Fetch complete',
+        text: f ? `${name}: ${f.title}. The latest values are shown on this page.` : `${name} finished.`,
+        type: f && f.tone === 'bad' ? 'warning' : 'success',
       });
     } catch {
-      hideLoading();
-      showModal({ title: 'Connection Error', text: 'Lost connection to API while scraping.', confirmText: 'OK' });
+      M.hideLoading();
+      await M.alert({ title: 'Connection lost', text: 'Lost connection to the backend while fetching.', type: 'danger' });
     }
   }
 
@@ -424,121 +540,12 @@ AgriPricePH.DataSources = (function () {
         try {
           const status = await AgriPricePH.API.scrapeStatus();
           if (!status.stats?.running) { resolve(); return; }
-          _scraperRunning = true;
-          await _fetch();
         } catch { /* retry */ }
         if (Date.now() - start > maxMs) { resolve(); return; }
         setTimeout(tick, POLL_RUN_MS);
       };
       tick();
     });
-  }
-
-  function _getConfig(id) {
-    try {
-      return JSON.parse(localStorage.getItem(CONFIG_KEY) || '{}')[id] || {};
-    } catch { return {}; }
-  }
-
-  function _saveConfig(id, patch) {
-    try {
-      const all = JSON.parse(localStorage.getItem(CONFIG_KEY) || '{}');
-      all[id] = { ...(_getConfig(id)), ...patch };
-      localStorage.setItem(CONFIG_KEY, JSON.stringify(all));
-    } catch { /* ignore */ }
-  }
-
-  function _handleConfigure(sourceId) {
-    const source = _findSource(sourceId);
-    if (!source) return;
-    const cfg = _getConfig(sourceId);
-
-    const overlay = document.createElement('div');
-    overlay.className = 'ds-modal-overlay';
-    const box = document.createElement('div');
-    box.className = 'ds-modal-box ds-modal-wide';
-    box.innerHTML = `
-      <h3 class="ds-modal-title">Configure — ${_esc(source.name)}</h3>
-      <div class="ds-config-form">
-        <label class="ds-config-label">Endpoint URL</label>
-        <input class="ds-config-input" type="text" readonly value="${_esc(source.url)}" />
-        <label class="ds-config-label">Auto-fetch</label>
-        <label class="ds-config-check"><input type="checkbox" id="ds-cfg-enabled" ${cfg.enabled !== false ? 'checked' : ''} /> Enable scheduled fetch</label>
-        <label class="ds-config-label">Schedule</label>
-        <select class="ds-config-input" id="ds-cfg-schedule">
-          <option value="daily" ${(cfg.schedule || 'daily') === 'daily' ? 'selected' : ''}>Daily</option>
-          <option value="weekly" ${cfg.schedule === 'weekly' ? 'selected' : ''}>Weekly</option>
-          <option value="hourly" ${cfg.schedule === 'hourly' ? 'selected' : ''}>Hourly</option>
-        </select>
-        <label class="ds-config-label">Notes</label>
-        <textarea class="ds-config-input" id="ds-cfg-notes" rows="3">${_esc(cfg.notes || '')}</textarea>
-      </div>
-      <div class="ds-modal-actions">
-        <button type="button" class="btn btn-ghost btn-sm" data-modal="cancel">Cancel</button>
-        <button type="button" class="btn btn-primary btn-sm" data-modal="save">Save</button>
-      </div>`;
-    overlay.appendChild(box);
-    document.body.appendChild(overlay);
-    requestAnimationFrame(() => overlay.classList.add('visible'));
-    const close = () => { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); };
-    box.querySelector('[data-modal="cancel"]').onclick = close;
-    overlay.onclick = (e) => { if (e.target === overlay) close(); };
-    box.querySelector('[data-modal="save"]').onclick = () => {
-      _saveConfig(sourceId, {
-        enabled: box.querySelector('#ds-cfg-enabled').checked,
-        schedule: box.querySelector('#ds-cfg-schedule').value,
-        notes: box.querySelector('#ds-cfg-notes').value,
-      });
-      close();
-      showModal({ title: 'Saved', text: `Settings saved for ${_esc(source.name)}.`, confirmText: 'OK' });
-    };
-  }
-
-  function _render() {
-    const grid = document.getElementById('source-cards-grid');
-    if (!grid || !_sources.length) return;
-
-    const icons = { da: svgLeaf(), doe: svgFuel(), api: svgGlobe() };
-    const pillClass = (s) => s === 'active' ? 'pill-green' : s === 'running' ? 'pill-orange' : 'pill-gray';
-    const pillLabel = (s) => s === 'active' ? 'Active' : s === 'running' ? 'Running' : 'Idle';
-
-    grid.innerHTML = _sources.map(s => {
-      const endpoint = (s.url || '').replace(/^https?:\/\//, '');
-      const planned = !s.implemented || s.live === false;
-      const hist = s.historicalRecords != null ? _formatCount(s.historicalRecords) : null;
-      const scraped = s.scrapedRecords != null ? _formatCount(s.scrapedRecords) : null;
-      const totalHint = _live && !planned && hist != null
-        ? `<div class="source-stat-hint">${hist} hist · ${scraped} scraped</div>` : '';
-      const todayBadge = s.hasDataToday
-        ? `<span class="pill ${s.isEstimated ? 'pill-orange' : 'pill-green'}" style="font-size:9px;margin-left:4px;">${s.isEstimated ? 'Estimated' : (s.id === 'da' && s.hasCalendarToday === false ? 'Data OK' : 'Today OK')}</span>`
-        : '';
-
-      return `
-      <div class="source-card" data-source-card="${s.id}">
-        <div class="source-card-header">
-          <div class="source-icon" style="background:${s.bgColor};color:${s.color}">${icons[s.id] || svgGlobe()}</div>
-          <div>
-            <div class="source-name">${_esc(s.name)}${planned ? ' <span class="pill pill-gray" style="font-size:10px;">Planned</span>' : ''}</div>
-            <div class="source-type">${_esc(s.type)}</div>
-          </div>
-          <span class="pill ${pillClass(s.status)}" style="margin-left:auto">${pillLabel(s.status)}</span>
-        </div>
-        <div class="source-data-type">${_esc(s.dataType)}${todayBadge}</div>
-        <div class="source-stat-row">
-          <div class="source-stat-item"><label>Last Fetch</label><div class="val">${_esc(_displayLastFetch(s))}</div></div>
-          <div class="source-stat-item"><label>Records Today</label><div class="val">${_esc(_displayRecordsToday(s))}</div></div>
-          <div class="source-stat-item">
-            <label>Total Records</label>
-            <div class="val">${_formatCount(s.totalRecords)}</div>${totalHint}
-          </div>
-          <div class="source-stat-item"><label>Endpoint</label><div class="val endpoint-val">${_esc(endpoint)}</div></div>
-        </div>
-        <div class="source-card-actions">
-          <button class="btn btn-outline btn-sm" data-action="fetch-now" data-source-id="${s.id}" type="button">${svgRefresh()} Fetch Now</button>
-          <button class="btn btn-ghost btn-sm" data-action="configure" data-source-id="${s.id}" type="button">Configure</button>
-        </div>
-      </div>`;
-    }).join('');
   }
 
   return { init, destroy };

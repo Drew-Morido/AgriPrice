@@ -1,89 +1,229 @@
-<div class="section-header">
-  <div>
-    <div class="section-title">Rice Brands</div>
-    <div class="section-subtitle">Branded rice products mapped to the 8 forecast categories &middot; catalog + governance</div>
-  </div>
-</div>
+<div class="rb-page">
 
-<div class="rb-stat-strip" id="rb-stats"></div>
-
-<div class="rb-toolbar">
-  <div class="rb-search-box">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-    <input type="text" id="rb-search" class="form-input" placeholder="Search brand, package, location&hellip;">
-  </div>
-  <label class="rb-toggle-label">
-    <input type="checkbox" id="rb-show-inactive"> Show deactivated
-  </label>
-  <span class="rb-result-count" id="rb-result-count"></span>
-  <button class="btn btn-primary" id="rb-add-toggle">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    Add brand
-  </button>
-</div>
-
-<!-- ===== Add / edit brand form (slide-down panel, shared by both modes) ===== -->
-<div class="rb-form-panel" id="rb-form">
-  <p class="rb-form-title" id="rb-form-title">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/></svg>
-    Add a new brand
-  </p>
-  <input type="hidden" id="rf-brand-id" value="">
-  <div class="rb-form-grid">
-    <div class="rb-field">
-      <label for="rf-category">Category *</label>
-      <select id="rf-category" class="form-select"></select>
+  <div class="section-header rb-header">
+    <div>
+      <div class="section-title">Rice Brands</div>
+      <div class="section-subtitle">Branded rice products mapped to the 8 forecast categories &middot; prices, weights, and verification</div>
     </div>
-    <div class="rb-field">
-      <label for="rf-brand-name">Brand name *</label>
-      <input type="text" id="rf-brand-name" class="form-input" placeholder="e.g. Doña Maria">
-    </div>
-    <div class="rb-field">
-      <label for="rf-package">Package / variety</label>
-      <input type="text" id="rf-package" class="form-input" placeholder="e.g. Jasponica Rice (5kg)">
-    </div>
-    <div class="rb-field">
-      <label for="rf-location">Location</label>
-      <input type="text" id="rf-location" class="form-input" placeholder="e.g. NCR">
-    </div>
-    <div class="rb-field">
-      <label for="rf-verification">Verification status</label>
-      <select id="rf-verification" class="form-select">
-        <option value="unverified">Unverified</option>
-        <option value="field_verified">Field-verified</option>
-        <option value="dti_verified">DTI-verified</option>
-      </select>
-    </div>
-    <div class="rb-field">
-      <label for="rf-last-verified">Last verified</label>
-      <input type="date" id="rf-last-verified" class="form-input">
-    </div>
-    <div class="rb-field span-3">
-      <label for="rf-source">Source * <span class="rb-field-hint">where did this entry come from? required before saving</span></label>
-      <input type="text" id="rf-source" class="form-input" placeholder="e.g. Official Brand Website, or NCR retailer listing">
-    </div>
-    <div class="rb-field span-3">
-      <label for="rf-source-url">Source URL</label>
-      <input type="url" id="rf-source-url" class="form-input" placeholder="https://...">
-    </div>
-    <div class="rb-field span-3">
-      <label for="rf-classification-note">Classification note</label>
-      <input type="text" id="rf-classification-note" class="form-input" placeholder="Basis for the category assignment">
-    </div>
-    <div class="rb-field span-3">
-      <label for="rf-notes">Notes</label>
-      <input type="text" id="rf-notes" class="form-input" placeholder="Anything else worth recording">
-    </div>
-  </div>
-  <div class="rb-form-actions">
-    <button class="btn btn-primary" id="rf-save">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-      Save brand
+    <button type="button" class="btn btn-primary" id="rb-add-btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Brand
     </button>
-    <button class="btn btn-outline" id="rf-cancel">Cancel</button>
-    <button class="btn btn-outline rb-danger-btn" id="rf-deactivate" hidden>Deactivate this brand</button>
-    <span class="rb-form-msg" id="rf-msg"></span>
+  </div>
+
+  <!-- ===== At-a-glance stats ===== -->
+  <div class="rb-stats" id="rb-stats"></div>
+
+  <!-- ===== Catalog: category rail + brand table ===== -->
+  <div class="card rb-catalog">
+
+    <aside class="rb-rail" aria-label="Categories">
+      <div class="rb-rail-title">Categories</div>
+      <nav class="rb-rail-list" id="rb-rail"></nav>
+      <select class="form-input rb-rail-select" id="rb-rail-select" aria-label="Category"></select>
+    </aside>
+
+    <section class="rb-main">
+      <div class="rb-main-head">
+        <div class="rb-main-heading">
+          <div class="rb-main-title-row">
+            <h3 class="rb-main-title" id="rb-main-title">All brands</h3>
+            <span class="pill rb-segment-pill" id="rb-main-segment" hidden></span>
+          </div>
+          <p class="rb-main-sub" id="rb-main-sub">Every brand across the 8 categories</p>
+        </div>
+        <div class="rb-main-price" id="rb-main-price" hidden>
+          <span class="rb-main-price-label">Category price</span>
+          <span class="rb-main-price-value" id="rb-main-price-value">—</span>
+        </div>
+      </div>
+
+      <div class="rb-toolbar">
+        <div class="rb-search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="rb-search" class="form-input" placeholder="Search brand, package, location, source…" autocomplete="off">
+        </div>
+        <select id="rb-verify-filter" class="form-input rb-filter" aria-label="Filter by verification">
+          <option value="all">All verification</option>
+          <option value="unverified">Unverified</option>
+          <option value="field_verified">Field-verified</option>
+          <option value="dti_verified">DTI-verified</option>
+        </select>
+        <select id="rb-status-filter" class="form-input rb-filter" aria-label="Filter by status">
+          <option value="active">Active</option>
+          <option value="inactive">Deactivated</option>
+          <option value="all">All statuses</option>
+        </select>
+      </div>
+
+      <div class="rb-table-wrap">
+        <table class="data-table rb-table">
+          <thead id="rb-thead"></thead>
+          <tbody id="rb-tbody"><tr><td colspan="7" class="rb-empty">Loading brands…</td></tr></tbody>
+        </table>
+      </div>
+
+      <div class="rb-footer">
+        <span class="rb-result-count" id="rb-result-count"></span>
+        <div class="rb-pager" id="rb-pager"></div>
+      </div>
+    </section>
+  </div>
+
+</div>
+
+<!-- ===== Add / Edit brand dialog ===== -->
+<div class="alert-modal-overlay rb-modal-overlay" id="rb-form-overlay" hidden>
+  <div class="alert-modal card rb-modal rb-modal-wide" role="dialog" aria-modal="true" aria-labelledby="rb-form-title">
+    <div class="card-header">
+      <div class="rb-modal-heading">
+        <span class="rb-modal-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.24L4 3v5.59a2 2 0 0 0 .59 1.41l9.58 9.58a2 2 0 0 0 2.82 0l3.6-3.6a2 2 0 0 0 0-2.83z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>
+        </span>
+        <div>
+          <span class="card-title" id="rb-form-title">Add Brand</span>
+          <p class="rb-modal-sub" id="rb-form-sub">Adds a branded product under one of the 8 forecast categories.</p>
+        </div>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" data-close aria-label="Close">✕</button>
+    </div>
+    <div class="card-body">
+      <form id="rb-form" novalidate autocomplete="off">
+        <input type="hidden" id="rf-brand-id" value="">
+        <div class="rb-form-section">Brand details</div>
+        <div class="rb-form-grid">
+          <div class="rb-field">
+            <label for="rf-category">Category <span class="rb-req">*</span></label>
+            <select id="rf-category" class="form-input"></select>
+          </div>
+          <div class="rb-field">
+            <label for="rf-brand-name">Brand name <span class="rb-req">*</span></label>
+            <input type="text" id="rf-brand-name" class="form-input" maxlength="80" placeholder="e.g. Doña Maria">
+          </div>
+          <div class="rb-field">
+            <label for="rf-package">Package / variety</label>
+            <input type="text" id="rf-package" class="form-input" maxlength="120" placeholder="e.g. Jasponica Rice (5kg)">
+          </div>
+          <div class="rb-field">
+            <label for="rf-location">Location</label>
+            <input type="text" id="rf-location" class="form-input" maxlength="80" placeholder="e.g. NCR">
+          </div>
+        </div>
+
+        <div class="rb-form-section">Source &amp; verification</div>
+        <div class="rb-form-grid">
+          <div class="rb-field span-2">
+            <label for="rf-source">Source <span class="rb-req">*</span> <span class="rb-hint-inline">where this entry came from</span></label>
+            <input type="text" id="rf-source" class="form-input" maxlength="160" placeholder="e.g. Official brand website, or NCR retailer listing">
+          </div>
+          <div class="rb-field span-2">
+            <label for="rf-source-url">Source URL</label>
+            <input type="url" id="rf-source-url" class="form-input" placeholder="https://…">
+          </div>
+          <div class="rb-field">
+            <label for="rf-verification">Verification status</label>
+            <select id="rf-verification" class="form-input">
+              <option value="unverified">Unverified</option>
+              <option value="field_verified">Field-verified</option>
+              <option value="dti_verified">DTI-verified</option>
+            </select>
+          </div>
+          <div class="rb-field">
+            <label for="rf-last-verified">Last verified</label>
+            <input type="date" id="rf-last-verified" class="form-input">
+          </div>
+          <div class="rb-field span-2">
+            <label for="rf-classification-note">Classification note</label>
+            <input type="text" id="rf-classification-note" class="form-input" placeholder="Basis for the category assignment">
+          </div>
+          <div class="rb-field span-2">
+            <label for="rf-notes">Notes</label>
+            <input type="text" id="rf-notes" class="form-input" placeholder="Anything else worth recording">
+          </div>
+        </div>
+
+        <p class="rb-form-error" id="rf-msg" role="alert" hidden></p>
+        <div class="alert-form-actions">
+          <button type="button" class="btn btn-outline" data-close>Cancel</button>
+          <button type="submit" class="btn btn-primary" id="rf-save">Save Brand</button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
 
-<div id="rb-groups"><div class="empty-state"><h3>Loading&hellip;</h3></div></div>
+<!-- ===== Price weight dialog ===== -->
+<div class="alert-modal-overlay rb-modal-overlay" id="rb-weight-overlay" hidden>
+  <div class="alert-modal card rb-modal" role="dialog" aria-modal="true" aria-labelledby="rb-weight-title">
+    <div class="card-header">
+      <div class="rb-modal-heading">
+        <span class="rb-modal-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+        </span>
+        <div>
+          <span class="card-title" id="rb-weight-title">Price weight</span>
+          <p class="rb-modal-sub" id="rb-weight-sub">—</p>
+        </div>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" data-close aria-label="Close">✕</button>
+    </div>
+    <div class="card-body">
+      <form id="rb-weight-form" novalidate>
+        <p class="rb-weight-explain">
+          The brand's canvassed price difference from its category's forecast price.
+          Brand price = category price × (1 + weight ÷ 100). Display only — it never feeds the forecast.
+        </p>
+        <div class="rb-form-grid">
+          <div class="rb-field">
+            <label for="rw-weight">Weight (%)</label>
+            <input type="number" id="rw-weight" class="form-input" step="0.1">
+            <small class="rb-hint" id="rw-range"></small>
+          </div>
+          <div class="rb-field">
+            <label for="rw-date">Survey date</label>
+            <input type="date" id="rw-date" class="form-input">
+          </div>
+        </div>
+        <div class="rb-weight-preview">
+          <div><span>Category price</span><b id="rw-base">—</b></div>
+          <div class="rb-weight-arrow" aria-hidden="true">→</div>
+          <div><span>Brand price</span><b id="rw-result">—</b></div>
+        </div>
+        <p class="rb-form-error" id="rw-msg" role="alert" hidden></p>
+        <div class="alert-form-actions rb-weight-actions">
+          <button type="button" class="btn btn-ghost rb-text-danger" id="rw-clear">Clear weight</button>
+          <span class="rb-spacer"></span>
+          <button type="button" class="btn btn-outline" data-close>Cancel</button>
+          <button type="submit" class="btn btn-primary" id="rw-save">Save Weight</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Brand details + change history dialog ===== -->
+<div class="alert-modal-overlay rb-modal-overlay" id="rb-detail-overlay" hidden>
+  <div class="alert-modal card rb-modal rb-modal-wide" role="dialog" aria-modal="true" aria-labelledby="rb-detail-title">
+    <div class="card-header">
+      <div class="rb-modal-heading">
+        <span class="rb-modal-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        </span>
+        <div>
+          <span class="card-title" id="rb-detail-title">Brand details</span>
+          <p class="rb-modal-sub" id="rb-detail-sub">—</p>
+        </div>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" data-close aria-label="Close">✕</button>
+    </div>
+    <div class="card-body">
+      <div class="rb-detail-grid" id="rb-detail-grid"></div>
+      <div class="rb-form-section">Change history</div>
+      <div class="rb-history" id="rb-detail-history"></div>
+      <div class="alert-form-actions">
+        <button type="button" class="btn btn-outline" data-close>Close</button>
+        <button type="button" class="btn btn-primary" id="rb-detail-edit">Edit Brand</button>
+      </div>
+    </div>
+  </div>
+</div>

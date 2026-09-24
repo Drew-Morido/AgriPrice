@@ -8,7 +8,19 @@ import secrets
 import time
 from typing import Any
 
+from werkzeug.security import check_password_hash
+
 from settings_store import _hash_password, _load_raw, _looks_legacy_sha256, _save_raw, _verify_password
+from user_store import get_admin_account, get_admin_account_by_username, get_meta, set_meta, touch_admin_login
+
+# The built-in admin (credentials in system_settings.json) is always the Super Admin. Additional
+# admin accounts created from Admin → User Management live in agriprice_users.db (admin_accounts)
+# with their own password + 6-digit access code, and are either 'super_admin' (may manage other
+# admin accounts) or 'admin' (may manage retailer accounts only).
+ROLE_SUPER_ADMIN = "super_admin"
+ROLE_ADMIN = "admin"
+ADMIN_ROLES = (ROLE_SUPER_ADMIN, ROLE_ADMIN)
+DEACTIVATED_ADMIN_MSG = "This admin account has been deactivated. Contact the Super Admin."
 
 MAX_ATTEMPTS = 5
 LOCKOUT_SECONDS = 15 * 60
@@ -75,28 +87,97 @@ def verify_access_code(code: str) -> bool:
     return bool(plain and digits == str(plain).strip())
 
 
+def primary_admin_username() -> str:
+    return _security().get("admin_username", "admin")
+
+
+def _primary_identity() -> dict[str, Any]:
+    sec = _security()
+    return {
+        "kind": "primary",
+        "id": "primary",
+        "username": sec.get("admin_username", "admin"),
+        "name": sec.get("admin_display_name") or "Admin User",
+        "role": ROLE_SUPER_ADMIN,
+    }
+
+
+def _account_identity(acct: dict) -> dict[str, Any]:
+    return {
+        "kind": "account",
+        "id": acct["id"],
+        "username": acct["username"],
+        "name": acct["name"],
+        "role": acct["role"] if acct["role"] in ADMIN_ROLES else ROLE_ADMIN,
+    }
+
+
+def _check_account_password(username: str, password: str) -> tuple[bool, str, dict | None]:
+    acct = get_admin_account_by_username(username)
+    if not acct or not check_password_hash(acct["password_hash"], password or ""):
+        return False, "Invalid sign-in details.", None
+    # Only disclosed after the password verifies, same as the retailer login.
+    if acct.get("status") != "active":
+        return False, DEACTIVATED_ADMIN_MSG, None
+    return True, "", acct
+
+
 def verify_admin_password(username: str, password: str) -> tuple[bool, str]:
     sec = _security()
     user = (username or "").strip()
     if user != sec.get("admin_username", "admin"):
-        return False, "Invalid sign-in details."
+        ok, err, _ = _check_account_password(user, password)
+        return ok, err
     if not _verify_password(password or "", sec.get("admin_password_hash")):
         return False, "Invalid sign-in details."
     _upgrade_hash_if_legacy("admin_password_hash", password or "")
     return True, ""
 
 
-def verify_admin_credentials(username: str, password: str, access_code: str) -> tuple[bool, str]:
+def authenticate_admin(username: str, password: str, access_code: str) -> tuple[bool, str, dict | None]:
+    """Full admin sign-in (password + 6-digit code). Returns (ok, error, identity)."""
     sec = _security()
     user = (username or "").strip()
     if user != sec.get("admin_username", "admin"):
-        return False, "Invalid sign-in details."
+        ok, err, acct = _check_account_password(user, password)
+        if not ok:
+            return False, err, None
+        digits = "".join(c for c in str(access_code) if c.isdigit())
+        if len(digits) != 6 or not check_password_hash(acct["access_code_hash"], digits):
+            return False, "Invalid access code.", None
+        touch_admin_login(acct["id"])
+        return True, "", _account_identity(acct)
     if not _verify_password(password or "", sec.get("admin_password_hash")):
-        return False, "Invalid sign-in details."
+        return False, "Invalid sign-in details.", None
     _upgrade_hash_if_legacy("admin_password_hash", password or "")
     if not verify_access_code(access_code):
-        return False, "Invalid access code."
-    return True, ""
+        return False, "Invalid access code.", None
+    _touch_primary_login()
+    return True, "", _primary_identity()
+
+
+def _touch_primary_login() -> None:
+    """Record the built-in admin's last sign-in for the User Management table.
+
+    Written to agriprice_users.db, NOT system_settings.json: a .json write during sign-in makes a
+    dev file-watcher (Live/Five Server) reload the login page mid-flow, bouncing the user back.
+    """
+    try:
+        set_meta("primary_admin_last_login_at", time.strftime("%Y-%m-%dT%H:%M:%S"))
+    except Exception:
+        pass  # never block a valid login on bookkeeping
+
+
+def primary_last_login() -> str | None:
+    try:
+        return get_meta("primary_admin_last_login_at")
+    except Exception:
+        return None
+
+
+def verify_admin_credentials(username: str, password: str, access_code: str) -> tuple[bool, str]:
+    ok, err, _ = authenticate_admin(username, password, access_code)
+    return ok, err
 
 
 def set_admin_access_code(new_code: str) -> tuple[bool, str]:
@@ -172,16 +253,41 @@ def session_timeout_minutes() -> int:
         return DEFAULT_SESSION_MINUTES
 
 
-def create_session(client_key: str) -> tuple[str, int]:
+def create_session(client_key: str, identity: dict | None = None) -> tuple[str, int]:
     _purge_expired_sessions()
     token = secrets.token_urlsafe(48)
     ttl = session_timeout_minutes() * 60
+    ident = identity or _primary_identity()
     _SESSIONS[token] = {
         "expires": time.time() + ttl,
         "ip": client_key,
         "created": time.time(),
+        "kind": ident["kind"],
+        "admin_id": ident["id"],
     }
     return token, ttl
+
+
+def session_identity(token: str | None) -> dict[str, Any] | None:
+    """Who a valid session belongs to, read fresh so a rename or role change applies at once."""
+    if not validate_session(token):
+        return None
+    rec = _SESSIONS.get(token.strip())
+    if rec.get("kind") == "account":
+        acct = get_admin_account(rec["admin_id"])
+        if not acct or acct.get("status") != "active":
+            _SESSIONS.pop(token.strip(), None)
+            return None
+        return _account_identity(acct)
+    return _primary_identity()
+
+
+def revoke_sessions_for_admin(admin_id: int) -> int:
+    """Sign a deactivated admin out everywhere, immediately."""
+    doomed = [k for k, v in _SESSIONS.items() if v.get("kind") == "account" and v.get("admin_id") == admin_id]
+    for k in doomed:
+        _SESSIONS.pop(k, None)
+    return len(doomed)
 
 
 def validate_session(token: str | None) -> bool:

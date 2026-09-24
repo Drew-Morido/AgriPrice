@@ -1,0 +1,156 @@
+<div class="um-page">
+
+  <div class="section-header um-header">
+    <div>
+      <div class="section-title">User Management</div>
+      <div class="section-subtitle">Create, update, and deactivate retailer and administrator accounts</div>
+    </div>
+    <button type="button" class="btn btn-primary" id="um-add-btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <span id="um-add-label">Add Retailer</span>
+    </button>
+  </div>
+
+  <!-- ===== Stat cards ===== -->
+  <div class="um-stats" id="um-stats">
+    <div class="um-stat">
+      <span class="um-stat-icon accent" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </span>
+      <div>
+        <div class="um-stat-value" id="um-stat-total">—</div>
+        <div class="um-stat-label">Total Accounts</div>
+      </div>
+    </div>
+    <div class="um-stat">
+      <span class="um-stat-icon success" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
+      </span>
+      <div>
+        <div class="um-stat-value" id="um-stat-users">—</div>
+        <div class="um-stat-label">Active Retailers</div>
+      </div>
+    </div>
+    <div class="um-stat">
+      <span class="um-stat-icon info" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </span>
+      <div>
+        <div class="um-stat-value" id="um-stat-admins">—</div>
+        <div class="um-stat-label">Active Admins</div>
+      </div>
+    </div>
+    <div class="um-stat">
+      <span class="um-stat-icon danger" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+      </span>
+      <div>
+        <div class="um-stat-value" id="um-stat-deactivated">—</div>
+        <div class="um-stat-label">Deactivated</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Accounts table ===== -->
+  <div class="card um-card">
+    <div class="card-header um-card-header">
+      <div class="um-tabs" role="tablist" aria-label="Account type">
+        <button type="button" class="um-tab active" role="tab" data-tab="users" aria-selected="true">
+          Retailers <span class="um-tab-count" id="um-count-users">0</span>
+        </button>
+        <button type="button" class="um-tab" role="tab" data-tab="admins" aria-selected="false">
+          Administrators <span class="um-tab-count" id="um-count-admins">0</span>
+        </button>
+      </div>
+      <span class="um-me" id="um-me"></span>
+    </div>
+
+    <div class="card-body um-card-body">
+      <div class="um-notice" id="um-notice" hidden></div>
+
+      <div class="um-toolbar">
+        <div class="um-search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="um-search" class="form-input" placeholder="Search name, email, or username…" autocomplete="off" />
+        </div>
+        <select id="um-status-filter" class="form-input um-filter" aria-label="Filter by status">
+          <option value="all">All statuses</option>
+          <option value="active">Active</option>
+          <option value="deactivated">Deactivated</option>
+        </select>
+        <span class="um-result-count" id="um-result-count"></span>
+      </div>
+
+      <div class="um-table-wrap">
+        <table class="data-table um-table">
+          <thead id="um-thead"></thead>
+          <tbody id="um-tbody">
+            <tr><td colspan="6" class="um-empty">Loading accounts…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== Create / Edit dialog (moved to <body> by users.js) ===== -->
+<div class="alert-modal-overlay" id="um-form-overlay" hidden>
+  <div class="alert-modal card um-modal" role="dialog" aria-modal="true" aria-labelledby="um-form-title">
+    <div class="card-header">
+      <div class="um-modal-heading">
+        <span class="um-modal-icon" id="um-form-icon" aria-hidden="true"></span>
+        <div>
+          <span class="card-title" id="um-form-title">Add Retailer</span>
+          <p class="um-modal-sub" id="um-form-sub">Creates a public-site account that can sign in right away.</p>
+        </div>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" id="um-form-close" aria-label="Close">✕</button>
+    </div>
+    <div class="card-body">
+      <form class="um-form" id="um-form" novalidate autocomplete="off">
+        <div class="um-field" data-for="admin">
+          <label for="um-f-username">Username</label>
+          <input type="text" class="form-input" id="um-f-username" maxlength="32" placeholder="e.g. jdelacruz" autocomplete="off" />
+          <small class="um-hint" id="um-f-username-hint">3–32 characters: letters, numbers, dot, dash, underscore. Can't be changed later.</small>
+        </div>
+        <div class="um-field">
+          <label for="um-f-name">Full name</label>
+          <input type="text" class="form-input" id="um-f-name" maxlength="60" placeholder="e.g. Juan Dela Cruz" />
+        </div>
+        <div class="um-field">
+          <label for="um-f-email">Email <span class="um-optional" data-for="admin">(optional)</span></label>
+          <input type="email" class="form-input" id="um-f-email" maxlength="120" placeholder="name@example.com" />
+        </div>
+        <div class="um-field" data-for="admin">
+          <label for="um-f-role">Role</label>
+          <select class="form-input" id="um-f-role">
+            <option value="admin">Admin — manages retailer accounts and system data</option>
+            <option value="super_admin">Super Admin — can also manage admin accounts</option>
+          </select>
+        </div>
+        <div class="um-field">
+          <label for="um-f-password">Password <span class="um-optional" id="um-f-password-opt">(leave blank to keep current)</span></label>
+          <div class="um-pass-wrap">
+            <input type="password" class="form-input" id="um-f-password" maxlength="128" autocomplete="new-password" />
+            <button type="button" class="um-pass-toggle" id="um-f-password-toggle" aria-label="Show password" title="Show password">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <div class="um-strength" id="um-strength" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+          <small class="um-hint">At least 8 characters with an uppercase letter, a lowercase letter, and a number.</small>
+        </div>
+        <div class="um-field" data-for="admin">
+          <label for="um-f-code">6-digit access code <span class="um-optional" id="um-f-code-opt">(leave blank to keep current)</span></label>
+          <input type="text" class="form-input um-code-input" id="um-f-code" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="off" />
+          <small class="um-hint">Asked after the password at sign-in, same as the built-in admin.</small>
+        </div>
+        <p class="um-form-error" id="um-form-error" role="alert" hidden></p>
+        <div class="alert-form-actions">
+          <button type="button" class="btn btn-outline" id="um-form-cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="um-form-save">Create Account</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

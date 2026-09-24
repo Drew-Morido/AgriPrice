@@ -72,7 +72,12 @@ if TOOLS_DIR not in sys.path:
     sys.path.insert(0, TOOLS_DIR)
 
 try:
-    from scrap import fetch_rice_prices, fetch_exchange_rates, fetch_fuel_prices
+    from scrap import (
+        fetch_exchange_rates,
+        fetch_fuel_prices,
+        fetch_rice_prices,
+        fetch_tariff_rate,
+    )
     _SCRAPER_AVAILABLE = True
 except ImportError as _scraper_import_err:
     _SCRAPER_AVAILABLE = False
@@ -85,6 +90,9 @@ except ImportError as _scraper_import_err:
         raise RuntimeError(f"Scraper unavailable: {_SCRAPER_IMPORT_ERROR}")
 
     def fetch_exchange_rates():  # type: ignore
+        raise RuntimeError(f"Scraper unavailable: {_SCRAPER_IMPORT_ERROR}")
+
+    def fetch_tariff_rate():  # type: ignore
         raise RuntimeError(f"Scraper unavailable: {_SCRAPER_IMPORT_ERROR}")
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
@@ -124,7 +132,7 @@ _scrape_lock     = threading.Lock()
 _scrape_started_at: datetime | None = None
 _last_scrape_ts: datetime | None = None
 _last_scrape_ok: bool | None     = None
-_last_source_ts: dict[str, datetime | None] = {"da": None, "doe": None, "api": None}
+_last_source_ts: dict[str, datetime | None] = {"da": None, "doe": None, "api": None, "tc": None}
 SCRAPE_STALE_SEC = 300  # force-release stuck "running" after 5 minutes
 
 SOURCE_META = {
@@ -148,6 +156,17 @@ SOURCE_META = {
         "ws_sql":   'SELECT Date FROM "WS_currency"',
         "csv":      RATE_CSV,
         "fetch":    "rates",
+    },
+    # No daily WS_* table or CSV mirror — tariff_schedule is quarterly, not a per-day row count,
+    # so "csv" only exists here to satisfy _infer_source_fetch_time's fallback signature; it never
+    # resolves to a real file, and _last_source_ts["tc"] (set on every successful scrape run) is
+    # what actually drives "Last Fetch" for this source.
+    "tc": {
+        "ws_table": None,
+        "hist_sql": None,
+        "ws_sql":   None,
+        "csv":      os.path.join(BASE_DIR, "..", "tools", "_tariff_no_csv_marker"),
+        "fetch":    "tariff",
     },
 }
 
@@ -265,7 +284,9 @@ def _maybe_clear_stale_scrape() -> None:
 
 def _do_scrape() -> bool:
     """
-    Runs rice → fuel → exchange-rate scraping sequentially.
+    Runs rice → fuel → exchange-rate → tariff scraping sequentially. The first three write
+    straight to their WS_* tables; tariff only ever stages an inactive candidate for admin
+    review (see fetch_tariff_rate) and isn't tracked by _last_source_ts / the Data Sources page.
     Logs each step in real-time (visible via SSE stream and /api/scrape-status).
     Thread-safe: skips if a scrape is already in progress.
     """
@@ -281,7 +302,7 @@ def _do_scrape() -> bool:
         _scrape_started_at = datetime.now()
 
     logger = logging.getLogger("agriprice_scraper")
-    results = {"rice": False, "fuel": False, "rates": False}
+    results = {"rice": False, "fuel": False, "rates": False, "tariff": False}
 
     try:
         if not _SCRAPER_AVAILABLE:
@@ -330,6 +351,21 @@ def _do_scrape() -> bool:
         except Exception as exc:
             logger.error("FAILED AT EXCHANGE RATES: %s", exc)
 
+        # ── STEP 4: Rice import tariff (only ever STAGES a candidate for admin review — see
+        #    fetch_tariff_rate/add_scraped_tariff_candidate; the Data Sources card below tracks
+        #    when this source was last successfully checked, same as the other three, but the
+        #    rate itself never goes live without an admin's Approve click on the Taxes page). ──
+        logger.info("TARIFF FINDER IS CHECKING NOW // https://finder.tariffcommission.gov.ph")
+        try:
+            ok = fetch_tariff_rate()
+            results["tariff"] = bool(ok)
+            if ok:
+                _last_source_ts["tc"] = datetime.now()
+            else:
+                logger.warning("Tariff Finder check failed — check logs above.")
+        except Exception as exc:
+            logger.error("FAILED AT TARIFF FINDER: %s", exc)
+
         # ── Summary ──────────────────────────────────────────────────────────
         any_ok = any(results.values())
         all_ok = all(results.values())
@@ -340,6 +376,7 @@ def _do_scrape() -> bool:
         logger.info("  Rice   : %s", "OK" if results["rice"] else "FAILED")
         logger.info("  Fuel   : %s", "OK" if results["fuel"] else "FAILED")
         logger.info("  Rates  : %s", "OK" if results["rates"] else "FAILED")
+        logger.info("  Tariff : %s", "OK" if results["tariff"] else "FAILED")
         if all_ok:
             logger.info("  Status : All datasets updated successfully.")
         elif any_ok:
@@ -370,6 +407,7 @@ def _do_scrape_one(source_id: str) -> bool:
         "da":  fetch_rice_prices,
         "doe": fetch_fuel_prices,
         "api": fetch_exchange_rates,
+        "tc":  fetch_tariff_rate,
     }
     fn = fetch_map.get(source_id)
     if not fn:
@@ -768,6 +806,93 @@ def _build_live_source(
     }
 
 
+def _build_tariff_source() -> dict:
+    """Data Sources card for the rice import tariff (Tariff Commission's Philippine Tariff
+    Finder). Deliberately NOT built on _build_live_source: tariff_schedule is a small, quarterly
+    table gated on admin review, not a daily WS_* row count, so "records today"/"completeness"
+    don't mean anything here — this reads the table directly instead of forcing it through a
+    shape it doesn't fit. "Records today" is repurposed as "candidates pending review" and the
+    card's summary shows the current confirmed rate plus any pending one."""
+    fetch_ts = _infer_source_fetch_time("tc")
+    total = confirmed = staged_ever = 0
+    pending: list[dict] = []
+    current: dict | None = None
+    if os.path.exists(DB_PATH):
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            conn.row_factory = sqlite3.Row
+            if conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='tariff_schedule'"
+            ).fetchone():
+                total = conn.execute("SELECT COUNT(*) FROM tariff_schedule").fetchone()[0]
+                confirmed = conn.execute(
+                    "SELECT COUNT(*) FROM tariff_schedule WHERE active=1"
+                ).fetchone()[0]
+                pending = [dict(r) for r in conn.execute(
+                    "SELECT id,rate_pct,quarter_label,effective_start FROM tariff_schedule "
+                    "WHERE active=0 AND entry_type='SCRAPED' ORDER BY effective_start DESC"
+                )]
+                cur_row = conn.execute(
+                    "SELECT rate_pct,quarter_label,effective_start,effective_end FROM "
+                    "tariff_schedule WHERE active=1 ORDER BY effective_start DESC LIMIT 1"
+                ).fetchone()
+                current = dict(cur_row) if cur_row else None
+            if conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='tariff_audit'"
+            ).fetchone():
+                staged_ever = conn.execute(
+                    "SELECT COUNT(*) FROM tariff_audit WHERE action='scrape_detect'"
+                ).fetchone()[0]
+            conn.close()
+        except Exception:
+            pass
+
+    has_pending = bool(pending)
+    if _scrape_running:
+        status = "running"
+    elif total > 0:
+        status = "active"
+    else:
+        status = "idle"
+
+    summary = []
+    if current:
+        summary = [
+            {"label": "Current rate", "value": f"{current['rate_pct']}%"},
+            {"label": "Quarter", "value": current.get("quarter_label") or "—"},
+            {"label": "Effective",
+             "value": f"{current.get('effective_start') or '?'} → {current.get('effective_end') or 'open'}"},
+        ]
+    if pending:
+        p = pending[0]
+        summary.append({"label": "Pending review", "value": f"{p['quarter_label']} @ {p['rate_pct']}%"})
+
+    return {
+        "id": "tc",
+        "name": "Tariff Commission (PH Tariff Finder)",
+        "type": "REST API (JSON)",
+        "dataType": "Rice Import Tariff Rate (Quarterly, admin-approved)",
+        "status": status,
+        "lastFetch": _format_fetch_timestamp(fetch_ts, {}),
+        "lastFetchRelative": _relative_time(fetch_ts),
+        "lastFetchAt": fetch_ts.isoformat() if fetch_ts else None,
+        "hasDataToday": has_pending,
+        "hasCalendarToday": has_pending,
+        "isEstimated": False,
+        "recordsToday": len(pending),
+        "todaySummary": summary,
+        "dataSummary": summary,
+        "historicalRecords": confirmed,
+        "scrapedRecords": staged_ever,
+        "totalRecords": total,
+        "url": "https://finder.tariffcommission.gov.ph",
+        "color": "#8B5CF6",
+        "bgColor": "rgba(139,92,246,0.12)",
+        "live": True,
+        "implemented": True,
+    }
+
+
 @app.route("/api/data-sources", methods=["GET"])
 def api_data_sources():
     """Live metadata for Data Sources page (historical + scraped DB counts)."""
@@ -812,6 +937,7 @@ def api_data_sources():
             'SELECT Date FROM usd_php_rates',
             'SELECT Date FROM "WS_currency"',
         ),
+        _build_tariff_source(),
     ]
 
     active_count = sum(1 for s in sources if s["status"] in ("active", "running"))
@@ -832,7 +958,7 @@ def api_data_sources():
 @app.route("/api/run-scraper", methods=["POST"])
 def api_run_scraper():
     """
-    Triggers scrape in background. Optional JSON body: {"source": "da"|"doe"|"api"}.
+    Triggers scrape in background. Optional JSON body: {"source": "da"|"doe"|"api"|"tc"}.
     """
     ok, resp = _require_admin()
     if not ok:
@@ -2522,13 +2648,15 @@ def api_reset_settings():
 
 try:
     from admin_auth import (
+        DEACTIVATED_ADMIN_MSG,
         check_lockout,
         clear_failures,
         create_session,
         record_failure,
+        authenticate_admin,
         revoke_session,
+        session_identity,
         validate_session,
-        verify_admin_credentials,
         verify_admin_password,
     )
     _ADMIN_AUTH_AVAILABLE = True
@@ -2574,6 +2702,9 @@ def api_admin_verify_password():
 
     try:
         valid, err = verify_admin_password(username, password)
+        if not valid and err == DEACTIVATED_ADMIN_MSG:
+            _add_log("WARN", f"Sign-in refused for deactivated admin '{username}' from {client_key}", source="AUTH")
+            return jsonify({"success": False, "error": err, "code": "deactivated"}), 403
         if not valid:
             record_failure(client_key)
             return jsonify({"success": False, "error": err or "Invalid sign-in details."}), 401
@@ -2600,13 +2731,15 @@ def api_admin_verify():
     access_code = "".join(ch for ch in str(payload.get("access_code", "")) if ch.isdigit())
 
     try:
-        valid, err = verify_admin_credentials(username, password, access_code)
+        valid, err, identity = authenticate_admin(username, password, access_code)
+        if not valid and err == DEACTIVATED_ADMIN_MSG:
+            return jsonify({"success": False, "error": err, "code": "deactivated"}), 403
         if not valid:
             record_failure(client_key)
             _add_log("WARN", f"Failed admin login for '{username or '?'}' from {client_key}", source="AUTH")
             return jsonify({"success": False, "error": err or "Invalid sign-in details."}), 401
         clear_failures(client_key)
-        token, ttl_sec = create_session(client_key)
+        token, ttl_sec = create_session(client_key, identity)
         _add_log("INFO", f"Admin '{username}' signed in from {client_key}", source="AUTH")
         return jsonify({
             "success": True,
@@ -2622,8 +2755,9 @@ def api_admin_session():
     if not _ADMIN_AUTH_AVAILABLE:
         return jsonify({"valid": False, "error": _ADMIN_AUTH_IMPORT_ERROR}), 503
     token = _admin_token_from_request()
-    if validate_session(token):
-        return jsonify({"valid": True})
+    identity = session_identity(token)
+    if identity:
+        return jsonify({"valid": True, "admin": identity})
     return jsonify({"valid": False}), 401
 
 
@@ -2632,6 +2766,7 @@ def api_admin_logout():
     if not _ADMIN_AUTH_AVAILABLE:
         return jsonify({"success": False}), 503
     revoke_session(_admin_token_from_request())
+    _add_log("INFO", f"Admin signed out from {_admin_client_key()}", source="AUTH")
     return jsonify({"success": True})
 
 
@@ -2664,6 +2799,7 @@ try:
     # the wrong arity and 500, since admin_auth's own call sites only pass
     # one argument) even though admin_auth's functions were imported first.
     from user_auth import (
+        DEACTIVATED_MSG as USER_DEACTIVATED_MSG,
         LOGIN_ATTEMPTS,
         RESET_REQUEST_ATTEMPTS,
         RESET_VERIFY_ATTEMPTS,
@@ -2712,6 +2848,9 @@ def api_auth_login():
     try:
         ok, msg, user = login_user(payload.get("email"), payload.get("password"))
         if not ok:
+            if msg == USER_DEACTIVATED_MSG:
+                # Correct credentials, so not a guessing attempt — don't burn a lockout strike.
+                return jsonify({"success": False, "error": msg, "code": "deactivated"}), 403
             user_record_failure(LOGIN_ATTEMPTS, client_key)
             return jsonify({"success": False, "error": msg}), 401
         user_clear_failures(LOGIN_ATTEMPTS, client_key)
@@ -2757,6 +2896,8 @@ def api_auth_forgot_password():
         # their remaining attempts.
         user_record_failure(RESET_REQUEST_ATTEMPTS, client_key)
         return jsonify({"success": False, "error": message}), 404
+    if status == "deactivated":
+        return jsonify({"success": False, "error": message, "code": "deactivated"}), 403
     if status == "mail_error":
         return jsonify({"success": False, "error": "Could not send the code right now. Try again shortly."}), 502
     user_clear_failures(RESET_REQUEST_ATTEMPTS, client_key)
@@ -2836,6 +2977,116 @@ def api_auth_change_password():
         return jsonify({"success": True, "message": msg})
     except Exception as exc:
         return jsonify({"success": False, "error": str(exc)}), 500
+
+
+# ══════════════════════════════════════════════
+# USER MANAGEMENT (Admin → User Management; see model/user_management.py)
+# ══════════════════════════════════════════════
+
+try:
+    import user_management as _um
+    _UM_AVAILABLE = True
+except ImportError as _um_err:
+    _UM_AVAILABLE = False
+    _UM_IMPORT_ERROR = str(_um_err)
+
+
+def _um_guard(super_only: bool = False):
+    """(identity, None) for a signed-in admin, else (None, error_response). super_only restricts
+    the call to Super Admins — the only role allowed to manage other admin accounts."""
+    if not _UM_AVAILABLE:
+        return None, (jsonify({"success": False, "error": _UM_IMPORT_ERROR}), 503)
+    if not _ADMIN_AUTH_AVAILABLE:
+        return None, (jsonify({"success": False, "error": "Admin authentication is unavailable."}), 503)
+    me = session_identity(_admin_token_from_request())
+    if not me:
+        return None, (jsonify({"success": False, "error": "Admin session required."}), 401)
+    if super_only and me.get("role") != "super_admin":
+        return None, (jsonify({"success": False, "error": "Only a Super Admin can manage admin accounts."}), 403)
+    return me, None
+
+
+def _um_result(ok, msg, data, me, action):
+    if not ok:
+        return jsonify({"success": False, "error": msg}), 400
+    _add_log("INFO", f"{msg} (by {me.get('username')})", source="USERS")
+    return jsonify({"success": True, "message": msg, "account": data, "action": action})
+
+
+@app.route("/api/admin/me", methods=["GET"])
+def api_admin_me():
+    me, err = _um_guard()
+    if err:
+        return err
+    return jsonify({"success": True, "admin": me})
+
+
+@app.route("/api/admin/accounts", methods=["GET"])
+def api_admin_accounts_list():
+    me, err = _um_guard()
+    if err:
+        return err
+    try:
+        return jsonify({"success": True, **_um.list_accounts(me)})
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 500
+
+
+@app.route("/api/admin/accounts/users", methods=["POST"])
+def api_admin_accounts_user_create():
+    me, err = _um_guard()
+    if err:
+        return err
+    ok, msg, data = _um.create_user(request.get_json(silent=True) or {})
+    return _um_result(ok, msg, data, me, "created")
+
+
+@app.route("/api/admin/accounts/users/<int:user_id>", methods=["PUT"])
+def api_admin_accounts_user_update(user_id):
+    me, err = _um_guard()
+    if err:
+        return err
+    ok, msg, data = _um.update_user(user_id, request.get_json(silent=True) or {})
+    return _um_result(ok, msg, data, me, "updated")
+
+
+@app.route("/api/admin/accounts/users/<int:user_id>/status", methods=["POST"])
+def api_admin_accounts_user_status(user_id):
+    me, err = _um_guard()
+    if err:
+        return err
+    active = bool((request.get_json(silent=True) or {}).get("active"))
+    ok, msg, data = _um.set_user_active(user_id, active)
+    return _um_result(ok, msg, data, me, "reactivated" if active else "deactivated")
+
+
+@app.route("/api/admin/accounts/admins", methods=["POST"])
+def api_admin_accounts_admin_create():
+    me, err = _um_guard(super_only=True)
+    if err:
+        return err
+    ok, msg, data = _um.create_admin(request.get_json(silent=True) or {}, me)
+    return _um_result(ok, msg, data, me, "created")
+
+
+@app.route("/api/admin/accounts/admins/<int:admin_id>", methods=["PUT"])
+def api_admin_accounts_admin_update(admin_id):
+    me, err = _um_guard(super_only=True)
+    if err:
+        return err
+    ok, msg, data = _um.update_admin(admin_id, request.get_json(silent=True) or {}, me)
+    return _um_result(ok, msg, data, me, "updated")
+
+
+@app.route("/api/admin/accounts/admins/<int:admin_id>/status", methods=["POST"])
+def api_admin_accounts_admin_status(admin_id):
+    me, err = _um_guard(super_only=True)
+    if err:
+        return err
+    active = bool((request.get_json(silent=True) or {}).get("active"))
+    ok, msg, data = _um.set_admin_active(admin_id, active, me)
+    return _um_result(ok, msg, data, me, "reactivated" if active else "deactivated")
+
 
 
 # ══════════════════════════════════════════════
