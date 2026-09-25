@@ -682,48 +682,6 @@ body.public-auth-body {
   margin-top: 12px;
 }
 
-.settings-account-status {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-  margin-bottom: 12px;
-}
-
-.settings-account-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: var(--color-primary);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 16px;
-  flex-shrink: 0;
-}
-
-.settings-account-avatar.guest {
-  background: var(--text-muted);
-}
-
-.settings-account-status h3 {
-  font-size: 18px;
-  margin-bottom: 4px;
-}
-
-.settings-account-status p {
-  font-size: 13px;
-  margin: 0;
-}
-
-.settings-account-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 14px;
-}
-
 .settings-inline-actions {
   display: flex;
   flex-wrap: wrap;

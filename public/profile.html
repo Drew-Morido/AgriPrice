@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en" class="public-site">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profile — AgriPricePH</title>
+  <script src="js/public-settings.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/global.css" />
+  <link rel="stylesheet" href="css/landpage.css" />
+  <link rel="stylesheet" href="css/public.css" />
+  <link rel="stylesheet" href="css/landpage-nav.css" />
+  <link rel="stylesheet" href="css/public-alert.css" />
+  <link rel="stylesheet" href="css/profile.css" />
+</head>
+<body data-page="profile" data-title="Profile" data-subtitle="Your account">
+
+<main class="page-content" id="public-page-content">
+
+  <p class="public-page-lead">Your name, email, and password for signing in to AgriPricePH.</p>
+
+  <div class="account-page">
+
+    <div class="account-cover"></div>
+
+    <div class="account-header card">
+      <div class="account-avatar-wrap">
+        <div class="account-avatar" id="profile-avatar">U</div>
+      </div>
+
+      <div class="account-header-info">
+        <h2 id="profile-name">Account</h2>
+        <span class="pill pill-blue" id="profile-role">Retailer</span>
+        <span class="account-username" id="profile-email"></span>
+      </div>
+
+      <button type="button" class="btn btn-outline account-edit-btn" id="profile-edit-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Edit Profile
+      </button>
+    </div>
+
+    <div class="account-grid">
+      <div class="card account-card">
+        <div class="card-header"><span class="card-title">Security</span></div>
+        <div class="card-body">
+          <p class="account-card-body-text">Change the password you use to sign in.</p>
+          <button type="button" class="btn btn-outline btn-sm" id="profile-password-btn">Change Password</button>
+        </div>
+      </div>
+
+      <div class="card account-card">
+        <div class="card-header"><span class="card-title">Session</span></div>
+        <div class="card-body">
+          <p class="account-card-body-text">Signed in on this device.</p>
+          <button type="button" class="btn btn-outline btn-sm" id="profile-logout-btn">Log Out</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</main>
+
+<div class="alert-modal-overlay" id="profile-edit-overlay" hidden>
+  <div class="alert-modal card">
+    <div class="card-header">
+      <span class="card-title">Edit Profile</span>
+      <button type="button" class="btn btn-ghost btn-sm" id="profile-edit-close">✕</button>
+    </div>
+    <div class="card-body">
+      <div class="alert-form">
+        <label class="alert-form-label">Name
+          <input type="text" class="alert-form-input" id="profile-edit-name" maxlength="80" />
+        </label>
+        <label class="alert-form-label">Email (your login)
+          <input type="email" class="alert-form-input" id="profile-edit-email" maxlength="120" />
+        </label>
+        <div class="alert-form-actions">
+          <button type="button" class="btn btn-outline" id="profile-edit-cancel">Cancel</button>
+          <button type="button" class="btn btn-primary" id="profile-edit-save">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="alert-modal-overlay" id="profile-password-overlay" hidden>
+  <div class="alert-modal card">
+    <div class="card-header">
+      <span class="card-title">Change Password</span>
+      <button type="button" class="btn btn-ghost btn-sm" id="profile-password-close">✕</button>
+    </div>
+    <div class="card-body">
+      <div class="alert-form">
+        <label class="alert-form-label">Current password
+          <input type="password" class="alert-form-input" id="profile-pw-current" autocomplete="current-password" />
+        </label>
+        <label class="alert-form-label">New password
+          <input type="password" class="alert-form-input" id="profile-pw-new" autocomplete="new-password" />
+        </label>
+        <label class="alert-form-label">Confirm new password
+          <input type="password" class="alert-form-input" id="profile-pw-confirm" autocomplete="new-password" />
+        </label>
+        <p class="alert-form-hint">At least 8 characters with uppercase, lowercase, and a number.</p>
+        <div class="alert-form-actions">
+          <button type="button" class="btn btn-outline" id="profile-password-cancel">Cancel</button>
+          <button type="button" class="btn btn-primary" id="profile-password-save">Update Password</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../js/data.js"></script>
+<script src="../js/api.js"></script>
+<script src="js/public-alert.js"></script>
+<script src="js/public-auth.js"></script>
+<script src="js/public-auth-modal.js"></script>
+<script src="js/public-shell.js"></script>
+<script src="js/public-pages.js"></script>
+<script src="js/public-profile.js"></script>
+</body>
+</html>

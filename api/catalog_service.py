@@ -86,9 +86,10 @@ def list_catalog(include_inactive: bool = False) -> dict:
             "FROM dti_category ORDER BY segment,name")]
         brands_by_cat: dict[int, list] = {}
         if _has_table(conn, "rice_brand"):
+            _ensure_brand_image(conn)
             q = ("SELECT id,category_id,brand_name,package,location,source,source_url,"
                  "last_verified,classification_note,verification_status,verified_by,verified_at,"
-                 "active,notes FROM rice_brand")
+                 "active,notes,image_path FROM rice_brand")
             if not include_inactive:
                 q += " WHERE active=1"
             q += " ORDER BY brand_name,package"
@@ -173,6 +174,26 @@ def _quarter_label(date_str: str) -> str:
     except (ValueError, TypeError):
         return ""
     return f"Q{(d.month - 1) // 3 + 1} {d.year}"
+
+
+_BRAND_IMAGE_ENSURED = False
+
+
+def _ensure_brand_image(conn) -> None:
+    """Self-healing migration: add rice_brand.image_path if an older DB lacks it, so the catalog
+    image field works without requiring datasets/catalog_schema.py to be re-run. Runs once per
+    process (mirrors _ensure_entry_type below)."""
+    global _BRAND_IMAGE_ENSURED
+    if _BRAND_IMAGE_ENSURED or not _has_table(conn, "rice_brand"):
+        return
+    try:
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(rice_brand)")]
+        if "image_path" not in cols:
+            conn.execute("ALTER TABLE rice_brand ADD COLUMN image_path TEXT")
+            conn.commit()
+        _BRAND_IMAGE_ENSURED = True
+    except sqlite3.OperationalError:
+        pass
 
 
 _ENTRY_TYPE_ENSURED = False
@@ -582,9 +603,10 @@ def brand_price(category_key: str, include_inactive: bool = False) -> dict:
 
         brands_out = []
         if _has_table(conn, "rice_brand"):
+            _ensure_brand_image(conn)
             q = ("SELECT id,brand_name,package,location,source,source_url,last_verified,"
-                 "classification_note,verification_status,verified_by,verified_at,active,notes "
-                 "FROM rice_brand WHERE category_id=?")
+                 "classification_note,verification_status,verified_by,verified_at,active,notes,"
+                 "image_path FROM rice_brand WHERE category_id=?")
             if not include_inactive:
                 q += " AND active=1"
             q += " ORDER BY brand_name,package"
@@ -917,6 +939,41 @@ def deactivate_brand(brand_id: int, active: bool = False, actor: str = "admin") 
             (bid, action, actor, f"{action.capitalize()}d '{row['brand_name']}'."))
         conn.commit()
         return {"ok": True, "brand_id": bid, "brand_name": row["brand_name"], "active": bool(active_int)}
+    finally:
+        conn.close()
+
+
+def set_brand_image(brand_id: int, image_path: str | None, actor: str = "admin") -> dict:
+    """Set (or, with image_path=None, clear) one brand's catalog-display image. The API layer
+    (api/app.py) writes/deletes the actual file on disk; this just records the resulting path
+    (e.g. '/public/images/rice-brands/brand-12-....jpg') against the brand and logs it to
+    brand_audit, mirroring deactivate_brand. Returns the PREVIOUS image_path too, so the caller
+    can delete the old file after a successful replace/clear."""
+    try:
+        bid = int(brand_id)
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "brand_id must be an integer."}
+
+    conn = _connect()
+    try:
+        if not _has_table(conn, "rice_brand"):
+            return {"ok": False, "error": "Catalog schema not initialized."}
+        _ensure_brand_image(conn)
+        row = conn.execute(
+            "SELECT id,brand_name,image_path FROM rice_brand WHERE id=?", (bid,)).fetchone()
+        if not row:
+            return {"ok": False, "error": f"Brand #{bid} not found."}
+        previous = row["image_path"]
+
+        conn.execute("UPDATE rice_brand SET image_path=? WHERE id=?", (image_path, bid))
+        action = "set_image" if image_path else "clear_image"
+        detail = (f"Set catalog image for '{row['brand_name']}'." if image_path
+                  else f"Removed catalog image for '{row['brand_name']}'.")
+        conn.execute(
+            "INSERT INTO brand_audit(brand_id,action,actor,detail) VALUES (?,?,?,?)",
+            (bid, action, actor, detail))
+        conn.commit()
+        return {"ok": True, "brand_id": bid, "image_path": image_path, "previous_image_path": previous}
     finally:
         conn.close()
 

@@ -292,6 +292,29 @@ tr.rb-inactive-row .rb-brand-name { color: var(--text-secondary); }
 .rb-hint-inline { font-weight: 400; color: var(--text-muted); }
 .rb-hint { font-size: 11.5px; color: var(--text-muted); }
 
+.rb-image-field { display: flex; gap: 14px; align-items: flex-start; }
+.rb-image-preview {
+  width: 84px; height: 84px; flex-shrink: 0; border-radius: var(--border-radius-sm, 8px);
+  background: var(--bg-input); border: 1px solid var(--border-color);
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+  color: var(--text-muted);
+}
+.rb-image-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.rb-image-preview svg { width: 30px; height: 30px; opacity: .5; }
+.rb-image-controls { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding-top: 2px; }
+.rb-image-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.rb-image-controls .rb-form-error { margin-top: 0; padding: 6px 10px; font-size: 11.5px; }
+
+.rb-detail-image {
+  width: 100%; max-width: 220px; aspect-ratio: 1 / 1; border-radius: var(--border-radius-sm, 8px);
+  background: var(--bg-input); border: 1px solid var(--border-color);
+  display: flex; align-items: center; justify-content: center; overflow: hidden; color: var(--text-muted);
+  margin-bottom: 14px;
+}
+.rb-detail-image[hidden] { display: none; }
+.rb-detail-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.rb-detail-image svg { width: 32px; height: 32px; opacity: .5; }
+
 .rb-form-error {
   margin-top: 14px;
   font-size: 12.5px; font-weight: 500;

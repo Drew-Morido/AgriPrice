@@ -44,6 +44,7 @@ from datetime import date, datetime, timedelta
 import pandas as pd
 from flask import Flask, Response, abort, jsonify, redirect, request, send_from_directory
 from flask_cors import CORS
+from werkzeug.utils import secure_filename
 
 # ─── Import scraper functions (lazy-safe; errors surface at scrape time) ──────
 # These are imported at module level so CLI --once/--loop modes work without Flask.
@@ -659,6 +660,9 @@ class _SafeJSONProvider(DefaultJSONProvider):
 
 app = Flask(__name__)
 app.json = _SafeJSONProvider(app)
+# App-wide request body ceiling (defense-in-depth on top of the per-file size check in the brand
+# image upload route below) — nothing else in this API accepts a body anywhere near this size.
+app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
 # Restrict cross-origin access. `CORS(app)` with no arguments emits
 # `Access-Control-Allow-Origin: *`, letting any site on the internet call this API from a
 # visitor's browser — including the admin-adjacent endpoints. The frontend is served by this same
@@ -2249,6 +2253,84 @@ def api_brand_reactivate(brand_id):
     try:
         from catalog_service import deactivate_brand
         result = deactivate_brand(brand_id, active=True, actor=_admin_client_key())
+        return jsonify(result), (200 if result.get("ok") else 400)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+# ── Rice Brand module — catalog-display image ────────────────────────────────
+# Separate from the JSON add/update routes above: a file upload needs multipart/form-data, which
+# request.get_json() can't parse. The image itself lives on disk under public/images/rice-brands/
+# (reachable at the identical root-relative URL from both admin/*.html and public/*.html, since
+# api_app's static route serves the whole public/ folder) — only the resulting path string is
+# stored on the brand row, via catalog_service.set_brand_image.
+BRAND_IMAGE_DIR = os.path.join(PROJECT_ROOT, "public", "images", "rice-brands")
+BRAND_IMAGE_ALLOWED_EXT = {"png", "jpg", "jpeg", "webp"}
+BRAND_IMAGE_MAX_BYTES = 4 * 1024 * 1024  # 4MB
+
+
+def _delete_brand_image_file(rel_path):
+    """Best-effort cleanup of an old/orphaned image file. Only ever deletes inside
+    BRAND_IMAGE_DIR — rel_path comes from our own DB column, never from raw user input."""
+    if not rel_path or not rel_path.startswith("/public/images/rice-brands/"):
+        return
+    full = os.path.join(PROJECT_ROOT, rel_path.lstrip("/"))
+    try:
+        if os.path.isfile(full) and os.path.dirname(os.path.abspath(full)) == os.path.abspath(BRAND_IMAGE_DIR):
+            os.remove(full)
+    except OSError:
+        pass
+
+
+@app.route("/api/brands/<int:brand_id>/image", methods=["POST"])
+def api_brand_image_upload(brand_id):
+    """Admin: upload (or replace) one brand's catalog-display image."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    file = request.files.get("image")
+    if not file or not file.filename:
+        return jsonify({"ok": False, "error": "No image file provided."}), 400
+    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+    if ext not in BRAND_IMAGE_ALLOWED_EXT:
+        return jsonify({"ok": False, "error": "Image must be PNG, JPG, or WEBP."}), 400
+
+    file.seek(0, os.SEEK_END)
+    size = file.tell()
+    file.seek(0)
+    if size <= 0:
+        return jsonify({"ok": False, "error": "The uploaded file is empty."}), 400
+    if size > BRAND_IMAGE_MAX_BYTES:
+        return jsonify({"ok": False, "error": "Image must be 4MB or smaller."}), 400
+
+    try:
+        from catalog_service import set_brand_image
+        os.makedirs(BRAND_IMAGE_DIR, exist_ok=True)
+        filename = secure_filename(f"brand-{brand_id}-{int(time.time() * 1000)}.{ext}")
+        file.save(os.path.join(BRAND_IMAGE_DIR, filename))
+        rel_path = f"/public/images/rice-brands/{filename}"
+
+        result = set_brand_image(brand_id, rel_path, actor=_admin_client_key())
+        if not result.get("ok"):
+            _delete_brand_image_file(rel_path)  # brand lookup failed — don't leave an orphan file
+            return jsonify(result), 400
+        _delete_brand_image_file(result.get("previous_image_path"))  # replaced an older image
+        return jsonify(result), 200
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route("/api/brands/<int:brand_id>/image", methods=["DELETE"])
+def api_brand_image_delete(brand_id):
+    """Admin: remove a brand's catalog-display image (the brand still shows the placeholder)."""
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    try:
+        from catalog_service import set_brand_image
+        result = set_brand_image(brand_id, None, actor=_admin_client_key())
+        if result.get("ok"):
+            _delete_brand_image_file(result.get("previous_image_path"))
         return jsonify(result), (200 if result.get("ok") else 400)
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 500

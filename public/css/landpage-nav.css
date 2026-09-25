@@ -377,8 +377,8 @@ body[data-page="home"] {
     display: none;
   }
 
-  /* The phone menu now carries Log in / Sign up and Settings, so the inline sign-up button, the
-     user's name, and the signed-in burger step aside to keep the bar on one line. */
+  /* The phone menu now carries Log in / Sign up and Profile/Settings, so the inline sign-up
+     button, the user's name, and the signed-in icon pair step aside to keep the bar on one line. */
   .lp-site-nav .lp-nav-mobile-toggle { display: inline-flex; }
   .lp-site-nav .lp-nav-btn--primary,
   .lp-site-nav .lp-nav-user-name,

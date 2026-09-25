@@ -1,0 +1,127 @@
+/* AgriPricePH — public User Profile page (public/profile.html, public/js/public-profile.js).
+   Ported from the admin Account Profile module (admin/pages/account.html, admin/css/account.css)
+   for visual/layout parity — same cover-banner + overlapping-avatar header card, the same
+   .card/.card-header/.card-title/.card-body grid pattern, and the same plain hidden-attribute
+   modal dialogs, all built on the SAME shared design tokens from css/global.css (--color-accent,
+   --bg-card, --text-primary, etc.) that the admin module already uses — so this is a literal reuse
+   of that visual language, not a re-derivation of it. Trimmed to what a public account actually
+   has (name, email, password) — no avatar upload, bio, phone, or admin-only activity log, since
+   none of that exists in the public user data model. */
+
+.account-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.account-cover {
+  height: 120px;
+  border-radius: var(--border-radius-lg);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+  margin-bottom: -56px;
+}
+
+.account-header {
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  padding: 20px 24px;
+  flex-wrap: wrap;
+}
+
+.account-avatar-wrap { position: relative; flex-shrink: 0; }
+
+.account-avatar {
+  width: 96px; height: 96px;
+  border-radius: 50%;
+  background: var(--color-primary-mid);
+  border: 4px solid var(--bg-card);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 30px; font-weight: 700; color: #fff;
+  overflow: hidden;
+  letter-spacing: 0.5px;
+}
+
+.account-header-info { flex: 1; min-width: 180px; }
+.account-header-info h2 { font-size: 20px; font-weight: 700; color: var(--text-primary); }
+.account-header-info .pill { margin-top: 4px; }
+.account-username { display: block; font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+.account-edit-btn { flex-shrink: 0; }
+.account-edit-btn svg { width: 14px; height: 14px; }
+
+.account-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.account-grid > .card { height: 100%; }
+
+.account-card-body-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+
+@media (max-width: 720px) {
+  .account-grid { grid-template-columns: 1fr; }
+  .account-header { flex-direction: column; align-items: flex-start; }
+}
+
+/* ── Edit Profile / Change Password dialogs — same plain hidden-attribute pattern as admin ── */
+.alert-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 20, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9000;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.alert-modal-overlay[hidden] { display: none !important; }
+
+.alert-modal {
+  width: 100%;
+  max-width: 420px;
+  margin: auto;
+  box-shadow: var(--shadow-md);
+}
+
+.alert-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.alert-form-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.alert-form-input {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  font-size: 13px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+
+.alert-form-hint { font-size: 11px; color: var(--text-muted); }
+
+.alert-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}

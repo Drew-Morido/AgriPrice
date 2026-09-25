@@ -166,14 +166,17 @@ Historical series and interactive charts. These are **gated**: guests get an unl
 logged‑in users see the content. The stats view has a vendor/household **data lens** (framing of
 the copy), separate from the account role.
 
-### 4.6 Settings (`settings.html`) — logged‑in only
-Shown **only to logged‑in users** (guest nav hides it; visiting the URL directly redirects to the
-landpage — enforced in auth logic, not CSS). Sections: **Account** (edit name/email, **change
-password**, **Log out**), **Preferences** (default page after login → wired into the post‑login
-redirect; date format → wired into `dates.js`), **Appearance** (theme/compact/reduce‑motion), and
-**Privacy & data** (export my data as JSON, reset preferences, clear saved logins). All
-client‑side/`localStorage`. Signup enforces a **strong password** (≥8 with upper/lower/number) with a
-confirm field, show/hide toggle, live strength meter, and a terms checkbox.
+### 4.6 Profile (`profile.html`) & Settings (`settings.html`) — logged‑in only
+Both shown **only to logged‑in users** (guest nav hides them; visiting either URL directly
+redirects to the landpage — enforced in auth logic, not CSS), reached from the topbar's Profile
+(avatar) and Settings (gear) icons. **Profile** is the account module — styled to match the admin
+Account Profile page (cover banner, avatar, card grid): edit name/email, **change password**, and
+**Log out**, all persisted server‑side via `/api/auth/*`. **Settings** holds everything else —
+**Appearance** (theme/compact/reduce‑motion), **Preferences** (default page after login → wired
+into the post‑login redirect; date format → wired into `dates.js`), and **Privacy & data** (export
+my data as JSON, reset preferences, clear saved logins) — all client‑side/`localStorage`. Signup
+enforces a **strong password** (≥8 with upper/lower/number) with a confirm field, show/hide toggle,
+live strength meter, and a terms checkbox.
 
 ---
 

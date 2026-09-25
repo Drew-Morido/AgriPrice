@@ -43,6 +43,10 @@ document.addEventListener('DOMContentLoaded', () => {
     AgriPricePH.PublicSettings?.initSettingsPage?.();
   }
 
+  if (page === 'profile') {
+    AgriPricePH.PublicProfile?.initProfilePage?.();
+  }
+
   if (page === 'login') {
     // login.html is now a real, standalone page (see auth-hero.js for the form
     // wiring) — only bounce away a visitor who is already signed in.

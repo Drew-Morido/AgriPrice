@@ -3,89 +3,351 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Rice Catalog — AgriPricePH</title>
+  <title>Prices — AgriPricePH</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/global.css" />
   <link rel="stylesheet" href="css/landpage.css" />
   <link rel="stylesheet" href="css/public.css" />
   <link rel="stylesheet" href="css/landpage-nav.css" />
   <link rel="stylesheet" href="css/public-alert.css" />
   <style>
-    .rc-lead { color: var(--text-muted); max-width: 74ch; }
-    .rc-ncr-chip { display:inline-block; font-size:11px; font-weight:600; letter-spacing:.04em;
-      background: var(--accent-soft, #e8f3ec); color: var(--accent, #2d6a4f);
-      padding: 3px 10px; border-radius: 99px; margin-bottom: 6px; }
-    .rc-tabs-group { margin: 14px 0 4px; }
-    .rc-tabs-label { font-size: 11px; text-transform: uppercase; letter-spacing:.05em;
-      color: var(--text-muted); margin: 8px 0 6px; }
-    .rc-tabs { display:flex; flex-wrap:wrap; gap:8px; }
-    .rc-tab { border:1px solid var(--border-color,#e6e3da); background:var(--card-bg,#fff);
-      color:var(--text-primary); border-radius:99px; padding:7px 14px; font-size:13px;
-      cursor:pointer; font-weight:600; }
-    .rc-tab:hover { border-color: var(--accent,#2d6a4f); }
-    .rc-tab.active { background: var(--accent,#2d6a4f); color:#fff; border-color:var(--accent,#2d6a4f); }
-    .rc-table-wrap { overflow-x:auto; margin-top:16px; border:1px solid var(--border-color,#e6e3da);
-      border-radius:14px; }
-    table.rc-table { width:100%; border-collapse:collapse; font-size:13px; min-width:720px; }
-    table.rc-table th, table.rc-table td { padding:10px 12px; text-align:left; white-space:nowrap; }
-    table.rc-table thead th { color:var(--text-muted); font-size:11px; text-transform:uppercase;
-      letter-spacing:.04em; border-bottom:1px solid var(--border-color,#e6e3da); }
-    table.rc-table tbody tr + tr td { border-top:1px solid var(--border-color,#efece4); }
-    table.rc-table td.rc-price { font-family:'JetBrains Mono',monospace; font-weight:600; text-align:right; white-space:nowrap; }
-    table.rc-table td.rc-price .rc-price-sub { font-family:'Plus Jakarta Sans',sans-serif; font-weight:500;
-      font-size:10.5px; white-space:normal; color:var(--text-muted); text-align:right; margin-top:3px; max-width:220px; }
-    .rc-pkg { white-space:normal; }
-    .rc-empty { padding:26px 14px; text-align:center; color:var(--text-muted); }
-    .rc-cat-title { font-family:'DM Serif Display',serif; font-size:20px; margin:16px 0 2px; }
-    .rc-cat-sub { font-size:12px; color:var(--text-muted); }
-    .rc-note { font-size:12px; color:var(--text-muted); margin-top:16px; }
-    a.rc-srclink { color: var(--accent,#2d6a4f); text-decoration: underline; }
+    /* AgriPricePH — Prices (public, NCR rice catalog). Card-based catalog so brand detail already
+       tracked in the admin Rice Brands module (verification, image, source, survey provenance) has
+       room to show without overwhelming the default view — cards show only name/type/price/image;
+       hover (or tap, on touch) reveals a short second layer of detail. Colors are NOT reinvented
+       here — every green is var(--lp-green-*), the same tokens the site nav above this page already
+       renders with (css/landpage-nav.css), so the page reads as one accent, not a second competing
+       green. The hero banner mirrors current-prices.html's dark-gradient treatment. Light theme
+       only. */
+
+    .rc-shell { max-width: 1180px; margin: 0 auto; }
+
+    /* ---- Hero banner (styled to match the Price Forecast hero) ----
+       Layered background instead of a flat two-stop gradient: a diagonal three-stop base for
+       depth, corner glows for color movement, a faint diagonal hairline texture for grain, and a
+       cluster of decorative rings + scattered grain dots filling the empty right-hand side (there's
+       no KPI panel here like Price Forecast's hero has, so the shapes carry that visual weight
+       instead). All still the site's one accent family (--lp-green-*), just at different
+       weights/opacity — shape and richness, not a second competing hue. */
+    .rc-hero {
+      position: relative;
+      overflow: hidden;
+      background:
+        /* scattered grain dots, top-right */
+        radial-gradient(circle 3px at 74% 16%, rgba(255,255,255,.4), transparent 70%),
+        radial-gradient(circle 2px at 80% 10%, rgba(255,255,255,.3), transparent 70%),
+        radial-gradient(circle 4px at 87% 20%, rgba(255,255,255,.28), transparent 70%),
+        radial-gradient(circle 2px at 69% 24%, rgba(255,255,255,.32), transparent 70%),
+        radial-gradient(circle 3px at 95% 34%, rgba(255,255,255,.3), transparent 70%),
+        radial-gradient(circle 3px at 63% 52%, rgba(255,255,255,.24), transparent 70%),
+        radial-gradient(circle 4px at 90% 58%, rgba(255,255,255,.26), transparent 70%),
+        radial-gradient(circle 2px at 76% 68%, rgba(255,255,255,.3), transparent 70%),
+        radial-gradient(circle 3px at 97% 78%, rgba(255,255,255,.22), transparent 70%),
+        radial-gradient(circle 2px at 60% 82%, rgba(255,255,255,.26), transparent 70%),
+        /* three decorative rings, varying sizes, echoing a grain/sun motif */
+        radial-gradient(circle at 84% 30%, transparent 0 56px, rgba(82,176,122,.3) 57px 60px, transparent 62px),
+        radial-gradient(circle at 62% 66%, transparent 0 26px, rgba(82,176,122,.26) 27px 29px, transparent 31px),
+        radial-gradient(circle at 93% 66%, transparent 0 15px, rgba(139,205,163,.3) 16px 17.5px, transparent 19px),
+        /* soft filled blob, lower right, for depth behind the rings */
+        radial-gradient(ellipse 260px 220px at 88% 86%, rgba(82,176,122,.22), transparent 68%),
+        repeating-linear-gradient(115deg, rgba(255,255,255,.035) 0px, rgba(255,255,255,.035) 1px, transparent 1px, transparent 22px),
+        radial-gradient(ellipse 480px 360px at 94% -14%, rgba(82,176,122,.4), transparent 60%),
+        radial-gradient(ellipse 440px 420px at -12% 118%, rgba(53,115,80,.55), transparent 62%),
+        linear-gradient(135deg, var(--lp-green-900, #162e20) 0%, #0d2117 52%, #1c3d28 100%);
+      border-radius: 24px;
+      padding: 40px 40px 34px;
+      box-shadow: 0 12px 36px rgba(8,34,18,.14), 0 4px 12px rgba(8,34,18,.08);
+      margin-bottom: 22px;
+    }
+    .rc-eyebrow {
+      position: relative;
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 10.5px; font-weight: 700; letter-spacing: 1.1px; text-transform: uppercase;
+      color: var(--lp-green-400, #52b07a);
+    }
+    .rc-eyebrow::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--lp-green-400, #52b07a); flex-shrink: 0; }
+    .rc-heading {
+      position: relative;
+      font-family: var(--lp-font-display, 'DM Serif Display', serif); font-weight: 400;
+      font-size: 38px; line-height: 1.1; letter-spacing: -.4px; color: #fff; margin-top: 14px;
+    }
+    .rc-heading em { font-style: italic; color: var(--lp-green-400, #52b07a); }
+    .rc-lead { position: relative; margin-top: 12px; font-size: 14px; line-height: 1.65; color: rgba(255,255,255,.62); max-width: 62ch; }
+    .rc-lead strong { color: #fff; font-weight: 600; }
+
+    /* ---- Toolbar: single-line category dropdown + price callout ----
+       A native <select>'s OPEN option list can't be restyled in most browsers — no matter how the
+       closed control is themed, the popup always falls back to plain OS chrome. This is a small
+       custom button + listbox widget instead, so both the closed and open states match the rest
+       of the page (cards, badges, one accent). */
+    .rc-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+
+    .rc-dropdown { position: relative; min-width: 270px; max-width: 100%; }
+    .rc-dropdown-trigger {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%;
+      font: inherit; font-weight: 600; font-size: 13.5px; color: var(--lp-text-primary, #0f1e14);
+      background: #fff; border: 1px solid var(--lp-border-md, #cfe0d4); border-radius: 12px;
+      padding: 12px 14px 12px 16px; cursor: pointer; text-align: left;
+    }
+    .rc-dropdown-trigger:hover { border-color: var(--lp-green-600, #357350); }
+    .rc-dropdown-trigger:focus-visible { outline: 2px solid var(--lp-green-600, #357350); outline-offset: 1px; }
+    .rc-dropdown.is-open .rc-dropdown-trigger { border-color: var(--lp-green-600, #357350); }
+    .rc-dropdown-chevron { width: 13px; height: 13px; color: var(--lp-green-700, #2a5c3f); flex-shrink: 0; transition: transform .15s ease; }
+    .rc-dropdown.is-open .rc-dropdown-chevron { transform: rotate(180deg); }
+
+    .rc-dropdown-panel {
+      position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 20;
+      background: #fff; border: 1px solid var(--lp-border-md, #cfe0d4); border-radius: 14px;
+      box-shadow: 0 14px 32px rgba(8,34,18,.16), 0 4px 10px rgba(8,34,18,.06);
+      padding: 6px; max-height: 320px; overflow-y: auto;
+      /* Firefox */ scrollbar-width: thin; scrollbar-color: var(--lp-green-600, #357350) var(--lp-green-50, #edf8f3);
+    }
+    .rc-dropdown-panel::-webkit-scrollbar { width: 9px; }
+    .rc-dropdown-panel::-webkit-scrollbar-track { background: var(--lp-green-50, #edf8f3); border-radius: 99px; margin: 4px 0; }
+    .rc-dropdown-panel::-webkit-scrollbar-thumb {
+      background: var(--lp-green-600, #357350); border-radius: 99px; border: 2px solid #fff;
+      background-clip: padding-box;
+    }
+    .rc-dropdown-panel::-webkit-scrollbar-thumb:hover { background: var(--lp-green-700, #2a5c3f); background-clip: padding-box; }
+
+    .rc-dropdown-group-label {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 9.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+      color: var(--lp-green-700, #2a5c3f); background: var(--lp-green-50, #edf8f3);
+      border-radius: 6px; padding: 6px 9px; margin: 6px 2px 4px;
+    }
+    .rc-dropdown-group-label:first-child { margin-top: 2px; }
+    .rc-dropdown-group-label::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--lp-green-600, #357350); flex-shrink: 0; }
+    .rc-dropdown-option {
+      display: block; width: 100%; text-align: left; font: inherit; font-size: 13px; font-weight: 600;
+      color: var(--lp-text-primary, #0f1e14); background: transparent; border: 0; border-radius: 9px;
+      padding: 9px 10px; cursor: pointer;
+    }
+    .rc-dropdown-option:hover { background: var(--lp-green-50, #edf8f3); }
+    .rc-dropdown-option[aria-selected="true"] { background: var(--lp-green-600, #357350); color: #fff; }
+
+    .rc-price-callout {
+      background: var(--lp-green-50, #edf8f3); border: 1px solid var(--lp-border, rgba(53,115,80,.14));
+      border-radius: 12px; padding: 9px 16px; text-align: right; flex-shrink: 0;
+    }
+    .rc-price-callout-label { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--lp-text-secondary, #3a5045); }
+    .rc-price-callout-value { font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 600; color: var(--lp-green-700, #2a5c3f); margin-top: 1px; }
+
+    /* ---- Brand cards: image-first, minimal by default, hover reveals a short preview, click
+       opens the full-detail modal (see .rc-modal-* below) ---- */
+    .rc-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+    .rc-card {
+      background: #fff; border: 1px solid var(--lp-border, rgba(53,115,80,.14)); border-radius: 16px;
+      overflow: hidden; box-shadow: 0 1px 3px rgba(15,30,20,.04); cursor: pointer;
+      transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+    }
+    .rc-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 14px 28px rgba(15,30,20,.14), 0 4px 10px rgba(15,30,20,.06);
+      border-color: var(--lp-green-600, #357350);
+    }
+    .rc-card:focus-visible {
+      outline: 2px solid var(--lp-green-600, #357350); outline-offset: 2px;
+      transform: translateY(-4px);
+    }
+    .rc-card:active { transform: translateY(-1px) scale(.98); }
+    @keyframes rc-card-pop { 0% { transform: translateY(-4px) scale(1); } 45% { transform: translateY(-4px) scale(.95); } 100% { transform: translateY(-4px) scale(1); } }
+    .rc-card.is-selected { animation: rc-card-pop .32s ease; }
+    .rc-card-media { position: relative; aspect-ratio: 4 / 3; background: var(--lp-green-50, #edf8f3); overflow: hidden; }
+    .rc-card-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .rc-card-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--lp-green-600, #357350); opacity: .5; }
+    .rc-card-placeholder svg { width: 36px; height: 36px; }
+
+    .rc-card-reveal {
+      position: absolute; inset: 0;
+      background: linear-gradient(to top, rgba(11,29,20,.94) 0%, rgba(11,29,20,.58) 58%, rgba(11,29,20,0) 100%);
+      display: flex; flex-direction: column; justify-content: flex-end; gap: 3px;
+      padding: 10px; opacity: 0; transform: translateY(6px); pointer-events: none;
+      transition: opacity .16s ease, transform .16s ease;
+    }
+    .rc-card:hover .rc-card-reveal,
+    .rc-card:focus-within .rc-card-reveal,
+    .rc-card.is-revealed .rc-card-reveal { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    .rc-reveal-badge { align-self: flex-start; margin-bottom: 2px; }
+    .rc-reveal-line { font-size: 10.5px; line-height: 1.4; color: rgba(255,255,255,.88); overflow-wrap: break-word; }
+    .rc-reveal-link { color: var(--lp-green-400, #52b07a); text-decoration: underline; }
+
+    .rc-badge { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: .03em; border-radius: 99px; padding: 3px 8px; text-transform: uppercase; }
+    .rc-badge--dti { background: var(--lp-green-400, #52b07a); color: #0f1e14; }
+    .rc-badge--field { background: rgba(255,255,255,.14); color: #fff; border: 1px solid rgba(255,255,255,.4); }
+    .rc-badge--plain { background: rgba(255,255,255,.1); color: rgba(255,255,255,.7); }
+
+    .rc-card-body { padding: 11px 13px 13px; }
+    .rc-card-name { font-size: 13.5px; font-weight: 700; color: var(--lp-text-primary, #0f1e14); line-height: 1.25; }
+    .rc-card-type { font-size: 11px; color: var(--lp-text-secondary, #3a5045); margin-top: 2px; }
+    .rc-card-price { margin-top: 7px; font-family: 'JetBrains Mono', monospace; font-size: 15.5px; font-weight: 600; color: var(--lp-green-700, #2a5c3f); }
+    .rc-card-price .rc-unit { font-size: 10.5px; font-weight: 500; color: var(--lp-text-secondary, #3a5045); }
+
+    .rc-empty {
+      grid-column: 1 / -1; text-align: center; color: var(--lp-text-secondary, #3a5045);
+      background: #fff; border: 1px dashed var(--lp-border-md, #cfe0d4); border-radius: 16px;
+      padding: 40px 20px; font-size: 13px;
+    }
+
+    /* ---- About the data ---- */
+    .rc-note {
+      margin-top: 28px; font-size: 12px; line-height: 1.65; color: var(--lp-text-secondary, #3a5045);
+      background: #fff; border: 1px solid var(--lp-border, rgba(53,115,80,.14)); border-radius: 14px; padding: 16px;
+    }
+    .rc-note strong { color: var(--lp-text-primary, #0f1e14); }
+
+    /* ---- Scroll to top (appears once the "About the data" footer is reached) ---- */
+    .rc-scroll-top {
+      position: fixed; right: 24px; bottom: 24px; z-index: 150;
+      width: 46px; height: 46px; border-radius: 50%; border: none; cursor: pointer;
+      background: var(--lp-green-600, #357350); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 10px 24px rgba(8,34,18,.22), 0 4px 10px rgba(8,34,18,.1);
+      opacity: 0; visibility: hidden; transform: translateY(10px);
+      transition: opacity .2s ease, transform .2s ease, visibility .2s, background .15s ease;
+    }
+    .rc-scroll-top.is-visible { opacity: 1; visibility: visible; transform: translateY(0); }
+    .rc-scroll-top:hover { background: var(--lp-green-700, #2a5c3f); }
+    .rc-scroll-top:focus-visible { outline: 2px solid var(--lp-green-600, #357350); outline-offset: 2px; }
+    .rc-scroll-top svg { width: 20px; height: 20px; }
+
+    /* ---- Brand detail modal (opened by clicking/selecting a card) ---- */
+    .rc-modal-overlay {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(8,20,14,.55);
+      display: flex; align-items: center; justify-content: center; padding: 24px;
+      opacity: 0; pointer-events: none; transition: opacity .18s ease;
+    }
+    .rc-modal-overlay.is-open { opacity: 1; pointer-events: auto; }
+    .rc-modal {
+      position: relative;
+      background: #fff; border-radius: 20px; width: 100%; max-width: 520px; max-height: 86vh; overflow-y: auto;
+      box-shadow: 0 30px 70px rgba(8,20,14,.35);
+      transform: scale(.93) translateY(14px); opacity: 0;
+      transition: transform .22s cubic-bezier(.22,.9,.32,1.1), opacity .18s ease;
+      /* No track fill and no arrow buttons, so the scrollbar reads as part of the rounded edge
+         itself rather than a separate strip bolted onto it — just a slim, muted thumb, still
+         visible enough to signal "this scrolls." */
+      scrollbar-width: thin; scrollbar-color: rgba(53,115,80,.35) transparent;
+    }
+    .rc-modal-overlay.is-open .rc-modal { transform: scale(1) translateY(0); opacity: 1; }
+    .rc-modal::-webkit-scrollbar { width: 7px; }
+    .rc-modal::-webkit-scrollbar-track { background: transparent; }
+    .rc-modal::-webkit-scrollbar-thumb {
+      background: rgba(53,115,80,.35); border-radius: 99px;
+      border: 2px solid #fff; background-clip: padding-box;
+    }
+    .rc-modal::-webkit-scrollbar-thumb:hover { background: rgba(53,115,80,.6); background-clip: padding-box; }
+    .rc-modal::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+    .rc-modal-close {
+      position: absolute; top: 12px; right: 12px; z-index: 2;
+      width: 32px; height: 32px; border-radius: 50%; border: none; cursor: pointer;
+      background: rgba(8,20,14,.5); color: #fff;
+      display: flex; align-items: center; justify-content: center; transition: background .15s ease;
+    }
+    .rc-modal-close svg { width: 16px; height: 16px; }
+    .rc-modal-close:hover { background: rgba(8,20,14,.75); }
+    .rc-modal-media { width: 100%; aspect-ratio: 16 / 9; background: var(--lp-green-50, #edf8f3); overflow: hidden; }
+    .rc-modal-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .rc-modal-media .rc-card-placeholder svg { width: 46px; height: 46px; }
+    .rc-modal-body { padding: 22px 24px 26px; }
+    .rc-modal-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .rc-modal-title { font-family: var(--lp-font-display, 'DM Serif Display', serif); font-weight: 400; font-size: 22px; color: var(--lp-text-primary, #0f1e14); }
+    .rc-modal-type { font-size: 12.5px; color: var(--lp-text-secondary, #3a5045); margin-top: 2px; }
+    .rc-modal-price { margin-top: 16px; font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 600; color: var(--lp-green-700, #2a5c3f); }
+    .rc-modal-price .rc-unit { font-size: 13px; font-weight: 500; color: var(--lp-text-secondary, #3a5045); }
+    .rc-modal-price-note { font-size: 12px; color: var(--lp-text-secondary, #3a5045); margin-top: 3px; }
+    .rc-modal-meta { display: flex; flex-direction: column; gap: 9px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--lp-border, rgba(53,115,80,.14)); }
+    .rc-modal-meta > div { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+    .rc-modal-meta dt { color: var(--lp-text-secondary, #3a5045); flex-shrink: 0; }
+    .rc-modal-meta dd { color: var(--lp-text-primary, #0f1e14); text-align: right; overflow-wrap: break-word; }
+    .rc-modal-link { color: var(--lp-green-600, #357350); text-decoration: underline; }
+    .rc-modal-note {
+      margin-top: 14px; font-size: 12px; line-height: 1.6; color: var(--lp-text-secondary, #3a5045);
+      background: var(--lp-green-50, #edf8f3); border-radius: 10px; padding: 10px 12px;
+    }
+    .rc-modal-note strong { color: var(--lp-text-primary, #0f1e14); }
+    .rc-modal-badge--dti { background: var(--lp-green-600, #357350); color: #fff; }
+    .rc-modal-badge--field { background: var(--lp-green-50, #edf8f3); color: var(--lp-green-700, #2a5c3f); border: 1px solid var(--lp-green-600, #357350); }
+    .rc-modal-badge--plain { background: transparent; color: var(--lp-text-secondary, #3a5045); border: 1px dashed var(--lp-border-md, #cfe0d4); }
+
+    @media (max-width: 640px) {
+      .rc-hero { padding: 30px 22px 26px; border-radius: 18px; }
+      .rc-heading { font-size: 29px; }
+      .rc-toolbar { flex-direction: column; align-items: stretch; }
+      .rc-price-callout { text-align: left; }
+      .rc-dropdown { min-width: 0; width: 100%; }
+      .rc-cards { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+      .rc-modal-overlay { padding: 0; align-items: flex-end; }
+      .rc-modal { max-width: 100%; max-height: 92vh; border-radius: 20px 20px 0 0; }
+      .rc-scroll-top { right: 16px; bottom: 16px; width: 42px; height: 42px; }
+    }
   </style>
 </head>
-<body data-page="catalog" data-title="Rice Catalog" data-subtitle="NCR rice products by category">
+<body data-page="catalog" data-title="Prices" data-subtitle="NCR rice prices by brand">
 
 <main class="page-content" id="public-page-content">
-  <span class="rc-ncr-chip">NCR / Metro Manila only</span>
-  <p class="rc-lead">
-    Verified rice products available in Metro Manila, organized by the eight official rice
-    categories. Pick a category to see the brands, actual package names, where they're sold, and
-    the source. <strong>Prices come from the Price Forecast page</strong> — the prevailing
-    range/price for that category.
-  </p>
+  <div class="rc-shell">
+    <header class="rc-hero">
+      <span class="rc-eyebrow">NCR / Metro Manila only</span>
+      <h1 class="rc-heading">Rice <em>Prices</em></h1>
+      <p class="rc-lead">
+        Verified rice products available in Metro Manila, organized by the eight official rice
+        categories. Pick a category to see the brands, actual package names, where they're sold, and
+        the source. <strong>Prices come from the Price Forecast page</strong> — the prevailing
+        range/price for that category.
+      </p>
+    </header>
 
-  <div class="rc-tabs-group">
-    <div class="rc-tabs-label">Local</div>
-    <div class="rc-tabs" id="rc-tabs-local"></div>
-  </div>
-  <div class="rc-tabs-group">
-    <div class="rc-tabs-label">Imported</div>
-    <div class="rc-tabs" id="rc-tabs-imported"></div>
-  </div>
+    <div class="rc-toolbar">
+      <div class="rc-dropdown" id="rc-category-dropdown">
+        <button type="button" class="rc-dropdown-trigger" id="rc-dropdown-trigger"
+          aria-haspopup="listbox" aria-expanded="false" aria-label="Rice category">
+          <span id="rc-dropdown-label">Select a category</span>
+          <svg class="rc-dropdown-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="rc-dropdown-panel" id="rc-dropdown-panel" role="listbox" aria-label="Rice category" hidden></div>
+      </div>
+      <div class="rc-price-callout">
+        <div class="rc-price-callout-label">Category price</div>
+        <div class="rc-price-callout-value" id="rc-active-price">—</div>
+      </div>
+    </div>
 
-  <div class="rc-cat-title" id="rc-active-title">—</div>
-  <div class="rc-cat-sub" id="rc-active-sub"></div>
+    <div class="rc-cards" id="rc-cards">
+      <div class="rc-empty">Loading…</div>
+    </div>
 
-  <div class="rc-table-wrap">
-    <table class="rc-table">
-      <thead>
-        <tr>
-          <th>Brand</th>
-          <th style="text-align:right;">Price</th>
-          <th>Actual Brand Package</th>
-          <th>Location</th>
-          <th>Source</th>
-          <th>Last Update</th>
-        </tr>
-      </thead>
-      <tbody id="rc-tbody">
-        <tr><td colspan="6" class="rc-empty">Loading…</td></tr>
-      </tbody>
-    </table>
+    <p class="rc-note" id="rc-note"></p>
   </div>
 
-  <p class="rc-note" id="rc-note"></p>
+  <button type="button" class="rc-scroll-top" id="rc-scroll-top" aria-label="Back to top">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+  </button>
+
+  <div class="rc-modal-overlay" id="rc-modal-overlay" hidden>
+    <div class="rc-modal" role="dialog" aria-modal="true" aria-labelledby="rc-modal-title" tabindex="-1">
+      <button type="button" class="rc-modal-close" id="rc-modal-close" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div class="rc-modal-media" id="rc-modal-media"></div>
+      <div class="rc-modal-body">
+        <div class="rc-modal-top">
+          <div>
+            <h2 class="rc-modal-title" id="rc-modal-title"></h2>
+            <p class="rc-modal-type" id="rc-modal-type"></p>
+          </div>
+          <span id="rc-modal-badge"></span>
+        </div>
+        <p class="rc-modal-price" id="rc-modal-price"></p>
+        <p class="rc-modal-price-note" id="rc-modal-price-note"></p>
+        <dl class="rc-modal-meta" id="rc-modal-meta"></dl>
+        <p class="rc-modal-note" id="rc-modal-note" hidden></p>
+      </div>
+    </div>
+  </div>
 </main>
 
 <script src="../js/data.js"></script>

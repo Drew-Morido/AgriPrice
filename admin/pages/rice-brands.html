@@ -92,6 +92,21 @@
         <input type="hidden" id="rf-brand-id" value="">
         <div class="rb-form-section">Brand details</div>
         <div class="rb-form-grid">
+          <div class="rb-field span-2">
+            <label for="rf-image-file">Catalog image</label>
+            <div class="rb-image-field">
+              <div class="rb-image-preview" id="rf-image-preview" aria-hidden="true"></div>
+              <div class="rb-image-controls">
+                <input type="file" id="rf-image-file" accept="image/png,image/jpeg,image/webp" hidden>
+                <div class="rb-image-buttons">
+                  <button type="button" class="btn btn-outline btn-sm" id="rf-image-pick">Choose image…</button>
+                  <button type="button" class="btn btn-ghost btn-sm rb-text-danger" id="rf-image-remove" hidden>Remove</button>
+                </div>
+                <p class="rb-hint">PNG, JPG, or WEBP, up to 4MB. Shown on the public catalog card.</p>
+                <p class="rb-form-error" id="rf-image-msg" role="alert" hidden></p>
+              </div>
+            </div>
+          </div>
           <div class="rb-field">
             <label for="rf-category">Category <span class="rb-req">*</span></label>
             <select id="rf-category" class="form-input"></select>
@@ -217,6 +232,7 @@
       <button type="button" class="btn btn-ghost btn-sm" data-close aria-label="Close">✕</button>
     </div>
     <div class="card-body">
+      <div class="rb-detail-image" id="rb-detail-image" aria-hidden="true"></div>
       <div class="rb-detail-grid" id="rb-detail-grid"></div>
       <div class="rb-form-section">Change history</div>
       <div class="rb-history" id="rb-detail-history"></div>

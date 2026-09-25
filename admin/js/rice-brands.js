@@ -43,6 +43,7 @@ AgriPricePH.RiceBrands = (function () {
     off: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>',
     on: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>',
     grid: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>',
+    image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
   };
 
   let _categories = [];       // /api/catalog categories (include_inactive=1), each with .brands
@@ -60,9 +61,33 @@ AgriPricePH.RiceBrands = (function () {
   let _weightBrandId = null;
   let _detailBrandId = null;
 
+  // Add/Edit Brand image field — the file is only uploaded once the brand itself saves
+  // successfully (using the resulting brand id), so cancelling the form never leaves an orphan.
+  let _pendingImageFile = null;  // File picked but not yet uploaded
+  let _imageRemoved = false;     // "Remove" clicked on an existing image
+  let _currentImagePath = null;  // the brand's image_path when the form opened (edit only)
+
   function adminToken() {
     try { return JSON.parse(sessionStorage.getItem('agriprice_admin_session') || 'null')?.token || ''; }
     catch { return ''; }
+  }
+
+  // image_path from the API is root-relative ('/public/images/rice-brands/...'). The admin
+  // dashboard isn't always served from the same origin as the Flask API (see js/api.js's
+  // detectBase() — Live Server / any other port always talks to the API on :5000 regardless of
+  // where the page itself loaded from), so a bare <img src="/public/..."> resolves against the
+  // WRONG origin and 404s there even though the API call that returned the path succeeded. A
+  // freshly-picked, not-yet-uploaded file's blob: preview URL must pass through unchanged.
+  function resolveImageUrl(src) {
+    if (!src) return src;
+    if (/^(blob:|data:|https?:)/i.test(src)) return src;
+    return `${AgriPricePH.API.BASE}${src}`;
+  }
+
+  function renderImagePreview(hostId, src) {
+    const host = $(hostId);
+    if (!host) return;
+    host.innerHTML = src ? `<img src="${esc(resolveImageUrl(src))}" alt="">` : ICON.image;
   }
 
   function sortedCategories() {
@@ -426,6 +451,16 @@ AgriPricePH.RiceBrands = (function () {
   const FORM_FIELDS = ['rf-brand-id', 'rf-brand-name', 'rf-package', 'rf-location', 'rf-source',
     'rf-source-url', 'rf-last-verified', 'rf-classification-note', 'rf-notes'];
 
+  function resetImageField(existingPath) {
+    _pendingImageFile = null;
+    _imageRemoved = false;
+    _currentImagePath = existingPath || null;
+    if ($('rf-image-file')) $('rf-image-file').value = '';
+    renderImagePreview('rf-image-preview', _currentImagePath);
+    if ($('rf-image-remove')) $('rf-image-remove').hidden = !_currentImagePath;
+    showMsg('rf-image-msg', '');
+  }
+
   function openAddForm() {
     FORM_FIELDS.forEach(id => { const el = $(id); if (el) el.value = ''; });
     $('rf-verification').value = 'unverified';
@@ -433,6 +468,7 @@ AgriPricePH.RiceBrands = (function () {
     $('rb-form-title').textContent = 'Add Brand';
     $('rb-form-sub').textContent = 'Adds a branded product under one of the 8 forecast categories.';
     $('rf-save').textContent = 'Add Brand';
+    resetImageField(null);
     showMsg('rf-msg', '');
     openOverlay('rb-form-overlay');
     setTimeout(() => $('rf-brand-name')?.focus(), 30);
@@ -453,6 +489,7 @@ AgriPricePH.RiceBrands = (function () {
     $('rf-classification-note').value = b.classification_note || '';
     $('rf-notes').value = b.notes || '';
     $('rf-verification').value = b.verification_status || 'unverified';
+    resetImageField(b.image_path || null);
     $('rb-form-title').textContent = `Edit ${b.brand_name}`;
     $('rb-form-sub').textContent = `${cat.name} · every change is recorded in the brand's history.`;
     $('rf-save').textContent = 'Save Changes';
@@ -494,14 +531,27 @@ AgriPricePH.RiceBrands = (function () {
         ? await AgriPricePH.API.brandUpdate(brandId, payload, adminToken())
         : await AgriPricePH.API.brandAdd(payload, adminToken());
       if (res.ok && res.data.ok) {
+        const bid = brandId || res.data.brand_id;
+        let imageNote = '';
+        if (_pendingImageFile) {
+          const imgRes = await AgriPricePH.API.brandImageUpload(bid, _pendingImageFile, adminToken());
+          if (!(imgRes.ok && imgRes.data.ok)) {
+            imageNote = ` The brand saved, but the image could not be uploaded (${apiError(imgRes, 'please try again')}).`;
+          }
+        } else if (_imageRemoved && _currentImagePath) {
+          const imgRes = await AgriPricePH.API.brandImageDelete(bid, adminToken());
+          if (!(imgRes.ok && imgRes.data.ok)) {
+            imageNote = ` The brand saved, but the image could not be removed (${apiError(imgRes, 'please try again')}).`;
+          }
+        }
         if (brandId) delete _historyCache[brandId];
         closeOverlay('rb-form-overlay');
         if (!brandId) { _cat = payload.category_key; _status = 'active'; syncFilters(); }
         await load();
         AgriPricePH.Modals.alert({
           title: brandId ? 'Brand updated' : 'Brand added',
-          text: `'${res.data.brand_name || payload.brand_name}' was saved.`,
-          type: 'success',
+          text: `'${res.data.brand_name || payload.brand_name}' was saved.${imageNote}`,
+          type: imageNote ? 'warning' : 'success',
         });
       } else {
         showMsg('rf-msg', apiError(res, 'Could not save this brand.'));
@@ -607,6 +657,7 @@ AgriPricePH.RiceBrands = (function () {
     $('rb-detail-title').textContent = b.brand_name;
     $('rb-detail-sub').textContent = `${cat.name} · ${b.active ? 'Active' : 'Deactivated'}`;
     $('rb-detail-edit').hidden = !b.active;
+    renderImagePreview('rb-detail-image', b.image_path || null);
 
     const item = (label, value, wide) => `
       <div class="rb-detail-item ${wide ? 'wide' : ''}">
@@ -721,6 +772,35 @@ AgriPricePH.RiceBrands = (function () {
         case 'deactivate': setActive(id, false); break;
         case 'reactivate': setActive(id, true); break;
       }
+    });
+    $('rf-image-pick')?.addEventListener('click', () => $('rf-image-file')?.click());
+    $('rf-image-remove')?.addEventListener('click', () => {
+      _pendingImageFile = null;
+      _imageRemoved = true;
+      if ($('rf-image-file')) $('rf-image-file').value = '';
+      renderImagePreview('rf-image-preview', null);
+      $('rf-image-remove').hidden = true;
+      showMsg('rf-image-msg', '');
+    });
+    $('rf-image-file')?.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const ext = (file.name.split('.').pop() || '').toLowerCase();
+      if (!['png', 'jpg', 'jpeg', 'webp'].includes(ext)) {
+        showMsg('rf-image-msg', 'Image must be PNG, JPG, or WEBP.');
+        e.target.value = '';
+        return;
+      }
+      if (file.size > 4 * 1024 * 1024) {
+        showMsg('rf-image-msg', 'Image must be 4MB or smaller.');
+        e.target.value = '';
+        return;
+      }
+      showMsg('rf-image-msg', '');
+      _pendingImageFile = file;
+      _imageRemoved = false;
+      renderImagePreview('rf-image-preview', URL.createObjectURL(file));
+      $('rf-image-remove').hidden = false;
     });
     $('rb-form')?.addEventListener('submit', (e) => { e.preventDefault(); saveBrand(); });
     $('rb-weight-form')?.addEventListener('submit', (e) => { e.preventDefault(); saveWeight(); });

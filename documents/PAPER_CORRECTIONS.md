@@ -1576,6 +1576,30 @@ says the admin side is desktop-only, it can drop that restriction.
 
 ---
 
+## Round 22 — Split public Settings into Profile + Settings, reworked Profile to match the admin Account module (2026-09-25)
+
+**App changes (not paper claims, logged for traceability):**
+- **`settings.html` split in two.** Account (name/email, change password, log out — the only
+  server-persisted parts, via `/api/auth/*`) moved to a new **`profile.html`** +
+  `public-profile.js`. `settings.html` now holds only the client-side/`localStorage` parts —
+  Appearance, Preferences, Privacy & data.
+- **Profile reworked to match the admin Account Profile module** (`admin/pages/account.html` /
+  `admin/css/account.css`): a gradient cover banner, an overlapping circular avatar, a header card
+  with name/role/email and an "Edit Profile" button, and the same plain hidden-attribute modal
+  dialog pattern (Edit Profile, Change Password) instead of the old `<details>` disclosure widgets.
+  Only fields the public user model actually has (`model/user_store.py`: name, email, password,
+  role) are shown — no avatar upload, bio, phone, or activity log, since none of those exist for
+  public accounts (unlike admin, which stores those in `system_settings.json`).
+- **Topbar icon pair changed.** The hamburger button (`public-btn-burger`), which only ever opened
+  a one-item dropdown ("Settings"), is now a direct gear-icon **Settings** link — the dropdown
+  (`public-nav-menu`) and its JS (`bindBurgerMenu()`) are gone. The circular **Profile** icon
+  (`public-btn-profile`) now points to `profile.html` instead of `settings.html#account`. The phone
+  nav panel gained a matching **Profile** link alongside **Settings**.
+- Supersedes the Round-3 note above ("added a circular Profile icon → Settings → Account") — Profile
+  is now its own page, not a section of Settings.
+
+---
+
 ## Still [VERIFY] / [ACTION]
 - **[DTI]** confirm the 8 category names/definitions and the **brands** under each (DA has none).
 - **[DTI]** whether to keep the DA Bantay Presyo ranges or use official DTI brackets.

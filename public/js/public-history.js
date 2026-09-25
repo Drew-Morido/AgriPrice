@@ -552,6 +552,12 @@ AgriPricePH.History = (function () {
     canvas.width = Math.round(boxW * dpr);
     canvas.height = Math.round(boxH * dpr);
 
+    // "The Daily Ledger" — a plain ink line on ruled paper rather than a filled dashboard-style
+    // area chart: no fill, hollow rings for real readings (a pencil-mark feel), and gridlines left
+    // off entirely because the plot's own CSS background (.ledger-plot) already draws the ruled
+    // horizontal lines — Chart.js drawing its own on top would double them up.
+    const INK = '#211d13';
+    const INK_MUTED = '#8c8570';
     chart = new Chart(canvas, {
       type: 'line',
       data: {
@@ -560,23 +566,26 @@ AgriPricePH.History = (function () {
           label: m.label,
           data: line,
           borderColor: m.color,
-          backgroundColor: `${m.color}1f`,
-          borderWidth: 2.4,
-          fill: true,
-          tension: 0.28,
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          fill: false,
+          tension: 0.2,
           // `spanGaps` was pointless here: build() forward-fills `values`, so the series never
           // contains a null and there was nothing to break. The long flat stretches WERE the
           // forward-fill, drawn as a confident solid line. Carried-forward stretches are dashed
           // instead — the shape stays readable, but it is obvious which parts were measured.
           segment: {
-            borderDash: (ctx) => (c.observed[from + ctx.p1DataIndex] ? undefined : [4, 4]),
+            borderDash: (ctx) => (c.observed[from + ctx.p1DataIndex] ? undefined : [3, 3]),
             borderColor: (ctx) => (c.observed[from + ctx.p1DataIndex] ? undefined : `${m.color}66`),
           },
           pointRadius: dots,
-          pointHoverRadius: 6,
-          pointBackgroundColor: m.color,
-          pointBorderColor: '#fff',
-          pointBorderWidth: 2,
+          pointHoverRadius: 5,
+          pointStyle: 'circle',
+          pointBackgroundColor: '#faf6ec',
+          pointBorderColor: m.color,
+          pointBorderWidth: 1.6,
+          pointHoverBackgroundColor: m.color,
+          pointHoverBorderColor: '#faf6ec',
         }],
       },
       options: {
@@ -585,15 +594,20 @@ AgriPricePH.History = (function () {
         devicePixelRatio: dpr,
         // The canvas fills its box edge to edge, so all the breathing room comes from here. The
         // line was running into the axis labels and the top of the plot without it.
-        layout: { padding: { top: 18, right: 20, bottom: 10, left: 10 } },
+        layout: { padding: { top: 18, right: 12, bottom: 8, left: 4 } },
         interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: '#0b1d14',
-            padding: 11,
-            titleFont: { size: 12 },
-            bodyFont: { size: 12.5 },
+            backgroundColor: '#fff',
+            titleColor: INK,
+            bodyColor: INK,
+            borderColor: 'rgba(38,58,32,.22)',
+            borderWidth: 1,
+            cornerRadius: 4,
+            padding: 10,
+            titleFont: { size: 11.5, family: "'JetBrains Mono', monospace", weight: '600' },
+            bodyFont: { size: 12.5, family: "'JetBrains Mono', monospace" },
             displayColors: false,
             callbacks: {
               // Says whether the hovered day was actually published or carried forward — the one
@@ -614,14 +628,17 @@ AgriPricePH.History = (function () {
             // half-width column, and the axis read as a solid grey band.
             ticks: {
               maxTicksLimit: 5, maxRotation: 0, autoSkipPadding: 18,
-              font: { size: 10 }, color: '#8aaa97', padding: 8,
+              font: { size: 10, family: "'JetBrains Mono', monospace" }, color: INK_MUTED, padding: 8,
             },
           },
           y: {
-            grid: { color: 'rgba(0,0,0,.05)' },
+            // A few flat reference lines read faster than the eye tracing back to the axis
+            // labels — functional, not decorative, which is why this replaced the card's old
+            // ruled-paper background texture instead of just sitting on top of it.
+            grid: { color: 'rgba(38,58,32,0.08)', drawTicks: false },
             border: { display: false },
             ticks: {
-              maxTicksLimit: 5, font: { size: 10 }, color: '#8aaa97', padding: 8,
+              maxTicksLimit: 5, font: { size: 10, family: "'JetBrains Mono', monospace" }, color: INK_MUTED, padding: 8,
               callback: (v) => peso(v, { raw: true }),
             },
           },
@@ -657,7 +674,7 @@ AgriPricePH.History = (function () {
         <span class="hcc-legend-item">
           <span class="hcc-legend-swatch" style="background:${m.color}"></span>${esc(m.label)}
         </span>
-        <span class="hcc-legend-item" style="color:rgba(255,255,255,.42)">
+        <span class="hcc-legend-item" style="color:#8c8570">
           <span class="hcc-legend-swatch dashed" style="color:${m.color}"></span>Dashed = price carried forward, no reading that day
         </span>`;
     }

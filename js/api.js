@@ -183,6 +183,20 @@ AgriPricePH.API = (function () {
     brandAudit: (brandId, token) => fetch(`${BASE}/api/brands/${encodeURIComponent(brandId)}/audit`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {}, cache: 'no-store',
     }).then((r) => r.json().catch(() => ({ audit: [] }))),
+    // No 'Content-Type' header on purpose — the browser sets the multipart boundary itself.
+    brandImageUpload: (brandId, file, token) => {
+      const fd = new FormData();
+      fd.append('image', file);
+      return fetch(`${BASE}/api/brands/${encodeURIComponent(brandId)}/image`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: fd,
+      }).then(async (r) => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) }));
+    },
+    brandImageDelete: (brandId, token) => fetch(`${BASE}/api/brands/${encodeURIComponent(brandId)}/image`, {
+      method: 'DELETE',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }).then(async (r) => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) })),
     systemLogs: (params = {}, token) => fetch(
       `${BASE}/api/logs` + (Object.keys(params).length ? '?' + new URLSearchParams(params).toString() : ''),
       { headers: token ? { Authorization: `Bearer ${token}` } : {}, cache: 'no-store' },

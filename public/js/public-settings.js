@@ -1,4 +1,7 @@
-/* AgriPricePH — Public site settings (logged-in only: Account, Preferences, Appearance, Privacy) */
+/* AgriPricePH — Public site settings (logged-in only: Appearance, Preferences, Privacy & data).
+   Account/profile editing lives in public/profile.html + public-profile.js instead — this file's
+   applyThemeBoot() IIFE below still needs to stay here and stay a <head> script on every page that
+   wants theme-dark/compact/reduce-motion applied (see the <script> tag comment in those pages). */
 window.AgriPricePH = window.AgriPricePH || {};
 
 (function applyThemeBoot() {
@@ -65,106 +68,6 @@ AgriPricePH.PublicSettings = (function () {
       localStorage.setItem(STATS_KEY, p.defaultStatsView === 'household' ? 'household' : 'vendor');
       localStorage.setItem(DATE_KEY, ['mdy', 'dmy', 'iso'].includes(p.dateFormat) ? p.dateFormat : 'mdy');
     } catch { /* ignore */ }
-  }
-
-  function esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"]/g, c =>
-      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  }
-
-  function renderAccountCard() {
-    const el = document.getElementById('settings-account-card');
-    if (!el) return;
-    const session = AgriPricePH.PublicAuth?.getSession?.();
-    const loggedIn = AgriPricePH.PublicAuth?.isLoggedIn?.();
-
-    if (!(loggedIn && session)) {
-      el.innerHTML = `
-        <div class="settings-account-status settings-account-status--guest">
-          <div class="settings-account-avatar guest">G</div>
-          <div><h3>Guest</h3><p>Please log in to manage your account.</p></div>
-        </div>`;
-      return;
-    }
-
-    const initials = (session.name || 'U').trim().split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
-    el.innerHTML = `
-      <div class="settings-account-status settings-account-status--user">
-        <div class="settings-account-avatar">${esc(initials)}</div>
-        <div>
-          <h3>${esc(session.name || 'Account')}</h3>
-          <p>${esc(session.email || '')} · <span class="pill pill-blue">Retailer</span></p>
-        </div>
-      </div>
-      <p class="settings-hint">Your account is stored on the AgriPricePH server; your password is hashed and never stored in plain text.</p>
-
-      <details class="settings-account-details" style="margin-top:6px;">
-        <summary style="cursor:pointer;font-weight:600;font-size:13px;">Edit profile</summary>
-        <div style="display:grid;gap:8px;margin-top:8px;max-width:340px;">
-          <label style="font-size:12px;">Name
-            <input id="acc-name" type="text" class="form-input" value="${esc(session.name || '')}" />
-          </label>
-          <label style="font-size:12px;">Email (your login)
-            <input id="acc-email" type="email" class="form-input" value="${esc(session.email || '')}" />
-          </label>
-          <div><button type="button" class="btn btn-primary btn-sm" id="acc-save-profile">Save profile</button></div>
-        </div>
-      </details>
-
-      <details class="settings-account-details" style="margin-top:8px;">
-        <summary style="cursor:pointer;font-weight:600;font-size:13px;">Change password</summary>
-        <div style="display:grid;gap:8px;margin-top:8px;max-width:340px;">
-          <label style="font-size:12px;">Current password
-            <input id="acc-pw-current" type="password" class="form-input" autocomplete="current-password" />
-          </label>
-          <label style="font-size:12px;">New password
-            <input id="acc-pw-new" type="password" class="form-input" autocomplete="new-password" />
-          </label>
-          <label style="font-size:12px;">Confirm new password
-            <input id="acc-pw-confirm" type="password" class="form-input" autocomplete="new-password" />
-          </label>
-          <div style="font-size:11px;color:var(--text-muted);">At least 8 characters with uppercase, lowercase, and a number.</div>
-          <div><button type="button" class="btn btn-primary btn-sm" id="acc-save-password">Update password</button></div>
-        </div>
-      </details>
-
-      <div class="settings-account-actions" style="margin-top:12px;">
-        <button type="button" class="btn btn-outline btn-sm" id="settings-btn-logout">Log out</button>
-      </div>
-    `;
-
-    document.getElementById('settings-btn-logout')?.addEventListener('click', () => {
-      AgriPricePH.PublicAuth?.logout?.();
-    });
-    document.getElementById('acc-save-profile')?.addEventListener('click', saveProfile);
-    document.getElementById('acc-save-password')?.addEventListener('click', savePassword);
-  }
-
-  async function saveProfile() {
-    const name = document.getElementById('acc-name')?.value;
-    const email = document.getElementById('acc-email')?.value;
-    const res = await AgriPricePH.PublicAuth?.updateProfile?.({ name, email });
-    if (res?.ok) {
-      renderAccountCard();
-      AgriPricePH.PublicAuth?.updateTopbarUser?.();
-      showSavedToast('Profile updated.');
-    } else {
-      AgriPricePH.PublicAlert?.invalid?.(res?.message || 'Could not update profile.');
-    }
-  }
-
-  async function savePassword() {
-    const current = document.getElementById('acc-pw-current')?.value || '';
-    const next = document.getElementById('acc-pw-new')?.value || '';
-    const confirm = document.getElementById('acc-pw-confirm')?.value || '';
-    if (next !== confirm) { AgriPricePH.PublicAlert?.invalid?.('New passwords do not match.'); return; }
-    const res = await AgriPricePH.PublicAuth?.changeUserPassword?.({ current, next });
-    if (res?.ok) {
-      ['acc-pw-current', 'acc-pw-new', 'acc-pw-confirm'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-      showSavedToast('Password updated.');
-    } else {
-      AgriPricePH.PublicAlert?.invalid?.(res?.message || 'Could not change password.');
-    }
   }
 
   function exportData() {
@@ -266,7 +169,6 @@ AgriPricePH.PublicSettings = (function () {
       window.location.replace('landpage.html');
       return;
     }
-    renderAccountCard();
     bindForm();
     AgriPricePH.PublicAuth?.updateTopbarUser?.();
   }

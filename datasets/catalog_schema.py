@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS rice_brand (
     verified_at    TEXT,                          -- YYYY-MM-DD HH:MM:SS
     active         INTEGER NOT NULL DEFAULT 1,    -- soft-delete: 0 = deactivated, kept for history
     notes          TEXT,
+    image_path     TEXT,                          -- '/public/images/rice-brands/<file>', or NULL
     UNIQUE (category_id, brand_name, package)
 );
 
@@ -254,6 +255,10 @@ def _ensure_brand_schema(conn: sqlite3.Connection) -> None:
                 pass  # older SQLite (<3.35) can't DROP COLUMN — the stale column is just unused
         else:
             cur.execute("UPDATE rice_brand SET verification_status='field_verified'")
+
+    cols = [r[1] for r in cur.execute("PRAGMA table_info(rice_brand)")]
+    if "image_path" not in cols:
+        cur.execute("ALTER TABLE rice_brand ADD COLUMN image_path TEXT")
     conn.commit()
 
 
