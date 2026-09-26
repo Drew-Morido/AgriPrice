@@ -21,50 +21,50 @@
       "backend": "tensorflow",
       "delta_mode": true,
       "seed": 42,
-      "mae_peso": 0.2877,
-      "rmse_peso": 0.4242,
-      "mape_pct": 0.6099,
-      "r2": 0.9764,
+      "mae_peso": 0.2799,
+      "rmse_peso": 0.4204,
+      "mape_pct": 0.5933,
+      "r2": 0.9768,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.2547,
-          0.2337,
-          0.4206,
-          0.2206,
-          0.3084
+          0.2484,
+          0.2297,
+          0.4202,
+          0.2083,
+          0.292
         ],
-        "mean": 0.2876,
-        "std": 0.0729
+        "mean": 0.2797,
+        "std": 0.0755
       },
-      "accuracy_pct": 99.36,
+      "accuracy_pct": 99.37,
       "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
       "hit_rate_pct": {
         "0.25": [
-          64.3,
-          57.2,
-          52.4
+          66.0,
+          58.4,
+          55.5
         ],
         "0.50": [
-          85.3,
-          83.0,
-          82.2
+          87.5,
+          86.4,
+          83.9
         ],
         "1.00": [
-          96.0,
-          95.5,
+          96.3,
+          95.8,
           95.5
         ],
         "1.50": [
-          99.2,
+          98.9,
           98.9,
           98.9
         ],
         "2.00": [
           100.0,
-          100.0,
-          99.7
+          99.7,
+          99.4
         ]
       },
       "baseline_hit_rate_pct": {
@@ -95,9 +95,9 @@
         ]
       },
       "directional_pct": [
-        61.2,
-        60.8,
-        62.4
+        61.5,
+        65.1,
+        63.6
       ],
       "lstm_ablation": {
         "test": "mcnemar_paired_directional",
@@ -115,9 +115,9 @@
         "tie_row_share_pct": 8.8
       },
       "movement": {
-        "pred_abs_change_peso": 0.1017,
+        "pred_abs_change_peso": 0.1285,
         "true_abs_change_peso": 0.325,
-        "ratio": 0.3128
+        "ratio": 0.3954
       },
       "reversion": {
         "phi": [
@@ -149,16 +149,16 @@
         "scored_with": "rolling",
         "weekday_mode": true
       },
-      "skill_vs_baseline_pct": 11.46,
+      "skill_vs_baseline_pct": 13.87,
       "per_horizon_mae_peso": [
-        0.2519,
-        0.2981,
-        0.3132
+        0.2448,
+        0.2883,
+        0.3065
       ],
       "per_horizon_accuracy_pct": [
-        99.44,
-        99.33,
-        99.3
+        99.45,
+        99.35,
+        99.31
       ],
       "baseline_mae_peso": 0.325,
       "baseline_rmse_peso": 0.4857,
@@ -174,12 +174,50 @@
         "rmse_peso": 0.4226,
         "n": 353
       },
-      "beats_arima": false,
+      "beats_arima": true,
+      "forecaster": "adaptive_ensemble",
+      "ensemble": {
+        "method": "adaptive inverse-MSE combination (Bates & Granger 1969)",
+        "components": [
+          "hybrid",
+          "arima",
+          "kalman"
+        ],
+        "window_days": 30,
+        "warmup_origins": 45,
+        "mean_weights_test": {
+          "hybrid": [
+            0.335,
+            0.329,
+            0.337
+          ],
+          "arima": [
+            0.331,
+            0.346,
+            0.348
+          ],
+          "kalman": [
+            0.334,
+            0.325,
+            0.316
+          ]
+        }
+      },
+      "hybrid": {
+        "mae_peso": 0.2877,
+        "skill_vs_baseline_pct": 11.46,
+        "beats_arima": false,
+        "directional_pct": [
+          61.2,
+          60.8,
+          62.4
+        ]
+      },
       "shock": {
         "pct": 90,
         "threshold_peso": 1.206,
         "count": 36,
-        "lstm_mae_peso": 0.6853,
+        "lstm_mae_peso": 0.669,
         "baseline_mae_peso": 0.8642,
         "beats_baseline": true
       },
@@ -206,7 +244,12 @@
         "train": 81.9,
         "val": 5.3,
         "test": 8.8
-      }
+      },
+      "directional_n": [
+        322,
+        344,
+        343
+      ]
     },
     "locRegular": {
       "target": "locRegular",
@@ -228,50 +271,50 @@
       "backend": "tensorflow",
       "delta_mode": true,
       "seed": 42,
-      "mae_peso": 0.2764,
-      "rmse_peso": 0.4579,
-      "mape_pct": 0.6524,
-      "r2": 0.9756,
+      "mae_peso": 0.2642,
+      "rmse_peso": 0.4418,
+      "mape_pct": 0.6244,
+      "r2": 0.9773,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.1966,
-          0.2345,
-          0.4254,
-          0.3584,
-          0.1668
+          0.1945,
+          0.2406,
+          0.4008,
+          0.3256,
+          0.159
         ],
-        "mean": 0.2763,
-        "std": 0.0991
+        "mean": 0.2641,
+        "std": 0.0882
       },
-      "accuracy_pct": 99.32,
+      "accuracy_pct": 99.35,
       "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
       "hit_rate_pct": {
         "0.25": [
-          70.0,
-          65.2,
-          58.4
+          69.4,
+          67.4,
+          60.6
         ],
         "0.50": [
-          87.5,
-          83.6,
-          84.1
+          88.4,
+          84.7,
+          84.7
         ],
         "1.00": [
-          96.3,
-          95.8,
+          96.9,
+          96.6,
           95.8
         ],
         "1.50": [
-          98.6,
           98.9,
-          98.9
+          99.2,
+          99.2
         ],
         "2.00": [
           99.4,
           99.2,
-          98.9
+          99.2
         ]
       },
       "baseline_hit_rate_pct": {
@@ -302,9 +345,9 @@
         ]
       },
       "directional_pct": [
-        62.0,
+        62.3,
         62.5,
-        59.2
+        63.0
       ],
       "lstm_ablation": {
         "test": "mcnemar_paired_directional",
@@ -322,9 +365,9 @@
         "tie_row_share_pct": 9.6
       },
       "movement": {
-        "pred_abs_change_peso": 0.1006,
+        "pred_abs_change_peso": 0.126,
         "true_abs_change_peso": 0.3136,
-        "ratio": 0.3207
+        "ratio": 0.4019
       },
       "reversion": {
         "phi": [
@@ -356,16 +399,16 @@
         "scored_with": "rolling",
         "weekday_mode": true
       },
-      "skill_vs_baseline_pct": 11.85,
+      "skill_vs_baseline_pct": 15.74,
       "per_horizon_mae_peso": [
-        0.2475,
-        0.2809,
-        0.3009
+        0.2357,
+        0.2666,
+        0.2904
       ],
       "per_horizon_accuracy_pct": [
-        99.39,
-        99.3,
-        99.25
+        99.42,
+        99.34,
+        99.28
       ],
       "baseline_mae_peso": 0.3136,
       "baseline_rmse_peso": 0.5363,
@@ -382,11 +425,49 @@
         "n": 353
       },
       "beats_arima": true,
+      "forecaster": "adaptive_ensemble",
+      "ensemble": {
+        "method": "adaptive inverse-MSE combination (Bates & Granger 1969)",
+        "components": [
+          "hybrid",
+          "arima",
+          "kalman"
+        ],
+        "window_days": 30,
+        "warmup_origins": 45,
+        "mean_weights_test": {
+          "hybrid": [
+            0.324,
+            0.322,
+            0.328
+          ],
+          "arima": [
+            0.316,
+            0.328,
+            0.334
+          ],
+          "kalman": [
+            0.36,
+            0.35,
+            0.337
+          ]
+        }
+      },
+      "hybrid": {
+        "mae_peso": 0.2764,
+        "skill_vs_baseline_pct": 11.85,
+        "beats_arima": true,
+        "directional_pct": [
+          62.0,
+          62.5,
+          59.2
+        ]
+      },
       "shock": {
         "pct": 90,
         "threshold_peso": 1.136,
         "count": 36,
-        "lstm_mae_peso": 0.7828,
+        "lstm_mae_peso": 0.7057,
         "baseline_mae_peso": 1.0235,
         "beats_baseline": true
       },
@@ -413,7 +494,12 @@
         "train": 82.5,
         "val": 6.9,
         "test": 10.5
-      }
+      },
+      "directional_n": [
+        316,
+        331,
+        341
+      ]
     },
     "locPremium": {
       "target": "locPremium",
@@ -435,50 +521,50 @@
       "backend": "tensorflow",
       "delta_mode": true,
       "seed": 42,
-      "mae_peso": 0.2712,
-      "rmse_peso": 0.3705,
-      "mape_pct": 0.5183,
-      "r2": 0.9754,
+      "mae_peso": 0.2634,
+      "rmse_peso": 0.3551,
+      "mape_pct": 0.5026,
+      "r2": 0.9774,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.3508,
-          0.2507,
-          0.2647,
-          0.1858,
-          0.3035
+          0.3233,
+          0.2522,
+          0.2862,
+          0.1841,
+          0.2704
         ],
-        "mean": 0.2711,
-        "std": 0.055
+        "mean": 0.2632,
+        "std": 0.046
       },
-      "accuracy_pct": 99.47,
+      "accuracy_pct": 99.48,
       "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
       "hit_rate_pct": {
         "0.25": [
-          65.7,
-          56.9,
-          50.7
+          64.6,
+          60.3,
+          54.7
         ],
         "0.50": [
-          89.0,
-          81.6,
-          80.2
+          89.8,
+          84.1,
+          80.7
         ],
         "1.00": [
-          98.3,
-          98.0,
-          98.0
+          99.4,
+          99.4,
+          99.7
         ],
         "1.50": [
           99.7,
-          99.4,
+          99.7,
           99.7
         ],
         "2.00": [
           100.0,
           100.0,
-          100.0
+          99.7
         ]
       },
       "baseline_hit_rate_pct": {
@@ -509,9 +595,9 @@
         ]
       },
       "directional_pct": [
-        61.3,
+        59.4,
         61.5,
-        64.2
+        61.6
       ],
       "lstm_ablation": {
         "test": "mcnemar_paired_directional",
@@ -529,9 +615,9 @@
         "tie_row_share_pct": 8.4
       },
       "movement": {
-        "pred_abs_change_peso": 0.0874,
+        "pred_abs_change_peso": 0.1352,
         "true_abs_change_peso": 0.2938,
-        "ratio": 0.2976
+        "ratio": 0.46
       },
       "reversion": {
         "phi": [
@@ -563,16 +649,16 @@
         "scored_with": "rolling",
         "weekday_mode": true
       },
-      "skill_vs_baseline_pct": 7.69,
+      "skill_vs_baseline_pct": 10.34,
       "per_horizon_mae_peso": [
-        0.2305,
-        0.2757,
-        0.3075
+        0.2336,
+        0.2656,
+        0.291
       ],
       "per_horizon_accuracy_pct": [
-        99.55,
-        99.46,
-        99.4
+        99.54,
+        99.48,
+        99.43
       ],
       "baseline_mae_peso": 0.2938,
       "baseline_rmse_peso": 0.4058,
@@ -588,12 +674,50 @@
         "rmse_peso": 0.3619,
         "n": 353
       },
-      "beats_arima": false,
+      "beats_arima": true,
+      "forecaster": "adaptive_ensemble",
+      "ensemble": {
+        "method": "adaptive inverse-MSE combination (Bates & Granger 1969)",
+        "components": [
+          "hybrid",
+          "arima",
+          "kalman"
+        ],
+        "window_days": 30,
+        "warmup_origins": 45,
+        "mean_weights_test": {
+          "hybrid": [
+            0.356,
+            0.338,
+            0.33
+          ],
+          "arima": [
+            0.344,
+            0.346,
+            0.342
+          ],
+          "kalman": [
+            0.3,
+            0.315,
+            0.328
+          ]
+        }
+      },
+      "hybrid": {
+        "mae_peso": 0.2712,
+        "skill_vs_baseline_pct": 7.69,
+        "beats_arima": false,
+        "directional_pct": [
+          61.3,
+          61.5,
+          64.2
+        ]
+      },
       "shock": {
         "pct": 90,
         "threshold_peso": 0.84,
         "count": 37,
-        "lstm_mae_peso": 0.5696,
+        "lstm_mae_peso": 0.4963,
         "baseline_mae_peso": 0.6808,
         "beats_baseline": true
       },
@@ -620,7 +744,12 @@
         "train": 80.2,
         "val": 4.8,
         "test": 8.5
-      }
+      },
+      "directional_n": [
+        323,
+        343,
+        349
+      ]
     },
     "locSpecial": {
       "target": "locSpecial",
@@ -642,44 +771,44 @@
       "backend": "tensorflow",
       "delta_mode": true,
       "seed": 42,
-      "mae_peso": 0.2365,
-      "rmse_peso": 0.3386,
-      "mape_pct": 0.3994,
-      "r2": 0.9297,
+      "mae_peso": 0.2153,
+      "rmse_peso": 0.315,
+      "mape_pct": 0.3638,
+      "r2": 0.9392,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.2243,
-          0.14,
-          0.274,
-          0.2598,
-          0.2857
+          0.2085,
+          0.1414,
+          0.2493,
+          0.2355,
+          0.2426
         ],
-        "mean": 0.2368,
-        "std": 0.0526
+        "mean": 0.2155,
+        "std": 0.0395
       },
-      "accuracy_pct": 99.59,
+      "accuracy_pct": 99.62,
       "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
       "hit_rate_pct": {
         "0.25": [
-          73.1,
-          64.9,
-          58.6
+          74.5,
+          69.4,
+          63.2
         ],
         "0.50": [
-          90.4,
-          87.5,
-          86.7
+          92.4,
+          91.2,
+          90.1
         ],
         "1.00": [
-          97.7,
+          98.3,
           98.3,
           98.3
         ],
         "1.50": [
-          99.7,
           100.0,
+          99.7,
           99.7
         ],
         "2.00": [
@@ -716,9 +845,9 @@
         ]
       },
       "directional_pct": [
-        53.9,
-        65.2,
-        60.9
+        57.9,
+        63.7,
+        64.6
       ],
       "lstm_ablation": {
         "test": "mcnemar_paired_directional",
@@ -736,9 +865,9 @@
         "tie_row_share_pct": 9.1
       },
       "movement": {
-        "pred_abs_change_peso": 0.0801,
+        "pred_abs_change_peso": 0.1105,
         "true_abs_change_peso": 0.2551,
-        "ratio": 0.3139
+        "ratio": 0.4332
       },
       "reversion": {
         "phi": [
@@ -770,16 +899,16 @@
         "scored_with": "rolling",
         "weekday_mode": true
       },
-      "skill_vs_baseline_pct": 7.27,
+      "skill_vs_baseline_pct": 15.59,
       "per_horizon_mae_peso": [
-        0.205,
-        0.2438,
-        0.2608
+        0.1914,
+        0.2197,
+        0.2349
       ],
       "per_horizon_accuracy_pct": [
-        99.64,
-        99.57,
-        99.54
+        99.66,
+        99.62,
+        99.59
       ],
       "baseline_mae_peso": 0.2551,
       "baseline_rmse_peso": 0.3864,
@@ -795,12 +924,50 @@
         "rmse_peso": 0.3231,
         "n": 353
       },
-      "beats_arima": false,
+      "beats_arima": true,
+      "forecaster": "adaptive_ensemble",
+      "ensemble": {
+        "method": "adaptive inverse-MSE combination (Bates & Granger 1969)",
+        "components": [
+          "hybrid",
+          "arima",
+          "kalman"
+        ],
+        "window_days": 30,
+        "warmup_origins": 45,
+        "mean_weights_test": {
+          "hybrid": [
+            0.328,
+            0.312,
+            0.313
+          ],
+          "arima": [
+            0.334,
+            0.339,
+            0.343
+          ],
+          "kalman": [
+            0.338,
+            0.349,
+            0.344
+          ]
+        }
+      },
+      "hybrid": {
+        "mae_peso": 0.2365,
+        "skill_vs_baseline_pct": 7.27,
+        "beats_arima": false,
+        "directional_pct": [
+          53.9,
+          65.2,
+          60.9
+        ]
+      },
       "shock": {
         "pct": 90,
         "threshold_peso": 0.86,
         "count": 36,
-        "lstm_mae_peso": 0.5108,
+        "lstm_mae_peso": 0.4631,
         "baseline_mae_peso": 0.6762,
         "beats_baseline": true
       },
@@ -827,7 +994,12 @@
         "train": 79.7,
         "val": 4.2,
         "test": 9.1
-      }
+      },
+      "directional_n": [
+        321,
+        339,
+        350
+      ]
     },
     "impWellMilled": {
       "target": "impWellMilled",
@@ -849,49 +1021,49 @@
       "backend": "tensorflow",
       "delta_mode": true,
       "seed": 42,
-      "mae_peso": 0.2866,
-      "rmse_peso": 0.7126,
-      "mape_pct": 0.6286,
-      "r2": 0.8786,
+      "mae_peso": 0.2828,
+      "rmse_peso": 0.7016,
+      "mape_pct": 0.6199,
+      "r2": 0.8823,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.649,
-          0.5854,
-          0.1061,
-          0.035,
-          0.0507
+          0.6405,
+          0.5914,
+          0.0941,
+          0.0313,
+          0.0498
         ],
-        "mean": 0.2852,
-        "std": 0.2728
+        "mean": 0.2814,
+        "std": 0.2743
       },
-      "accuracy_pct": 99.34,
+      "accuracy_pct": 99.35,
       "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
       "hit_rate_pct": {
         "0.25": [
-          79.0,
-          72.8,
-          72.0
+          78.2,
+          74.8,
+          72.5
         ],
         "0.50": [
           87.0,
-          82.7,
-          81.0
+          83.6,
+          82.2
         ],
         "1.00": [
-          93.8,
-          91.8,
+          94.3,
+          92.4,
           90.4
         ],
         "1.50": [
-          96.6,
+          96.9,
           95.5,
-          94.3
+          94.1
         ],
         "2.00": [
-          98.9,
-          98.9,
+          98.6,
+          98.3,
           97.5
         ]
       },
@@ -923,9 +1095,9 @@
         ]
       },
       "directional_pct": [
-        61.2,
-        60.7,
-        58.3
+        65.6,
+        65.3,
+        68.5
       ],
       "lstm_ablation": {
         "test": "mcnemar_paired_directional",
@@ -943,9 +1115,9 @@
         "tie_row_share_pct": 35.2
       },
       "movement": {
-        "pred_abs_change_peso": 0.0782,
+        "pred_abs_change_peso": 0.1073,
         "true_abs_change_peso": 0.2921,
-        "ratio": 0.2679
+        "ratio": 0.3673
       },
       "reversion": {
         "phi": [
@@ -977,16 +1149,16 @@
         "scored_with": "rolling",
         "weekday_mode": true
       },
-      "skill_vs_baseline_pct": 1.88,
+      "skill_vs_baseline_pct": 3.19,
       "per_horizon_mae_peso": [
-        0.2374,
-        0.287,
-        0.3355
+        0.2354,
+        0.2829,
+        0.3301
       ],
       "per_horizon_accuracy_pct": [
         99.46,
-        99.34,
-        99.23
+        99.35,
+        99.24
       ],
       "baseline_mae_peso": 0.2921,
       "baseline_rmse_peso": 0.7454,
@@ -1003,11 +1175,49 @@
         "n": 353
       },
       "beats_arima": true,
+      "forecaster": "adaptive_ensemble",
+      "ensemble": {
+        "method": "adaptive inverse-MSE combination (Bates & Granger 1969)",
+        "components": [
+          "hybrid",
+          "arima",
+          "kalman"
+        ],
+        "window_days": 30,
+        "warmup_origins": 45,
+        "mean_weights_test": {
+          "hybrid": [
+            0.311,
+            0.306,
+            0.305
+          ],
+          "arima": [
+            0.332,
+            0.344,
+            0.338
+          ],
+          "kalman": [
+            0.357,
+            0.35,
+            0.357
+          ]
+        }
+      },
+      "hybrid": {
+        "mae_peso": 0.2866,
+        "skill_vs_baseline_pct": 1.88,
+        "beats_arima": true,
+        "directional_pct": [
+          61.2,
+          60.7,
+          58.3
+        ]
+      },
       "shock": {
         "pct": 90,
         "threshold_peso": 1.242,
         "count": 36,
-        "lstm_mae_peso": 1.4943,
+        "lstm_mae_peso": 1.4636,
         "baseline_mae_peso": 1.6613,
         "beats_baseline": true
       },
@@ -1034,7 +1244,12 @@
         "train": 81.3,
         "val": 24.3,
         "test": 40.8
-      }
+      },
+      "directional_n": [
+        209,
+        262,
+        276
+      ]
     },
     "impRegular": {
       "target": "impRegular",
@@ -1056,49 +1271,49 @@
       "backend": "tensorflow",
       "delta_mode": true,
       "seed": 42,
-      "mae_peso": 0.3286,
-      "rmse_peso": 0.5866,
-      "mape_pct": 0.7811,
-      "r2": 0.9617,
+      "mae_peso": 0.3287,
+      "rmse_peso": 0.5902,
+      "mape_pct": 0.7762,
+      "r2": 0.9613,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.4613,
-          0.4116,
-          0.3257,
-          0.304,
-          0.1371
+          0.4267,
+          0.3971,
+          0.3177,
+          0.3465,
+          0.1535
         ],
-        "mean": 0.3279,
-        "std": 0.1112
+        "mean": 0.3283,
+        "std": 0.0953
       },
       "accuracy_pct": 99.17,
       "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
       "hit_rate_pct": {
         "0.25": [
-          71.7,
-          66.0,
-          55.5
+          73.4,
+          62.9,
+          55.2
         ],
         "0.50": [
-          80.5,
-          77.9,
-          77.3
+          82.7,
+          80.7,
+          78.8
         ],
         "1.00": [
-          93.8,
-          90.7,
-          90.9
+          93.5,
+          91.8,
+          91.5
         ],
         "1.50": [
-          97.2,
-          95.2,
+          96.9,
+          94.9,
           94.9
         ],
         "2.00": [
-          98.9,
-          98.0,
+          99.2,
+          97.7,
           97.2
         ]
       },
@@ -1130,15 +1345,15 @@
         ]
       },
       "directional_pct": [
-        62.4,
-        59.5,
-        45.3
+        45.7,
+        46.1,
+        47.8
       ],
       "lstm_ablation": null,
       "movement": {
-        "pred_abs_change_peso": 0.1058,
+        "pred_abs_change_peso": 0.1325,
         "true_abs_change_peso": 0.346,
-        "ratio": 0.3057
+        "ratio": 0.3831
       },
       "reversion": {
         "phi": [
@@ -1170,16 +1385,16 @@
         "scored_with": "rolling",
         "weekday_mode": true
       },
-      "skill_vs_baseline_pct": 5.03,
+      "skill_vs_baseline_pct": 4.98,
       "per_horizon_mae_peso": [
-        0.2704,
-        0.3366,
-        0.3787
+        0.2696,
+        0.334,
+        0.3826
       ],
       "per_horizon_accuracy_pct": [
         99.32,
-        99.15,
-        99.05
+        99.16,
+        99.04
       ],
       "baseline_mae_peso": 0.346,
       "baseline_rmse_peso": 0.6417,
@@ -1196,11 +1411,49 @@
         "n": 353
       },
       "beats_arima": true,
+      "forecaster": "adaptive_ensemble",
+      "ensemble": {
+        "method": "adaptive inverse-MSE combination (Bates & Granger 1969)",
+        "components": [
+          "hybrid",
+          "arima",
+          "kalman"
+        ],
+        "window_days": 30,
+        "warmup_origins": 45,
+        "mean_weights_test": {
+          "hybrid": [
+            0.367,
+            0.345,
+            0.342
+          ],
+          "arima": [
+            0.313,
+            0.313,
+            0.312
+          ],
+          "kalman": [
+            0.32,
+            0.342,
+            0.346
+          ]
+        }
+      },
+      "hybrid": {
+        "mae_peso": 0.3286,
+        "skill_vs_baseline_pct": 5.03,
+        "beats_arima": true,
+        "directional_pct": [
+          62.4,
+          59.5,
+          45.3
+        ]
+      },
       "shock": {
         "pct": 90,
         "threshold_peso": 1.706,
         "count": 36,
-        "lstm_mae_peso": 1.0942,
+        "lstm_mae_peso": 1.0788,
         "baseline_mae_peso": 1.2712,
         "beats_baseline": true
       },
@@ -1227,7 +1480,12 @@
         "train": 83.5,
         "val": 21.2,
         "test": 40.5
-      }
+      },
+      "directional_n": [
+        210,
+        232,
+        247
+      ]
     },
     "impPremium": {
       "target": "impPremium",
@@ -1249,50 +1507,50 @@
       "backend": "tensorflow",
       "delta_mode": true,
       "seed": 42,
-      "mae_peso": 0.2931,
-      "rmse_peso": 0.5181,
-      "mape_pct": 0.5583,
-      "r2": 0.979,
+      "mae_peso": 0.3094,
+      "rmse_peso": 0.547,
+      "mape_pct": 0.5876,
+      "r2": 0.9766,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.3924,
-          0.3265,
-          0.202,
-          0.3317,
-          0.2124
+          0.3751,
+          0.3602,
+          0.2087,
+          0.3908,
+          0.2118
         ],
-        "mean": 0.293,
-        "std": 0.0739
+        "mean": 0.3093,
+        "std": 0.0815
       },
-      "accuracy_pct": 99.39,
+      "accuracy_pct": 99.36,
       "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
       "hit_rate_pct": {
         "0.25": [
-          73.7,
-          62.0,
-          55.8
+          72.0,
+          61.2,
+          54.4
         ],
         "0.50": [
-          89.8,
-          84.4,
-          79.6
+          88.1,
+          84.1,
+          79.3
         ],
         "1.00": [
-          96.6,
-          96.0,
+          95.8,
+          94.9,
           93.2
         ],
         "1.50": [
-          98.0,
-          98.0,
-          97.2
+          98.9,
+          97.7,
+          96.6
         ],
         "2.00": [
-          99.4,
+          99.2,
           98.9,
-          98.3
+          98.0
         ]
       },
       "baseline_hit_rate_pct": {
@@ -1323,9 +1581,9 @@
         ]
       },
       "directional_pct": [
-        57.9,
-        47.1,
-        56.2
+        50.3,
+        48.0,
+        51.0
       ],
       "lstm_ablation": {
         "test": "mcnemar_paired_directional",
@@ -1343,9 +1601,9 @@
         "tie_row_share_pct": 30.7
       },
       "movement": {
-        "pred_abs_change_peso": 0.077,
+        "pred_abs_change_peso": 0.1152,
         "true_abs_change_peso": 0.3177,
-        "ratio": 0.2424
+        "ratio": 0.3625
       },
       "reversion": {
         "phi": [
@@ -1377,16 +1635,16 @@
         "scored_with": "rolling",
         "weekday_mode": true
       },
-      "skill_vs_baseline_pct": 7.75,
+      "skill_vs_baseline_pct": 2.63,
       "per_horizon_mae_peso": [
-        0.227,
-        0.2977,
-        0.3546
+        0.2411,
+        0.3136,
+        0.3734
       ],
       "per_horizon_accuracy_pct": [
-        99.53,
-        99.38,
-        99.26
+        99.5,
+        99.35,
+        99.23
       ],
       "baseline_mae_peso": 0.3177,
       "baseline_rmse_peso": 0.581,
@@ -1403,11 +1661,49 @@
         "n": 353
       },
       "beats_arima": true,
+      "forecaster": "adaptive_ensemble",
+      "ensemble": {
+        "method": "adaptive inverse-MSE combination (Bates & Granger 1969)",
+        "components": [
+          "hybrid",
+          "arima",
+          "kalman"
+        ],
+        "window_days": 30,
+        "warmup_origins": 45,
+        "mean_weights_test": {
+          "hybrid": [
+            0.366,
+            0.362,
+            0.362
+          ],
+          "arima": [
+            0.297,
+            0.306,
+            0.298
+          ],
+          "kalman": [
+            0.337,
+            0.332,
+            0.34
+          ]
+        }
+      },
+      "hybrid": {
+        "mae_peso": 0.2931,
+        "skill_vs_baseline_pct": 7.75,
+        "beats_arima": true,
+        "directional_pct": [
+          57.9,
+          47.1,
+          56.2
+        ]
+      },
       "shock": {
         "pct": 90,
         "threshold_peso": 1.162,
         "count": 36,
-        "lstm_mae_peso": 0.9553,
+        "lstm_mae_peso": 1.0136,
         "baseline_mae_peso": 1.1884,
         "beats_baseline": true
       },
@@ -1434,7 +1730,12 @@
         "train": 79.3,
         "val": 4.8,
         "test": 7.1
-      }
+      },
+      "directional_n": [
+        328,
+        344,
+        347
+      ]
     },
     "impSpecial": {
       "target": "impSpecial",
@@ -1456,40 +1757,40 @@
       "backend": "tensorflow",
       "delta_mode": true,
       "seed": 42,
-      "mae_peso": 0.3579,
-      "rmse_peso": 0.5517,
-      "mape_pct": 0.5984,
-      "r2": 0.6792,
+      "mae_peso": 0.3394,
+      "rmse_peso": 0.5242,
+      "mape_pct": 0.5671,
+      "r2": 0.7104,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.5836,
-          0.3118,
-          0.3045,
-          0.3533,
-          0.2346
+          0.5245,
+          0.2931,
+          0.2976,
+          0.3429,
+          0.2378
         ],
-        "mean": 0.3576,
-        "std": 0.1193
+        "mean": 0.3392,
+        "std": 0.0985
       },
-      "accuracy_pct": 99.34,
+      "accuracy_pct": 99.38,
       "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
       "hit_rate_pct": {
         "0.25": [
-          56.4,
-          50.7,
-          48.7
+          62.0,
+          54.4,
+          50.1
         ],
         "0.50": [
+          79.9,
           77.3,
-          72.5,
-          70.3
+          75.6
         ],
         "1.00": [
+          94.6,
           94.1,
-          92.4,
-          92.6
+          94.1
         ],
         "1.50": [
           97.5,
@@ -1497,8 +1798,8 @@
           97.2
         ],
         "2.00": [
-          98.9,
           98.6,
+          98.9,
           98.9
         ]
       },
@@ -1530,9 +1831,9 @@
         ]
       },
       "directional_pct": [
-        66.0,
-        60.1,
-        59.2
+        68.9,
+        65.3,
+        70.1
       ],
       "lstm_ablation": {
         "test": "mcnemar_paired_directional",
@@ -1550,9 +1851,9 @@
         "tie_row_share_pct": 25.7
       },
       "movement": {
-        "pred_abs_change_peso": 0.1309,
+        "pred_abs_change_peso": 0.1822,
         "true_abs_change_peso": 0.3955,
-        "ratio": 0.3309
+        "ratio": 0.4608
       },
       "reversion": {
         "phi": [
@@ -1584,16 +1885,16 @@
         "scored_with": "rolling",
         "weekday_mode": true
       },
-      "skill_vs_baseline_pct": 9.49,
+      "skill_vs_baseline_pct": 14.17,
       "per_horizon_mae_peso": [
-        0.3224,
-        0.3629,
-        0.3885
+        0.3093,
+        0.3449,
+        0.3641
       ],
       "per_horizon_accuracy_pct": [
-        99.41,
-        99.33,
-        99.29
+        99.43,
+        99.37,
+        99.33
       ],
       "baseline_mae_peso": 0.3955,
       "baseline_rmse_peso": 0.6404,
@@ -1609,12 +1910,50 @@
         "rmse_peso": 0.5177,
         "n": 353
       },
-      "beats_arima": false,
+      "beats_arima": true,
+      "forecaster": "adaptive_ensemble",
+      "ensemble": {
+        "method": "adaptive inverse-MSE combination (Bates & Granger 1969)",
+        "components": [
+          "hybrid",
+          "arima",
+          "kalman"
+        ],
+        "window_days": 30,
+        "warmup_origins": 45,
+        "mean_weights_test": {
+          "hybrid": [
+            0.339,
+            0.324,
+            0.309
+          ],
+          "arima": [
+            0.356,
+            0.363,
+            0.369
+          ],
+          "kalman": [
+            0.305,
+            0.313,
+            0.322
+          ]
+        }
+      },
+      "hybrid": {
+        "mae_peso": 0.3579,
+        "skill_vs_baseline_pct": 9.49,
+        "beats_arima": false,
+        "directional_pct": [
+          66.0,
+          60.1,
+          59.2
+        ]
+      },
       "shock": {
         "pct": 90,
         "threshold_peso": 1.644,
         "count": 36,
-        "lstm_mae_peso": 0.8677,
+        "lstm_mae_peso": 0.7885,
         "baseline_mae_peso": 1.1621,
         "beats_baseline": true
       },
@@ -1641,7 +1980,12 @@
         "train": 78.5,
         "val": 25.9,
         "test": 30.9
-      }
+      },
+      "directional_n": [
+        244,
+        271,
+        294
+      ]
     }
   },
   "trained_types": [
@@ -1660,27 +2004,27 @@
   "seed": 42,
   "hit_rate_pct": {
     "0.50": [
-      85.8,
-      81.7,
-      80.2
+      87.0,
+      84.0,
+      81.9
     ],
     "1.00": [
-      95.8,
-      94.8,
-      94.3
+      96.1,
+      95.4,
+      94.8
     ],
     "1.50": [
-      98.3,
+      98.5,
       97.9,
-      97.6
+      97.5
     ],
     "2.00": [
       99.4,
-      99.2,
-      98.8
+      99.1,
+      98.7
     ]
   },
-  "skill_vs_baseline_pct": 7.8,
+  "skill_vs_baseline_pct": 10.06,
   "lstm_ablation": {
     "test": "mcnemar_paired_directional_pooled",
     "subset": "genuine_signal_only",
@@ -1696,7 +2040,11 @@
     "directional_pct_reversion_only": 62.3,
     "verdict": "LSTM shows no significant contribution over the reversion coefficient alone."
   },
-  "movement_ratio": 0.299,
+  "forecaster": "adaptive_ensemble",
+  "beats_arima_count": 8,
+  "hybrid_skill_vs_baseline_pct": 7.8,
+  "hybrid_beats_arima_count": 4,
+  "movement_ratio": 0.408,
   "last_date": "2026-09-26",
   "target": "locWellMilled",
   "features": [
@@ -1715,26 +2063,26 @@
     "locWellMilled_roll7"
   ],
   "backend": "tensorflow",
-  "mae_peso": 0.2877,
-  "rmse_peso": 0.4242,
-  "mape_pct": 0.6099,
-  "r2": 0.9764,
+  "mae_peso": 0.2799,
+  "rmse_peso": 0.4204,
+  "mape_pct": 0.5933,
+  "r2": 0.9768,
   "rolling_eval": {
     "method": "blocked rolling-origin over held-out test (no refit)",
     "k": 5,
     "block_mae": [
-      0.2547,
-      0.2337,
-      0.4206,
-      0.2206,
-      0.3084
+      0.2484,
+      0.2297,
+      0.4202,
+      0.2083,
+      0.292
     ],
-    "mean": 0.2876,
-    "std": 0.0729
+    "mean": 0.2797,
+    "std": 0.0755
   },
-  "accuracy_pct": 99.37,
-  "primary_accuracy_pct": 99.36,
-  "avg_accuracy_pct": 99.37,
+  "accuracy_pct": 99.39,
+  "primary_accuracy_pct": 99.37,
+  "avg_accuracy_pct": 99.39,
   "baseline_mae_peso": 0.325,
   "baseline_rmse_peso": 0.4857,
   "baseline_accuracy_pct": 99.27,

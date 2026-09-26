@@ -44,6 +44,17 @@ _DF_CACHE_SEC = 90
 # 480 model inferences per request, measured at 2.4-3.8 s — for output that cannot change until
 # either new data arrives or the model is retrained. Keyed on exactly those two things.
 _PAYLOAD_CACHE: dict = {"key": None, "payload": None}
+# Forecast moves smaller than this (PHP/kg) are published as direction "steady".
+# A forecast move under 10 centavos is shown as 'steady', not as a rise or fall: the model cannot call direction that small better than a coin flip (PAPER_CORRECTIONS.md, 'Up/down reliability').
+STEADY_PESO = float(os.environ.get("AGRIPRICE_STEADY_PESO", "0.10"))
+
+
+def _direction(change: float) -> str:
+    return "steady" if abs(change) < STEADY_PESO else ("up" if change > 0 else "down")
+
+
+# Ensemble blocks built during one payload build, reused by the chart's backtest (model/ensemble.py).
+_ENSEMBLE_BLOCKS: dict = {}
 
 
 def _inverse_target(scaled_vals, scaler, target_idx):
@@ -344,12 +355,30 @@ def _run_lstm_inference(
     tmeta = dict(target_meta)
     tmeta.setdefault("mean_price", mean_price)
 
-    half_widths = _conformal_half_widths(
-        model, scaled, target_idx, len(features), scaler, delta_mode,
-        reversion=target_meta.get("reversion"),
-        series=pd.to_numeric(sub[target], errors="coerce").values.astype(float),
-        dows=_row_weekdays(sub),
-    )
+    # Adaptive ensemble: combine this hybrid with ARIMA(1,1,1) and the weekday Kalman filter, each weighted
+    # by its accuracy over the last 30 realised forecasts. Falls back to the hybrid on any failure.
+    ens = None
+    from ensemble import enabled as _ensemble_enabled
+    if delta_mode and _ensemble_enabled():
+        try:
+            rev = target_meta.get("reversion") or {}
+            ens = _ensemble_block(model if model is not None else _get_mlp(mlp_path), model is not None,
+                                  scaled, sub, target, scaler, target_idx, len(features), bool(rev.get("applied")))
+            _ENSEMBLE_BLOCKS[target] = ens
+            prices = list(ens["combined"][-1])
+        except Exception as exc:
+            print(f"[predict] ensemble skipped for {target} ({exc}); serving the hybrid forecast")
+            ens = None
+
+    if ens is not None:
+        half_widths = ens["half_widths"]
+    else:
+        half_widths = _conformal_half_widths(
+            model, scaled, target_idx, len(features), scaler, delta_mode,
+            reversion=target_meta.get("reversion"),
+            series=pd.to_numeric(sub[target], errors="coerce").values.astype(float),
+            dows=_row_weekdays(sub),
+        )
 
     days: list = []
     prev = last_price
@@ -363,9 +392,13 @@ def _run_lstm_inference(
             "date_iso": d.strftime("%Y-%m-%d"),
             "price": round(float(price), 2),
             "change": round(change, 2),
+            "direction": _direction(change),
             "confidence": round(float(conf), 3),
-            "model": "lstm",
+            "model": "ensemble" if ens is not None else "lstm",
         }
+        if ens is not None:
+            row["weights"] = ens["weights_today"][i]      # share of hybrid / ARIMA / Kalman in this day's forecast
+            row["components"] = ens["components_today"][i]
         hw = half_widths[i] if half_widths and i < len(half_widths) else None
         if hw is not None:
             row["low"] = round(max(0.01, float(price) - hw), 2)
@@ -403,6 +436,19 @@ def _backtest_recent_days(
     model for this target or not enough history to fill even one window.
     """
     meta = meta or {}
+    ens = _ENSEMBLE_BLOCKS.get(target)
+    if ens is not None:
+        # The published forecast is the ensemble, so the chart shows what IT would have said: its day-1
+        # forecast made on each past day, with weights from errors realised before that day.
+        ser, rows, dates = ens["series"], ens["rows"], ens["dates"]
+        out = []
+        for k, r in enumerate(rows):
+            if r + 1 >= len(ser) or k < len(rows) - n_days - 1:
+                continue
+            out.append({"date_iso": pd.Timestamp(dates[r + 1]).strftime("%Y-%m-%d"),
+                        "predicted": round(float(ens["combined"][k, 0]), 2),
+                        "actual": round(float(ser[r + 1]), 2)})
+        return out[-n_days:]
     keras_path, scaler_path, _mlp_path = _resolve_paths(target)
     if not scaler_path or not keras_path:
         return []
@@ -473,6 +519,59 @@ def _backtest_recent_days(
             "actual": round(actual, 2),
         })
     return out
+
+
+def _ensemble_block(model, is_keras, scaled, sub, target, scaler, target_idx, n_feat, use_reversion,
+                    extra_origins: int = 0) -> dict:
+    """Hybrid, ARIMA and Kalman forecasts made on each of the last ~110 days, combined by recent accuracy.
+
+    Origins span CONFORMAL_WINDOW + WARMUP + HORIZON days back to today, so that (a) today's weights rest on
+    30 realised errors per component, and (b) the price range is calibrated on the ensemble's own last 60
+    fully observed errors — the forecast actually published, not the hybrid. Past data only throughout.
+    """
+    from ensemble import WARMUP, arima_walk, combine, daily_era_start, kalman_forecasts
+    from mean_reversion import LSTM_DELTA_WEIGHT, rolling_phi
+
+    ser = pd.to_numeric(sub[target], errors="coerce").values.astype(float)
+    dates = pd.to_datetime(sub["Date"], errors="coerce").values
+    dows = _row_weekdays(sub)
+    n = len(ser)
+    first = max(SEQ_LEN, n - 1 - (CONFORMAL_WINDOW + WARMUP + HORIZON + extra_origins))   # extra: coverage checks
+    rows = np.arange(first, n)
+    scale, mn = scaler.scale_[target_idx], scaler.min_[target_idx]
+
+    X = np.stack([scaled[r - SEQ_LEN + 1:r + 1] for r in rows]).reshape(len(rows), SEQ_LEN, n_feat)
+    raw = model.predict(X, verbose=0) if is_keras else model.predict(X.reshape(len(rows), -1))
+    lstm_p = LSTM_DELTA_WEIGHT * np.atleast_2d(np.asarray(raw, dtype=float))[:, :HORIZON] / scale
+
+    H = ser[rows][:, None] + lstm_p
+    if use_reversion:
+        H = H + np.array([rolling_phi(ser, r, HORIZON, dows=dows)[0][:, 0] * (ser[r] - ser[r - 1]) for r in rows])
+    A = arima_walk(ser, rows[0] + 1, rows[0] + 1, rows[-1] + 2, HORIZON)
+    era0 = daily_era_start(dates, os.environ.get("AGRIPRICE_ACTIVE_FROM", "2025-04-01"))
+    K = kalman_forecasts(ser, dows, era0, rows, HORIZON) + lstm_p
+
+    actual = np.full((len(rows), HORIZON), np.nan)
+    for k, r in enumerate(rows):
+        for h in range(HORIZON):
+            if r + 1 + h < n:
+                actual[k, h] = ser[r + 1 + h]
+    combined, w = combine({"hybrid": H, "arima": A, "kalman": K}, actual, return_weights=True)
+
+    # Conformal range on the ensemble's own recent errors (same finite-sample rule as before).
+    full = ~np.isnan(actual).any(axis=1)
+    err = np.abs(actual[full] - combined[full])[-CONFORMAL_WINDOW:]
+    half = None
+    if len(err) >= 20:
+        q = min(len(err) - 1, int(np.ceil((len(err) + 1) * CONFORMAL_COVERAGE)) - 1)
+        half = [float(np.sort(err[:, h])[q]) for h in range(HORIZON)]
+    names = ["hybrid", "arima", "kalman"]
+    return {
+        "series": ser, "rows": rows, "dates": dates, "combined": combined, "half_widths": half, "actual": actual,
+        "weights_today": [{m: round(float(w[-1, h, j]), 3) for j, m in enumerate(names)} for h in range(HORIZON)],
+        "components_today": [{"hybrid": round(float(H[-1, h]), 2), "arima": round(float(A[-1, h]), 2),
+                              "kalman": round(float(K[-1, h]), 2)} for h in range(HORIZON)],
+    }
 
 
 def _row_weekdays(sub: pd.DataFrame):
@@ -688,7 +787,9 @@ def formula_mode_enabled() -> bool:
 
 
 def _build_forecasts_by_key(df: pd.DataFrame, meta: dict) -> dict:
-    anchor = pd.Timestamp(date.today())
+    # Day h is the forecast for (last day with a DA price) + h, so that is what its date says. Anchoring on
+    # today's calendar date mislabelled every forecast by a day whenever today's bulletin was not out yet.
+    anchor = pd.Timestamp(pd.to_datetime(df["Date"].iloc[-1]).date())
     per_target_meta = _targets_meta(meta)
     out: dict = {}
     use_formula_mode = formula_mode_enabled()
@@ -739,7 +840,14 @@ def _payload_cache_key(meta: dict) -> tuple:
         meta_stamp = (int(st.st_mtime), int(st.st_size))
     except OSError:
         meta_stamp = (0, 0)
-    return (meta.get("last_date"), meta_stamp, formula_mode_enabled())
+    # The latest DATA day, not meta.json's last_date (that is the training data's end and only changes on a
+    # retrain). Keying on it alone froze the published forecast at whatever data existed when the server
+    # started: a new DA bulletin never reached the site until a restart. The merged frame is cached 90 s.
+    try:
+        data_last = str(pd.to_datetime(_get_merged_frame()["Date"].iloc[-1]).date())
+    except Exception:
+        data_last = None
+    return (data_last, meta.get("last_date"), meta_stamp, formula_mode_enabled())
 
 
 def predict():
@@ -763,6 +871,7 @@ def predict():
         return {"error": "Model not trained yet. Run Training module first.", "ready": False}
 
     df = _get_merged_frame()
+    _ENSEMBLE_BLOCKS.clear()
     forecasts_by_key = _build_forecasts_by_key(df, meta)
 
     if not forecasts_by_key:
@@ -805,7 +914,7 @@ def predict():
     payload = {
         "ready": True,
         "backend": backend,
-        "rice_type": "All rice types (LSTM)",
+        "rice_type": "All rice types (LSTM-based adaptive ensemble)" if primary_model == "ensemble" else "All rice types (LSTM)",
         "target": TARGET_COLUMN,
         "horizon": HORIZON,
         "last_price": round(last_price, 2),
@@ -831,6 +940,11 @@ def predict():
             "movement_ratio": meta.get("movement_ratio"),
             "baseline_mae_peso": primary_meta.get("baseline_mae_peso") or meta.get("baseline_mae_peso"),
             "beats_baseline": meta.get("beats_baseline"),
+            # Which forecaster the test metrics describe, and how the plain LSTM hybrid compares.
+            "forecaster": meta.get("forecaster"),
+            "beats_arima_count": meta.get("beats_arima_count"),
+            "hybrid_skill_vs_baseline_pct": meta.get("hybrid_skill_vs_baseline_pct"),
+            "hybrid_beats_arima_count": meta.get("hybrid_beats_arima_count"),
             # Legacy. 100 - MAE/mean_price: returns 98-99% for any model and rates the naive
             # baseline above the LSTM. Kept so pre-v4 runs still render — do not display it.
             "accuracy_pct": primary_meta.get("accuracy_pct") or meta.get("accuracy_pct"),
@@ -845,6 +959,10 @@ def predict():
                     "directional_pct": v.get("directional_pct"),
                     "movement": v.get("movement"),
                     "beats_baseline": v.get("beats_baseline"),
+                    "beats_arima": v.get("beats_arima"),
+                    "arima_mae_peso": (v.get("arima") or {}).get("mae_peso"),
+                    "hybrid": v.get("hybrid"),
+                    "ensemble": v.get("ensemble"),
                     "reversion": v.get("reversion"),
                     "accuracy_pct": v.get("accuracy_pct"),
                     # Day-1/2/3 hold-out accuracy. `accuracy_pct` is pooled over the
@@ -858,6 +976,8 @@ def predict():
         },
         "model_notes": {
             "method": {
+                "ensemble": "Adaptive ensemble: per-type LSTM hybrid + ARIMA(1,1,1) + weekday Kalman filter, "
+                            "weighted by each one's accuracy over the last 30 days",
                 "lstm": "Per-type LSTM (one model per rice column)",
                 "formula_2026": "2026 formula mode (rice+fuel+currency)",
                 "trend": "Linear trend fallback (no model available)",
@@ -874,6 +994,14 @@ def predict():
         # rolling-refit reversion, never the future). Absent/empty for a type with no LSTM model.
         "history_backtest": backtests_by_key,
     }
+
+    # Forward evaluation: write down today's forecasts before their prices exist (model/forecast_log.py).
+    # INSERT OR IGNORE — a rebuild on the same data never overwrites what was first logged.
+    try:
+        from forecast_log import log_payload
+        log_payload(payload)
+    except Exception as exc:
+        print(f"[predict] forecast log skipped ({exc})")
 
     _PAYLOAD_CACHE["key"] = cache_key
     _PAYLOAD_CACHE["payload"] = copy.deepcopy(payload)

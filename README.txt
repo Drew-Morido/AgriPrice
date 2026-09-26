@@ -1,9 +1,9 @@
 ================================================================================
   AgriPricePH v3 — README
-  Rice price monitoring, 2-day LSTM forecast, public site + admin dashboard
+  Rice price monitoring, 3-day LSTM-based forecast, public site + admin dashboard
 ================================================================================
 
-Last updated: May 2026
+Last updated: September 27, 2026
 
 
 ================================================================================
@@ -17,7 +17,7 @@ AgriPricePH/
 ├── public/                    ← VENDORS & HOUSEHOLDS (start here)
 │   ├── landpage.html          Home
 │   ├── current-prices.html    Today's prices (8 rice types)
-│   ├── forecast.html          2-day forecast (8 rice buttons)
+│   ├── forecast.html          3-day forecast (8 rice buttons)
 │   ├── historical.html        Price history (login required)
 │   ├── statistics.html        Charts & stats (login required)
 │   ├── login.html
@@ -198,7 +198,8 @@ AgriPricePH/
 |--------|-----------------------------|----------------------------------|
 | GET    | /api/health                 | Server check                    |
 | GET    | /api/historical-data        | Price charts                    |
-| GET    | /api/predictions            | 2-day forecast (8 types)        |
+| GET    | /api/predictions            | 3-day forecast (8 types)        |
+| GET    | /api/forecast-check         | Forward evaluation of forecasts |
 | POST   | /api/run-training           | Start training                  |
 | POST   | /api/admin/verify           | Admin login → token             |
 | GET    | /api/admin/session          | Validate token                  |

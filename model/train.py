@@ -186,6 +186,14 @@ def _directional_pct(y_true, y_pred, anchors, scaler, target_idx) -> list:
     return out
 
 
+def _directional_n(y_true, anchors, scaler, target_idx) -> list:
+    """How many test forecasts each directional_pct figure rests on (days the price actually moved).
+    Needed to tell a real sub-chance result from noise: 45% on 200 moves is not significantly below 50%."""
+    scale = scaler.scale_[target_idx]
+    true_d = (y_true - anchors[:, None]) / scale
+    return [int((np.abs(true_d[:, h]) > 1e-6).sum()) for h in range(true_d.shape[1])]
+
+
 def _movement_ratio(y_true, y_pred, anchors, scaler, target_idx) -> dict:
     """How far the model actually moves off the anchor, vs how far the price really moves.
 
@@ -459,7 +467,7 @@ def _train_sklearn(X_train, y_train, X_val, y_val, X_test, y_test, scaler, targe
     joblib.dump(mlp, mlp_path)
     joblib.dump(scaler, scaler_path)
     pred = np.atleast_2d(mlp.predict(X_test.reshape(X_test.shape[0], -1)))
-    return {"backend": "sklearn", "pred": pred}
+    return {"backend": "sklearn", "pred": pred, "model": mlp}
 
 
 def _train_tensorflow(
@@ -553,7 +561,63 @@ def _train_tensorflow(
     )
 
     pred = model.predict(X_test, verbose=0)
-    return {"backend": "tensorflow", "pred": pred}
+    return {"backend": "tensorflow", "pred": pred, "model": model}
+
+
+def _ensemble_test_forecast(sub, price_series, scaler, target_idx, X, y_level, i_tr, i_va, hybrid_test,
+                            model, backend, use_reversion):
+    """The adaptive ensemble's forecasts for the test sequences, in scaled units, plus a disclosure block.
+
+    WARMUP origins before the test window are computed too, so the first test day's weights already rest on
+    a full window of realised errors (their targets fall before the test window, so nothing leaks).
+    """
+    import pandas as pd
+    from ensemble import WARMUP, WINDOW, arima_walk, combine, daily_era_start, kalman_forecasts
+    from mean_reversion import LSTM_DELTA_WEIGHT, rolling_phi
+
+    scale, mn = scaler.scale_[target_idx], scaler.min_[target_idx]
+    to_p = lambda v: (np.asarray(v, dtype=float) - mn) / scale
+    dates = pd.to_datetime(sub["Date"], errors="coerce")
+    dows = dates.dt.dayofweek.fillna(0).astype(int).values
+    era0 = daily_era_start(dates.values, ACTIVE_FROM)
+    n_test = len(hybrid_test)
+    a0 = max(i_tr, i_va - WARMUP)
+    rows = np.arange(a0, i_va + n_test) + SEQ_LEN - 1
+    Xw = X[a0:i_va + n_test]
+    raw = model.predict(Xw, verbose=0) if backend == "tensorflow" else model.predict(Xw.reshape(len(Xw), -1))
+    lstm_p = LSTM_DELTA_WEIGHT * np.atleast_2d(np.asarray(raw, dtype=float)) / scale   # network delta, pesos
+
+    H = price_series[rows][:, None] + lstm_p
+    if use_reversion:
+        H = H + np.array([rolling_phi(price_series, r, HORIZON, dows=dows)[0][:, 0]
+                          * (price_series[r] - price_series[r - 1]) for r in rows])
+    H[i_va - a0:] = to_p(hybrid_test)          # the test rows are exactly the hybrid scored above
+    A = arima_walk(price_series, rows[0] + 1, rows[0] + 1, rows[-1] + 2, HORIZON)
+    K = kalman_forecasts(price_series, dows, era0, rows, HORIZON) + lstm_p
+    actual = to_p(y_level[a0:i_va + n_test])
+    combined, w = combine({"hybrid": H, "arima": A, "kalman": K}, actual, return_weights=True)
+    w_test = w[i_va - a0:]
+    return combined[i_va - a0:] * scale + mn, {
+        "method": "adaptive inverse-MSE combination (Bates & Granger 1969)",
+        "components": ["hybrid", "arima", "kalman"],
+        "window_days": WINDOW,
+        "warmup_origins": int(i_va - a0),
+        "mean_weights_test": {
+            name: [round(float(w_test[:, h, j].mean()), 3) for h in range(w_test.shape[1])]
+            for j, name in enumerate(["hybrid", "arima", "kalman"])
+        },
+    }
+
+
+def _hybrid_summary(y_true, hybrid_pred, anchors, baseline, arima, scaler, target_idx) -> dict:
+    """The LSTM hybrid's own test numbers, kept next to the ensemble's for transparency."""
+    mae = _mae_in_peso(y_true, hybrid_pred, scaler, target_idx)
+    return {
+        "mae_peso": round(mae, 4),
+        "skill_vs_baseline_pct": round((1.0 - mae / baseline["mae_peso"]) * 100, 2) if baseline["mae_peso"] > 1e-9 else None,
+        "beats_arima": (bool(mae < arima["mae_peso"]) if arima else None),
+        "directional_pct": _directional_pct(y_true, hybrid_pred, anchors, scaler, target_idx),
+    }
 
 
 def _train_one_target(df, target: str, use_tensorflow: bool) -> dict | None:
@@ -670,6 +734,24 @@ def _train_one_target(df, target: str, use_tensorflow: bool) -> dict | None:
         reversion["scored_with"] = "rolling"
         reversion["weekday_mode"] = bool(WEEKDAY_MODE and dows is not None)
 
+    # ── Adaptive ensemble (model/ensemble.py) ────────────────────────────────────────────────
+    # The published forecast combines this hybrid with ARIMA(1,1,1) and a weekday-aware Kalman filter,
+    # weighted by each one's recent accuracy. Every metric below scores THAT forecast; the hybrid's own
+    # numbers are kept under "hybrid", and the LSTM ablation still compares the hybrid with and without
+    # its network (the question it exists to answer).
+    hybrid_pred = level_pred
+    ensemble_info = None
+    from ensemble import enabled as _ensemble_enabled
+    if _ensemble_enabled() and DELTA_MODE and "Date" in sub.columns:
+        try:
+            level_pred, ensemble_info = _ensemble_test_forecast(
+                sub, price_series, scaler, target_idx, X, y_level, i_tr, i_va, hybrid_pred,
+                result.get("model"), result["backend"], corr_peso is not None,
+            )
+        except Exception as exc:   # never lose a training run to the ensemble; report the hybrid instead
+            print(f"[WARN] {target}: ensemble scoring skipped ({exc}); metrics are the hybrid's")
+            ensemble_info = None
+
     metrics = {
         "backend": result["backend"],
         "mae_peso": _mae_in_peso(y_level_test, level_pred, scaler, target_idx),
@@ -692,7 +774,7 @@ def _train_one_target(df, target: str, use_tensorflow: bool) -> dict | None:
     movement = _movement_ratio(y_level_test, level_pred, anchors_test, scaler, target_idx)
     # Whether the titular network contributes anything the reversion coefficient does not.
     lstm_ablation = _lstm_ablation(
-        y_level_test, level_pred, anchors_test, corr_peso, scaler, target_idx
+        y_level_test, hybrid_pred, anchors_test, corr_peso, scaler, target_idx
     )
     # Skill vs the naive baseline: >0 means the model beat "tomorrow = today". Unlike raw MAE this
     # is comparable across runs even when the test window's volatility changes.
@@ -726,6 +808,7 @@ def _train_one_target(df, target: str, use_tensorflow: bool) -> dict | None:
         "hit_rate_pct": hit_rate,
         "baseline_hit_rate_pct": baseline_hit,
         "directional_pct": directional,
+        "directional_n": _directional_n(y_level_test, anchors_test, scaler, target_idx),
         "lstm_ablation": lstm_ablation,
         "movement": movement,
         "reversion": reversion,
@@ -738,6 +821,9 @@ def _train_one_target(df, target: str, use_tensorflow: bool) -> dict | None:
         "beats_baseline": bool(metrics["mae_peso"] < baseline["mae_peso"]),
         "arima": arima,
         "beats_arima": (bool(metrics["mae_peso"] < arima["mae_peso"]) if arima else None),
+        "forecaster": "adaptive_ensemble" if ensemble_info else "lstm_hybrid",
+        "ensemble": ensemble_info,
+        "hybrid": _hybrid_summary(y_level_test, hybrid_pred, anchors_test, baseline, arima, scaler, target_idx) if ensemble_info else None,
         "shock": shock,
         "adf_pvalue": (round(adf_p, 4) if adf_p is not None else None),
         "train_samples": len(X_train),
@@ -904,6 +990,15 @@ def main():
         # because removing the network changes skill by less than run-to-run noise. See
         # _lstm_ablation for why this is measured on direction and on genuine-signal rows only.
         "lstm_ablation": _pooled_ablation(),
+        # Which forecaster the metrics above describe, and the plain hybrid's numbers for comparison.
+        "forecaster": primary.get("forecaster", "lstm_hybrid"),
+        "beats_arima_count": sum(1 for v in targets_meta.values() if v.get("beats_arima")),
+        "hybrid_skill_vs_baseline_pct": (
+            round(sum(float(v["hybrid"]["skill_vs_baseline_pct"]) for v in targets_meta.values() if v.get("hybrid"))
+                  / max(1, sum(1 for v in targets_meta.values() if v.get("hybrid"))), 2)
+            if any(v.get("hybrid") for v in targets_meta.values()) else None
+        ),
+        "hybrid_beats_arima_count": sum(1 for v in targets_meta.values() if (v.get("hybrid") or {}).get("beats_arima")),
         "movement_ratio": (
             round(
                 sum(

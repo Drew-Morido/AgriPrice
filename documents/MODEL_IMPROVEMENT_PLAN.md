@@ -1,3 +1,5 @@
+> **Superseded (2026-09-27).** Historical planning note, kept for the record. Current model results and methodology: `PAPER_CORRECTIONS.md` (latest sections), `SYSTEM_FEATURES.md` §3, and Chapters 3–4 of `AgriPrice_Draft_Revised.docx`.
+
 # Model Improvement Plan — Getting Past "Ties the Baseline"
 
 **Starting score: 3/5.** Root problem (confirmed against the live DB, not guessed): the LSTM

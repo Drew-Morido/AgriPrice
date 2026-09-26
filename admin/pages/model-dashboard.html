@@ -16,7 +16,7 @@
       <div class="mdl-metric-title mdl-tooltip">
         Average Forecast Error
         <i class="ti ti-info-circle mdl-tooltip-icon"></i>
-        <span class="mdl-tooltip-text"><strong>LSTM MAE:</strong> average forecast error per kg on the held-out test set for the primary classification (Local Well-Milled). Represents normal day-to-day accuracy.</span>
+        <span class="mdl-tooltip-text"><strong>Forecast MAE:</strong> average error per kg of the published forecast (the LSTM-based adaptive ensemble) on the held-out test set for the primary classification (Local Well-Milled). Represents normal day-to-day accuracy.</span>
       </div>
       <div class="mdl-metric-value" id="mdl-mae">—</div>
       <div class="mdl-metric-delta flat" id="mdl-mae-delta">Loading…</div>
@@ -25,7 +25,7 @@
       <div class="mdl-metric-title mdl-tooltip">
         Outlier Sensitivity
         <i class="ti ti-info-circle mdl-tooltip-icon"></i>
-        <span class="mdl-tooltip-text"><strong>LSTM RMSE:</strong> penalizes large outlier errors more heavily than MAE. A much higher RMSE than MAE means occasional big misses.</span>
+        <span class="mdl-tooltip-text"><strong>Forecast RMSE:</strong> penalizes large outlier errors more heavily than MAE. A much higher RMSE than MAE means occasional big misses.</span>
       </div>
       <div class="mdl-metric-value" id="mdl-rmse">—</div>
       <div class="mdl-metric-delta flat" id="mdl-rmse-delta">Loading…</div>
@@ -34,7 +34,7 @@
       <div class="mdl-metric-title mdl-tooltip">
         vs. Naive Baseline
         <i class="ti ti-info-circle mdl-tooltip-icon"></i>
-        <span class="mdl-tooltip-text"><strong>Baseline MAE (persistence):</strong> the error if we simply guessed tomorrow's price would equal today's price. At this 3-day horizon the LSTM tracks this baseline closely rather than beating it outright.</span>
+        <span class="mdl-tooltip-text"><strong>Baseline MAE (persistence):</strong> the error if we simply guessed tomorrow's price would equal today's price. The published ensemble beats it on all 8 rice types on the held-out test window; the LSTM network on its own does not (it tracks this baseline closely).</span>
       </div>
       <div class="mdl-metric-value" id="mdl-baseline">—</div>
       <div class="mdl-metric-delta flat" id="mdl-baseline-delta">Loading…</div>

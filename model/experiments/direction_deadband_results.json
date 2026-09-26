@@ -1,0 +1,734 @@
+{
+ "per_type": {
+  "locWellMilled": {
+   "sel": {
+    "0.0": {
+     "calls": 219,
+     "right": 141,
+     "days": 228,
+     "called_days": 228
+    },
+    "0.02": {
+     "calls": 186,
+     "right": 124,
+     "days": 228,
+     "called_days": 193
+    },
+    "0.05": {
+     "calls": 139,
+     "right": 99,
+     "days": 228,
+     "called_days": 144
+    },
+    "0.1": {
+     "calls": 66,
+     "right": 59,
+     "days": 228,
+     "called_days": 67
+    },
+    "0.15": {
+     "calls": 44,
+     "right": 40,
+     "days": 228,
+     "called_days": 44
+    },
+    "0.2": {
+     "calls": 30,
+     "right": 27,
+     "days": 228,
+     "called_days": 30
+    },
+    "0.3": {
+     "calls": 15,
+     "right": 15,
+     "days": 228,
+     "called_days": 15
+    }
+   },
+   "test": {
+    "0.0": {
+     "calls": 1009,
+     "right": 642,
+     "days": 1059,
+     "called_days": 1059
+    },
+    "0.02": {
+     "calls": 806,
+     "right": 532,
+     "days": 1059,
+     "called_days": 845
+    },
+    "0.05": {
+     "calls": 591,
+     "right": 410,
+     "days": 1059,
+     "called_days": 618
+    },
+    "0.1": {
+     "calls": 401,
+     "right": 299,
+     "days": 1059,
+     "called_days": 412
+    },
+    "0.15": {
+     "calls": 257,
+     "right": 206,
+     "days": 1059,
+     "called_days": 264
+    },
+    "0.2": {
+     "calls": 177,
+     "right": 147,
+     "days": 1059,
+     "called_days": 180
+    },
+    "0.3": {
+     "calls": 92,
+     "right": 84,
+     "days": 1059,
+     "called_days": 93
+    }
+   }
+  },
+  "locRegular": {
+   "sel": {
+    "0.0": {
+     "calls": 212,
+     "right": 143,
+     "days": 228,
+     "called_days": 228
+    },
+    "0.02": {
+     "calls": 158,
+     "right": 114,
+     "days": 228,
+     "called_days": 163
+    },
+    "0.05": {
+     "calls": 115,
+     "right": 84,
+     "days": 228,
+     "called_days": 117
+    },
+    "0.1": {
+     "calls": 61,
+     "right": 54,
+     "days": 228,
+     "called_days": 63
+    },
+    "0.15": {
+     "calls": 49,
+     "right": 45,
+     "days": 228,
+     "called_days": 51
+    },
+    "0.2": {
+     "calls": 39,
+     "right": 37,
+     "days": 228,
+     "called_days": 41
+    },
+    "0.3": {
+     "calls": 26,
+     "right": 25,
+     "days": 228,
+     "called_days": 27
+    }
+   },
+   "test": {
+    "0.0": {
+     "calls": 988,
+     "right": 618,
+     "days": 1059,
+     "called_days": 1059
+    },
+    "0.02": {
+     "calls": 757,
+     "right": 493,
+     "days": 1059,
+     "called_days": 805
+    },
+    "0.05": {
+     "calls": 554,
+     "right": 381,
+     "days": 1059,
+     "called_days": 578
+    },
+    "0.1": {
+     "calls": 361,
+     "right": 257,
+     "days": 1059,
+     "called_days": 370
+    },
+    "0.15": {
+     "calls": 235,
+     "right": 187,
+     "days": 1059,
+     "called_days": 240
+    },
+    "0.2": {
+     "calls": 145,
+     "right": 127,
+     "days": 1059,
+     "called_days": 146
+    },
+    "0.3": {
+     "calls": 107,
+     "right": 97,
+     "days": 1059,
+     "called_days": 108
+    }
+   }
+  },
+  "locPremium": {
+   "sel": {
+    "0.0": {
+     "calls": 220,
+     "right": 147,
+     "days": 228,
+     "called_days": 228
+    },
+    "0.02": {
+     "calls": 191,
+     "right": 129,
+     "days": 228,
+     "called_days": 198
+    },
+    "0.05": {
+     "calls": 172,
+     "right": 116,
+     "days": 228,
+     "called_days": 178
+    },
+    "0.1": {
+     "calls": 111,
+     "right": 91,
+     "days": 228,
+     "called_days": 112
+    },
+    "0.15": {
+     "calls": 82,
+     "right": 73,
+     "days": 228,
+     "called_days": 82
+    },
+    "0.2": {
+     "calls": 67,
+     "right": 61,
+     "days": 228,
+     "called_days": 67
+    },
+    "0.3": {
+     "calls": 35,
+     "right": 34,
+     "days": 228,
+     "called_days": 35
+    }
+   },
+   "test": {
+    "0.0": {
+     "calls": 1015,
+     "right": 618,
+     "days": 1059,
+     "called_days": 1059
+    },
+    "0.02": {
+     "calls": 888,
+     "right": 550,
+     "days": 1059,
+     "called_days": 922
+    },
+    "0.05": {
+     "calls": 711,
+     "right": 465,
+     "days": 1059,
+     "called_days": 736
+    },
+    "0.1": {
+     "calls": 488,
+     "right": 343,
+     "days": 1059,
+     "called_days": 497
+    },
+    "0.15": {
+     "calls": 348,
+     "right": 256,
+     "days": 1059,
+     "called_days": 354
+    },
+    "0.2": {
+     "calls": 239,
+     "right": 200,
+     "days": 1059,
+     "called_days": 242
+    },
+    "0.3": {
+     "calls": 111,
+     "right": 98,
+     "days": 1059,
+     "called_days": 111
+    }
+   }
+  },
+  "locSpecial": {
+   "sel": {
+    "0.0": {
+     "calls": 219,
+     "right": 158,
+     "days": 228,
+     "called_days": 228
+    },
+    "0.02": {
+     "calls": 167,
+     "right": 133,
+     "days": 228,
+     "called_days": 174
+    },
+    "0.05": {
+     "calls": 110,
+     "right": 94,
+     "days": 228,
+     "called_days": 115
+    },
+    "0.1": {
+     "calls": 66,
+     "right": 64,
+     "days": 228,
+     "called_days": 70
+    },
+    "0.15": {
+     "calls": 55,
+     "right": 53,
+     "days": 228,
+     "called_days": 57
+    },
+    "0.2": {
+     "calls": 45,
+     "right": 43,
+     "days": 228,
+     "called_days": 47
+    },
+    "0.3": {
+     "calls": 26,
+     "right": 24,
+     "days": 228,
+     "called_days": 27
+    }
+   },
+   "test": {
+    "0.0": {
+     "calls": 1010,
+     "right": 627,
+     "days": 1059,
+     "called_days": 1059
+    },
+    "0.02": {
+     "calls": 814,
+     "right": 530,
+     "days": 1059,
+     "called_days": 851
+    },
+    "0.05": {
+     "calls": 560,
+     "right": 378,
+     "days": 1059,
+     "called_days": 579
+    },
+    "0.1": {
+     "calls": 365,
+     "right": 273,
+     "days": 1059,
+     "called_days": 372
+    },
+    "0.15": {
+     "calls": 220,
+     "right": 186,
+     "days": 1059,
+     "called_days": 223
+    },
+    "0.2": {
+     "calls": 152,
+     "right": 138,
+     "days": 1059,
+     "called_days": 153
+    },
+    "0.3": {
+     "calls": 76,
+     "right": 74,
+     "days": 1059,
+     "called_days": 76
+    }
+   }
+  },
+  "impWellMilled": {
+   "sel": {
+    "0.0": {
+     "calls": 172,
+     "right": 121,
+     "days": 228,
+     "called_days": 228
+    },
+    "0.02": {
+     "calls": 147,
+     "right": 103,
+     "days": 228,
+     "called_days": 193
+    },
+    "0.05": {
+     "calls": 123,
+     "right": 85,
+     "days": 228,
+     "called_days": 163
+    },
+    "0.1": {
+     "calls": 85,
+     "right": 64,
+     "days": 228,
+     "called_days": 113
+    },
+    "0.15": {
+     "calls": 70,
+     "right": 55,
+     "days": 228,
+     "called_days": 90
+    },
+    "0.2": {
+     "calls": 60,
+     "right": 49,
+     "days": 228,
+     "called_days": 78
+    },
+    "0.3": {
+     "calls": 47,
+     "right": 39,
+     "days": 228,
+     "called_days": 55
+    }
+   },
+   "test": {
+    "0.0": {
+     "calls": 747,
+     "right": 499,
+     "days": 1059,
+     "called_days": 1059
+    },
+    "0.02": {
+     "calls": 365,
+     "right": 281,
+     "days": 1059,
+     "called_days": 481
+    },
+    "0.05": {
+     "calls": 250,
+     "right": 195,
+     "days": 1059,
+     "called_days": 327
+    },
+    "0.1": {
+     "calls": 195,
+     "right": 159,
+     "days": 1059,
+     "called_days": 240
+    },
+    "0.15": {
+     "calls": 155,
+     "right": 127,
+     "days": 1059,
+     "called_days": 188
+    },
+    "0.2": {
+     "calls": 124,
+     "right": 104,
+     "days": 1059,
+     "called_days": 147
+    },
+    "0.3": {
+     "calls": 86,
+     "right": 77,
+     "days": 1059,
+     "called_days": 99
+    }
+   }
+  },
+  "impRegular": {
+   "sel": {
+    "0.0": {
+     "calls": 194,
+     "right": 138,
+     "days": 228,
+     "called_days": 228
+    },
+    "0.02": {
+     "calls": 175,
+     "right": 125,
+     "days": 228,
+     "called_days": 207
+    },
+    "0.05": {
+     "calls": 155,
+     "right": 119,
+     "days": 228,
+     "called_days": 180
+    },
+    "0.1": {
+     "calls": 122,
+     "right": 102,
+     "days": 228,
+     "called_days": 145
+    },
+    "0.15": {
+     "calls": 94,
+     "right": 80,
+     "days": 228,
+     "called_days": 112
+    },
+    "0.2": {
+     "calls": 76,
+     "right": 66,
+     "days": 228,
+     "called_days": 88
+    },
+    "0.3": {
+     "calls": 54,
+     "right": 48,
+     "days": 228,
+     "called_days": 55
+    }
+   },
+   "test": {
+    "0.0": {
+     "calls": 689,
+     "right": 332,
+     "days": 1059,
+     "called_days": 1059
+    },
+    "0.02": {
+     "calls": 523,
+     "right": 247,
+     "days": 1059,
+     "called_days": 694
+    },
+    "0.05": {
+     "calls": 366,
+     "right": 212,
+     "days": 1059,
+     "called_days": 488
+    },
+    "0.1": {
+     "calls": 283,
+     "right": 175,
+     "days": 1059,
+     "called_days": 341
+    },
+    "0.15": {
+     "calls": 215,
+     "right": 151,
+     "days": 1059,
+     "called_days": 249
+    },
+    "0.2": {
+     "calls": 181,
+     "right": 133,
+     "days": 1059,
+     "called_days": 199
+    },
+    "0.3": {
+     "calls": 136,
+     "right": 107,
+     "days": 1059,
+     "called_days": 141
+    }
+   }
+  },
+  "impPremium": {
+   "sel": {
+    "0.0": {
+     "calls": 223,
+     "right": 138,
+     "days": 228,
+     "called_days": 228
+    },
+    "0.02": {
+     "calls": 187,
+     "right": 117,
+     "days": 228,
+     "called_days": 189
+    },
+    "0.05": {
+     "calls": 145,
+     "right": 93,
+     "days": 228,
+     "called_days": 146
+    },
+    "0.1": {
+     "calls": 89,
+     "right": 64,
+     "days": 228,
+     "called_days": 89
+    },
+    "0.15": {
+     "calls": 61,
+     "right": 48,
+     "days": 228,
+     "called_days": 61
+    },
+    "0.2": {
+     "calls": 37,
+     "right": 34,
+     "days": 228,
+     "called_days": 37
+    },
+    "0.3": {
+     "calls": 29,
+     "right": 28,
+     "days": 228,
+     "called_days": 29
+    }
+   },
+   "test": {
+    "0.0": {
+     "calls": 1019,
+     "right": 493,
+     "days": 1059,
+     "called_days": 1059
+    },
+    "0.02": {
+     "calls": 772,
+     "right": 381,
+     "days": 1059,
+     "called_days": 792
+    },
+    "0.05": {
+     "calls": 527,
+     "right": 275,
+     "days": 1059,
+     "called_days": 539
+    },
+    "0.1": {
+     "calls": 306,
+     "right": 165,
+     "days": 1059,
+     "called_days": 312
+    },
+    "0.15": {
+     "calls": 202,
+     "right": 119,
+     "days": 1059,
+     "called_days": 205
+    },
+    "0.2": {
+     "calls": 150,
+     "right": 93,
+     "days": 1059,
+     "called_days": 152
+    },
+    "0.3": {
+     "calls": 101,
+     "right": 69,
+     "days": 1059,
+     "called_days": 103
+    }
+   }
+  },
+  "impSpecial": {
+   "sel": {
+    "0.0": {
+     "calls": 164,
+     "right": 107,
+     "days": 228,
+     "called_days": 228
+    },
+    "0.02": {
+     "calls": 159,
+     "right": 105,
+     "days": 228,
+     "called_days": 221
+    },
+    "0.05": {
+     "calls": 139,
+     "right": 87,
+     "days": 228,
+     "called_days": 187
+    },
+    "0.1": {
+     "calls": 116,
+     "right": 75,
+     "days": 228,
+     "called_days": 147
+    },
+    "0.15": {
+     "calls": 87,
+     "right": 62,
+     "days": 228,
+     "called_days": 115
+    },
+    "0.2": {
+     "calls": 76,
+     "right": 55,
+     "days": 228,
+     "called_days": 95
+    },
+    "0.3": {
+     "calls": 62,
+     "right": 49,
+     "days": 228,
+     "called_days": 78
+    }
+   },
+   "test": {
+    "0.0": {
+     "calls": 809,
+     "right": 548,
+     "days": 1059,
+     "called_days": 1059
+    },
+    "0.02": {
+     "calls": 680,
+     "right": 468,
+     "days": 1059,
+     "called_days": 873
+    },
+    "0.05": {
+     "calls": 568,
+     "right": 393,
+     "days": 1059,
+     "called_days": 719
+    },
+    "0.1": {
+     "calls": 424,
+     "right": 317,
+     "days": 1059,
+     "called_days": 525
+    },
+    "0.15": {
+     "calls": 319,
+     "right": 252,
+     "days": 1059,
+     "called_days": 380
+    },
+    "0.2": {
+     "calls": 250,
+     "right": 211,
+     "days": 1059,
+     "called_days": 283
+    },
+    "0.3": {
+     "calls": 155,
+     "right": 137,
+     "days": 1059,
+     "called_days": 174
+    }
+   }
+  }
+ },
+ "utility_selection": {
+  "0.0": 17.34442390634628,
+  "0.02": 16.310106927903703,
+  "0.05": 14.00273224043716,
+  "0.1": 13.268922130745857,
+  "0.15": 11.452466498349198,
+  "0.2": 9.668375152998774,
+  "0.3": 6.883839061940566
+ },
+ "chosen_tau": 0.0
+}

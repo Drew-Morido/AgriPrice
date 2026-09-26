@@ -87,7 +87,11 @@ AgriPricePH.Landpage = (function () {
       const data = await AgriPricePH.API.predictions();
       if (data?.current_prices) {
         _live = true;
-        _asOf = data.as_of_display || data.last_data_date || '';
+        // The prices are the latest DA bulletin's, so "as of" is that bulletin's day, not today's date.
+        const ld = data.last_data_date ? new Date(data.last_data_date + 'T12:00:00') : null;
+        _asOf = ld && !isNaN(ld)
+          ? ld.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+          : (data.as_of_display || '');
         RICE().forEach(({ key, label }) => {
           const raw = data.current_prices[key];
           if (raw == null || Number(raw) <= 0) return;

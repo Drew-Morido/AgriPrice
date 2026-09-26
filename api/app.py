@@ -389,6 +389,17 @@ def _do_scrape() -> bool:
         _last_scrape_ts = datetime.now()
         _last_scrape_ok = any_ok
         _add_log("INFO", "Scrape job finished.")
+        if results["rice"]:
+            # New rice data: rebuild the published forecast now, in the background, so no visitor waits
+            # ~35 s for it and the day's forecast is written to the forward-evaluation log (forecast_log).
+            def _refresh_forecast():
+                try:
+                    from predict import warm_payload
+                    if warm_payload():
+                        logger.info("Forecast refreshed for the new data and logged for forward evaluation.")
+                except Exception as exc:
+                    logger.warning("Forecast refresh after scrape skipped: %s", exc)
+            threading.Thread(target=_refresh_forecast, daemon=True).start()
         return any_ok
 
     except Exception as exc:
@@ -747,6 +758,18 @@ def api_scrape_status():
         "logs":          logs,
         "stats":         stats,
     })
+
+
+# ── /api/forecast-check ───────────────────────────────────────────────────────
+# Forward evaluation of the published forecast: forecasts logged before their DA price existed, scored now
+# (model/forecast_log.py). The clean check on days no experiment has ever seen.
+@app.route("/api/forecast-check", methods=["GET"])
+def api_forecast_check():
+    try:
+        import forecast_log
+        return jsonify(forecast_log.score())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # ── /api/scrape-review ────────────────────────────────────────────────────────

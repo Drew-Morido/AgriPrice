@@ -16,9 +16,13 @@ paper and the implementation can be traced to each other over time.
 - Because `.docx` is a binary, GitHub won't show line diffs; use the commit history to fetch
   any prior version. `PAPER_CORRECTIONS.md` is the human-readable change record.
 
-## Current state (as of this commit)
-The paper and app agree on: 8 rice types, 15-year (2015–2025) daily data, 48–72h (3-day)
-horizon, min-max scaling, last-observed-value gap handling, chronological 70/15/15 split,
-DA-AMAS PDF ingestion, dual admin/public interface, and the honest evaluation result
-(LSTM ≈ naive persistence ≈ ARIMA at this horizon). See `PAPER_CORRECTIONS.md` for the
-per-item detail and the remaining team-only edits (UAT headcounts, synthesis matrix).
+## Current state (2026-09-27)
+The paper and app agree on: 8 rice types, the 2015–2026 DA record (weekly before 2025, daily from
+April 2025 — disclosed in Chapter 3 and the limitations), 48–72h (3-day) horizon, min-max scaling,
+last-observed-value gap handling, the regime-aware chronological split, naive and ARIMA(1,1,1)
+baselines, DA-AMAS PDF ingestion, dual admin/public interface, and the deployed forecaster (an
+LSTM-based adaptive ensemble: skill +10.06% vs naive, beats ARIMA on 8/8, while the LSTM network alone
+shows no significant contribution). The `.docx` also carries a draft Chapter 4 and 5 (technical parts)
+generated from `model/meta.json`. Remaining team-only edits are flagged in red in the `.docx`
+(UAT headcounts and survey results, synthesis matrix, sprint evidence, conceptual-framework diagram,
+references) — see the latest section of `PAPER_CORRECTIONS.md`.

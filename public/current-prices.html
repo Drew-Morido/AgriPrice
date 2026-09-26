@@ -201,6 +201,7 @@ html.theme-dark .bc-table tbody tr:hover{background:rgba(76,175,110,.10)}
 .bc-pack{font-size:12px;color:var(--ink3)}
 .bc-up{color:var(--good);font-weight:700;font-size:12px}
 .bc-down{color:var(--bad);font-weight:700;font-size:12px}
+.bc-flat{color:var(--ink3);font-weight:700;font-size:12px}
 .bc-empty{padding:26px 16px;text-align:center;color:var(--ink3);font-size:13px}
 .bc-range{white-space:nowrap;font-size:13px}
 /* Tip row sits under the selected brand. Pastel green so it reads as attached to the highlighted
@@ -620,7 +621,8 @@ function setDirection(rowId, change) {
   const el = document.querySelector(`#${rowId} .dir`);
   if (!el) return;
   const up = change > 0;
-  const flat = Math.abs(change) < 0.005;
+  // A forecast move under 10 centavos is shown as 'steady', not as a rise or fall: the model cannot call direction that small better than a coin flip (PAPER_CORRECTIONS.md, 'Up/down reliability').
+  const flat = Math.abs(change) < 0.10;
   el.classList.toggle('down', !up && !flat);
   const icon = flat ? 'ti-minus' : up ? 'ti-arrow-up' : 'ti-arrow-down';
   const word = flat ? 'Steady' : up ? 'Up' : 'Down';
@@ -636,6 +638,16 @@ function setDirection(rowId, change) {
  * it to the selected row makes the subject unambiguous and removes the need to dismiss anything.
  */
 function brandTipRow(b, chg) {
+  // Under 10 centavos over three days is "about the same": no reason to rush or to wait.
+  if (Math.abs(chg) < 0.10) {
+    return `<tr class="bc-tip-row"><td colspan="4">
+    <div class="bc-tip">
+      <i class="ti ti-bulb" aria-hidden="true"></i>
+      <span><strong>Tip:</strong> ${esc(b.brand_name)} is expected to stay about the same over the next three days,
+      so there is no need to rush or to wait.</span>
+    </div>
+  </td></tr>`;
+  }
   const up = chg >= 0;
   const action = up
     ? `buying today at ${toPeso(b.todayPrice)} may cost less than waiting`
@@ -785,10 +797,16 @@ function brandRowsForType(tabKey) {
     // Government-set brands (e.g. NFA) hold a fixed price — never scaled by the category band.
     const fixed = !!b.fixed_price && b.price != null;
     const hasWeight = !fixed && b.estimated && b.weight_pct != null;
-    const factor = hasWeight ? 1 + Number(b.weight_pct) / 100 : 1;
     const todayPrice = fixed ? Number(b.price) : (hasWeight && b.price != null) ? Number(b.price) : today;
-    const tomorrowPrice = fixed ? todayPrice : fc.d1 * factor;
-    return { ...b, gradeKey: tabKey, todayPrice, tomorrowPrice, estimated: !!hasWeight, fixed_price: fixed };
+    // The brand moves by the same PERCENTAGE the category forecast moves from today's DA price.
+    // The API prices a brand off its category base, which for some grades is an older DA bracket
+    // midpoint rather than today's DA price; scaling the forecast by weight_pct alone then mixed
+    // that gap into "Change" (e.g. -P5.29 shown where the forecast moves -P0.02). Scaling by
+    // brand today / category today makes Change the forecast move only. When the base IS today's
+    // DA price, this equals 1 + weight_pct/100 exactly.
+    const scale = fixed ? 1 : (today > 0 ? todayPrice / today : 1);
+    const tomorrowPrice = fixed ? todayPrice : fc.d1 * scale;
+    return { ...b, gradeKey: tabKey, todayPrice, tomorrowPrice, scale, estimated: !!hasWeight, fixed_price: fixed };
   });
   return rows.sort((a, b) => a.todayPrice - b.todayPrice);
 }
@@ -850,15 +868,16 @@ function renderBrandCompare() {
     // Today is a measured/surveyed price and stays exact; Tomorrow is a forecast and shows its
     // calibrated range. The "Estimated · surveyed …" sub-line was removed from every row — it
     // repeated on nearly all of them and said nothing that distinguished one brand from another.
-    const factor = b.estimated && b.weight_pct != null ? 1 + Number(b.weight_pct) / 100 : 1;
     const tomorrow = b.fixed_price
       ? `${toPeso(b.todayPrice)} (fixed)`
-      : toRange(catFc.lo1, catFc.hi1, b.tomorrowPrice / (factor || 1), factor);
+      : toRange(catFc.lo1, catFc.hi1, b.tomorrowPrice / (b.scale || 1), b.scale);
+    // Under 10 centavos is shown as steady (same rule as the forecast table above).
+    const chgCls = Math.abs(chg) < 0.10 ? 'bc-flat' : chg > 0 ? 'bc-up' : 'bc-down';
     const row = `<tr class="${selected ? 'bc-selected' : ''}" data-brand-id="${b.id}">
       <td><div class="bc-brand">${esc(b.brand_name)}</div></td>
       <td class="bc-peso">${toPeso(b.todayPrice)}</td>
       <td class="bc-peso bc-range">${tomorrow}</td>
-      <td class="${chg >= 0 ? 'bc-up' : 'bc-down'}">${plusPeso(chg)}</td>
+      <td class="${chgCls}">${plusPeso(chg)}</td>
     </tr>`;
     // The tip belongs to whichever brand is selected, so it is rendered as the very next row.
     return selected ? row + brandTipRow(b, chg) : row;
@@ -883,7 +902,7 @@ function updateUI(key) {
   const group = (ORIGIN_GROUPS[activeOrigin] || []).find((g) => g.key === key) || { label: catD.name };
 
   const brandRow = getSelectedBrandRow();
-  const factor = brandRow ? (brandRow.estimated && brandRow.weight_pct != null ? 1 + Number(brandRow.weight_pct) / 100 : 1) : 1;
+  const factor = brandRow ? (brandRow.scale || 1) : 1;   // brand today / category today (see brandRowsForType)
   const fixedRow = !!(brandRow && brandRow.fixed_price);
   const d = fixedRow
     ? { ...catD, today: brandRow.todayPrice, d1: brandRow.todayPrice, d2: brandRow.todayPrice, d3: brandRow.todayPrice }

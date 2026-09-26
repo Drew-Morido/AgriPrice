@@ -456,10 +456,12 @@ AgriPricePH.PublicForecast = (function () {
 
     const ch = $('#tomorrow-change-pill');
     if (ch) {
-      ch.className = 'forecast-change-pill' + (change < 0 ? ' down' : change === 0 ? ' flat' : '');
-      if (change > 0) ch.textContent = `↗ +₱${change.toFixed(2)} more than today`;
-      else if (change < 0) ch.textContent = `↘ ₱${Math.abs(change).toFixed(2)} less than today`;
-      else ch.textContent = 'Same as today';
+      // A forecast move under 10 centavos is shown as 'steady', not as a rise or fall: the model cannot call direction that small better than a coin flip (PAPER_CORRECTIONS.md, 'Up/down reliability').
+      const steady = Math.abs(change) < 0.10;
+      ch.className = 'forecast-change-pill' + (steady ? ' flat' : change < 0 ? ' down' : '');
+      if (steady) ch.textContent = 'About the same as today';
+      else if (change > 0) ch.textContent = `↗ +₱${change.toFixed(2)} more than today`;
+      else ch.textContent = `↘ ₱${Math.abs(change).toFixed(2)} less than today`;
     }
 
     const fill = $('#tomorrow-conf-fill');

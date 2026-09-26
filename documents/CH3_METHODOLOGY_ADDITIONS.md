@@ -1,3 +1,5 @@
+> **Superseded (2026-09-27).** Historical planning note, kept for the record. Current model results and methodology: `PAPER_CORRECTIONS.md` (latest sections), `SYSTEM_FEATURES.md` §3, and Chapters 3–4 of `AgriPrice_Draft_Revised.docx`.
+
 # Chapter 3 — Methodology Additions (Defense Round 2)
 
 Ready-to-paste text for the capstone paper, matching the implemented system. Paste each block

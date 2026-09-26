@@ -454,7 +454,12 @@ AgriPricePH.ModelDashboard = (function () {
     const isHealthy = status === 'optimal';
     el.className = 'mdl-err-insight' + (isHealthy ? ' positive' : '');
 
-    if (isHealthy) {
+    const beats = t.mae_peso != null && t.baseline_mae_peso && t.mae_peso < t.baseline_mae_peso;
+    if (isHealthy && beats) {
+      const arima = t.arima && t.arima.mae_peso;
+      const vsArima = arima ? (t.mae_peso < arima ? ` and the ${peso(arima)} ARIMA(1,1,1) baseline` : `, though not the ${peso(arima)} ARIMA(1,1,1) baseline`) : '';
+      el.innerHTML = `<i class="ti ti-circle-check"></i> <span><strong>On track</strong> — ${esc(RICE_LABELS[selectedClass])} MAE (${peso(t.mae_peso)}) is ${gapPct.toFixed(1)}% lower than the ${peso(t.baseline_mae_peso)} naive baseline${vsArima} on the held-out test window.</span>`;
+    } else if (isHealthy) {
       el.innerHTML = `<i class="ti ti-circle-check"></i> <span><strong>On track</strong> — ${esc(RICE_LABELS[selectedClass])} MAE (${peso(t.mae_peso)}) is within ${gapPct.toFixed(1)}% of the ${peso(t.baseline_mae_peso)} naive baseline, inside the normal tolerance band for this near-random-walk horizon.</span>`;
     } else {
       el.innerHTML = `<i class="ti ti-alert-triangle"></i> <span><strong>Review suggested</strong> — ${esc(RICE_LABELS[selectedClass])} MAE (${peso(t.mae_peso)}) is ${gapPct.toFixed(1)}% behind the ${peso(t.baseline_mae_peso)} naive baseline. Consider retraining this classification in the Training console.</span>`;

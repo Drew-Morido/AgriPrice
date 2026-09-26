@@ -310,7 +310,9 @@ AgriPricePH.Predictions = (function () {
     const modelId = fromApi?.[0]?.model
       || (_forecast?.forecast?.[0]?.model)
       || 'lstm';
-    const note = modelId === 'trend' ? ' · trend estimate (retrain for LSTM)' : ' · LSTM model';
+    const note = modelId === 'trend'
+      ? ' · trend estimate (retrain for LSTM)'
+      : modelId === 'ensemble' ? ' · LSTM-based adaptive ensemble' : ' · LSTM model';
     if (chartTitle) chartTitle.textContent = `Forecast vs Historical (${label})${note}`;
     if (tableTitle) tableTitle.textContent = `Daily Forecast Table — ${label}`;
   }
@@ -323,7 +325,9 @@ AgriPricePH.Predictions = (function () {
     const accColor = accuracyBarColor(accPct, isHit);
     const pct = lastPrice ? ((day1.change / lastPrice) * 100) : 0;
     const sign = day1.change >= 0 ? '+' : '';
-    const color = day1.change >= 0 ? 'var(--color-danger)' : 'var(--color-accent)';
+    // A forecast move under 10 centavos is shown as 'steady', not as a rise or fall: the model cannot call direction that small better than a coin flip (PAPER_CORRECTIONS.md, 'Up/down reliability').
+    const steady = Math.abs(day1.change) < 0.10;
+    const color = steady ? 'var(--text-secondary)' : day1.change >= 0 ? 'var(--color-danger)' : 'var(--color-accent)';
     const hasBand = day1.low != null && day1.high != null;
     // Headline is the range. A 36px "₱52.80" claims a precision the model cannot support; the
     // central estimate drops to a sub-line so the change figure below still has a visible basis.
@@ -346,7 +350,7 @@ AgriPricePH.Predictions = (function () {
         ${day1.interval_pct || 90}% range · central estimate ₱${Number(day1.price).toFixed(2)}
       </div>` : ''}
       <div style="font-size:13px;font-weight:600;color:${color};margin-top:6px;">
-        ${day1.change >= 0 ? '▲' : '▼'} ${sign}₱${Math.abs(day1.change).toFixed(2)} (${sign}${pct.toFixed(2)}%)
+        ${steady ? '→ steady' : day1.change >= 0 ? '▲' : '▼'} ${sign}₱${Math.abs(day1.change).toFixed(2)} (${sign}${pct.toFixed(2)}%)
       </div>
       <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border-color);">
         <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">${accLabel}</div>
@@ -483,8 +487,9 @@ AgriPricePH.Predictions = (function () {
     tbody.innerHTML = (forecast || []).map((f, i) => {
       const delta = f.price - prev;
       prev = f.price;
-      const dir = delta > 0 ? 'up' : delta < 0 ? 'down' : '';
-      const arrow = delta > 0 ? '▲' : delta < 0 ? '▼' : '—';
+      const steady = Math.abs(delta) < 0.10;              // under 10 centavos: shown as steady
+      const dir = steady ? '' : delta > 0 ? 'up' : 'down';
+      const arrow = steady ? '→' : delta > 0 ? '▲' : '▼';
       const sign = delta > 0 ? '+' : '';
       const acc = trainAccuracyPct(riceKey, f);
       const isHit = usingHitRate(riceKey);

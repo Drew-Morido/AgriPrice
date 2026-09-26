@@ -1913,9 +1913,309 @@ No change to any number.
 
 Test suite: **61 passed**.
 
+### Round — Can the LSTM itself contribute? Nine configurations tested (experiment; production unchanged)
+`model/experiments/lstm_improve.py` (results in `lstm_improve_results.json`). Same test window as production
+(2025-10-07 → 2026-09-24). Each configuration's LSTM weight (0.25 / 0.5 / 1.0) and reversion on/off were chosen
+on a **selection window** (the last 40% of the validation block, Jul 23 – Oct 6 2025) and then reported once on test.
+The benchmark is the reversion-only forecast (LSTM weight 0), which scores **+7.90%** on test.
+
+**Two diagnostic findings (both paper-relevant):**
+1. *The production LSTM never trains on daily-era data.* The regime-aware split trains on 2015-01 → 2025-03-31
+   (weekly figures forward-filled to daily) and keeps every genuinely daily day for validation/test.
+2. *The production LSTM is effectively trained for one epoch.* EarlyStopping uses `min_delta=1e-4`, but the
+   delta-target validation loss is only ~7e-4, so no later epoch ever counts as an improvement: every rice type
+   stops at epoch 9 with its epoch-1 weights (see the training log). In practice this acts as very strong
+   regularisation toward "no change". Training it properly (V6–V8) made it fit the validation block better and
+   the test period worse (overfitting).
+
+| config | change | chosen | selection | **test** | worst type | LSTM alone | LSTM lowers error on | directional McNemar |
+|---|---|---|---|---|---|---|---|---|
+| V0 | production | w .25 + rev | 12.22 | **7.80** | 1.88 | −1.29 | 45.8% of forecasts | p 0.95 |
+| V1 | + daily era in training | w .25 + rev | 12.10 | **7.84** | 2.19 | −1.14 | 46.6% | p 0.81 |
+| V2 | + weekday, last-change, dev-from-7-day-median features | w .25 + rev | 12.18 | **7.85** | 2.08 | −1.19 | 47.7% | p 0.50 |
+| V3 | + old weekly-era rows weighted 0.25 | w .25 + rev | 12.10 | **7.55** | 1.56 | −3.53 | 45.4% | p 0.001 (worse) |
+| V4 | + one network pooled over 8 types | w .25 + rev | 11.45 | **6.96** | −1.38 | −11.42 | 45.6% | p 0.56 |
+| V5 | + trained on the reversion residual | w .25 + rev | 11.70 | **7.21** | −0.48 | −8.38 | 46.4% | p 0.84 |
+| V6 | V2 + fixed training (std targets, min_delta 0) | w .25 + rev | 12.88 | **5.14** | −11.92 | −17.14 | 43.7% | p 0.09 |
+| V7 | V6 pooled over 8 types | w .5 + rev | 16.14 | **7.30** | −4.73 | −1.04 | 45.1% | p 0.57 |
+| V8 | V7 on the residual | w 1.0 + rev | 13.95 | **−3.16** | −22.2 | −9.79 | 42.0% | p 0.11 |
+
+**Verdict: no configuration beats the reversion-only forecast on the test window when chosen by the
+pre-declared rule.** In every configuration the LSTM term raises the absolute error on more forecasts than it lowers
+(paired sign test, all p < 0.001). This holds across training data, features, weighting, pooling and residual
+learning, so it is a robust result, not one bad setting. It agrees with the "no significant contribution"
+ablation already reported, and it supplies the counter-evidence Chapter 2's revision note asks for: at this data size
+(≈540 genuinely daily days), a statistical term captures the predictable part of a near-random-walk series and the
+network adds none. Note that the production forecast (w = 0.25) is 0.10 pp *below* reversion-only; the LSTM is kept
+in the path at a disclosed low weight because the study's objective is the multivariate LSTM system.
+
+*Exploratory only, not deployed:* V7 at w = 0.25 scored +8.98% on test (6/8 types above reversion-only), but that
+weight was **not** the one the selection rule chose (w = 0.5 → +7.30%). Choosing it after seeing test would violate
+this project's rule that an improvement must win on a window it was not tuned on.
+*Seed-stability check* (`model/experiments/lstm_seeds.py`): V7 retrained with three other seeds gave test
++7.88 / +7.89 / **+1.36%** at w = 0.25 (and −12.56% at w = 0.5 for seed 2024), against +7.90% for reversion-only.
+**The +8.98% was seed luck and V7 is rejected.** A properly trained network on ≈540 daily days is unstable: the same
+configuration lands anywhere from matching reversion-only to far worse, depending on initialisation.
+
+**Why production keeps the current LSTM training.** Early stopping selects the epoch-1 weights because no later epoch
+improves the validation loss by `min_delta`. Retraining with `min_delta = 0` (V6–V8) fitted the validation block
+better but was worse and unstable on test. So the current setting is the conservative, seed-stable choice, and it is
+kept. State it that way in the paper ("early stopping retained the weights with the lowest validation loss; longer
+training overfitted and was not stable across seeds"), and do not describe the network as "trained for N epochs".
+
+**How to report this in Chapter 4.** It is the study's hyperparameter-tuning and ablation evidence (Chapter 3 promises
+structured tuning and a baseline comparison). Nine configurations were tested and chosen on validation, and none made the
+LSTM beat the statistical reversion term on held-out data. This matches the forecasting literature on near-random-walk
+series, and it answers Chapter 2's request for counter-evidence to "deep learning always outperforms statistical models".
+The deliverable (a multivariate LSTM forecasting system with a 48–72 h lead time) is met. The accuracy over naive
+persistence (+7.8%) comes from the hybrid's reversion term, and the paper must say so.
+
+**Future work (and how to check it).** The binding constraint is daily data: about 30 genuinely daily days are added per
+month. Re-run `experiments/lstm_improve.py` every few months; if a configuration then beats reversion-only on a window it
+was not tuned on, and across seeds, adopt it.
+
+### Round — Beating ARIMA(1,1,1): forecast combination tested (experiment; production unchanged)
+`model/experiments/arima_combo.py` (results in `arima_combo_results.json`). Saved production models; nothing retrained.
+*Why ARIMA wins on some types:* the hybrid is anchored on the last DA reading, which carries that day's survey noise.
+ARIMA(1,1,1)'s MA term acts as a smoothed level. The losses are concentrated where readings are noisiest: locSpecial
+(+5.0% MAE) and impSpecial (+4.5%). The hybrid's wins are large on imported grades (impPremium −16.5%).
+Candidates were chosen on the validation block by mean MAE, one setting for all 8 types, and reported once on test:
+
+| forecast | beats ARIMA | mean skill vs naive | worst type |
+|---|---|---|---|
+| hybrid (production) | 3/8 (+1 tie) | **+7.78%** | +2.15% |
+| 0.25·hybrid + 0.75·ARIMA (**chosen on validation**) | **6/8** | +6.62% | −5.11% |
+| 0.5·hybrid + 0.5·ARIMA (equal weights, untuned default) | 6/8 | +7.47% | −0.41% |
+| 0.75·hybrid + 0.25·ARIMA (*identified only after seeing test*) | 5/8 | +7.94% | +2.45% |
+| ARIMA + weekday reversion | 1/8 | +1.73% | −11.65% |
+| hybrid re-anchored on a smoothed level (α = 0.7) | 3/8 | +5.23% | −2.24% |
+
+**Trade-off, stated plainly:** an ARIMA–LSTM combination beats ARIMA on more types (6/8), but it gives up average
+accuracy and can dip below naive on one type. The production hybrid has the best average accuracy and beats naive on
+all 8. The 75/25 weight looks strictly better, but it was noticed after seeing test, so it cannot be claimed without a
+forward (prospective) evaluation. **Production is unchanged** pending the team's choice. For the paper, the defensible
+framing is: "the hybrid beats naive persistence on all 8 types and is competitive with ARIMA(1,1,1) (3 wins, 1 tie,
+2 losses ≤ 1.2%, 2 losses ≈ 5% on the Special grades); an ARIMA–LSTM forecast combination was tested and beats ARIMA
+on 6/8 at a cost in average skill."
+
+### Round — Adaptive forecast combination beats ARIMA on 8/8 and raises skill to +10.0% (experiment; not yet deployed)
+**Diagnosis first.** A DA reading behaves like *true price + that day's survey noise*. The noise differs by weekday
+(distance from the week's median: std ≈0.3 Mon–Wed, ≈0.9 Thu–Sat, 1.4 Sun) and some grades carry a weekday bias.
+ARIMA(1,1,1) smooths the noise but ignores the weekday; the production hybrid handles the weekday but anchors on one
+noisy reading. *(These statistics were computed over the whole daily era including the test period; disclosed.)*
+
+**Weekday Kalman filter (`experiments/kalman_dow.py`).** A local-level filter with a noise variance per weekday (K1),
+optionally a bias per weekday (K2). Maximum likelihood, re-estimated every 28 days on past daily-era rows only. Chosen
+on selection (K1), it scored +6.37% on test (5/8 vs ARIMA, one type below naive): strong on Local Special/Regular, weak
+on imported grades. The bias version overfitted badly (−12.9%). **Not adopted on its own.**
+
+**Adaptive combination (`experiments/adaptive_combo.py`).** No single forecaster wins everywhere, and the leader drifts
+over time. So each day, each component is weighted by 1 / (its mean squared error over the last 30 realised forecasts),
+per rice type and per forecast day (Bates & Granger, 1969). Past errors only; the 30-day window was fixed in advance.
+Two configurations: BG2 {hybrid, ARIMA} and BG3 {hybrid, ARIMA, weekday Kalman}. BG3 was chosen on the selection window
+(20.7% vs 14.2%) and reported once on test:
+
+| | production hybrid | **BG3 (chosen)** | BG2 |
+|---|---|---|---|
+| beats ARIMA(1,1,1) | 3/8 | **8/8** | 6/8 |
+| mean skill vs naive | +7.78% | **+10.01%** | +7.75% |
+| worst type | +2.15% | **+2.28%** | +1.06% |
+| directional accuracy | 59.9% | 60.0% | 59.8% |
+
+Per type (test skill, hybrid → BG3): locWellMilled 11.53 → 13.88, locRegular 11.76 → 15.62, locPremium 7.69 → 10.34,
+locSpecial 7.37 → 15.63, impWellMilled 2.15 → 3.28, impRegular 4.86 → 4.90, **impPremium 7.39 → 2.28 (the one type that
+falls; it still beats ARIMA and naive)**, impSpecial 9.52 → 14.17.
+**Robustness (disclosed, not used for choosing):** the window length changes nothing material. With 15/20/45/60/90 days
+BG3 gives 8/8 vs ARIMA, +9.90 to +10.05% mean skill and 60.0% directional. The gain is structural, not a lucky setting.
+**Caveat:** the test window has been used for many experiments in this round. The protocol (validation choice, one
+configuration, fixed window, past-only weights) limits the damage, but a forward evaluation on days after 2026-09-24 is the
+clean confirmation.
+
+**For the paper (if adopted):** the forecasting system becomes an *adaptively weighted ensemble* of (1) the LSTM-based
+hybrid, (2) ARIMA(1,1,1) and (3) a weekday-aware Kalman filter. The LSTM remains a component. The accuracy gain comes from
+the ensemble and the weekday noise modelling, not from the network alone.
+
+### Round — Adaptive ensemble deployed (model change, paper-relevant)
+Approved by the team and now the published forecast. Code: `model/ensemble.py` (ARIMA walk-forward, weekday
+Kalman filter, inverse-MSE combination), used by both `train.py` (test scoring → `meta.json`) and `predict.py` (live
+forecast, price range, chart backtest). `AGRIPRICE_ENSEMBLE=0` restores the plain LSTM hybrid instantly. Previous model
+backed up in `model/_backup_pre-ensemble-20260927-011854/`.
+
+**Retrained result (test 2025-10-07 → 2026-09-24, seed 42):**
+
+| | LSTM hybrid (previous) | **adaptive ensemble (published)** |
+|---|---|---|
+| mean skill vs naive | +7.80% | **+10.06%** |
+| beats ARIMA(1,1,1) | 4/8 (one a tie) | **8/8** |
+| every type beats naive | yes (worst +1.88%) | yes (worst impPremium +2.63%) |
+| movement ratio | 0.30 | 0.41 |
+| realised price-range coverage (walk-forward, 120 origins × 8 types) | 91.6% | **91.5%** (day 1/2/3: 92.2 / 91.0 / 91.1%), same width |
+
+Per type (skill, hybrid → ensemble): locWellMilled 11.46 → 13.87, locRegular 11.85 → 15.74, locPremium 7.69 → 10.34,
+locSpecial 7.27 → 15.59, impWellMilled 1.88 → 3.19, impRegular 5.03 → 4.98, impPremium 7.75 → 2.63, impSpecial 9.49 → 14.17.
+Average test weights are close to one third each (e.g. locSpecial 0.33 / 0.33 / 0.34 hybrid/ARIMA/Kalman). The
+ensemble earns its gain by switching between the components over time, not by permanently preferring one.
+
+**Disclose these (do not leave them for the panel to find):**
+- *Direction on two imported grades fell.* Day-1 up/down accuracy is impRegular 45.7% (hybrid had 62.4%) and
+  impPremium 50.3% (hybrid 57.9%), although five types improved (e.g. impSpecial 66.0 → 68.9, locSpecial 53.9 → 57.9).
+  impRegular's 45.7% rests on 210 moves (95% CI 39–52%, p = 0.24 vs 50%): it is *at chance*, not significantly worse.
+  Validation did not predict this (ensemble direction there was 71.1% vs 63.4%), so the types were not switched after
+  seeing test, which would have been test-tuning. The direction contract test now asks "not significantly below chance
+  per type" plus "pooled above 50%". That still catches the sign-bug class it was written for (0–32% on 200–350 moves is
+  overwhelming) without failing on noise. `directional_n` (moves per figure) is now saved in `meta.json`.
+- *impPremium's accuracy fell* (+7.75 → +2.63%); it still beats naive and ARIMA.
+- *The test window was reused* across this round's experiments. The choices were made on validation with a fixed window
+  and past-only weights, which limits the damage; a forward evaluation on days after 2026-09-24 is the clean confirmation.
+- *The network is still not the source of the gain* (LSTM ablation p = 0.95). The LSTM remains a component of the
+  published system (inside the hybrid and the Kalman forecast), which keeps Objective 1 intact.
+
+**Chapter 4 wording (suggested):** "The deployed forecaster is an adaptively weighted ensemble of (1) an LSTM-based hybrid
+with a weekday-aware mean-reversion correction, (2) ARIMA(1,1,1) and (3) a local-level Kalman filter with weekday-specific
+observation noise. Components are weighted daily by their inverse mean squared error over the previous 30 realised
+forecasts. On the held-out test window the ensemble beats naive persistence on all eight rice categories (mean skill
++10.1%) and ARIMA(1,1,1) on all eight, with 90%-nominal prediction intervals realising 91.5% coverage."
+
+### Round — Up/down reliability: a "steady" dead-band tested (experiment; production unchanged)
+`model/experiments/direction_deadband.py`. The ensemble's day-1 direction is at chance for impRegular/impPremium
+because their forecast change is usually a few centavos, yet a rise/fall arrow is still drawn. Candidate: show an arrow
+only when |forecast − last price| ≥ τ, otherwise "steady". **Pre-declared rule** (τ ∈ {0, .02, .05, .10, .15, .20, .30},
+one value, chosen on the selection window by (accuracy on called moves − 50%) × call rate): **it chose τ = 0, i.e. no
+dead-band**, because a threshold removes calls faster than it adds accuracy. Per that rule, the model's reported
+directional figures are unchanged.
+Trade-off for the record (selection window, all types): τ = 0 → 67% of arrows right on 100% of days; τ = 0.05 → 71% on
+67%; **τ = 0.10 → 80% on 44%**; τ = 0.20 → 87% on 27%. On test at τ = 0.10: impRegular 48% → 62% (on 32% of days),
+impPremium 48% → 54% (29%), locSpecial 62% → 75% (35%). If adopted, it is a *presentation* rule (arrows only for moves of
+at least 10 centavos, the same "about the same" threshold the Charts & Stats page already uses), not a change to the
+model or its reported metrics.
+
+### Round — LSTM transfer learning from other DA commodities (experiment; rejected)
+`model/experiments/transfer_pretrain.py` (results in `transfer_results.json`). The idea was to fix the LSTM's data shortage
+by pre-training on the other commodities in the same DA daily bulletins (fish, meat, vegetables, fruit; same markets, same
+weekday pattern), then fine-tuning on rice. Pre-training data ended 2025-07-21, before the selection and test windows (no
+leakage). It used 67 non-rice commodities observed on ≥70% of days, 4,010 sequences, scale-free inputs (daily change,
+distance from the 7-day median, weekday, diesel and USD/PHP daily change). Chosen on the selection window, scored once on test:
+
+| variant | selection | **test** | reversion-only test |
+|---|---|---|---|
+| pre-trained, no fine-tune | +19.33% | **−0.98%** | +7.90% |
+| pre-trained + fine-tuned (chosen) | +20.01% | **−21.85%** | +7.90% |
+| same, seeds 7 / 123 / 2024 | — | −10.51 / −16.25 / −12.43% | +7.90% |
+
+**Rejected.** The network learns something that holds in mid-2025 (strong validation scores) and fails in the test year,
+consistently across seeds; the LSTM term raised the error on 58–64% of forecasts. With this, 10 LSTM strategies have been
+tested: training data, features, weighting, pooling, residual learning, fixed training, transfer learning. None makes the
+network contribute on held-out data. **Conclusion for the paper:** at the current amount of genuinely daily data, the LSTM
+cannot add accuracy beyond the statistical components, and the system keeps it as a disclosed ensemble component. Re-test
+as daily data accumulates.
+
+### Round — "Steady" arrows adopted; forward evaluation log started
+**Steady arrows (presentation only).** The team adopted the dead-band as a display rule: a forecast move under
+**₱0.10/kg** is shown as "steady" or "about the same" instead of ▲/▼. This is the same 10-centavo threshold the Charts &
+Stats page already used. Changed: `/api/predictions` now carries `direction` ("up"/"down"/"steady", `predict.STEADY_PESO`,
+env `AGRIPRICE_STEADY_PESO`); the current-prices page (direction column and buying tip), Admin → Predictions (tomorrow card,
+forecast table) and Admin → Dashboard (prediction rows) use it. The model and all reported metrics are unchanged. The
+experiment above found shown arrows about 80% right at this threshold (selection window). Its pre-declared rule preferred
+no band, so this is a disclosed product choice, not a tuned result.
+
+**Forward (prospective) evaluation.** `model/forecast_log.py` + table `forecast_log` in the database + `GET /api/forecast-check`.
+Each time the forecast is built for a new day of data, it records every published forecast (8 types × 3 days) with its
+range, direction, the naive reference price, and the ARIMA and hybrid components, keyed to the day actually forecast
+(last data day + h). INSERT OR IGNORE means a forecast, once written, can never be revised. The report scores the logged
+forecasts as DA prices arrive: ensemble vs naive vs ARIMA vs hybrid MAE, range coverage, and direction on non-steady calls.
+First origin: 2026-09-26. **This is the clean confirmation the reused test window cannot give.** Once several weeks
+accumulate, report it in Chapter 4 as "prospective evaluation".
+**Found while building it (display bug, not fixed yet):** forecast day labels are computed from today's *calendar* date,
+not from the last day with data. When DA's bulletin for today is not out yet (e.g. data ends Sep 26, today Sep 27), the
+card labelled "tomorrow, Sep 28" actually shows the model's forecast for **Sep 27**. The forward log uses the correct dates.
+**[ACTION]** decide whether the site should label forecasts by the forecast day itself (e.g. "Sep 27 — today, not yet
+published").
+**Also fixed (live-system bug):** the forecast cache was keyed on meta.json's `last_date` (the *training* data's end), so a
+newly scraped DA bulletin never reached the website until a server restart or retrain. The key now includes the latest
+data day, and a successful rice scrape rebuilds the forecast in the background. This also writes that day's forecasts to
+the forward log. A cached request still takes about 2 ms.
+
+### Round — Full doc↔app sync before the final defense (2026-09-27)
+Everything that describes the system was re-checked against `model/meta.json` (training run 2026-09-26, data through
+2026-09-26) and the code, and brought into line.
+
+**Forecast date labels — fixed (resolves the [ACTION] above).** `predict._build_forecasts_by_key` now anchors day *h*
+on the last day with a DA price, not on today's calendar date, so a forecast is always labelled with the day it is
+actually for (the same dates the forward log uses). The home page's "as of" date now shows the latest bulletin's day
+instead of today's date (`public/js/landpage.js`, cache-bust `v=9`). Labels such as "Tomorrow" therefore mean "the day
+after the latest DA bulletin", which the pages already show next to the price.
+
+**The paper (`AgriPrice_Draft_Revised.docx`) — edited directly.** Backup:
+`documents/AgriPrice_Draft_Revised.docx.backup-pre-sync-20260927`. Only `word/document.xml` changed, plus one additive
+`[Content_Types].xml` entry (the four images are PNGs stored as `*.undefined`; declaring that extension lets standard
+tools open the file — Word already did). Every edit carries a red `[UPDATED 27 SEP 2026 …]` note to delete before printing.
+- **Ch. 1 Scope and Limitations:** added that asymmetric ("rockets and feathers") transmission is not explicitly modelled,
+  and that pre-April-2025 DA data was weekly, so accuracy is measured on the daily era.
+- **Ch. 2 Traditional vs AI:** added the counter-evidence the panel asked for — Makridakis et al. (2018), statistical
+  methods beat the ML methods tested on 1,045 M3 monthly series; Makridakis et al. (2020), M4 winners were mostly
+  combinations, the winner a statistical/RNN hybrid. The Synthesis Matrix is still empty (team input).
+- **Ch. 3 Research Design:** "fifteen (15) years of historical daily data" → the actual 2015–2026 record, weekly/irregular
+  before 2025 and daily from April 2025 (price changes on ~83% of days), with DA email-supplied 2026 values disclosed as
+  flagged verified rows. The 70/15/15 split paragraph → the regime-aware split with its dates and the reason. The testing
+  paragraph now names both baselines (naive, ARIMA(1,1,1)) and no longer calls ADF an accuracy metric.
+- **Ch. 3 Algorithm:** "LSTM networks consistently outperform ARIMA" softened to what the literature supports; new
+  subsection **LSTM Hybrid and Adaptive Ensemble** (anchored delta + weekday mean reversion; ensemble of hybrid, ARIMA and
+  weekday Kalman weighted by 1/MSE over 30 realised forecasts — Bates & Granger, 1969; Kalman, 1960; conformal range at
+  nominal 0.93 → ~90%; "steady" under PHP 0.10).
+- **Ch. 3 Conceptual Framework / LSTM Model Development:** the real architecture (2 stacked LSTM layers 64/32, dropout
+  0.2, Dense 16, 3 outputs, Adam, MSE, batch 32, 30-day window, early stopping) replaces "structured hyperparameter tuning
+  of look-back, units, learning rate and batch size" (not done as described); the nine alternative training strategies are
+  named instead.
+- **Ch. 3 Implementation / Testing / Deployment:** the PDF reader is described as position-based with the plausibility
+  guard and admin review queue (was "reliably extracts regardless of layout changes"); the 74-test suite; the automated
+  forward evaluation (forecast log) as the post-release review loop; price ranges and "steady" on the dashboard.
+- **Ch. 3 Statistical Treatment:** skill, hit rate, directional accuracy with a one-sided binomial test, range coverage and
+  the McNemar ablation added; an ARIMA(1,1,1) baseline paragraph added under Naive Persistence Baseline.
+- **Flagged, not changed:** the ANOVA paragraph names **DTI personnel** as a respondent group while the rest of Ch. 3 names
+  DA-AMAS personnel — a red [CHECK] note asks the team to use the group that actually answered.
+- **New draft Chapter 4 (Results and Discussion) and Chapter 5**, technical parts only, from `meta.json`: Table 1 (per-type
+  ensemble MAE vs naive vs ARIMA, skill, day-1 direction), hit rates, coverage, rolling-origin, the component ladder
+  (LSTM alone −1.29% → hybrid +7.80% → ensemble +10.06%), the ablation (149 vs 151, p = 0.95), the reused-test-window
+  caveat and the forward evaluation; SOP 2 data-engine results; red placeholders for the SOP 3–6 survey tables and
+  conclusions; recommendations.
+- **References to add to the bibliography** (the .docx has no reference list yet): Bates, J. M., & Granger, C. W. J.
+  (1969). The combination of forecasts. *Operational Research Quarterly, 20*(4), 451–468. · Kalman, R. E. (1960). A new
+  approach to linear filtering and prediction problems. *Journal of Basic Engineering, 82*(1), 35–45. · Makridakis, S.,
+  Spiliotis, E., & Assimakopoulos, V. (2018). Statistical and machine learning forecasting methods: Concerns and ways
+  forward. *PLoS ONE, 13*(3), e0194889. · Makridakis, S., Spiliotis, E., & Assimakopoulos, V. (2020). The M4 Competition:
+  100,000 time series and 61 forecasting methods. *International Journal of Forecasting, 36*(1), 54–74.
+
+**Other documents brought in line:** `SYSTEM_GUIDE.txt` (defense cheat sheet rewritten with current numbers; new §6.5a
+hybrid and §6.5b ensemble; split counts; prediction steps incl. the date anchor, forward log and cache; scraper guard;
+new endpoints; formulas), `README.md` and `README.txt` (were "2-day", "5 features", "80/20", "no tests"),
+`documents/SYSTEM_FEATURES.md` (headline, split, results table, inference, server-side accounts, Charts & Stats, admin
+pages, talking points), `documents/README.md` (current state), `CLAUDE.md`, and superseded banners on
+`MODEL_IMPROVEMENT_PLAN.md` and `CH3_METHODOLOGY_ADDITIONS.md`. Admin → Model Dashboard tooltips no longer say the model
+"tracks the baseline rather than beating it", and its per-type note now says "lower than the naive baseline (and ARIMA)"
+when that is true (`admin/js/model-dashboard.js`, cache-bust `v=20260927`).
+
+### Round — Price Forecast "Prices by brand": Change column was not the real change (2026-09-27)
+**Bug.** A brand's *Today* comes from `/api/brand-prices` = category base × (1 + weight_pct/100), and for three grades
+that base is the **Aug 1, 2026 DA bracket midpoint** (`catalog_service._latest_base_price` prefers the bracket), not
+today's DA price: Imported Well-Milled 54.00 vs DA 48.31, Local Premium 55.00 vs 53.70, Imported Regular 46.50 vs 45.00.
+*Tomorrow* was the current DA forecast × the same weight, so *Change* = forecast move **plus** the stale-bracket gap —
+e.g. Planters showed **−₱5.29** (and a Tomorrow range of ₱44.x beside a Today of ₱50.00) when the forecast moves −₱0.02.
+The five grades whose base is the latest DA price were already correct.
+**Fix (`public/current-prices.html`).** A brand now moves by the same *percentage* as the category forecast:
+Tomorrow = brand Today × (DA forecast ÷ DA today), and its range and the brand chart/snapshot use the same scale. Where
+the base is today's DA price this is identical to before. Changes under ₱0.10 are shown in neutral grey ("steady"),
+matching the forecast table. Verified live: Planters −₱0.02 (range ₱49.79–₱50.18), Adarna (Local Premium) +₱0.05.
+**Not changed:** the brand *Today* for those three grades is still priced off the Aug 1 bracket; whether the catalog
+should use the latest DA price or DTI/DA brackets is the open [DTI] item below.
+
 ---
 
 ## Still [VERIFY] / [ACTION]
+- **[TEAM]** fill every red `[TEAM INPUT REQUIRED]` note in the .docx: SOP 3–6 survey tables and conclusions, per-stratum
+  headcounts, Synthesis Matrix rows, sprint count/duration, the conceptual-framework diagram; add the four references
+  above; resolve the DTI vs DA-AMAS respondent-group [CHECK]; delete all red notes before printing.
+- **[ACTION]** before the defense, add the forward-evaluation numbers (`GET /api/forecast-check`) to Chapter 4.
+- **[ACTION]** restart the backend so the ensemble, date-label fix, forward log and new endpoints are live.
 - **[DTI]** confirm the 8 category names/definitions and the **brands** under each (DA has none).
 - **[DTI]** whether to keep the DA Bantay Presyo ranges or use official DTI brackets.
 - **[BOC]** any additional customs processing fees beyond the tariff.

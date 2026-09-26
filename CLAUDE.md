@@ -28,8 +28,14 @@ forecast horizon, train/val/test split, evaluation metrics and baselines, and th
 - After a change, verify the paper's claims still hold against the code (features in
   `model/meta.json`, `HORIZON`/split in `model/train.py`, sources in `tools/scrap.py`, live
   `/api/predictions` and Admin → Metrics). If wording drifts, update the `.docx` too.
-- Never let the paper claim something the app does not do (e.g., "beats the baseline"): the
-  honest evaluation result is that the LSTM ≈ naive persistence ≈ ARIMA at this horizon.
+- Never let the paper claim something the app does not do. The honest evaluation result: the
+  **LSTM network alone** ≈ naive persistence (skill −1.29%, ablation p = 0.95); the **published
+  adaptive ensemble** beats naive (+10.06%) and ARIMA (8/8) on the test window. Always say which one.
+- The `.docx` was reconciled on 2026-09-27 (Ch. 1 limitations, Ch. 2 counter-evidence, Ch. 3 data
+  span/split/baselines/ensemble, plus a draft Ch. 4–5 built from `meta.json`). Edit it by patching
+  `word/document.xml` only: its four images are PNGs stored as `*.undefined`, which python-docx can
+  only open after adding a `Default Extension="undefined"` content type (already added). Red
+  `[UPDATED …]`/`[TEAM INPUT REQUIRED …]` notes mark edits and open team-only items.
 
 ## Commands
 
@@ -59,7 +65,7 @@ cd api && py -3.13 app.py --loop --interval 3600
 cd api && py -3.13 app.py --serve --port 8080 # custom port/host for the server itself
 ```
 
-Tests: `py -3.13 -m pytest tests -q` (model/API contracts, the DA bulletin reader, the scraper guard, weekday reversion; API tests skip if :5000 is down). No linter or JS build step — frontend is plain HTML/CSS/JS served as static files, no bundler/npm project.
+Tests: `py -3.13 -m pytest tests -q` (74 tests: model/API contracts, the DA bulletin reader, the scraper guard, weekday reversion, the ensemble, the forecast log; API tests skip if :5000 is down). No linter or JS build step — frontend is plain HTML/CSS/JS served as static files, no bundler/npm project.
 
 ### Opening the app
 
@@ -151,15 +157,30 @@ measured a different way — see PAPER_CORRECTIONS.md Round 12 for the calibrati
 preferred; if unavailable, `train.py`/`predict.py` fall back to an sklearn `MLPRegressor` —
 `meta.json.backend` records which produced the current model.
 
-**Forecast = anchor + LSTM delta + a gated mean-reversion term** (`model/mean_reversion.py`). The
+**The published forecast is an adaptive ensemble** (`model/ensemble.py`, default on; `AGRIPRICE_ENSEMBLE=0`
+serves the plain hybrid). Three forecasters are weighted each day by 1 / (their MSE over the last 30 realised
+forecasts), per rice type and forecast day (Bates & Granger): (1) the LSTM hybrid described below, (2) ARIMA(1,1,1),
+(3) a local-level Kalman filter with a noise variance per weekday (DA's Sunday bulletin is ~5x noisier). Past errors
+only; training scores it on the test window (`meta.json` `forecaster: adaptive_ensemble`; the hybrid's own numbers sit
+under each type's `hybrid`). Current: **skill +10.06%, beats ARIMA on 8/8, every type beats naive (worst impPremium
++2.63%)**, price-range coverage 91.5% realised. Honest caveats, keep them in the paper: impRegular's day-1 direction fell
+to chance (45.7% on 210 moves, not significantly below 50%; the hybrid had 62%), impPremium to 50.3%, and the test
+window was reused across many experiments (a forward evaluation is the clean confirmation). The LSTM ablation still
+shows no significant network contribution (p = 0.95) — the gain is the ensemble's, never the network's. See
+PAPER_CORRECTIONS.md "Adaptive ensemble deployed". Forward evaluation: every freshly built forecast is logged before its
+DA price exists (`model/forecast_log.py`, table `forecast_log`, `GET /api/forecast-check`), and forecast moves under
+₱0.10 are published as direction "steady" (`predict.STEADY_PESO`). Forecast day *h* is dated **last DA data day + h**
+(`_build_forecasts_by_key` anchor), not today + h — the public "Tomorrow" card means "the day after the latest bulletin".
+
+**The LSTM hybrid = anchor + LSTM delta + a gated mean-reversion term** (`model/mean_reversion.py`). The
 LSTM *on its own* collapses to the naive forecast (`movement_ratio` 0.07, skill −1%), because ~73%
 of its training targets are forward-filled zeros while the deployment regime is only ~4% flat.
 Retraining on the active regime does not fix it (skill −7%, 0/8). What does: the active-regime
 first differences are strongly mean-reverting (lag-1 autocorrelation −0.17 to −0.41, Ljung–Box
-p < 0.0001, t = −3.0 to −7.2), so one OLS coefficient per horizon — fit on the validation window
-only, shrunk ×0.8, clipped to [−1, 0], and deployed only when |t| ≥ 2 — recovers it. With that
-term the model **does** beat naive persistence: **skill +3.51%, positive on 7/8 types,
-directional accuracy 57–67%, `movement_ratio` 0.24**. Shrinkage is 0.6 and a second lag was tested and rejected (dominated end-to-end at every shrink level). See PAPER_CORRECTIONS.md Rounds 11, 13 and 15. The coefficient is re-fitted on a rolling 120-day window before each forecast (`mean_reversion.rolling_phi`) rather than frozen at training time — scoring and serving use the same path, so they cannot diverge.
+p < 0.0001, t = −3.0 to −7.2), so one OLS coefficient per horizon — shrunk, clipped to [−1, 0],
+and deployed only when |t| ≥ 2 — recovers it. With that term (Round 13, before the weekday and
+rolling-window changes below) the model first beat naive persistence: skill +3.51%, 7/8 types,
+`movement_ratio` 0.24; the current hybrid is +7.80%, 8/8. Shrinkage is 0.6 and a second lag was tested and rejected (dominated end-to-end at every shrink level). See PAPER_CORRECTIONS.md Rounds 11, 13 and 15. The coefficient is re-fitted on a rolling 120-day window before each forecast (`mean_reversion.rolling_phi`) rather than frozen at training time — scoring and serving use the same path, so they cannot diverge.
 **The coefficient is weekday-aware** (`mean_reversion.WEEKDAY_MODE`, default on): the anchor day's weekday
 gets its own coefficient, because DA's Sunday bulletin (fewer markets) is ~5× noisier than weekdays and is
 reversed on Monday, while Thursday/Friday moves persist. Chosen on the validation window only
@@ -167,8 +188,8 @@ reversed on Monday, while Thursday/Friday moves persist. Chosen on the validatio
 `AGRIPRICE_REVERSION_WEEKDAY=0` restores the single global coefficient.
 
 State this precisely: the **combined** model beats persistence on all 8 types, but beats
-**ARIMA(1,1,1) on only 4 of 8** (`meta.json` per-type `beats_arima`; locRegular by PHP 0.0002, a tie) —
-on `locWellMilled` ARIMA is ahead, PHP 0.2842 vs 0.2877 (weekday retrain 2026-09-26). Do not write "beats ARIMA" without that qualifier; the panel can check
+**ARIMA(1,1,1) on only 4 of 8** as a *hybrid* (locRegular by PHP 0.0002, a tie; on `locWellMilled` ARIMA is
+ahead, PHP 0.2842 vs 0.2877). The published *ensemble* beats ARIMA on 8/8 — say which one you mean. Do not write "beats ARIMA" without that qualifier; the panel can check
 it in one command. The defensible framing is that the two are close, and that this system adds
 prediction intervals, 8 simultaneous targets, and a daily operational pipeline that a single-series
 ARIMA does not. The **LSTM alone does

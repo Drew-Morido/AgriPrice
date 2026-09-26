@@ -1,4 +1,42 @@
 ================================================================================
+  AgriPricePH - Update Notes (devrai-pogi branch)
+  Date: 2026-09-27
+================================================================================
+
+1) FORECASTER (model/ensemble.py, model/mean_reversion.py, model/predict.py, model/train.py)
+--------------------------------------------------------------------------------
+- Published forecast is now an ADAPTIVE ENSEMBLE: LSTM hybrid + ARIMA(1,1,1) +
+  weekday Kalman filter, weighted by 1/MSE over the last 30 realised forecasts.
+  Test window: skill +10.06% vs naive (8/8 types), better than ARIMA on 8/8,
+  price-range coverage 91.5%. AGRIPRICE_ENSEMBLE=0 serves the plain hybrid.
+- Mean-reversion coefficient is weekday-aware (hybrid +3.42% -> +7.80%).
+- Forecast moves under PHP 0.10 are published as "steady".
+- Forecast dates now count from the last DA data day (was today's date).
+- Forward evaluation: model/forecast_log.py + GET /api/forecast-check.
+
+2) DATA ENGINE (tools/pdfconvrt.py, tools/scrape_guard.py, tools/scrap.py)
+--------------------------------------------------------------------------------
+- DA PDF prices read by row position (fixes imported prices shifting a column
+  when a bulletin has "n/a").
+- Scraper guard holds suspicious readings; Admin > Web Scraper > Held for review.
+- Forecast cache rebuilt after each successful rice scrape.
+
+3) SITE
+--------------------------------------------------------------------------------
+- Charts & Stats redesigned (public/statistics.html, public/js/public-stats.js).
+- Steady arrows on current prices, admin dashboard and predictions.
+- Admin Model Dashboard wording matches the current results.
+
+4) DOCS
+--------------------------------------------------------------------------------
+- Paper (.docx) Ch. 1-3 reconciled + draft Ch. 4-5; SYSTEM_GUIDE, READMEs,
+  SYSTEM_FEATURES, CLAUDE.md updated. Details: documents/PAPER_CORRECTIONS.md.
+- Tests: 74 (py -3.13 -m pytest tests -q).
+
+REQUIRED AFTER PULLING: restart the backend (cd api && py -3.13 app.py).
+
+
+================================================================================
   AgriPricePH — Update Notes (dev-rk branch)
   Date: 2026-09-04
 ================================================================================

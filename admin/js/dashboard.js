@@ -702,11 +702,14 @@ AgriPricePH.Dashboard = (function () {
 
       const prev = dayIdx === 0 ? last : (days[dayIdx - 1]?.price ?? last);
       const change = row.change != null ? row.change : row.price - prev;
-      const dir = change > 0 ? 'up' : change < 0 ? 'down' : 'flat';
-      const arrow = change > 0 ? '▲' : change < 0 ? '▼' : '→';
+      // A forecast move under 10 centavos is shown as 'steady', not as a rise or fall: the model cannot call direction that small better than a coin flip (PAPER_CORRECTIONS.md, 'Up/down reliability').
+      const steady = Math.abs(change) < 0.10;
+      const dir = steady ? 'flat' : change > 0 ? 'up' : 'down';
+      const arrow = steady ? '→' : change > 0 ? '▲' : '▼';
       const sign = change > 0 ? '+' : '';
       const modelId = (row.model || 'lstm').toLowerCase();
-      const isLstm = modelId === 'lstm';
+      // 'ensemble' = the LSTM hybrid combined with ARIMA and the weekday Kalman filter (model/ensemble.py).
+      const isLstm = modelId === 'lstm' || modelId === 'ensemble';
       const trainAcc = trainAccuracyForKey(key, dayIdx);
       const perDayAcc = Array.isArray(_metricsByTarget?.[key]?.per_horizon_accuracy_pct);
       const confPct = trainAcc != null
@@ -720,7 +723,7 @@ AgriPricePH.Dashboard = (function () {
           : `${perDayAcc ? `Day ${_predDay}` : 'Whole 3-day'} hold-out test accuracy (legacy formula)`)
           + `${maeHint != null ? ` · average error ₱${Number(maeHint).toFixed(2)}/kg` : ''}`;
       const originLabel = _predOrigin === 'imported' ? 'Imported' : 'Local';
-      const modelLabel = isLstm ? 'LSTM' : 'Trend est.';
+      const modelLabel = modelId === 'ensemble' ? 'Ensemble' : (isLstm ? 'LSTM' : 'Trend est.');
       const pillClass = isLstm ? 'pill-green' : 'pill-gray';
 
       return `

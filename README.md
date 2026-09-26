@@ -1,15 +1,17 @@
 # AgriPricePH
 
-**Philippine rice price monitoring & 2-day LSTM forecasting system.**
+**Philippine rice price monitoring & 3-day LSTM-based forecasting system.**
 
-AgriPricePH scrapes and imports rice, fuel, USD/PHP, weather, and stock data into SQLite, trains an LSTM (with an sklearn MLP fallback) to forecast the **Local Well-Milled** rice price two days ahead, and serves both a **public site** (for vendors and households) and an **admin dashboard** (for staff) from a single Flask application.
+AgriPricePH scrapes and imports rice, fuel, USD/PHP, stock and farmgate data into SQLite, trains one multivariate LSTM per rice type (with an sklearn MLP fallback), and publishes a 1–3 day (48–72h) forecast for all **8 rice types** as an adaptive ensemble of the LSTM hybrid, ARIMA(1,1,1) and a weekday Kalman filter. One Flask application serves both a **public site** (for vendors and households) and an **admin dashboard** (for staff).
 
 ---
 
 ## Features
 
-- 📈 **2-day price forecast** for 8 rice types (Imported/Local × Special, Premium, Well-Milled, Regular)
-- 🧠 **LSTM model** (30-day input window, 5 features) with automatic sklearn `MLPRegressor` fallback when TensorFlow is unavailable
+- 📈 **3-day price forecast** for 8 rice types (Imported/Local × Special, Premium, Well-Milled, Regular), each with a calibrated ~90% price range
+- 🧠 **LSTM-based adaptive ensemble** — per-type LSTM (30-day window, 13 features) + weekday mean-reversion, combined with ARIMA(1,1,1) and a Kalman filter by recent accuracy. Test window: skill +10.06% vs naive, better than ARIMA on 8/8 types (see `SYSTEM_GUIDE.txt` §0 for the caveats)
+- 🧾 **Forward evaluation** — every published forecast is logged before its DA price exists (`/api/forecast-check`)
+- 🛡️ **Scraper guard** — position-based DA PDF reading plus a plausibility check that holds suspicious prices for admin review
 - 🕸️ **Automated data pipeline** — scrapes/imports rice, fuel, exchange-rate, weather, and stock data into SQLite
 - 🔐 **Secure admin dashboard** — server-issued session tokens, hashed 6-digit security code, lockout after 5 failed attempts
 - 🌐 **Same-origin app** — one Flask instance serves the REST API, SSE log streams, and the static frontend (no bundler/npm)
@@ -42,7 +44,7 @@ AgriPricePH/
 ├── model/                ML train/predict, data pipeline, admin auth, settings, alerts
 ├── datasets/             SQLite DB + historical/2026 import scripts
 ├── tools/                Web scraper + PDF parser
-├── documents/            Exported reports
+├── documents/            Capstone paper (.docx) + PAPER_CORRECTIONS.md reconciliation log
 ├── requirements.txt
 ├── run_backend.bat / setup_database.bat
 ├── README.txt            Detailed setup & troubleshooting
@@ -124,7 +126,8 @@ Forecasts are then available at Public → `forecast.html` and Admin → Predict
 |--------|----------|---------|
 | GET | `/api/health` | Server check |
 | GET | `/api/historical-data` | Price charts |
-| GET | `/api/predictions` | 2-day forecast (8 rice types) |
+| GET | `/api/predictions` | 3-day forecast (8 rice types, with ranges and direction) |
+| GET | `/api/forecast-check` | Forward evaluation of logged forecasts |
 | POST | `/api/run-training` | Start training |
 | POST | `/api/admin/verify` | Admin login → session token |
 | GET | `/api/admin/session` | Validate token |
@@ -144,13 +147,13 @@ Data sources (DA PDF/HTML, fuel site, USD API, XLSX)
 datasets/agriprice_database.db  (SQLite)
         │  model/data_pipeline.py → merged frame (rice, fuel, FX, weather, stock)
         ▼
-model/train.py  →  LSTM / MLP  →  model/predict.py  →  /api/predictions
-        │              (30-day window, 2-day horizon, 5 features)
+model/train.py  →  LSTM / MLP  →  model/predict.py (hybrid → ensemble)  →  /api/predictions
+        │              (30-day window, 3-day horizon, 13 features)
         ▼
 api/app.py (Flask :5000) → public/*.html + admin/*.html
 ```
 
-**Key ML constants:** 30-day input sequence, 2-day forecast horizon, 5 features (`locWellMilled`, `locPremium`, `fuel`, `exchange`, `rainfall`), single target `locWellMilled`, chronological 80/20 split.
+**Key ML constants:** 30-day input sequence, 3-day forecast horizon, 13 features (5 raw: RON95, diesel, stock, farmgate, USD/PHP; plus seasonal, rolling and target-lag features), one model per rice type, regime-aware chronological split (train to 2025-03-31, validation and test from the daily-observation era).
 
 For the full architecture and exact ML math (scaling, sequencing, loss, inference), see [`SYSTEM_GUIDE.txt`](SYSTEM_GUIDE.txt). For detailed setup and troubleshooting, see [`README.txt`](README.txt).
 
@@ -170,4 +173,4 @@ For the full architecture and exact ML math (scaling, sequencing, loss, inferenc
 
 ## Notes
 
-This is an academic/capstone project. There is no automated test suite or JS build step — the frontend is plain static files served by Flask. Demo vendor accounts live only in browser `localStorage`; there is no real end-user account database.
+This is an academic/capstone project. Tests: `py -3.13 -m pytest tests -q` (74 tests). There is no JS build step — the frontend is plain static files served by Flask. User accounts are server-side (`model/user_store.py`, hashed passwords).

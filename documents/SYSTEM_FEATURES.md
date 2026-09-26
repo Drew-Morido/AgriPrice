@@ -15,10 +15,14 @@ and serves both a **public site** (households/retailers) and an **admin dashboar
 **single Flask app**. It also models the **dynamic import tariff** on imported rice and shows a
 **consumer price** = base price + applicable taxes.
 
-**One honest headline for the panel:** at this short horizon NCR rice prices behave like a
-**near‑random walk** (ADF p ≈ 0.07), so the LSTM **matches** — does not beat — the naive
-persistence and ARIMA baselines. The contribution is a **working, unified, multivariate
-decision‑support system with honest evaluation**, not a lower error number.
+**One honest headline for the panel (training run 2026‑09‑26):** the published forecast — an
+**LSTM‑based adaptive ensemble** (LSTM hybrid + ARIMA(1,1,1) + weekday Kalman filter) — beats naive
+persistence on **8/8** rice types (**skill +10.06%**, worst +2.63%) and **ARIMA(1,1,1) on 8/8**, with
+price ranges that cover **91.5%** of actual prices (target 90%). Say precisely where the gain comes
+from: the **LSTM network alone does not add significant accuracy** (McNemar p = 0.95; alone it
+reproduces persistence, skill −1.29%) — the gain is the weekday mean‑reversion term and the forecast
+combination. Rice prices are a **near‑random walk** (ADF p 0.08–0.21), so the margin is small in pesos
+(≈ ₱0.03/kg) but consistent.
 
 ---
 
@@ -97,26 +101,39 @@ This **anchors** forecasts to reality and prevents level drift. It also means th
 > (MAE ≈ ₱0.24). This is why `AGRIPRICE_DELTA_MODE` defaults to `1` in `train.py`.
 
 ### 3.3 Training (`model/train.py`)
-- **Chronological 70/15/15 split** (`i_tr = 0.70·n`, `i_va = 0.85·n`) — earliest 70% train,
-  next 15% validation, most recent 15% test. **No shuffling** (prevents look‑ahead leakage).
+- **Regime‑aware chronological split** (`train.py::_split_indices`): train 2015‑01‑31 → 2025‑03‑31,
+  validation 2025‑04‑01 → 2025‑10‑06, test 2025‑10‑07 → 2026‑09‑24 (353 origins per type). Validation
+  and test both come from the **daily‑observation era** (DA data before 2025 is weekly, carried
+  forward). The old 70/15/15 put an 88%‑flat period in validation. **No shuffling.**
 - **Scaler fit on training rows only** (`MinMaxScaler` on `raw[:train_row_end]`) — another
   leakage guard.
 - LSTM with dropout + early stopping; **falls back to a scikit‑learn `MLPRegressor`** if
   TensorFlow is unavailable (`meta.json.backend` records which ran; current = `tensorflow`).
-- Writes per‑type `*.keras`, the scaler, and `meta.json` (v3) with full metrics.
+- Writes per‑type `*.keras`, the scaler, and `meta.json` (v4) with full metrics, including the
+  hybrid's own numbers and the ensemble's weights per type.
 
 ### 3.4 Evaluation & honest results (`meta.json`)
-For `locWellMilled` (representative):
-| Metric | LSTM | Persistence baseline | ARIMA(1,1,1) |
-|---|---|---|---|
-| MAE (₱/kg) | **0.243** | 0.228 | 0.228 |
-| MAPE | **0.54%** | — | — |
-| R² | 0.987 | (similarly high) | — |
-| ADF p‑value | 0.070 (non‑stationary) | | |
+Test window 2025‑10‑07 → 2026‑09‑24, MAE pooled over days 1–3 (₱/kg):
+| Rice type | Ensemble | Persistence | ARIMA(1,1,1) | Skill | Day‑1 direction |
+|---|---|---|---|---|---|
+| Local Well‑Milled | **0.280** | 0.325 | 0.284 | +13.9% | 61.5% |
+| Local Regular | **0.264** | 0.314 | 0.277 | +15.7% | 62.3% |
+| Local Premium | **0.263** | 0.294 | 0.271 | +10.3% | 59.4% |
+| Local Special | **0.215** | 0.255 | 0.225 | +15.6% | 57.9% |
+| Imported Well‑Milled | **0.283** | 0.292 | 0.297 | +3.2% | 65.6% |
+| Imported Regular | **0.329** | 0.346 | 0.353 | +5.0% | 45.7% (chance) |
+| Imported Premium | **0.309** | 0.318 | 0.351 | +2.6% | 50.3% (chance) |
+| Imported Special | **0.339** | 0.396 | 0.343 | +14.2% | 68.9% |
+
+Component ladder (same window): LSTM alone −1.29% → LSTM hybrid (+ weekday reversion) +7.80%
+(ARIMA 4/8) → adaptive ensemble +10.06% (ARIMA 8/8). Hit rate within ₱1.00: 96.1 / 95.4 / 94.8%
+(days 1/2/3). Range coverage 91.5%.
 
 - **Baselines:** naive **persistence** ("tomorrow = today") and **ARIMA(1,1,1)** walk‑forward.
-- **ADF test** p ≈ 0.07 ⇒ series is **non‑stationary / near random walk** → persistence is a very
-  strong benchmark; matching it is the expected, honest outcome.
+- **ADF test** p 0.08–0.21 ⇒ series is **near random walk** → persistence is a very strong benchmark.
+- **Caveats to state first:** the LSTM ablation is not significant (149 vs 151, p = 0.95); direction
+  is at chance for impRegular/impPremium; the test window was reused across experiments, so a
+  **forward evaluation** runs from 2026‑09‑26 (`model/forecast_log.py`, `GET /api/forecast-check`).
 - **R² is not used as proof of quality** — because prices trend, persistence also scores high R².
   The honest metric is **MAE/RMSE vs the baselines**.
 - Also computed: **rolling‑origin** (blocked, k=5) for stability and **shock‑day** metrics
@@ -128,17 +145,20 @@ acceptable.
 
 ### 3.5 Inference (`model/predict.py`)
 Loads the fitted scaler + per‑type model, builds the **last 30‑day window**, predicts the 3‑day
-delta, reconstructs the level, and serves it at **`/api/predictions`** (cached/warmed in a
-background thread at startup). `model_notes.method` reports the model that actually produced it.
+delta, adds the weekday mean‑reversion term (the **LSTM hybrid**), then combines it with ARIMA(1,1,1)
+and a weekday Kalman filter, each weighted by 1/MSE over its last 30 realised forecasts (the
+**adaptive ensemble**, `model/ensemble.py`). Every day gets a conformal **price range** (~90%
+realised) and a **direction** (`steady` when the move is under ₱0.10). Day *h* is dated **last DA
+price day + h**. Served at **`/api/predictions`** (cached until new data or a retrain; rebuilt after
+each successful rice scrape) and logged once to `forecast_log` for forward evaluation.
 
 ---
 
 ## 4. Public site features (`public/`)
 
-Shared shell (`public/js/public-shell.js`) injects one navbar. Auth state
-(`public/js/public-auth.js`) is **browser‑local** (demo): users live in `localStorage`
-(`agriprice_public_users`), session in `sessionStorage`. There is **no server user database** —
-state that plainly; it's a design choice for the demo.
+Shared shell (`public/js/public-shell.js`) injects one navbar. Accounts are **server‑side**
+(`model/user_store.py`, SQLite `model/agriprice_users.db`; werkzeug‑hashed passwords; email password
+reset). Older browser‑`localStorage` demo accounts migrate automatically on their next login.
 
 ### 4.1 Roles (simplified)
 A single **Retailer** account role. Households use the site as **free guests** (today's prices +
@@ -151,8 +171,8 @@ CTAs are removed** (conditional render on `isLoggedIn()`, not CSS); the "See tod
 remain.
 
 ### 4.3 Price Forecast (`current-prices.html`)
-Today's price + the **3‑day forecast** per rice type, drawn from `/api/predictions` with an error
-band (±MAE). Free for guests.
+Today's price + the **3‑day forecast** per rice type, drawn from `/api/predictions` with its
+calibrated price range; moves under ₱0.10 are shown as "about the same". Free for guests.
 
 ### 4.4 Rice Catalog (`rice-catalog.html`) — NCR only
 **8 category tabs** drive **one reusable table**: Brand | Price | Actual Package | Location | Source
@@ -163,8 +183,9 @@ milled rice is sold **by classification, not brand**.
 
 ### 4.5 Price History & Charts (`historical.html`, `statistics.html`)
 Historical series and interactive charts. These are **gated**: guests get an unlock prompt;
-logged‑in users see the content. The stats view has a vendor/household **data lens** (framing of
-the copy), separate from the account role.
+logged‑in users see the content. **Charts & Stats** (`public/js/public-stats.js`) is four tabs, one
+screen each: what moved this week, local vs imported by grade, the price trend for one rice, and a
+monthly rice budget — all live from the database, with one‑day survey spikes filtered out.
 
 ### 4.6 Profile (`profile.html`) & Settings (`settings.html`) — logged‑in only
 Both shown **only to logged‑in users** (guest nav hides them; visiting either URL directly
@@ -193,9 +214,9 @@ for 15 minutes**. Default demo login: `admin` / `Admin@123` / `123456`.
 | **Live Predictions** | current `/api/predictions` per type |
 | **Data Sources** | source status/config |
 | **Historical Data** | browse stored series |
-| **Web Scraper** | **Run Now** (`/api/run-scraper`), live activity log (SSE/poll), stat cards, schedule/countdown. (The old "Live Scraped Data Preview" table was removed as redundant; scraping/storage unchanged.) |
+| **Web Scraper** | **Run Now** (`/api/run-scraper`), live activity log (SSE/poll), stat cards, schedule/countdown, and **Held for review** — readings the scraper guard would not save (duplicate of an adjacent grade, or > 6% from the 7‑reading median), with Approve/Reject. |
 | **LSTM Model / Training** | start training (spawns `train.py`), SSE log stream (`/api/stream-training`) |
-| **Performance Metrics** | LSTM vs persistence vs ARIMA, MAPE/R²/rolling/shock — with the **honest R² caveat** |
+| **Model Dashboard (Metrics)** | published forecast vs persistence vs ARIMA per type, MAPE/R²/rolling/shock — with the **honest R² caveat** |
 | **Correlation Analysis** | driver correlations incl. the **import‑tariff factor** (raw Pearson r ≈ −0.03, a policy step‑variable) |
 | **Taxes & Import Charges** | tariff schedule + consumer‑price preview (see §6) |
 | **Price Alerts** | threshold rules (`alerts_engine.py`), fired events logged |
@@ -277,8 +298,7 @@ drops to VAT‑only. Reactivate → the 15% returns. Every toggle is in System L
   generate/delete, import, tariff writes, logs) → a call without a valid admin token returns **401**.
   The shared `js/api.js` auto‑attaches the admin token so the dashboard authenticates every call;
   public read endpoints stay open. Frontend hiding is **not** the security boundary — the backend is.
-- **Public:** demo accounts in `localStorage` (passwords in plaintext **in the browser** — a
-  demo limitation, disclosed). No server user DB.
+- **Public:** server‑side accounts (`model/user_auth.py`, hashed passwords, email reset).
 - **Exchange API** is keyless (no secret in the repo).
 - **Known pre‑deployment hardening** (be honest): rotate the default admin credentials, run behind
   a production WSGI server (Waitress/Gunicorn) instead of the Flask dev server, add HTTPS + tighter
@@ -312,9 +332,11 @@ drops to VAT‑only. Reactivate → the 15% returns. Every toggle is in System L
 ---
 
 ## 10. Five defense talking points (say these confidently)
-1. **Honest evaluation:** LSTM ≈ persistence ≈ ARIMA at 1–3 days because ADF says near‑random walk.
-   Demonstrating that deep learning does **not** beat a baseline is a **valid empirical finding**.
-2. **No leakage:** chronological 70/15/15, scaler fit on train only, anchored‑delta reconstruction.
+1. **Measured, not assumed:** the published ensemble beats persistence and ARIMA on 8/8 types; the
+   LSTM network alone does not add significant accuracy (p = 0.95), and we say so — the gain is the
+   mean‑reversion structure and forecast combination. A forward evaluation confirms it on new data.
+2. **No leakage:** regime‑aware chronological split, scaler fit on train only, ensemble weights and
+   reversion coefficients from past data only, seeded runs.
 3. **No fabrication:** verified sources only; empty states over invented data; the FAO baseline is
    left unset rather than guessed; tariff staleness is surfaced, not hidden.
 4. **Decision‑support, not a guarantee:** forecasts come with an error band; the tariff/consumer

@@ -1,0 +1,450 @@
+{
+ "seed_42": {
+  "zero_shot": {
+   "configs": {
+    "w0.0_rev": {
+     "sel": 12.21,
+     "test": 7.9,
+     "test_min": 2.3
+    },
+    "w0.25_rev": {
+     "sel": 19.33,
+     "test": -0.98,
+     "test_min": -13.83
+    },
+    "w0.5_rev": {
+     "sel": 18.88,
+     "test": -25.37,
+     "test_min": -55.01
+    },
+    "w1.0_rev": {
+     "sel": 1.15,
+     "test": -92.06,
+     "test_min": -165.72
+    },
+    "w0.25_norev": {
+     "sel": 7.45,
+     "test": -6.39,
+     "test_min": -16.12
+    },
+    "w0.5_norev": {
+     "sel": 10.07,
+     "test": -26.06,
+     "test_min": -56.93
+    },
+    "w1.0_norev": {
+     "sel": 4.31,
+     "test": -85.33,
+     "test_min": -162.18
+    }
+   },
+   "best": "w0.25_rev",
+   "ablation": {
+    "mcnemar": {
+     "fixes": 679,
+     "breaks": 728,
+     "p": 0.2007,
+     "dir_full": 60.8,
+     "dir_rev": 61.6
+    },
+    "paired_error": {
+     "lstm_lower_error": 3526,
+     "lstm_higher_error": 4946,
+     "share_better_pct": 41.6,
+     "p": 1.265e-53
+    }
+   }
+  },
+  "fine_tuned": {
+   "configs": {
+    "w0.0_rev": {
+     "sel": 12.21,
+     "test": 7.9,
+     "test_min": 2.3
+    },
+    "w0.25_rev": {
+     "sel": 19.03,
+     "test": -0.2,
+     "test_min": -12.59
+    },
+    "w0.5_rev": {
+     "sel": 20.01,
+     "test": -21.85,
+     "test_min": -49.82
+    },
+    "w1.0_rev": {
+     "sel": 6.38,
+     "test": -81.37,
+     "test_min": -148.4
+    },
+    "w0.25_norev": {
+     "sel": 7.13,
+     "test": -5.64,
+     "test_min": -15.82
+    },
+    "w0.5_norev": {
+     "sel": 10.73,
+     "test": -22.78,
+     "test_min": -51.75
+    },
+    "w1.0_norev": {
+     "sel": 8.15,
+     "test": -75.06,
+     "test_min": -145.49
+    }
+   },
+   "best": "w0.5_rev",
+   "ablation": {
+    "mcnemar": {
+     "fixes": 766,
+     "breaks": 850,
+     "p": 0.03895,
+     "dir_full": 60.2,
+     "dir_rev": 61.6
+    },
+    "paired_error": {
+     "lstm_lower_error": 3053,
+     "lstm_higher_error": 5419,
+     "share_better_pct": 36.0,
+     "p": 1.351e-145
+    }
+   }
+  }
+ },
+ "seed_7": {
+  "zero_shot": {
+   "configs": {
+    "w0.0_rev": {
+     "sel": 12.21,
+     "test": 7.9,
+     "test_min": 2.3
+    },
+    "w0.25_rev": {
+     "sel": 12.61,
+     "test": 3.25,
+     "test_min": -15.0
+    },
+    "w0.5_rev": {
+     "sel": -0.2,
+     "test": -17.27,
+     "test_min": -42.62
+    },
+    "w1.0_rev": {
+     "sel": -47.33,
+     "test": -78.27,
+     "test_min": -142.67
+    },
+    "w0.25_norev": {
+     "sel": 2.21,
+     "test": -2.77,
+     "test_min": -14.48
+    },
+    "w0.5_norev": {
+     "sel": -5.05,
+     "test": -19.55,
+     "test_min": -43.11
+    },
+    "w1.0_norev": {
+     "sel": -39.87,
+     "test": -72.79,
+     "test_min": -138.53
+    }
+   },
+   "best": "w0.25_rev",
+   "ablation": {
+    "mcnemar": {
+     "fixes": 704,
+     "breaks": 678,
+     "p": 0.5013,
+     "dir_full": 62.1,
+     "dir_rev": 61.6
+    },
+    "paired_error": {
+     "lstm_lower_error": 3688,
+     "lstm_higher_error": 4784,
+     "share_better_pct": 43.5,
+     "p": 1.233e-32
+    }
+   }
+  },
+  "fine_tuned": {
+   "configs": {
+    "w0.0_rev": {
+     "sel": 12.21,
+     "test": 7.9,
+     "test_min": 2.3
+    },
+    "w0.25_rev": {
+     "sel": 16.58,
+     "test": 4.46,
+     "test_min": -14.81
+    },
+    "w0.5_rev": {
+     "sel": 12.55,
+     "test": -10.51,
+     "test_min": -42.2
+    },
+    "w1.0_rev": {
+     "sel": -15.52,
+     "test": -59.18,
+     "test_min": -109.76
+    },
+    "w0.25_norev": {
+     "sel": 5.76,
+     "test": -1.65,
+     "test_min": -14.31
+    },
+    "w0.5_norev": {
+     "sel": 6.05,
+     "test": -13.03,
+     "test_min": -38.37
+    },
+    "w1.0_norev": {
+     "sel": -9.13,
+     "test": -54.08,
+     "test_min": -101.77
+    }
+   },
+   "best": "w0.25_rev",
+   "ablation": {
+    "mcnemar": {
+     "fixes": 643,
+     "breaks": 653,
+     "p": 0.8026,
+     "dir_full": 61.4,
+     "dir_rev": 61.6
+    },
+    "paired_error": {
+     "lstm_lower_error": 3681,
+     "lstm_higher_error": 4791,
+     "share_better_pct": 43.4,
+     "p": 1.971e-33
+    }
+   }
+  }
+ },
+ "seed_123": {
+  "zero_shot": {
+   "configs": {
+    "w0.0_rev": {
+     "sel": 12.21,
+     "test": 7.9,
+     "test_min": 2.3
+    },
+    "w0.25_rev": {
+     "sel": 19.57,
+     "test": 2.14,
+     "test_min": -10.44
+    },
+    "w0.5_rev": {
+     "sel": 16.43,
+     "test": -19.15,
+     "test_min": -37.88
+    },
+    "w1.0_rev": {
+     "sel": -14.83,
+     "test": -81.02,
+     "test_min": -130.7
+    },
+    "w0.25_norev": {
+     "sel": 9.09,
+     "test": -3.05,
+     "test_min": -10.35
+    },
+    "w0.5_norev": {
+     "sel": 11.74,
+     "test": -17.94,
+     "test_min": -35.91
+    },
+    "w1.0_norev": {
+     "sel": -5.51,
+     "test": -71.44,
+     "test_min": -125.53
+    }
+   },
+   "best": "w0.25_rev",
+   "ablation": {
+    "mcnemar": {
+     "fixes": 733,
+     "breaks": 731,
+     "p": 0.9791,
+     "dir_full": 61.6,
+     "dir_rev": 61.6
+    },
+    "paired_error": {
+     "lstm_lower_error": 3587,
+     "lstm_higher_error": 4885,
+     "share_better_pct": 42.3,
+     "p": 4.304e-45
+    }
+   }
+  },
+  "fine_tuned": {
+   "configs": {
+    "w0.0_rev": {
+     "sel": 12.21,
+     "test": 7.9,
+     "test_min": 2.3
+    },
+    "w0.25_rev": {
+     "sel": 19.67,
+     "test": 2.58,
+     "test_min": -10.27
+    },
+    "w0.5_rev": {
+     "sel": 18.08,
+     "test": -16.25,
+     "test_min": -32.81
+    },
+    "w1.0_rev": {
+     "sel": -8.42,
+     "test": -71.4,
+     "test_min": -103.41
+    },
+    "w0.25_norev": {
+     "sel": 8.85,
+     "test": -2.55,
+     "test_min": -10.03
+    },
+    "w0.5_norev": {
+     "sel": 12.53,
+     "test": -15.42,
+     "test_min": -29.49
+    },
+    "w1.0_norev": {
+     "sel": -0.06,
+     "test": -61.9,
+     "test_min": -91.15
+    }
+   },
+   "best": "w0.25_rev",
+   "ablation": {
+    "mcnemar": {
+     "fixes": 678,
+     "breaks": 713,
+     "p": 0.362,
+     "dir_full": 61.0,
+     "dir_rev": 61.6
+    },
+    "paired_error": {
+     "lstm_lower_error": 3570,
+     "lstm_higher_error": 4902,
+     "share_better_pct": 42.1,
+     "p": 2.15e-47
+    }
+   }
+  }
+ },
+ "seed_2024": {
+  "zero_shot": {
+   "configs": {
+    "w0.0_rev": {
+     "sel": 12.21,
+     "test": 7.9,
+     "test_min": 2.3
+    },
+    "w0.25_rev": {
+     "sel": 15.7,
+     "test": 1.8,
+     "test_min": -12.98
+    },
+    "w0.5_rev": {
+     "sel": 8.73,
+     "test": -20.84,
+     "test_min": -42.04
+    },
+    "w1.0_rev": {
+     "sel": -28.17,
+     "test": -87.79,
+     "test_min": -148.19
+    },
+    "w0.25_norev": {
+     "sel": 4.14,
+     "test": -3.6,
+     "test_min": -12.88
+    },
+    "w0.5_norev": {
+     "sel": 2.01,
+     "test": -21.41,
+     "test_min": -44.45
+    },
+    "w1.0_norev": {
+     "sel": -21.93,
+     "test": -80.19,
+     "test_min": -142.74
+    }
+   },
+   "best": "w0.25_rev",
+   "ablation": {
+    "mcnemar": {
+     "fixes": 696,
+     "breaks": 750,
+     "p": 0.1634,
+     "dir_full": 60.7,
+     "dir_rev": 61.6
+    },
+    "paired_error": {
+     "lstm_lower_error": 3502,
+     "lstm_higher_error": 4970,
+     "share_better_pct": 41.3,
+     "p": 3.446e-57
+    }
+   }
+  },
+  "fine_tuned": {
+   "configs": {
+    "w0.0_rev": {
+     "sel": 12.21,
+     "test": 7.9,
+     "test_min": 2.3
+    },
+    "w0.25_rev": {
+     "sel": 17.16,
+     "test": 3.94,
+     "test_min": -9.82
+    },
+    "w0.5_rev": {
+     "sel": 15.09,
+     "test": -12.43,
+     "test_min": -31.83
+    },
+    "w1.0_rev": {
+     "sel": -8.21,
+     "test": -63.95,
+     "test_min": -93.67
+    },
+    "w0.25_norev": {
+     "sel": 5.56,
+     "test": -2.05,
+     "test_min": -9.67
+    },
+    "w0.5_norev": {
+     "sel": 6.84,
+     "test": -14.43,
+     "test_min": -29.38
+    },
+    "w1.0_norev": {
+     "sel": -3.66,
+     "test": -58.02,
+     "test_min": -91.37
+    }
+   },
+   "best": "w0.25_rev",
+   "ablation": {
+    "mcnemar": {
+     "fixes": 645,
+     "breaks": 709,
+     "p": 0.08688,
+     "dir_full": 60.5,
+     "dir_rev": 61.6
+    },
+    "paired_error": {
+     "lstm_lower_error": 3549,
+     "lstm_higher_error": 4923,
+     "share_better_pct": 41.9,
+     "p": 2.56e-50
+    }
+   }
+  }
+ }
+}
