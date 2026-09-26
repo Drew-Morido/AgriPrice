@@ -1598,6 +1598,321 @@ says the admin side is desktop-only, it can drop that restriction.
 - Supersedes the Round-3 note above ("added a circular Profile icon → Settings → Account") — Profile
   is now its own page, not a section of Settings.
 
+### Round — Rice Prices (brand catalog) page: honesty and forecast link
+Review feedback on `public/rice-catalog.html` was checked against the code and data, then applied
+selectively. **No model, feature, metric or forecast-horizon change** — the brand price remains a
+display-layer figure (`base_price × (1 + weight_pct/100)`) that never enters `model/`.
+- **Grade on every card** (chip), **plain-language price note** replacing "Category basis / SKUs
+  merged / Source price … not used in forecasting" import-pipeline text.
+- **Two dates shown, not one:** shelf price surveyed (`brand_price_adjustment.sample_date`) and the
+  category range's own date (DA bracket `effective_date`, e.g. 2026-08-01). A survey older than 14
+  days is flagged "may have changed". Surveyed shelf price (parsed from the seed note) is now a
+  visible row, so the ₱52.00 source price reconciles with the ₱45.38–58.62 estimate.
+- **Forecast link:** the modal shows the *category's* 3-day direction (from `/api/predictions`,
+  "steady" if |Δ| < ₱0.25, about half the model's typical error) and links to the Price Forecast page,
+  which now accepts `?grade=<key>&brand=<id>`. It is labelled a category forecast — the system does
+  **not** produce a brand-specific forecast; the brand figure is the category forecast scaled by a
+  single surveyed premium.
+- **NFA is treated as a fixed government price** (`catalog_service.FIXED_PRICE_BRANDS`): shown at
+  its surveyed ₱21.00, not scaled by the market band (it previously rendered as a −52% "estimate").
+- **Rejected:** labelling names as "Dinorado-type" / "palengke sack code" — the data does not
+  record what kind of name each entry is, and printing it would be an unsourced claim. The
+  `package` text is shown neutrally as "Variety / pack".
+- **Follow-up:** page/nav renamed **Rice Catalog** (was "Prices"); a search box (brand name, variety,
+  grade — accent/case-insensitive, all categories) sits beside the category dropdown; a pack label
+  that is only a grade word (e.g. "Regular Milled" on a Local Premium brand) is no longer shown as the
+  brand's variety, since it contradicted the grade filter; the word "Estimate" was dropped from
+  the price note.
+- **Vendor-facing simplification:** the survey date and "we don't survey every brand daily" text are
+  off the cards; the modal keeps one line ("Price checked Sep 4 (21 days ago)") and the full method
+  behind a collapsed "How is this price worked out?" — disclosure kept, just not in the way.
+  Cards show traditional/variety names (Sinandomeng, Dinorado…) parsed only from each brand's recorded
+  pack text (no invented names; brands with no recorded variety show none). Search suggests
+  varieties, brands and grades as you type.
+- **Origin, not retail location:** cards/modal show "Philippines" for every local brand; imported
+  brands show a country only when one is recorded (Thailand) and nothing otherwise.
+- **Variety names are sourced, not invented.** `rice_brand.variety_names` / `variety_source` (via
+  `datasets/seed_brand_varieties.py`) hold names confirmed by a retailer listing (Lion Ivory →
+  Sinandomeng; Buko Pandan → RC 160). About 17 brands (1230, 1180, Adarna, Magnolia, Magic C, Ganador,
+  Boy Kanin, imported house brands…) have no verifiable variety — since the DA's 2018 labeling rule
+  milled rice is sold by classification and many packs carry no variety name — so their cards show a
+  uniform "Variety not listed" line rather than a guess.
+- **Variety search, round 2 (per-brand web search).** Added sourced names: Angelica → NSIC Rc 122
+  (PhilRice variety record); Master Chef Thai Long Grain White Rice (brand's own listing); the four
+  imported Thai house brands → "Thai Rice (5% broken)" (their recorded pack spec — sold by grade, not a
+  named cultivar). Still "Variety not listed" because nothing published could be found: 1230, 1260
+  Berry, 1180, 1220, Adarna, Magnolia, Magic C, Boy Kanin, Binhi Alsa, Ganador (sold only as
+  "premium well-milled"), NFA (a government grade), Akira (retailer page gives no description).
+- **Variety search, round 3 (fact-check of user-supplied Google-AI notes).** The notes were checked
+  claim by claim; most were unsupported or contradicted, so only two names were added: Binhi Alsa →
+  "Long Grain Soft Rice" (marketed as such; the sacks are labelled Product of Vietnam) and NFA → "NFA
+  well-milled rice" (DA price sheet grade). Rejected: the "1230 = Mestiso 120" claim (the cited IRRI page
+  never mentions 1230); "Magnolia = Super Angelica (RC-216)" (Angelica is NSIC Rc 122; Rc 216 is a
+  different variety); "Ganador = RC-160" (retailers list it only as premium well-milled); "Boy Kanin"
+  (no rice product found — only a restaurant chain); 1180/1220/1260 Berry (no published source).
+  **Open classification issue:** Binhi Alsa is filed as a *local* category but is Vietnamese-origin
+  imported rice; Adarna is sold as imported by dealers yet also as local Pangasinan rice. The card's
+  "Origin: Philippines" is therefore unreliable for those two until their category is confirmed.
+- **Variety search, round 4 (news / Facebook / Google / Lazada-Shopee).** Added Ganador → "Long Grain
+  Rice" (Landers/Lazada list "Ganador Oliver" as long-grain well-milled). Still unverifiable from any
+  public source: 1230, 1260 Berry, 1180, 1220, Magic C (a similarly named "Magic Castle" is a Thai
+  import — identity NOT confirmed), Magnolia, Boy Kanin, Adarna (sold both as imported white/yellow and
+  as Pangasinan fresh-milled), Akira. These come from a local-market survey, so the sack label itself
+  is the only reliable source.
+- **Category-price card removed from the toolbar.** It showed the category range (e.g. ₱48–62) beside brand
+  cards priced ₱45–58 or ₱78–102, which read as a contradiction. It is now a result counter
+  ("15 products" / "6 results"). Copy on the page now says a brand's price is its category's range
+  adjusted by how that brand usually sells against it, so it can sit above or below the category range.
+  Cards without a sourced variety show the general term "Milled rice".
+- **Grades now follow the variety, not the survey price** (`datasets/reclassify_by_variety.py`). The
+  catalog had been filed by price band, so one variety could sit in two grades (Sinandomeng in Premium
+  and Special; Dinorado/Jasmine/Brown/Red/Black in both). Per the DA definitions (Special = glutinous,
+  aromatic, pigmented, e.g. Dinorado/Malagkit/red-black-brown rice; Premium = well-milled, ≤5% broken —
+  DA SRP notice, PNS/BAFS 290), 11 products were re-filed within their segment: Dinorado, Jasmine,
+  Brown/Red/Black rice and scented Buko Pandan → Special; Sinandomeng → Premium; imported Royal Umbrella
+  Hom Mali Jasmine → Imported Special. Weights were recomputed against the new category base (same
+  shelf price). Two brand-website Doña Maria rows (Jasponica/Miponica, unpriced, "grade pending") were
+  soft-deactivated as duplicates of the priced grocery rows. **Left in place, unclassifiable by
+  variety:** codes/"Regular Milled" packs, Equal Rice Long Grain / Garcia Salvador / Gold Sun, and
+  Henri & Isabelle "Fine Grain 100% broken" (100% broken cannot be Premium — needs a correct grade).
+  DB backup: `agriprice_database.db.backup-pre-reclass-20260926-024808`.
+- **One card per product.** The 5 merged multi-product rows (Henri & Isabelle, Equal Rice, Harvester's ×2,
+  Doña Maria Local Special) were split into 17 product rows by `datasets/split_multi_sku_brands.py`,
+  using the per-product prices the source workbook kept on "Consolidated SKU Detail". Each product
+  has its own surveyed price and weight (single 2026-09-04 observation, same method as
+  `seed_brand_weights.py`); the merged rows are soft-deactivated, not deleted (DB backed up first).
+  Products keep the category they were filed under — the workbook does not classify individual
+  products, and nothing was reclassified. Cards show "+N other products from this brand"; the modal
+  lists and links them. Catalog now: 51 active product rows (was 39).
+- **Known limitation to disclose if asked:** brand ranges apply one premium (surveyed on a single
+  date) to the whole category band, so wide-premium brands (e.g. Harvester's +137%) get
+  proportionally wider ranges — an assumption, not a measured spread.
+
+### Round — Updated local-market brand survey (pack sizes)
+Imported `NEW_UPDATED_Rice_Brand_Final_Survey.xlsx` with `datasets/import_brand_survey.py` (DB backed up
+as `agriprice_database.db.backup-pre-survey-20260926-173804`). **No model change** — the catalog is
+display-layer only.
+- **Pack sizes:** products sold as 1kg / 2kg / 5kg / 10kg / 25kg packs are stored per pack in the new
+  `brand_pack_price` table (pack price + price per kg). One product = one card; its packs are listed on
+  it. Rows without a size are priced per kilo.
+- **Grades follow the survey's own Classification column** (supersedes the variety-based re-filing in
+  the earlier round). Catalog now: 52 products (Local Special 22, Local Well-Milled 11 — previously
+  empty — Local Premium 9, Local Regular 3; Imported Special 3, Well-Milled 3, Premium 1). 30 old rows
+  soft-deactivated; brand images carried over to renamed brands.
+- **Imported Regular-Milled is intentionally empty** — the survey records it as not sold under a brand
+  in the Philippines; the site says so instead of showing an empty grade.
+- **Revised survey (same day) fixed at source:** Henri & Isabelle Black Rice (2kg) is ₱219 on all 30
+  days (the ₱97.25 entries were an error), and all Sinandomeng is now Local Premium (Mrs. Lam; Lion
+  Ivory renamed "Lion Ivory Grains — Local Sinandomeng"). Re-imported; backup
+  `agriprice_database.db.backup-pre-survey-20260926-174556`. Kept as surveyed (confirmed unchanged in
+  the revision): Doña Maria Jasponica White 2kg ₱142.50/kg vs 1kg ₱129.50; Henri & Isabelle Brown Rice
+  5kg ₱101/kg vs 2kg ₱94.50; Master Chef Hasmin "Super Dinorado" priced the same as Master Chef Super Alsa.
+- **Survey method, as stated by the project team:** a 30-day daily canvass in local markets, Aug 6 –
+  Sep 4, 2026. Sep 4 is day 30 (the last day) and its price is the one used; `sample_n` = 30 daily
+  readings (prices were unchanged across the 30 days for every product). The catalog's "How is this
+  price worked out?" says this, and the stale-price warning was removed because brand prices are
+  re-anchored to the DA / forecast range every day.
+- **Source shown in the catalog: "Verified by Local Government."** Per the project team, the barangay
+  verification of the canvass is in progress (week of Sep 26, 2026). **[ACTION]** have the signed
+  verification in hand before the defense — the site states it as done.
+
+### Round — Homepage "Popular rice" (well-known variety names)
+Prompted by a panel question ("where is Sinandomeng?"): the homepage led with grades only. Added,
+on `public/landpage.html` + `js/landpage.js` + new shared `js/public-varieties.js`:
+- A **Popular rice** strip under the banner — the 4 varieties sold by the most brands in the
+  catalog (currently Dinorado, Sinandomeng, Jasmine, Brown Rice), each with its **range of shop prices
+  seen in the 2026-09-04 survey**, its grade(s), and a link to the catalog showing exactly those
+  brands (`rice-catalog.html?variety=…`; the card's brand count matches the catalog's).
+- The same varieties lead the ticker, **without ▲/▼** (a variety has no daily change); the 8 grade
+  prices after them keep their real day-on-day change.
+- **Honesty of the wording:** "popular" = most brands listing it in our catalog (there is no sales
+  data); prices are a survey range across brands — not a daily market price and not a forecast.
+  Pack specs ("Thai Rice (5% broken)", "Long Grain Soft Rice"…) are excluded from the ranking. Grades,
+  DA prices and the LSTM forecast are unchanged. Also fixed: catalog search now matches a brand's
+  verified variety name (Lion Ivory was missing from a "Sinandomeng" search).
+
+### Round — Price History page: tabbed layout (UI only)
+`public/historical.html` + `public/js/public-history.js`. The five entries (Is it expensive now ·
+Price chart · Then vs now · Cheapest month · Biggest swings) were one long stacked scroll; they are
+now five tabs showing one question at a time, in that order, with "Next" links between them and
+deep links (`#today`, `#chart`, `#years`, `#season`, `#swings`). The chart's duplicate variety
+dropdown was removed — the banner's single variety/unit control drives every tab. The Today tab shows
+a coloured dot for the current verdict. **No calculation changed**: same statistics, same
+observed-days-only rule, same data. If the paper describes the Price History screen as a single
+scrolling page of panels, update that description (and any screenshot) to the tabbed layout.
+- **Follow-up (readability pass):** every tab now uses one identical card (same width, padding and
+  height; the chart stretches to fit rather than setting the size), type raised to 12px minimum
+  (most body text 14–15px), and every chart has labelled axes, a plain-language legend and a
+  "How to read this" line. New visual aids, all drawn from values already computed: a "where today
+  sits" bar on Today (lowest → highest recorded price with the usual-range zone), printed values on
+  the two cheapest/priciest months, and a small 30-day line on each price-swing card. Update any
+  paper screenshots of this screen.
+- **Follow-up (fit to screen):** the tab bar stays pinned at the top while scrolling, and each card
+  sizes itself to the window (fits a 1366×768 laptop with the tabs visible; capped at 780px on large
+  monitors; natural height on phones). Tooltips are no longer clipped by the card and slide sideways
+  to stay on screen.
+
+### Round — Charts & Stats page redesigned (UI + a display-side data check)
+`public/statistics.html` + new `public/js/public-stats.js` (the old stats code in `public-data.js`
+was removed). Same look (split green hero, dark chart cards), four plain-language cards instead of
+the old KPI ring + line + bar layout. All figures come from the live `/api/historical-data`
+(DA average retail prices); **the sample-data fallback was removed**, so if the backend is down the page
+says so instead of drawing mock numbers.
+1. **What got cheaper, what got pricier?** Change per rice type over 7/30/90 days (average of the
+   last 3 DA readings vs the first 3; under ₱0.10/kg = "about the same").
+2. **Local or imported — which costs less?** Today's local vs imported price per DA grade on one
+   price scale, with the average gap over the period.
+3. **How did one rice type move?** Daily line with its average, lowest and highest, plus the day-1
+   forecast as a link to the Price Forecast page.
+4. **What will my rice cost?** Monthly cost for all 8 types from today's DA price × the kilos the
+   user enters (week or month; a month = 4.33 weeks). A kilo / 25-kg sack toggle applies to cards 1–3.
+- Dropped: the "Market mix" ring (a fixed decoration that looked like data), the role pill, the
+  reading-guide tiles (each card now explains itself), the unused audience tabs.
+- **Display-side data check (disclose if the paper describes this screen):** days with no DA reading
+  are not counted (same rule as Price History), and a reading more than **5%** from the median of the
+  3 readings either side is left out as a recording error. Every left-out reading is named on the card
+  it affects. It catches real scrape errors where a grade's price was saved in the wrong column:
+  Imported Premium/Well-Milled/Regular on **Sep 19, 20, 22, 2026** (shifted one grade), Imported
+  Premium on **Jul 23** (holds the Special price), Imported Well-Milled on **Jul 15**, and Local Regular
+  on **Jun 30** (holds the Well-Milled price). *Update (next round):* the Sep 19/20/22 and Jul 23
+  rows, plus Jun 30 and Jul 15 (confirmed by the user against DA's email), are fixed in the database,
+  so the filter finds nothing today and stays only as a safety net. Update any paper description or screenshot of the Charts & Stats screen.
+
+- **Follow-up (fit to screen, tabbed):** the four cards are now tabs (01 What changed · 02 Local vs
+  imported · 03 One rice type · 04 My budget) under a compact banner. Tabs and the period/unit controls
+  are pinned in one bar under a slim banner, and the open card is sized so the whole view — banner, tabs
+  and card — fits the window on first load without scrolling (checked at 1280×720, 1366×768, 1527×727,
+  1440×900 and 1920×1080, nothing cut off; natural height on phones). Tapping a rice row or an "at a glance" tile opens that rice's
+  chart, and each card ends with a "Next" button. Same content and numbers. Update any paper screenshot of
+  this screen.
+- **Follow-up (calmer layout):** the four "at a glance" tiles were removed. Each repeated a card (biggest
+  rise/drop = card 01, cheapest/priciest = card 04). The banner is now one slim title strip, the column is
+  narrower (1040px), the tabs show names only, the period/unit controls sit in the header of the three cards
+  they affect (not in the budget card), and the chart's separate legend row was dropped (the stat boxes
+  carry the colours). On short windows the card's description line and the summary's repeated second
+  sentence are hidden.
+
+### Round — Scraper reads DA bulletin prices by position; Sep 19/20/22 and Jul 23 fixed
+**Scraper bug fixed.** `tools/pdfconvrt.py` mapped "the last four prices in the section" to
+Special → Regular. When the website bulletin printed **"n/a"** for Imported Regular (Sep 19, 20, 22 2026),
+every imported grade slid down one row: Premium ← Special, Well-Milled ← Premium, Regular ← Well-Milled.
+The text order of the price column is also unstable (inline, above or below its label). **Fix:** each price
+is paired with the label row nearest to it on the page, "n/a" stays empty, and nothing is assigned by
+position. Checked on all 29 unique bulletins the scraper had saved: 24 matched exactly, and the rest
+differed only where the stored data was wrong. `datasets/parse_da_dpi_pdfs.py` now uses the same reader.
+
+**Cells corrected in `WS_rice_price` (only the rows reported as wrong):**
+- Sep 19, 20, 22 (scraper rows): Imported Special/Premium/Well-Milled set to the bulletin's values. Imported
+  Regular was the Well-Milled price (the website printed n/a). It is now **45.00** on Sep 19–22, from
+  DA's emailed data (supplied by the user).
+- Jul 23: Imported Premium 59.53 → **51.43** (the bulletin value; 59.53 was the Special price). Also changed
+  in `da_dpi_verified_2026.csv`, so a rebuild keeps the fix.
+
+**Correction to an earlier mistake in this session.** A first pass also compared the user's verified rows
+(`Source='da_dpi_verified'`) with the **website** bulletins. It blanked 62 Imported Regular values
+(Jun 14 – Aug 18) where the website shows "n/a", and changed May 23/24/27/30, Jun 30 and Jul 15. **That was
+wrong:** those values come from **DA's emailed data**, which includes prices the public website does not
+show. **All of them were restored** from `agriprice_database.db.backup-pre-bulletin-repair-20260926-202130`,
+and the CSV and `apply_da_dpi_2026.py` were reverted. Only the cells listed above remain changed. For the
+paper: the June–September rows are DA data received by email, which is why many of them cannot be checked
+against the public website. State that source explicitly.
+
+`datasets/repair_ws_rice_from_bulletins.py` now corrects only the scraper's own rows (`da_official`). It never
+blanks a value and never changes verified/emailed rows; it only lists their differences from the website for
+review. Bulletins are cached (gitignored) in `tools/debug_fetch/dpi/`.
+
+**Confirmed by the user against DA's email and corrected:** Jun 30 Local Regular 49.42 → **44.71** and
+Jul 15 Imported Well-Milled 51.27 → **47.95**. Both were copy slips in the workbook (each held the next
+column's price). Also changed in `da_dpi_verified_2026.csv`. Backup: `agriprice_database.db.backup-pre-email-values-20260926-204641`.
+
+**Paper impact:** small. 15 cells changed in total: Sep 19/20/22 (9 imported values moved back to the right
+grade, 3 Imported Regular set to 45.00), Jul 23 Imported Premium, Jun 30 Local Regular and Jul 15 Imported
+Well-Milled. Retrain when convenient and re-check the quoted `meta.json` figures.
+
+**May 30 filled in:** 5 cells that had been empty since the original ingest (Local Special and all four
+imported grades) are now set from the DA Daily Price Index PDF for May 30 2026, confirmed by the user:
+59.86 / 51.09 / 48.02 / 42.50 / 60.07. The three local prices already stored matched the PDF. Also updated in
+`da_dpi_verified_2026.csv`. `WS_rice_price` now has **no empty cells** for 2026.
+
+**Retrained on the corrected data (2026-09-26, seed 42, TensorFlow; previous model in
+`model/_backup_pre-datafix-20260926-205138/`).** Test window 2025-10-07 → 2026-09-24 (the old run
+ended 2026-09-21, so this is almost but not exactly a fixed-window comparison). All 50 tests in `tests/` pass.
+
+| | before | after |
+|---|---|---|
+| mean skill vs naive | +3.39% | **+3.42%** |
+| types with positive skill | 8/8 | **8/8** (worst: impRegular +0.45%, was +0.47% worst) |
+| beats ARIMA(1,1,1) | 3/8 | **3/8** (impWellMilled, impRegular, impPremium) |
+| locWellMilled: model vs ARIMA MAE | 0.3034 vs — | **0.3042 vs 0.2842** (ARIMA ahead) |
+| movement ratio | 0.220 | 0.223 |
+| LSTM ablation (McNemar, genuine-signal) | 169 vs 157, p = 0.54 | **161 vs 164, p = 0.91**, not significant |
+
+Per-type MAE improved most where data was corrected: impPremium 0.406 → 0.314, impWellMilled 0.355 →
+0.289, impRegular 0.373 → 0.344, locRegular 0.322 → 0.292. That is mostly because the test targets no longer
+contain the column-shifted rows, not because the model got better; skill against naive is essentially
+unchanged. **Say it that way in the paper.** Directional accuracy on day 3 is below 50% for impRegular (45.3%),
+and on day 2 for impPremium (47.7%). Report the per-horizon figures rather than one pooled number.
+**Update the `.docx` wherever it quotes the old figures** (CLAUDE.md is updated).
+
+### Round — Weekday-aware mean reversion (+3.42% → +7.80% skill), scraper guard, faster history API
+**1. Weekday-aware reversion coefficient (model change, paper-relevant).**
+*Finding.* In the daily era (2025-04-01 onward, all 8 types) a bulletin's distance from its own week's
+median is PHP 0.12–0.15 on Mon–Wed, 0.19 on Thu/Fri, 0.26 on Sat and **0.83 on Sun**. DA's Sunday
+bulletin is compiled from fewer markets, and Monday undoes it. Thursday/Friday changes, by contrast,
+mostly persist. The shipped correction used one coefficient for every day.
+*Change.* `model/mean_reversion.py`: `rolling_phi(..., dows=)` gives the anchor day's weekday its own
+coefficient (same 120-day rolling, past-only fit, same ×0.6 shrink, [−1, 0] clip and |t| ≥ 2 gate). It falls
+back to the global coefficient for a weekday without significant reversion. The switch is
+`AGRIPRICE_REVERSION_WEEKDAY` (default on). The same per-row coefficient is used in training scores, the live
+forecast, the recent-days backtest and the prediction-interval calibration.
+*Selection, fixed before looking at test* (`model/experiments/weekday_reversion.py`): candidates
+{global, 3 weekday groups, 7 weekdays} × {120, 240, 365}-day windows, chosen by mean **validation** skill,
+then scored once on test:
+
+| candidate | val mean | test mean | test worst |
+|---|---|---|---|
+| global (previous) | 4.29 | 3.41 | 0.29 |
+| 3 groups / 120 | 7.22 | 7.78 | 3.24 |
+| **7 weekdays / 120 (chosen on val)** | **8.01** | **7.78** | 2.15 |
+| 7 weekdays / 240 | 7.04 | 7.46 | 2.74 |
+
+Every candidate that used the weekday roughly doubled skill, so the result does not depend on one lucky setting.
+
+*Retrained result* (test 2025-10-07 → 2026-09-24; previous model in `model/_backup_pre-weekday-20260926-210938/`):
+
+| | global rule | weekday-aware |
+|---|---|---|
+| mean skill vs naive | +3.42% | **+7.80%** |
+| types positive | 8/8 (worst +0.45) | **8/8 (worst +1.88)** |
+| mean MAE | PHP 0.3042 | **PHP 0.2877** |
+| beats ARIMA(1,1,1) | 3/8 | **4/8** (locRegular by PHP 0.0002, effectively a tie) |
+| movement ratio | 0.223 | 0.299 |
+| directional accuracy | unchanged within ±1 pt (still < 50% for impRegular day 3, impPremium day 2) |
+| LSTM ablation | p = 0.91 | p = 0.95, still not significant |
+
+**How to state it:** the gain comes from modelling DA's reporting calendar (the Sunday bulletin effect) inside the
+reversion term. It is **not** a gain from the network, and it improves forecast *magnitude*, not the up/down call.
+Per-type test skill: locWellMilled 11.46, locRegular 11.85, locPremium 7.69, locSpecial 7.27,
+impWellMilled 1.88, impRegular 5.03, impPremium 7.75, impSpecial 9.49. `tests/test_weekday_reversion.py`
+pins no look-ahead, the bounds, and the off switch.
+*Prediction intervals:* realised coverage re-measured by walk-forward over the last 120 forecast origins ×
+8 types (`model/experiments/interval_coverage.py`, calibrated exactly as the live forecast): **91.6% pooled**
+(day 1/2/3: 91.7 / 91.9 / 91.4%; by type 88.1–94.4%). This is still in line with the advertised "90%" range.
+Mean width is PHP 1.28 / 1.54 / 1.74 by day.
+
+**2. Scraper sanity guard (`tools/scrape_guard.py`).** Before a scraped rice row is saved, a price is **held**
+(saved as empty, queued in `tools/scrape_review.json`) when it equals the neighbouring grade's price or is
+more than 6% from that grade's last-7-reading median. The Sep 19–22 shift was 7–12%. Admin → Web Scraper shows
+the queue with Approve/Reject (`GET /api/scrape-review`, admin-only `POST /api/scrape-review/resolve`).
+Approved readings are not held again on re-sync. `tests/test_scraper_guard.py` runs the reader on three real
+DA bulletins (the Sep 20 n/a layout, an inline layout, Jun 30) and tests the guard rules.
+
+**3. `/api/historical-data` cached per database version.** Same payload (verified identical), built once per
+database change, gzip + ETag: **342 KB / ~530 ms → 45 KB / <1 ms**, and 304 with no body on revalidation.
+No change to any number.
+
+Test suite: **61 passed**.
+
 ---
 
 ## Still [VERIFY] / [ACTION]

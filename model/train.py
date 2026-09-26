@@ -650,10 +650,14 @@ def _train_one_target(df, target: str, use_tensorflow: bool) -> dict | None:
     if reversion.get("applied"):
         from mean_reversion import ROLLING_WINDOW, rolling_phi
 
+        from mean_reversion import WEEKDAY_MODE
+
+        # Weekday of every row: the coefficient depends on which DA bulletin the last change came from.
+        dows = pd.to_datetime(sub["Date"], errors="coerce").dt.dayofweek.values if "Date" in sub.columns else None
         test_rows = np.arange(i_va + SEQ_LEN - 1, i_va + SEQ_LEN - 1 + len(level_pred))
         corr = np.zeros((len(test_rows), level_pred.shape[1]))
         for i, r in enumerate(test_rows):
-            phi, _ = rolling_phi(price_series, r, HORIZON)   # past data only
+            phi, _ = rolling_phi(price_series, r, HORIZON, dows=dows)   # past data only
             n_lags = phi.shape[1]
             lags = np.array([
                 (price_series[r - k] - price_series[r - k - 1]) if (r - k - 1) >= 0 else 0.0
@@ -664,6 +668,7 @@ def _train_one_target(df, target: str, use_tensorflow: bool) -> dict | None:
         level_pred = level_pred + corr_peso
         reversion["rolling_window"] = ROLLING_WINDOW
         reversion["scored_with"] = "rolling"
+        reversion["weekday_mode"] = bool(WEEKDAY_MODE and dows is not None)
 
     metrics = {
         "backend": result["backend"],

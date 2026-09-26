@@ -1,4 +1,4 @@
-/* AgriPricePH — Public site settings (logged-in only: Appearance, Preferences, Privacy & data).
+/* AgriPricePH — Public site settings (logged-in only: Appearance, Preferences, This device).
    Account/profile editing lives in public/profile.html + public-profile.js instead — this file's
    applyThemeBoot() IIFE below still needs to stay here and stay a <head> script on every page that
    wants theme-dark/compact/reduce-motion applied (see the <script> tag comment in those pages). */
@@ -23,7 +23,6 @@ AgriPricePH.PublicSettings = (function () {
   const PREFS_KEY = 'agriprice_public_prefs';
   const DARK_KEY = 'agriprice_dark_mode';
   const STATS_KEY = 'agriprice_stats_audience';
-  const DATE_KEY = 'agriprice_date_format';
   const USERS_KEY = 'agriprice_public_users';
 
   const DEFAULTS = {
@@ -32,7 +31,6 @@ AgriPricePH.PublicSettings = (function () {
     reduceMotion: false,
     defaultStatsView: 'vendor',
     defaultPage: 'current-prices.html',
-    dateFormat: 'mdy',
   };
 
   function getPrefs() {
@@ -66,29 +64,18 @@ AgriPricePH.PublicSettings = (function () {
     try {
       localStorage.setItem(DARK_KEY, dark ? '1' : '0');
       localStorage.setItem(STATS_KEY, p.defaultStatsView === 'household' ? 'household' : 'vendor');
-      localStorage.setItem(DATE_KEY, ['mdy', 'dmy', 'iso'].includes(p.dateFormat) ? p.dateFormat : 'mdy');
     } catch { /* ignore */ }
   }
 
   function exportData() {
-    const dump = { exported_at: new Date().toISOString(), localStorage: {}, sessionStorage: {} };
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && k.startsWith('agriprice')) dump.localStorage[k] = localStorage.getItem(k);
-      }
-      for (let i = 0; i < sessionStorage.length; i++) {
-        const k = sessionStorage.key(i);
-        if (k && k.startsWith('agriprice')) dump.sessionStorage[k] = sessionStorage.getItem(k);
-      }
-    } catch { /* ignore */ }
+    const dump = { exported_at: new Date().toISOString(), preferences: getPrefs() };
     const blob = new Blob([JSON.stringify(dump, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `agriprice-my-data-${new Date().toISOString().slice(0, 10)}.json`;
+    a.href = url; a.download = `agriprice-preferences-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
-    showSavedToast('Your data was exported.');
+    showSavedToast('Preferences exported.');
   }
 
   function resetPrefs() {
@@ -96,7 +83,6 @@ AgriPricePH.PublicSettings = (function () {
     try {
       localStorage.removeItem(PREFS_KEY);
       localStorage.removeItem(DARK_KEY);
-      localStorage.removeItem(DATE_KEY);
     } catch { /* ignore */ }
     applyAll(DEFAULTS);
     bindForm();
@@ -119,13 +105,11 @@ AgriPricePH.PublicSettings = (function () {
     const compactEl = document.getElementById('set-compact');
     const motionEl = document.getElementById('set-reduce-motion');
     const dpEl = document.getElementById('set-default-page');
-    const dfEl = document.getElementById('set-date-format');
 
     if (themeEl) themeEl.value = prefs.theme;
     if (compactEl) compactEl.checked = !!prefs.compact;
     if (motionEl) motionEl.checked = !!prefs.reduceMotion;
     if (dpEl) dpEl.value = prefs.defaultPage;
-    if (dfEl) dfEl.value = prefs.dateFormat;
 
     const onChange = () => {
       savePrefs({
@@ -133,7 +117,6 @@ AgriPricePH.PublicSettings = (function () {
         compact: !!compactEl?.checked,
         reduceMotion: !!motionEl?.checked,
         defaultPage: dpEl?.value || 'current-prices.html',
-        dateFormat: dfEl?.value || 'mdy',
       });
       showSavedToast();
     };
@@ -142,7 +125,6 @@ AgriPricePH.PublicSettings = (function () {
     compactEl?.addEventListener('change', onChange);
     motionEl?.addEventListener('change', onChange);
     dpEl?.addEventListener('change', onChange);
-    dfEl?.addEventListener('change', onChange);
 
     document.getElementById('set-export-data')?.addEventListener('click', exportData);
     document.getElementById('set-reset-prefs')?.addEventListener('click', resetPrefs);

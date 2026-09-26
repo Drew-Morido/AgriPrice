@@ -15,13 +15,18 @@ AgriPricePH.Landpage = (function () {
   ];
   const HOW_RICE_KEY = 'locRegular';
   const HOW_HIST_DAYS = 5;
+  const POPULAR_COUNT = 4;
 
-  let _origin = 'local';
+  let _origin = 'popular';   // falls back to 'local' when the variety data cannot load
   let _pricesByLabel = {};
   let _histSeries = null;
   let _histLabels = [];
   let _forecastByKey = {};
   let _howChart = null;
+  let _live = false;       // true once the API answered with real DA prices
+  let _asOf = '';          // DA data date, e.g. "September 25, 2026"
+  let _brandsByGrade = {}; // canonical key -> { brands, names, min, max, asOf } (public-varieties.js)
+  let _varieties = [];   // top varieties for the Popular rice strip + ticker (public-varieties.js)
 
   function $(sel) { return document.querySelector(sel); }
 
@@ -81,6 +86,8 @@ AgriPricePH.Landpage = (function () {
     try {
       const data = await AgriPricePH.API.predictions();
       if (data?.current_prices) {
+        _live = true;
+        _asOf = data.as_of_display || data.last_data_date || '';
         RICE().forEach(({ key, label }) => {
           const raw = data.current_prices[key];
           if (raw == null || Number(raw) <= 0) return;
@@ -154,18 +161,104 @@ AgriPricePH.Landpage = (function () {
     const inner = $('#home-ticker');
     if (!inner) return;
 
-    const items = RICE().map(({ label }) => {
+    // Well-known variety names lead — they are what most Filipinos look for first. They carry no
+    // up/down arrow: a variety has a shop-price range from one survey, not a daily movement, so an
+    // arrow would be invented. The grade prices that follow keep their real day-on-day change.
+    const varietyItems = _varieties.map((v) =>
+      `<div class="ticker-item is-variety"><span class="ticker-name">${esc(v.name)}</span><span class="ticker-price">${priceRange(v, true)}/kg</span><span class="ticker-tag">shop prices</span></div>`
+    ).join('');
+    const gradeItems = RICE().map(({ label }) => {
       const d = getEntry(label);
       const short = label.replace(/^Imported /, 'Imp. ').replace(/^Local /, '');
       return `<div class="ticker-item"><span class="ticker-name">${short}</span><span class="ticker-price">₱${Number(d.price).toFixed(2)}/kg</span>${formatTickerChange(d.pct)}</div>`;
     }).join('');
+    const items = varietyItems + gradeItems;
 
     inner.innerHTML = items + items;
+    // Keep the scroll speed the same as when the belt held only the 8 grades (30s for 8 items).
+    inner.style.animationDuration = `${Math.round(30 * ((_varieties.length + RICE().length) / Math.max(RICE().length, 1)))}s`;
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  }
+
+  function peso(n) {
+    return `₱${Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+
+  function priceRange(v, short) {
+    if (Math.abs(v.max - v.min) < 0.005) return peso(v.min);
+    return short ? `${peso(v.min)}–${Number(v.max).toFixed(2)}` : `${peso(v.min)} – ${peso(v.max)}`;
+  }
+
+  function prettyDay(iso) {
+    if (!iso || !/^\d{4}-\d{2}-\d{2}/.test(iso)) return '';
+    return new Date(iso.slice(0, 10) + 'T12:00:00').toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  const INFO_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r=".6" fill="currentColor"/></svg>';
+  const SURVEY_TIP = 'Shop prices were canvassed in local markets every day for 30 days (Aug 6 – Sep 4, 2026), and verified by the local government. The 30th and last day, Sep 4, is the one used.';
+  const infoTip = (text, cls = '') => `<span class="lp-tip ${cls}" tabindex="0" role="note" aria-label="${esc(text)}" data-tip="${esc(text)}">${INFO_SVG}</span>`;
+
+  const GRAIN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18a9 9 0 0 1-18 0z"/><path d="M12 12V4"/><path d="M9 7c0-1.5 1-3 3-3s3 1.5 3 3"/></svg>';
+
+  /** "Popular rice": the most-listed varieties, each linking to the catalog already searched. */
+  function renderPopular() {
+    const sec = $('#popular');
+    const grid = $('#popular-grid');
+    if (!sec || !grid) return;
+    if (!_varieties.length) { sec.hidden = true; return; }
+
+    grid.innerHTML = _varieties.map((v, i) => `
+      <a class="pop-card" style="--i:${i}" href="rice-catalog.html?variety=${encodeURIComponent(v.name)}"
+         aria-label="${esc(v.name)}: shop prices ${priceRange(v)} per kilo. See these in the Rice Catalog">
+        <div class="pop-top"><span class="pop-ico">${GRAIN_ICON}</span><span class="pop-name">${esc(v.name)}</span></div>
+        <div class="pop-price">${priceRange(v)}<span> /kg</span></div>
+        <div class="pop-meta"><b>${v.brands} brand${v.brands === 1 ? '' : 's'}</b> sell it
+          <div>${v.gradeLabels.map((g) => `<span class="pop-grade">${esc(g)}</span>`).join('')}</div>
+        </div>
+        <span class="pop-go">See the brands <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 7h10M8 3l4 4-4 4"/></svg></span>
+      </a>`).join('');
+
+    const when = prettyDay(_varieties.map((v) => v.asOf).filter(Boolean).sort().pop());
+    $('#popular-note').innerHTML = `Ranked by how many brands sell each variety in our catalog. Prices are the range of shop prices across those brands — not a daily market price or a forecast ${infoTip(SURVEY_TIP)}. For today's market rates and the 3-day forecast, see the grade prices below.`;
+    sec.hidden = false;
+  }
+
+  async function loadVarieties() {
+    try {
+      const bp = await AgriPricePH.API.brandPrices();
+      _varieties = AgriPricePH.Varieties.summarize(bp).slice(0, POPULAR_COUNT);
+      _brandsByGrade = AgriPricePH.Varieties.byGrade(bp);
+    } catch {
+      _varieties = [];
+      _brandsByGrade = {};          // backend unreachable: the strip stays hidden, the ticker shows grades only
+    }
   }
 
   function renderHeroCards() {
     const wrap = $('#hero-price-cards');
     if (!wrap) return;
+    const note = $('#hero-popular-note');
+
+    if (_origin === 'popular' && _varieties.length) {
+      // Same data and wording as the Popular rice section below, so the two can never disagree.
+      wrap.innerHTML = _varieties.map((v) => `
+        <a class="hero-stat-card" href="rice-catalog.html?variety=${encodeURIComponent(v.name)}"
+           aria-label="${esc(v.name)}: shop prices ${priceRange(v)} per kilo from ${v.brands} brands. See them in the Rice Catalog">
+          <div class="hsc-name">${esc(v.name)}<span class="hsc-badge brands">${v.brands} brand${v.brands === 1 ? '' : 's'}</span></div>
+          <div class="hsc-value hsc-value--range">${priceRange(v)}</div>
+          <div class="hsc-sub">per kilogram · ${esc(v.gradeLabels.join(', '))}</div>
+        </a>`).join('');
+      if (note) {
+        const when = prettyDay(_varieties.map((v) => v.asOf).filter(Boolean).sort().pop());
+        note.innerHTML = `Shop-price range across brands ${infoTip(SURVEY_TIP, 'lp-tip--dark lp-tip--right')} · tap a rice to see the brands`;
+        note.hidden = false;
+      }
+      return;
+    }
+    if (note) note.hidden = true;
 
     wrap.innerHTML = HERO_GRADES.map(({ short, suffix }) => {
       const full = labelFor(_origin, suffix);
@@ -186,18 +279,56 @@ AgriPricePH.Landpage = (function () {
     }).join('');
   }
 
+  const ARROW = '<svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 7h10M8 3l4 4-4 4"/></svg>';
+
+  function keyFor(origin, suffix) {
+    const r = RICE().find((x) => x.label === labelFor(origin, suffix));
+    return r ? r.key : '';
+  }
+
+  /** One grade: today's DA price → tomorrow's expected range → the brands you'll find. */
   function priceCardHtml(origin, suffix, featured) {
     const label = labelFor(origin, suffix);
+    const key = keyFor(origin, suffix);
     const d = getEntry(label);
     const changeCls = Number(d.pct) > 0.05 ? 'up' : Number(d.pct) < -0.05 ? 'down' : 'flat';
     const changeText = Number(d.change) === 0
       ? '— No change'
       : `${Number(d.change) > 0 ? '▲' : '▼'} ₱${Math.abs(Number(d.change)).toFixed(2)} vs yesterday`;
+
+    // Tomorrow: the model's calibrated band — the same range the Price Forecast page shows.
+    const f = (_forecastByKey[key] || [])[0];
+    const range = f && f.low != null && f.high != null
+      ? `<div class="pc-range">Tomorrow, expected
+           <strong>${peso(f.low)} – ${peso(f.high)}</strong>
+         </div>`
+      : '';
+
+    // Brands filed under this grade in the Rice Catalog, with their shop-price range.
+    const g = _brandsByGrade[key];
+    let brands = '';
+    if (g && g.brands) {
+      const shown = g.names.slice(0, 3).join(', ') + (g.names.length > 3 ? ` +${g.names.length - 3}` : '');
+      const shop = g.min != null ? ` · ${g.max - g.min < 0.005 ? peso(g.min) : `${peso(g.min)} – ${peso(g.max)}`} in shops` : '';
+      brands = `<div class="pc-brands">
+          <span><b>${g.brands} brand${g.brands === 1 ? '' : 's'}</b>${shop}</span>
+          <span class="pc-brand-names" title="${esc(g.names.join(', '))}">${esc(shown)}</span>
+          <a class="pc-brands-link" href="rice-catalog.html?grade=${encodeURIComponent(key)}">See the brands ${ARROW}</a>
+        </div>`;
+    } else if (_live || Object.keys(_brandsByGrade).length) {
+      const why = key === 'impRegular'
+        ? 'Not sold under a brand name in the Philippines.'
+        : 'Sold by grade — no branded products listed yet.';
+      brands = `<div class="pc-brands"><span class="pc-none">${why}</span></div>`;
+    }
+
     return `
       <div class="price-card${featured ? ' featured' : ''}">
-        <div class="pc-type">${suffix}</div>
-        <div class="pc-price">₱${Number(d.price).toFixed(2)}<span>/kg</span></div>
-        <div class="pc-change ${changeCls}">${changeText}</div>
+        <div class="pc-head"><div class="pc-type">${suffix}</div>${_live ? '<span class="pc-today">Today</span>' : ''}</div>
+        <div class="pc-price">${peso(d.price)}<span>/kg</span></div>
+        <div><span class="pc-change ${changeCls}">${changeText}</span></div>
+        ${range}
+        ${brands}
       </div>`;
   }
 
@@ -215,6 +346,37 @@ AgriPricePH.Landpage = (function () {
         </div>
       </div>
     `).join('');
+
+    // Header + legend say exactly where each number comes from. The old "Sample data for
+    // illustration" line was always shown, even over live data; now a notice appears only when
+    // the API really could not be reached.
+    const desc = $('#home-prices-desc');
+    if (desc) {
+      desc.innerHTML = _live
+        ? `Today&rsquo;s Department of Agriculture price for every grade${_asOf ? ` (as of ${esc(_asOf)})` : ''}, tomorrow&rsquo;s expected range, and the brands you&rsquo;ll find on the shelf.`
+        : `Today&rsquo;s price for every grade, tomorrow&rsquo;s expected range, and the brands you&rsquo;ll find on the shelf.<br><span class="prices-offline">Live prices can&rsquo;t be reached right now — showing sample figures.</span>`;
+    }
+    const legend = $('#home-prices-legend');
+    if (legend) {
+      const shopDate = prettyDay(Object.values(_brandsByGrade).map((g) => g.asOf).filter(Boolean).sort().pop());
+      legend.innerHTML = [
+        `<span><i class="lg-today"></i><b>Today</b> DA daily price monitoring${_asOf ? `, ${esc(_asOf)}` : ''}</span>`,
+        Object.keys(_forecastByKey).length ? '<span><i class="lg-range"></i><b>Tomorrow</b> AgriPricePH forecast &mdash; about 9 in 10 past forecasts landed inside this range</span>' : '',
+        Object.keys(_brandsByGrade).length ? `<span><i class="lg-brands"></i><b>In shops</b> brand shelf prices ${infoTip(SURVEY_TIP, 'lp-tip--dark')}</span>` : '',
+      ].join('');
+    }
+  }
+
+  /** Back-to-top: shows once the hero has scrolled away. The page scrolls on <html>, not window. */
+  function bindBackTop() {
+    const btn = $('#home-back-top');
+    if (!btn) return;
+    const scroller = document.scrollingElement || document.documentElement;
+    const hero = document.querySelector('.hero, .hero-section, section') || document.body;
+    const update = () => btn.classList.toggle('is-visible', scroller.scrollTop > Math.max(500, hero.offsetHeight * 0.8));
+    btn.addEventListener('click', () => scroller.scrollTo({ top: 0, behavior: 'smooth' }));
+    document.addEventListener('scroll', update, { passive: true, capture: true });
+    update();
   }
 
   function renderHowTable(hist, forecast) {
@@ -340,6 +502,16 @@ AgriPricePH.Landpage = (function () {
     });
   }
 
+  /** The hero opens on "Popular rice" when variety data loaded; otherwise that tab stays hidden. */
+  function syncPopularTab() {
+    const toggle = $('#hero-origin-toggle');
+    const btn = toggle && toggle.querySelector('[data-origin="popular"]');
+    if (!btn) return;
+    btn.hidden = !_varieties.length;
+    if (!_varieties.length && _origin === 'popular') _origin = 'local';
+    toggle.querySelectorAll('.hero-origin-btn').forEach((b) => b.classList.toggle('active', b.dataset.origin === _origin));
+  }
+
   function bindOriginToggle() {
     const toggle = $('#hero-origin-toggle');
     if (!toggle) return;
@@ -347,7 +519,7 @@ AgriPricePH.Landpage = (function () {
       btn.addEventListener('click', () => {
         toggle.querySelectorAll('.hero-origin-btn').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
-        _origin = btn.dataset.origin === 'imported' ? 'imported' : 'local';
+        _origin = ['popular', 'imported'].includes(btn.dataset.origin) ? btn.dataset.origin : 'local';
         renderHeroCards();
       });
     });
@@ -361,7 +533,10 @@ AgriPricePH.Landpage = (function () {
       document.querySelectorAll('[data-auth-open="signup"], [data-auth-open="login"]').forEach(el => el.remove());
     }
     bindOriginToggle();
-    await loadPrices();
+    bindBackTop();
+    await Promise.all([loadPrices(), loadVarieties()]);
+    syncPopularTab();
+    renderPopular();
     renderTicker();
     renderHeroCards();
     renderPricesGrid();

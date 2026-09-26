@@ -17,7 +17,19 @@ import os
 import re
 from datetime import datetime
 
+import sys
+
 import pdfplumber
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools"))
+from pdfconvrt import extract_rice_prices_from_pdf_bytes  # noqa: E402
+
+_PDFCONVRT_COL = {
+    "impSpecial": "Imported Special", "impPremium": "Imported Premium",
+    "impWellMilled": "Imported Well Milled", "impRegular": "Imported Regular Milled",
+    "locSpecial": "Local Special", "locPremium": "Local Premium",
+    "locWellMilled": "Local Well Milled", "locRegular": "Local Regular Milled",
+}
 
 # canonical key -> label as printed under each section header
 CORE_GRADES = {
@@ -56,6 +68,21 @@ def parse_dpi_pdf(path: str) -> dict | None:
         return None
     d = datetime.strptime(f"{m.group(1)} {m.group(2)} {m.group(3)}", "%B %d %Y").date()
 
+    row = {"Date": d}
+    # Prices are paired with their grade by position on the page (tools/pdfconvrt.py). Reading
+    # "the price after the label" from the text returned nothing for bulletins whose price column
+    # sits slightly above each label (e.g. May 23 2026), and a missing cell let a stale value
+    # survive in the database. "n/a" in the bulletin stays None.
+    try:
+        with open(path, "rb") as f:
+            prices = extract_rice_prices_from_pdf_bytes(f.read())
+        for key in CORE_GRADES:
+            row[f"imp{key}"] = prices.get(_PDFCONVRT_COL[f"imp{key}"])
+            row[f"loc{key}"] = prices.get(_PDFCONVRT_COL[f"loc{key}"])
+        return row
+    except Exception:
+        pass
+
     i = text.index("IMPORTED COMMERCIAL RICE")
     j = text.index("LOCAL COMMERCIAL RICE") if "LOCAL COMMERCIAL RICE" in text else len(text)
     imp_block = text[i:j]
@@ -64,7 +91,6 @@ def parse_dpi_pdf(path: str) -> dict | None:
     k = re.search(r"\n(?=[A-Z][A-Z &(),./-]{6,}\n)", rest[len("LOCAL COMMERCIAL RICE"):])
     loc_block = rest[: k.start() + len("LOCAL COMMERCIAL RICE")] if k else rest
 
-    row = {"Date": d}
     for key, label in CORE_GRADES.items():
         row[f"imp{key}"] = _price_after(imp_block, label)
         row[f"loc{key}"] = _price_after(loc_block, label)

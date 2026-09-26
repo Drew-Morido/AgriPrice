@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import os
+import re
 import sqlite3
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -34,6 +35,15 @@ TARIFF_STEP_POINTS = 5.0      # ... shifts the duty by 5 percentage points
 # at 10x or -95% of its category) without rejecting legitimate premium/discount brands.
 BRAND_WEIGHT_BAND_MIN = -70.0
 BRAND_WEIGHT_BAND_MAX = 200.0
+
+# Brands whose shelf price is set by government, not by the market — a category price band scaled
+# by a "premium" is meaningless for them, so they are shown at their surveyed price, unscaled.
+FIXED_PRICE_BRANDS = {"nfa"}   # matched on the name's first word, so "NFA Rice" counts too
+
+
+def _is_fixed_price_brand(name: str | None) -> bool:
+    words = (name or "").strip().lower().split()
+    return bool(words) and words[0] in FIXED_PRICE_BRANDS
 
 # canonical model key -> WS_rice_price column (2026 data) for a live base price fallback.
 CANON_TO_WS = {
@@ -89,7 +99,7 @@ def list_catalog(include_inactive: bool = False) -> dict:
             _ensure_brand_image(conn)
             q = ("SELECT id,category_id,brand_name,package,location,source,source_url,"
                  "last_verified,classification_note,verification_status,verified_by,verified_at,"
-                 "active,notes,image_path FROM rice_brand")
+                 "active,notes,image_path,variety_names,variety_source FROM rice_brand")
             if not include_inactive:
                 q += " WHERE active=1"
             q += " ORDER BY brand_name,package"
@@ -188,9 +198,15 @@ def _ensure_brand_image(conn) -> None:
         return
     try:
         cols = [r[1] for r in conn.execute("PRAGMA table_info(rice_brand)")]
-        if "image_path" not in cols:
-            conn.execute("ALTER TABLE rice_brand ADD COLUMN image_path TEXT")
-            conn.commit()
+        for col in ("image_path", "variety_names", "variety_source"):
+            if col not in cols:
+                conn.execute(f"ALTER TABLE rice_brand ADD COLUMN {col} TEXT")
+        # Pack-size prices (datasets/import_brand_survey.py): one product, several packs.
+        conn.execute("""CREATE TABLE IF NOT EXISTS brand_pack_price (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, brand_id INTEGER NOT NULL REFERENCES rice_brand(id),
+            pack_kg REAL, pack_price REAL NOT NULL, per_kg REAL NOT NULL, sample_date TEXT, source TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')))""")
+        conn.commit()
         _BRAND_IMAGE_ENSURED = True
     except sqlite3.OperationalError:
         pass
@@ -510,6 +526,50 @@ def _latest_base_price(conn, canonical_key: str) -> tuple[float | None, str]:
     return None, "no price data"
 
 
+def _latest_base_date(conn, canonical_key: str) -> str | None:
+    """Date of the price _latest_base_price() would return (bracket effective date, else latest
+    WS_rice_price date as YYYY-MM-DD)."""
+    if _has_table(conn, "rice_price_bracket"):
+        row = conn.execute(
+            "SELECT b.effective_date FROM rice_price_bracket b JOIN dti_category c "
+            "ON c.id=b.category_id WHERE c.canonical_key=? AND b.price_min IS NOT NULL "
+            "ORDER BY b.effective_date DESC LIMIT 1", (canonical_key,)).fetchone()
+        if row and row["effective_date"]:
+            return str(row["effective_date"])[:10]
+    col = CANON_TO_WS.get(canonical_key)
+    if col and _has_table(conn, "WS_rice_price"):
+        try:
+            row = conn.execute(
+                f'SELECT Date FROM "WS_rice_price" WHERE "{col}" IS NOT NULL '
+                'ORDER BY Date DESC LIMIT 1').fetchone()
+            if row and row["Date"]:
+                raw = str(row["Date"])
+                if "/" in raw:  # MM/DD/YYYY
+                    m, d, y = raw.split("/")
+                    return f"{y}-{int(m):02d}-{int(d):02d}"
+                return raw[:10]
+        except (sqlite3.OperationalError, ValueError):
+            pass
+    return None
+
+
+_SURVEYED_RE = re.compile(r"Source price:\s*₱?\s*([\d.]+)(?:\s*[–-]\s*₱?\s*([\d.]+))?")
+
+
+def _surveyed_price(notes: str | None) -> tuple[float | None, float | None]:
+    """Shelf price recorded when the brand was surveyed, parsed from the seed script's
+    'Source price: ₱52.00/kg' (or '₱57.00–66.00/kg' for a multi-SKU brand) note."""
+    m = _SURVEYED_RE.search(notes or "")
+    if not m:
+        return None, None
+    try:
+        lo = float(m.group(1))
+        hi = float(m.group(2)) if m.group(2) else lo
+    except ValueError:
+        return None, None
+    return min(lo, hi), max(lo, hi)
+
+
 def consumer_price(category_key: str, date: str | None = None) -> dict:
     """Final consumer price = base + Σ applicable taxes. Imported categories get taxes with
     applies_to in ('imported','all'); local categories only 'all'. Empty-safe."""
@@ -593,6 +653,7 @@ def brand_price(category_key: str, include_inactive: bool = False) -> dict:
             return {"ready": True, "error": f"Unknown category '{category_key}'.", "brands": []}
 
         base, base_src = _latest_base_price(conn, category_key)
+        base_date = _latest_base_date(conn, category_key)
 
         weights_by_brand: dict[int, dict] = {}
         if _has_table(conn, "brand_price_adjustment"):
@@ -602,18 +663,33 @@ def brand_price(category_key: str, include_inactive: bool = False) -> dict:
                 weights_by_brand[r["brand_id"]] = dict(r)
 
         brands_out = []
+        packs_by_brand: dict[int, list] = {}
         if _has_table(conn, "rice_brand"):
             _ensure_brand_image(conn)
+            for r in conn.execute(
+                    "SELECT p.brand_id,p.pack_kg,p.pack_price,p.per_kg FROM brand_pack_price p "
+                    "JOIN rice_brand b ON b.id=p.brand_id WHERE b.category_id=? "
+                    "ORDER BY p.brand_id, p.pack_kg IS NOT NULL, p.pack_kg", (cat["id"],)):
+                packs_by_brand.setdefault(r["brand_id"], []).append(
+                    {"pack_kg": r["pack_kg"], "pack_price": r["pack_price"], "per_kg": r["per_kg"]})
             q = ("SELECT id,brand_name,package,location,source,source_url,last_verified,"
                  "classification_note,verification_status,verified_by,verified_at,active,notes,"
-                 "image_path FROM rice_brand WHERE category_id=?")
+                 "image_path,variety_names,variety_source FROM rice_brand WHERE category_id=?")
             if not include_inactive:
                 q += " AND active=1"
             q += " ORDER BY brand_name,package"
             for b in conn.execute(q, (cat["id"],)):
                 b = dict(b)
                 w = weights_by_brand.get(b["id"])
-                if w and base is not None:
+                packs = packs_by_brand.get(b["id"], [])
+                if packs:   # per-kg range across the surveyed packs
+                    s_lo, s_hi = min(p["per_kg"] for p in packs), max(p["per_kg"] for p in packs)
+                else:       # older rows: the seed note "Source price: ₱52.00/kg"
+                    s_lo, s_hi = _surveyed_price(b.get("notes"))
+                fixed = _is_fixed_price_brand(b["brand_name"]) and s_lo is not None
+                if fixed:
+                    price, estimated = round(s_lo, 2), False
+                elif w and base is not None:
                     price = round(base * (1.0 + float(w["weight_pct"]) / 100.0), 2)
                     estimated = True
                 else:
@@ -623,6 +699,10 @@ def brand_price(category_key: str, include_inactive: bool = False) -> dict:
                     **b,
                     "price": price,
                     "estimated": estimated,
+                    "fixed_price": fixed,
+                    "surveyed_price_min": s_lo,
+                    "surveyed_price_max": s_hi,
+                    "packs": packs,
                     "weight_pct": w["weight_pct"] if w else None,
                     "sample_date": w["sample_date"] if w else None,
                     "sample_locations": w["sample_locations"] if w else None,
@@ -635,7 +715,7 @@ def brand_price(category_key: str, include_inactive: bool = False) -> dict:
         return {
             "ready": True, "category": cat["name"], "canonical_key": cat["canonical_key"],
             "segment": cat["segment"], "base_price": round(base, 2) if base is not None else None,
-            "base_source": base_src, "brands": brands_out,
+            "base_source": base_src, "base_date": base_date, "brands": brands_out,
             "note": "" if base is not None else "No base price available for this category.",
         }
     finally:

@@ -25,7 +25,7 @@ AgriPricePH.PublicAuthModal = (function () {
     statistics: {
       iconSvg: ICON_STATS,
       title: 'Unlock Charts & Stats',
-      body: 'Explore trends, comparisons, and market insights over the last 90 days — free with a quick account.',
+      body: 'Compare all 8 rice types, see if local or imported costs less, and plan your rice budget — free with a quick account.',
       badge: 'Members only',
     },
   };
@@ -71,8 +71,12 @@ AgriPricePH.PublicAuthModal = (function () {
     return AgriPricePH.PublicAlert;
   }
 
+  // The page scrolls on <html> (landpage-nav.css), so that is where scrolling is locked. Locking
+  // <body> instead never stopped the page scrolling, and made <body> a scroll container, which
+  // un-pinned the sticky site nav for as long as a modal was open.
   function lockBody(open) {
     document.body.classList.toggle('public-auth-modal-open', open);
+    document.documentElement.classList.toggle('public-scroll-locked', open);
   }
 
   function ensureUnlockRoot() {

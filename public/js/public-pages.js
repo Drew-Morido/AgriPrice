@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
     Modal?.initGatedPage?.({
       feature: 'statistics',
       next: 'statistics.html',
-      onUnlock: () => D?.initStatisticsPage?.(),
+      onUnlock: () => AgriPricePH.Stats?.init?.(),
     });
   }
 

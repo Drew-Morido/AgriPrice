@@ -31,3 +31,6 @@ Thumbs.db
 
 # Scraper debug artifacts
 tools/debug_fetch/*.pdf
+
+# DA Daily Price Index bulletins cached by datasets/repair_ws_rice_from_bulletins.py (~100 MB)
+tools/debug_fetch/dpi/

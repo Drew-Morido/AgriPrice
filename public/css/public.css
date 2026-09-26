@@ -726,16 +726,34 @@ body.public-auth-body {
   transform: translateY(0);
 }
 
-html.public-compact .public-card {
+html.public-compact .public-card,
+html.public-compact .lp-info-card,
+html.public-compact .public-unlock-card {
   padding: 16px 18px;
 }
 
-html.public-compact .lp-price-grid {
+html.public-compact .lp-price-grid,
+html.public-compact .lp-info-grid,
+html.public-compact .lp-stats-grid,
+html.public-compact .account-grid {
   gap: 12px;
 }
 
 html.public-compact .lp-price-card {
   padding: 14px 16px;
+}
+
+html.public-compact .lp-forecast-card {
+  padding: 12px 14px;
+}
+
+html.public-compact .settings-row {
+  padding: 10px 0;
+}
+
+html.public-compact .public-page-header,
+html.public-compact .public-page-lead {
+  margin-bottom: 18px;
 }
 
 html.reduce-motion *,
@@ -869,9 +887,11 @@ html.reduce-motion *::after {
 }
 
 /* ── Gated pages + auth modals ── */
-body.public-auth-modal-open {
-  overflow: hidden;
-}
+/* Scroll lock while a modal is open lives on <html> (html.public-scroll-locked, landpage-nav.css).
+   The old `body.public-auth-modal-open { overflow: hidden }` is gone: <body> does not scroll on
+   public pages, so it locked nothing, and it turned <body> into a scroll container, which
+   un-pinned the sticky site nav while a modal was open. The body class is still set (JS) as a
+   hook. */
 
 #public-page-content.public-gated-locked {
   filter: blur(5px);

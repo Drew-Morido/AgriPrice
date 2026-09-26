@@ -125,6 +125,9 @@ AgriPricePH.WebScraper = (function () {
       _cachedStats = data.stats || {};
       _renderStats(_cachedStats);
 
+      // ── Held-for-review queue ──
+      _fetchReview();
+
       // ── Schedule ──
       _updateSchedule();
 
@@ -403,6 +406,66 @@ AgriPricePH.WebScraper = (function () {
   function _setText(id, val) {
     const el = document.getElementById(id);
     if (el) el.textContent = val;
+  }
+
+  // ─── HELD FOR REVIEW ───────────────────────────────────────────────────────
+  // Rice prices the scraper held back (tools/scrape_guard.py). Approve writes the held value into
+  // the database; reject keeps the cell empty. Both need the admin session token.
+  let _review = [];
+
+  async function _fetchReview() {
+    try {
+      const res = await fetch(`${API}/api/scrape-review`);
+      if (!res.ok) return;
+      _review = (await res.json()).pending || [];
+      _renderReview();
+    } catch { /* keep the last list */ }
+  }
+
+  function _renderReview() {
+    const host = document.getElementById('scraper-review');
+    const count = document.getElementById('scraper-review-count');
+    if (count) {
+      count.textContent = `${_review.length} pending`;
+      count.className = `pill ${_review.length ? 'pill-orange' : 'pill-green'}`;
+    }
+    if (!host) return;
+    if (!_review.length) {
+      host.innerHTML = '<div style="font-size:13px;color:var(--text-muted);">Nothing held.</div>';
+      return;
+    }
+    host.innerHTML = _review.map((e, i) => `
+      <div style="display:grid;grid-template-columns:110px 1fr 90px auto;gap:12px;align-items:center;padding:10px 0;border-top:1px solid rgba(76,175,110,0.1);">
+        <span style="font-weight:600;">${_esc(e.date)}</span>
+        <span><b>${_esc(e.column)}</b> — ${_esc(e.reason)}</span>
+        <span style="font-family:var(--font-mono, monospace);font-weight:600;">₱${Number(e.value).toFixed(2)}</span>
+        <span style="display:flex;gap:6px;">
+          <button type="button" class="btn btn-primary btn-sm" data-review="${i}" data-action="approve">Approve</button>
+          <button type="button" class="btn btn-outline btn-sm" data-review="${i}" data-action="reject">Reject</button>
+        </span>
+      </div>`).join('');
+    host.querySelectorAll('button[data-review]').forEach((btn) => {
+      btn.addEventListener('click', () => _resolveReview(_review[+btn.dataset.review], btn.dataset.action, btn));
+    });
+  }
+
+  async function _resolveReview(entry, action, btn) {
+    if (!entry) return;
+    btn.disabled = true;
+    try {
+      const res = await fetch(`${API}/api/scrape-review/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_adminToken()}` },
+        body: JSON.stringify({ date: entry.date, column: entry.column, action }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      _addLocalLog('INFO', `${action === 'approve' ? 'Approved' : 'Rejected'} ${entry.date} ${entry.column} ₱${Number(entry.value).toFixed(2)}`);
+      await _fetchReview();
+    } catch (err) {
+      btn.disabled = false;
+      _addLocalLog('ERROR', `Review ${action} failed: ${err.message || err}`);
+    }
   }
 
   function _esc(str) {

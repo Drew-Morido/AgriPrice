@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="js/public-settings.js"></script>
   <title>AgriPricePH — Rice Price Intelligence</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -61,6 +62,17 @@
       --radius-md: 12px;
       --radius-lg: 20px;
       --radius-xl: 28px;
+    }
+
+    /* --bg-card/--text-primary/--text-secondary/--text-muted/--shadow-* above share their name
+       with global.css's own vars, so html.theme-dark there already re-colors them here too (that
+       rule's higher specificity wins over this plain :root). --bg/--border/--border-md don't
+       exist in global.css, so they need their own dark values or this page's section bands and
+       borders would stay light-mode-only. */
+    html.theme-dark {
+      --bg: #0f1a14;
+      --border: rgba(76, 175, 110, 0.16);
+      --border-md: rgba(76, 175, 110, 0.26);
     }
 
     html.public-site { scroll-behavior: smooth; }
@@ -349,6 +361,23 @@
       margin-top: 4px;
     }
 
+    .hero-origin-btn[hidden] { display: none; }
+
+    /* "Popular rice" hero cards — the names people ask for (Sinandomeng, Dinorado…). Each card is a
+       link to the catalog filtered to that variety; the price is a shop-price RANGE across brands,
+       so it carries a brand count instead of a day-on-day ▲/▼ badge. */
+    a.hero-stat-card { display: block; color: inherit; text-decoration: none; transition: border-color .2s, background .2s, transform .2s; }
+    a.hero-stat-card:hover { border-color: rgba(120, 202, 151, 0.45); background: rgba(255,255,255,0.08); transform: translateY(-2px); }
+    a.hero-stat-card:focus-visible { outline: 2px solid var(--green-300); outline-offset: 2px; }
+    .hsc-name {
+      font-family: var(--font-display); font-size: 23px; line-height: 1.1; color: #fff;
+      margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .hsc-value--range { font-size: 21px; letter-spacing: -.6px; white-space: nowrap; }
+    .hsc-badge.brands { background: rgba(120, 202, 151, 0.15); color: var(--green-300); white-space: nowrap; font-family: var(--font-body); }
+    .hero-popular-note { font-size: 11.5px; line-height: 1.5; color: rgba(255,255,255,0.4); text-align: right; margin-top: -2px; }
+    .hero-popular-note[hidden] { display: none; }
+
     /* ── TICKER ── */
     .ticker-wrap {
       background: var(--green-800);
@@ -386,6 +415,50 @@
     .ticker-price { color: #fff; font-family: var(--font-mono); font-size: 13px; }
     .ticker-up { color: var(--green-300); }
     .ticker-down { color: #f87171; }
+
+    .ticker-tag { color: rgba(255,255,255,0.32); font-size: 10.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+    .ticker-item.is-variety .ticker-name { color: #fff; font-weight: 700; }
+
+    /* ── POPULAR RICE ── the well-known names (Sinandomeng, Dinorado…) with a shop-price range */
+    .popular-bg { background: var(--green-50); border-bottom: 1px solid var(--border); padding-top: 72px; padding-bottom: 72px; }
+    .popular-bg[hidden] { display: none; }
+    .popular-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; margin-bottom: 36px; }
+    .popular-head .section-title { margin-bottom: 8px; }
+    .popular-link {
+      display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0;
+      font-size: 14px; font-weight: 700; color: var(--green-700); text-decoration: none;
+      border: 1px solid var(--border-md); background: var(--bg-card); border-radius: 99px; padding: 11px 20px;
+      transition: background .15s, border-color .15s;
+    }
+    .popular-link:hover { background: var(--green-100); border-color: var(--green-400); }
+    .popular-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    .pop-card {
+      position: relative; display: flex; flex-direction: column; gap: 12px;
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+      padding: 24px 22px 20px; text-decoration: none; color: inherit;
+      box-shadow: var(--shadow-sm);
+      transition: transform .2s, box-shadow .2s, border-color .2s;
+      animation: pop-in .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i, 0) * 80ms);
+    }
+    .pop-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); border-color: var(--green-400); }
+    .pop-card:focus-visible { outline: 2px solid var(--green-500); outline-offset: 3px; }
+    @keyframes pop-in { from { opacity: 0; transform: translateY(14px); } }
+    .pop-top { display: flex; align-items: center; gap: 12px; }
+    .pop-ico { width: 40px; height: 40px; border-radius: 12px; background: var(--green-50); color: var(--green-600); display: grid; place-items: center; flex-shrink: 0; }
+    .pop-ico svg { width: 22px; height: 22px; }
+    .pop-name { font-family: var(--font-display); font-size: 25px; line-height: 1.1; color: var(--text-primary); }
+    .pop-price { font-family: var(--font-mono); font-size: 20px; font-weight: 600; color: var(--green-700); letter-spacing: -.5px; }
+    .pop-price span { font-size: 12.5px; font-weight: 500; color: var(--text-muted); letter-spacing: 0; }
+    .pop-meta { font-size: 13.5px; color: var(--text-secondary); line-height: 1.5; }
+    .pop-meta b { color: var(--text-primary); font-weight: 700; }
+    .pop-grade { display: inline-block; font-size: 11.5px; font-weight: 700; color: var(--green-700); background: var(--green-50); border-radius: 99px; padding: 3px 10px; margin: 2px 4px 0 0; }
+    .pop-go { margin-top: auto; font-size: 13px; font-weight: 700; color: var(--green-600); display: inline-flex; align-items: center; gap: 6px; }
+    .pop-go svg { transition: transform .15s; }
+    .pop-card:hover .pop-go svg { transform: translateX(3px); }
+    .popular-note { margin-top: 22px; font-size: 13px; line-height: 1.6; color: var(--text-muted); max-width: 720px; }
+    @media (max-width: 1000px) { .popular-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px) { .popular-grid { grid-template-columns: 1fr; } .popular-bg { padding-top: 52px; padding-bottom: 52px; } }
+    @media (prefers-reduced-motion: reduce) { .pop-card { animation: none; } }
 
     /* ── SECTION SHARED ── */
     section { padding: 96px 28px; }
@@ -624,12 +697,89 @@
     .pc-change.down { background: rgba(248,113,113,0.14); color: #f87171; }
     .pc-change.flat { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.4); }
 
-    .prices-note {
-      margin-top: 24px;
-      font-size: 12px;
-      color: rgba(255,255,255,0.3);
-      text-align: center;
+    /* Each grade card now reads top to bottom as: today's DA price (+ real change vs yesterday) →
+       tomorrow's expected range (the model's calibrated 90% band) → the brands in that grade and
+       their shop-price range, linking to the catalog. Three different kinds of number, so each has
+       its own label and the legend under the grid says where each comes from. */
+    .price-card { display: flex; flex-direction: column; }
+    .pc-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+    .pc-head .pc-type { margin-bottom: 0; }
+    .pc-today { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.35); }
+    .pc-range {
+      margin-top: 14px; padding: 10px 12px; border-radius: 10px;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+      font-size: 12.5px; color: rgba(255,255,255,0.55); line-height: 1.45;
     }
+    .pc-range strong { display: block; font-family: var(--font-mono); font-size: 15px; font-weight: 600; color: var(--green-200); letter-spacing: -.3px; }
+    .pc-brands {
+      margin-top: 12px; padding-top: 12px; border-top: 1px dashed rgba(255,255,255,0.1);
+      display: flex; flex-direction: column; gap: 4px; flex: 1;
+      font-size: 12.5px; color: rgba(255,255,255,0.55); line-height: 1.45;
+    }
+    .pc-brands b { color: #fff; font-weight: 700; }
+    .pc-brand-names { color: rgba(255,255,255,0.4); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pc-brands-link {
+      margin-top: auto; padding-top: 8px; align-self: flex-start;
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12.5px; font-weight: 700; color: var(--green-300); text-decoration: none;
+    }
+    .pc-brands-link:hover { color: #fff; }
+    .pc-brands-link:hover svg { transform: translateX(3px); }
+    .pc-brands-link svg { transition: transform .15s; }
+    .pc-brands-link:focus-visible { outline: 2px solid var(--green-300); outline-offset: 3px; border-radius: 4px; }
+    .pc-none { color: rgba(255,255,255,0.4); font-size: 12px; }
+
+    .prices-legend {
+      margin-top: 28px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.08);
+      display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 28px;
+      font-size: 12.5px; color: rgba(255,255,255,0.45); line-height: 1.5;
+    }
+    .prices-legend span { display: inline-flex; align-items: center; gap: 8px; }
+    .prices-legend i { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .prices-legend .lg-today  { background: #fff; }
+    .prices-legend .lg-range  { background: var(--green-200); }
+    .prices-legend .lg-brands { background: var(--sand-300); }
+    .prices-legend b { color: rgba(255,255,255,0.75); font-weight: 600; }
+    .prices-offline {
+      display: inline-flex; align-items: center; gap: 8px; margin-top: 6px;
+      font-size: 13px; font-weight: 600; color: #f7c873;
+      background: rgba(247,200,115,0.1); border: 1px solid rgba(247,200,115,0.25); border-radius: 99px; padding: 5px 12px;
+    }
+
+    /* (i) info icon + tooltip for details kept off the page (e.g. how shop prices were collected). */
+    .lp-tip { position: relative; display: inline-flex; vertical-align: -3px; margin-left: 2px; color: var(--text-muted); cursor: help; outline: none; }
+    .lp-tip svg { width: 15px; height: 15px; }
+    .lp-tip:hover, .lp-tip:focus { color: var(--green-600); }
+    .lp-tip::after {
+      content: attr(data-tip); position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); z-index: 40;
+      width: max-content; max-width: min(290px, 80vw); text-align: left; white-space: normal;
+      font-family: var(--font-body); font-size: 12.5px; font-weight: 500; line-height: 1.55; letter-spacing: 0; text-transform: none;
+      color: #fff; background: var(--green-950); border: 1px solid rgba(120,202,151,.25); border-radius: 8px; padding: 9px 12px;
+      box-shadow: 0 10px 26px rgba(8,20,14,.3);
+      opacity: 0; visibility: hidden; transition: opacity .15s, visibility .15s; pointer-events: none;
+    }
+    .lp-tip:hover::after, .lp-tip:focus::after { opacity: 1; visibility: visible; }
+    .lp-tip--dark { color: rgba(255,255,255,.45); }
+    .lp-tip--dark:hover, .lp-tip--dark:focus { color: var(--green-300); }
+    .lp-tip--dark::after { background: #fff; color: var(--text-primary); border-color: transparent; }
+    .lp-tip--right::after { left: auto; right: -8px; transform: none; }
+
+    /* ── BACK TO TOP ── appears once the hero is scrolled past */
+    .back-top {
+      position: fixed; right: 24px; bottom: 24px; z-index: 150;
+      width: 48px; height: 48px; border-radius: 50%; border: none; cursor: pointer;
+      background: var(--green-600); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 10px 24px rgba(8,34,18,.28), 0 4px 10px rgba(8,34,18,.14);
+      opacity: 0; visibility: hidden; transform: translateY(12px);
+      transition: opacity .22s, transform .22s, visibility .22s, background .15s;
+    }
+    .back-top.is-visible { opacity: 1; visibility: visible; transform: translateY(0); }
+    .back-top:hover { background: var(--green-700); }
+    .back-top:focus-visible { outline: 2px solid var(--green-300); outline-offset: 3px; }
+    .back-top svg { width: 20px; height: 20px; }
+    @media (max-width: 560px) { .back-top { right: 16px; bottom: 16px; width: 44px; height: 44px; } }
+    @media (prefers-reduced-motion: reduce) { .back-top { transition: none; } }
 
     /* ── HOW-BG (background band shared with the Brands section) ── */
     .how-bg { background: var(--sand-50); }
@@ -1443,11 +1593,11 @@
       <div class="hero-content">
         <div class="hero-pill">
           <span class="hero-pill-dot"></span>
-          Live prices updated daily
+          Based on Department of Agriculture price monitoring
         </div>
-        <h1>Rice prices,<br><em>clear as day</em></h1>
+        <h1>Rice prices,<br><em>updated daily</em></h1>
         <p class="hero-desc">
-          AgriPricePH tracks 8 rice varieties across the Philippines. Check today's market rates, plan with a 3-day forecast, and explore years of price history — built for retailers and families alike.
+          Check today's price for all eight DA rice classifications, see where prices are expected to go over the next three days, and compare the brands sold in local markets &mdash; before you buy.
         </p>
         <div class="hero-cta-row">
           <a href="current-prices.html" class="btn-hero-primary">
@@ -1462,11 +1612,13 @@
       </div>
 
       <div class="hero-badges-wrap">
-        <div class="hero-origin-toggle" id="hero-origin-toggle" role="group" aria-label="Rice source">
-          <button type="button" class="hero-origin-btn active" data-origin="local">Local</button>
+        <div class="hero-origin-toggle" id="hero-origin-toggle" role="group" aria-label="Which rice prices to show">
+          <button type="button" class="hero-origin-btn active" data-origin="popular" hidden>Popular rice</button>
+          <button type="button" class="hero-origin-btn" data-origin="local">Local</button>
           <button type="button" class="hero-origin-btn" data-origin="imported">Imported</button>
         </div>
         <div class="hero-badges" id="hero-price-cards" aria-live="polite"></div>
+        <p class="hero-popular-note" id="hero-popular-note" hidden></p>
       </div>
     </div>
   </section>
@@ -1475,6 +1627,24 @@
   <div class="ticker-wrap" aria-label="Today's rice prices">
     <div class="ticker-inner" id="home-ticker"></div>
   </div>
+
+  <!-- POPULAR RICE — filled by landpage.js from /api/brand-prices; stays hidden if it cannot load -->
+  <section class="popular-bg" id="popular" aria-labelledby="popular-title" hidden>
+    <div class="section-inner">
+      <div class="popular-head">
+        <div>
+          <div class="eyebrow">Popular rice</div>
+          <h2 class="section-title" id="popular-title">The rice names you know,<br>and what they cost</h2>
+          <p class="section-desc">Sinandomeng, Dinorado, Jasmine and more &mdash; the varieties sold by the most brands in our catalog, with the range of shop prices we found.</p>
+        </div>
+        <a href="rice-catalog.html" class="popular-link">Browse all rice
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 7h10M8 3l4 4-4 4"/></svg>
+        </a>
+      </div>
+      <div class="popular-grid" id="popular-grid"></div>
+      <p class="popular-note" id="popular-note"></p>
+    </div>
+  </section>
 
   <!-- FEATURES -->
   <section class="features-bg" id="features">
@@ -1768,13 +1938,13 @@
         <div>
           <div class="eyebrow" style="color: var(--green-300);">Prices</div>
           <h2 class="section-title">All 8 rice types,<br>right now</h2>
-          <p class="section-desc">Sample prices shown. Connect to the live API for real-time data.</p>
+          <p class="section-desc" id="home-prices-desc">Today&rsquo;s Department of Agriculture price for every grade, tomorrow&rsquo;s expected range, and the brands you&rsquo;ll find on the shelf.</p>
         </div>
         <a href="current-prices.html" class="btn-hero-secondary" style="white-space: nowrap; flex-shrink:0;">View full table →</a>
       </div>
 
       <div class="prices-rows" id="home-prices-grid" aria-live="polite"></div>
-      <p class="prices-note">Sample data for illustration. Live prices are sourced from the Department of Agriculture monitoring system.</p>
+      <div class="prices-legend" id="home-prices-legend"></div>
     </div>
   </section>
 
@@ -1923,6 +2093,10 @@
     </div>
   </footer>
 
+  <button type="button" class="back-top" id="home-back-top" aria-label="Back to top">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+  </button>
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="../js/dates.js"></script>
   <script src="../js/data.js"></script>
@@ -1933,7 +2107,8 @@
   <script src="js/public-auth-modal.js"></script>
   <script src="js/public-shell.js"></script>
   <script src="js/public-data.js"></script>
-  <script src="js/landpage.js"></script>
+  <script src="js/public-varieties.js?v=6"></script>
+  <script src="js/landpage.js?v=8"></script>
   <script src="js/rice-knowledge.js"></script>
   <script src="js/public-pages.js"></script>
 </body>

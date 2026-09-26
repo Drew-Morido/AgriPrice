@@ -174,7 +174,37 @@ AgriPricePH.History = (function () {
     const p25 = quantile(vals, 0.25);
     const p75 = quantile(vals, 0.75);
     const state = today < p25 ? 'low' : today > p75 ? 'high' : 'mid';
-    return { days, today, mid, p25, p75, state, n: pts.length, diff: today - mid };
+    return {
+      days, today, mid, p25, p75, state, n: pts.length, diff: today - mid,
+      lo: Math.min(...vals, today), hi: Math.max(...vals, today),
+    };
+  }
+
+  /**
+   * "Where today sits" — the same 25th/75th-percentile bands the verdict uses, drawn as a
+   * three-zone bar from the window's lowest to highest recorded price, with a pin for today.
+   * It is the verdict made visible, not a new statistic.
+   */
+  function gaugeHtml(v, label) {
+    const span = v.hi - v.lo;
+    if (!(span > 0.005)) return '';
+    const at = (x) => Math.min(100, Math.max(0, ((x - v.lo) / span) * 100));
+    const a = at(v.p25);
+    const b = at(v.p75);
+    const pos = at(v.today);
+    const edge = pos < 12 ? ' edge-l' : pos > 88 ? ' edge-r' : '';
+    return `<div class="ph-gauge">
+      <div class="ph-gauge-title">Where today&rsquo;s price sits in the last ${label}
+        ${info('The bar runs from the lowest to the highest recorded price in the window. The middle zone holds the middle half of those days — the usual range. Left of it is cheaper than usual, right of it is pricier.')}
+      </div>
+      <div class="ph-gauge-track" role="img" aria-label="Today ${peso(v.today)}, usual range ${peso(v.p25)} to ${peso(v.p75)}">
+        <span class="ph-gauge-zone low" style="width:${a}%">${a > 14 ? 'Cheaper' : ''}</span>
+        <span class="ph-gauge-zone mid" style="width:${b - a}%">${b - a > 16 ? 'Usual range' : ''}</span>
+        <span class="ph-gauge-zone high" style="width:${100 - b}%">${100 - b > 14 ? 'Pricier' : ''}</span>
+        <span class="ph-gauge-pin${edge}" style="--pos:${pos}%"><b>Today ${peso(v.today)}</b></span>
+      </div>
+      <div class="ph-gauge-scale"><span>Lowest ${peso(v.lo)}</span><span>Highest ${peso(v.hi)}</span></div>
+    </div>`;
   }
 
   function renderVerdict() {
@@ -188,40 +218,46 @@ AgriPricePH.History = (function () {
       return;
     }
     const lead = six || year;
+    const dot = document.querySelector('#tab-today .ph-tab-dot');
+    if (dot) dot.dataset.state = lead.state;
     const WORD = {
-      low: { t: 'Cheaper than usual', cls: 'good' },
-      mid: { t: 'About the usual price', cls: 'mid' },
-      high: { t: 'Pricier than usual', cls: 'bad' },
+      low: { t: 'Cheaper than usual', cls: 'good', ico: 'thumb-up' },
+      mid: { t: 'About the usual price', cls: 'mid', ico: 'equal' },
+      high: { t: 'Pricier than usual', cls: 'bad', ico: 'alert-triangle' },
     };
     const w = WORD[lead.state];
 
     // The word follows the sign of the gap, not the verdict: a price can sit a few centavos below
     // the middle price and still be "about usual", and "−₱0.68 in line with" reads as a mistake.
-    // The badge above carries the verdict; this row just states the gap.
+    // The badge carries the verdict; this row just states the gap.
     const line = (v, label) => {
       if (!v) return '';
-      const word = Math.abs(v.diff) < 0.005 ? 'the usual' : v.diff < 0 ? 'below usual' : 'above usual';
+      const word = Math.abs(v.diff) < 0.005 ? 'same as usual' : v.diff < 0 ? 'below usual' : 'above usual';
       return `<div class="ph-v-row">
-        <span class="ph-v-window">vs the last ${label}</span>
-        <span class="ph-v-usual">usually ${peso(v.mid)}</span>
-        <span class="ph-v-delta ${v.state}">${signedPeso(Math.abs(v.diff) < 0.005 ? 0 : v.diff)} ${esc(word)}</span>
+        <span class="ph-v-window">Last ${label}</span>
+        <span class="ph-v-usual">Usual price: ${peso(v.mid)}</span>
+        <span class="ph-v-delta ${v.state}">${signedPeso(Math.abs(v.diff) < 0.005 ? 0 : v.diff)}<small>${esc(word)}</small></span>
       </div>`;
     };
 
     host.innerHTML = `
-      <div class="ph-verdict-main">
-        <div class="ph-v-label">${esc(m.label)} today</div>
-        <div class="ph-v-price">${peso(lead.today)}<span>${unitSuffix()}</span></div>
-        <div class="ph-v-badge ${w.cls}">${w.t}</div>
+      <div class="ph-verdict-top">
+        <div class="ph-verdict-main">
+          <div class="ph-v-label">${esc(m.label)} &middot; today</div>
+          <div class="ph-v-price">${peso(lead.today)}<span>${unitSuffix()}</span></div>
+          <div class="ph-v-badge ${w.cls}"><i class="ti ti-${w.ico}" aria-hidden="true"></i>${w.t}</div>
+        </div>
+        <div class="ph-verdict-side">
+          <div class="ph-sec-label">Compared with the usual price
+            ${info('"Usual" is the middle price of the days actually recorded in that window — not a simple average, so one unusual stretch does not label every day expensive. Two windows are shown because they can disagree.')}
+          </div>
+          <div class="ph-v-list">
+            ${line(six, '6 months')}
+            ${line(year, '12 months')}
+          </div>
+        </div>
       </div>
-      <div class="ph-verdict-side">
-        ${line(six, '6 months')}
-        ${line(year, 'year')}
-        <p class="ph-v-note">
-          "Usual" is the middle price of the days actually recorded in that window
-          ${info('Compared against the middle half of prices in the window (25th–75th percentile), not a simple average, so one unusual stretch does not label every day expensive. Forward-filled days are excluded.')}
-        </p>
-      </div>`;
+      ${gaugeHtml(lead, six ? '6 months' : '12 months')}`;
   }
 
   /* ─────────────────────── E · Then vs now ─────────────────────── */
@@ -261,25 +297,29 @@ AgriPricePH.History = (function () {
     const widest = Math.max(...rows.map((r) => Math.abs(r.pct)), 1);
     host.innerHTML = `
       <div class="ph-tn-now">
-        <span class="ph-tn-now-label">${MONTHS[month]} ${year}</span>
+        <span class="ph-tn-now-label">${MONTHS[month]} ${year}<small>This month&rsquo;s average so far</small></span>
         <span class="ph-tn-now-val">${peso(base.mean)}<small>${unitSuffix()}</small></span>
       </div>
-      <div class="ph-tn-rows">
-        ${rows.map((r) => {
+      <div class="ph-tn-grid" role="table" aria-label="${MONTHS[month]} average price by year">
+        <span class="ph-tn-hd" role="columnheader">Same month in</span>
+        <span class="ph-tn-hd" role="columnheader">Average then</span>
+        <span class="ph-tn-hd" role="columnheader">Size of change</span>
+        <span class="ph-tn-hd" role="columnheader">Now vs then</span>
+        ${rows.map((r, i) => {
           const up = r.diff >= 0;
-          return `<div class="ph-tn-row">
-            <span class="ph-tn-year">${MON_SHORT[month]} ${r.year}</span>
-            <span class="ph-tn-was">${peso(r.mean)}</span>
-            <span class="ph-tn-bar-wrap">
-              <span class="ph-tn-bar ${up ? 'up' : 'down'}" style="width:${Math.max(6, (Math.abs(r.pct) / widest) * 100)}%"></span>
-            </span>
-            <span class="ph-tn-diff ${up ? 'up' : 'down'}">${signedPeso(r.diff)} <small>(${up ? '+' : '−'}${Math.abs(r.pct).toFixed(1)}%)</small></span>
-          </div>`;
+          return `
+            <span class="ph-tn-cell ph-tn-year" role="cell">${MONTHS[month]} ${r.year}<small>${peso(r.mean)}</small></span>
+            <span class="ph-tn-cell ph-tn-was" role="cell">${peso(r.mean)}</span>
+            <span class="ph-tn-cell ph-tn-barcell" role="cell"><span class="ph-tn-bar-wrap">
+              <span class="ph-tn-bar ${up ? 'up' : 'down'}" style="--i:${i};width:${Math.max(6, (Math.abs(r.pct) / widest) * 100)}%"></span>
+            </span></span>
+            <span class="ph-tn-cell ph-tn-diff ${up ? 'up' : 'down'}" role="cell">${signedPeso(r.diff)}<small>${up ? 'dearer' : 'cheaper'} now (${up ? '+' : '−'}${Math.abs(r.pct).toFixed(1)}%)</small></span>`;
         }).join('')}
       </div>
-      <p class="ph-foot">Same month each year, so harvest seasons line up and the comparison is fair
-        ${info('Each figure is the average of the days actually recorded in that month. Comparing the same month across years removes the seasonal swing, leaving the year-on-year change.')}
-      </p>`;
+      <div class="ph-howto"><i class="ti ti-bulb" aria-hidden="true"></i>
+        <span><strong>How to read this:</strong> a red bar means rice costs more now than in that year; green means it is cheaper now. Longer bar = bigger difference.
+        ${info('Each figure is the average of the days actually recorded in that month. Comparing the same month every year keeps harvest seasons lined up, so the change shown is the real year-on-year change.')}</span>
+      </div>`;
   }
 
   /* ─────────────────────── D · Cheapest time to buy ─────────────────────── */
@@ -336,15 +376,23 @@ AgriPricePH.History = (function () {
     const span = Math.max(Math.abs(lo), Math.abs(hi)) || 1;
     const typical = median(observedPoints(365).map((p) => p.v)) || 0;
 
-    const bars = s.months.map((x) => {
+    // The two cheapest and two priciest months are the answer, so only those get a printed value
+    // and full-strength colour; the rest stay visible but quieter, with their figure on hover.
+    const keyMonths = new Set([...s.cheapest, ...s.priciest].map((x) => x.m));
+    const bars = s.months.map((x, i) => {
       const up = x.pct >= 0;
-      const h = Math.max(4, (Math.abs(x.pct) / span) * 46);
+      const hPct = Math.max(3, (Math.abs(x.pct) / span) * 40);      // % of the slot; 40 of 50 leaves room for the label
       const inPeso = (typical * x.pct) / 100;
-      const tip = `${MONTHS[x.m]}: typically ${up ? 'above' : 'below'} the year's average by `
-        + `${Math.abs(x.pct).toFixed(1)}% (about ${peso(Math.abs(inPeso))}${unit === 'sack' ? '' : '/kg'}) · ${s.years} years of data`;
-      return `<div class="ph-se-col" data-tip="${esc(tip)}" tabindex="0">
+      const tip = `${MONTHS[x.m]}: usually ${Math.abs(x.pct).toFixed(1)}% ${up ? 'above' : 'below'} the year's average `
+        + `(about ${peso(Math.abs(inPeso))}${unit === 'sack' ? ' per sack' : ' per kilo'}) · ${s.years} years of data`;
+      const key = keyMonths.has(x.m);
+      const val = key
+        ? `<span class="ph-se-val ${up ? 'up' : 'down'}" style="${up ? `bottom:calc(50% + ${hPct}% + 4px)` : `top:calc(50% + ${hPct}% + 4px)`}">${up ? '+' : '−'}${Math.abs(x.pct).toFixed(1)}%</span>`
+        : '';
+      return `<div class="ph-se-col${key ? ' key' : ''}" data-tip="${esc(tip)}" tabindex="0">
         <div class="ph-se-slot">
-          <span class="ph-se-bar ${up ? 'up' : 'down'}" style="height:${h}px;${up ? 'bottom:50%' : 'top:50%'}"></span>
+          <span class="ph-se-bar ${up ? 'up' : 'down'}" style="--i:${i};height:${hPct}%;${up ? 'bottom:50%' : 'top:50%'}"></span>
+          ${val}
         </div>
         <span class="ph-se-mon">${MON_SHORT[x.m]}</span>
       </div>`;
@@ -354,21 +402,32 @@ AgriPricePH.History = (function () {
     host.innerHTML = `
       <div class="ph-se-summary">
         <div class="ph-se-pick good">
-          <span class="ph-se-pick-lbl">Usually cheapest</span>
-          <span class="ph-se-pick-val">${name(s.cheapest)}</span>
+          <i class="ti ti-arrow-down-circle" aria-hidden="true"></i>
+          <span><span class="ph-se-pick-lbl">Usually cheapest</span>
+          <span class="ph-se-pick-val">${name(s.cheapest)}</span></span>
         </div>
         <div class="ph-se-pick bad">
-          <span class="ph-se-pick-lbl">Usually priciest</span>
-          <span class="ph-se-pick-val">${name(s.priciest)}</span>
+          <i class="ti ti-arrow-up-circle" aria-hidden="true"></i>
+          <span><span class="ph-se-pick-lbl">Usually priciest</span>
+          <span class="ph-se-pick-val">${name(s.priciest)}</span></span>
         </div>
       </div>
-      <div class="ph-se-chart" role="img" aria-label="Average price by month relative to the yearly average">
-        <span class="ph-se-axis"></span>
-        ${bars}
+      <div class="ph-sec-label">Price by month, compared with the year&rsquo;s average</div>
+      <div class="ph-se-wrap">
+        <div class="ph-se-y" aria-hidden="true">
+          <span class="t">Pricier<br>&uarr;</span>
+          <span class="m">Year&rsquo;s<br>average</span>
+          <span class="b">&darr;<br>Cheaper</span>
+        </div>
+        <div class="ph-se-chart" role="img" aria-label="Average price by month relative to the yearly average">
+          <span class="ph-se-axis"></span>
+          ${bars}
+        </div>
       </div>
-      <p class="ph-foot">Averaged over ${s.years} years — a tendency, not a promise
-        ${info('Each year is compared against its own average first, so this shows the seasonal shape rather than inflation. Year-to-year variation is larger than the seasonal swing, so treat it as a general pattern: some years will not follow it.')}
-      </p>`;
+      <div class="ph-howto"><i class="ti ti-bulb" aria-hidden="true"></i>
+        <span><strong>How to read this:</strong> bars below the dashed line are months when rice is usually cheaper; bars above are pricier. Point at or tap any month for its figure. Based on ${s.years} years, so treat it as a tendency, not a promise.
+        ${info('Each year is compared against its own average first, so this shows the seasonal shape rather than inflation. Year-to-year variation is larger than the seasonal swing, so some years will not follow it.')}</span>
+      </div>`;
   }
 
   /* ─────────────────────── F · Biggest price swings ─────────────────────── */
@@ -418,25 +477,42 @@ AgriPricePH.History = (function () {
     const moves = bigMoves();
     if (!moves.length) { host.innerHTML = `<div class="ph-empty">No large swings on record yet.</div>`; return; }
 
-    host.innerHTML = moves.map((mv) => {
+    const c = current();
+    host.innerHTML = moves.map((mv, n) => {
       const up = mv.diff >= 0;
       const end = parseLabel(store.iso[mv.i]);
-      const start = parseLabel(store.iso[mv.i - 30]);
       const pct = (mv.diff / mv.from) * 100;
-      return `<div class="ph-mv ${up ? 'up' : 'down'}">
-        <span class="ph-mv-ico"><i class="ti ti-${up ? 'trending-up' : 'trending-down'}"></i></span>
-        <div class="ph-mv-body">
-          <div class="ph-mv-top">
+      return `<div class="ph-mv ${up ? 'up' : 'down'}" style="--i:${n}">
+        <div class="ph-mv-top">
+          <span class="ph-mv-ico" aria-hidden="true"><i class="ti ti-${up ? 'trending-up' : 'trending-down'}"></i></span>
+          <span class="ph-mv-amt">
             <strong>${signedPeso(mv.diff)}</strong>
-            <span class="ph-mv-pct">${up ? '+' : '−'}${Math.abs(pct).toFixed(1)}%</span>
-            <span class="ph-mv-when">${MON_SHORT[end.getMonth()]} ${end.getFullYear()}</span>
-          </div>
-          <div class="ph-mv-sub">${peso(mv.from)} → ${peso(mv.to)} in 30 days
-            <span class="ph-mv-range">(${prettyDate(store.iso[mv.i - 30])} – ${prettyDate(store.iso[mv.i])})</span>
-          </div>
+            <span>${up ? 'Went up' : 'Went down'} ${Math.abs(pct).toFixed(1)}% in 30 days</span>
+          </span>
+          <span class="ph-mv-when">${MONTHS[end.getMonth()]} ${end.getFullYear()}</span>
+        </div>
+        ${spark(c.values.slice(mv.i - 30, mv.i + 1))}
+        <div class="ph-mv-sub">${peso(mv.from)} &rarr; ${peso(mv.to)}
+          <span class="ph-mv-range">${prettyDate(store.iso[mv.i - 30])} to ${prettyDate(store.iso[mv.i])}</span>
         </div>
       </div>`;
     }).join('');
+  }
+
+  /** A tiny 30-day line for a swing card — the shape of the move, drawn in as the card appears. */
+  function spark(vals) {
+    const pts = vals.filter((v) => v != null);
+    if (pts.length < 2) return '';
+    const lo = Math.min(...pts);
+    const hi = Math.max(...pts);
+    const w = 300;
+    const h = 44;
+    const d = pts.map((v, i) => {
+      const x = (i / (pts.length - 1)) * (w - 4) + 2;
+      const y = hi - lo < 1e-9 ? h / 2 : h - 4 - ((v - lo) / (hi - lo)) * (h - 8);
+      return `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+    return `<svg class="ph-mv-spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><path d="${d}" pathLength="100"/></svg>`;
   }
 
   /* ─────────────────────── coverage honesty ─────────────────────── */
@@ -499,9 +575,14 @@ AgriPricePH.History = (function () {
       ? ''
       : ` (${diff > 0 ? '+' : '−'}${Math.abs(pct).toFixed(1)}%)`;
     const total = days === store.iso.length ? store.iso.length : days;
-    host.innerHTML = `Over ${span}, <strong>${esc(meta().label)}</strong> ${word} from `
+    const dir = Math.abs(pct) < 0.5 ? 'flat' : diff > 0 ? 'up' : 'down';
+    const ico = { up: 'trending-up', down: 'trending-down', flat: 'arrows-horizontal' }[dir];
+    host.className = `ph-chart-note ${dir}`;
+    host.innerHTML = `<i class="ti ti-${ico}" aria-hidden="true"></i><span>`
+      + `Over ${span}, <strong>${esc(meta().label)}</strong> ${word} from `
       + `${peso(first)} to <strong>${peso(last)}</strong>${move}. `
-      + `${seen} of these ${total} days have a recorded price.`;
+      + `${seen} of these ${total} days have a recorded price`
+      + `${info('Days with no published price repeat the previous price so the line stays continuous. They are drawn dashed on the chart.')}</span>`;
   }
 
   /* ─────────────────────── the chart ─────────────────────── */
@@ -552,12 +633,19 @@ AgriPricePH.History = (function () {
     canvas.width = Math.round(boxW * dpr);
     canvas.height = Math.round(boxH * dpr);
 
-    // "The Daily Ledger" — a plain ink line on ruled paper rather than a filled dashboard-style
-    // area chart: no fill, hollow rings for real readings (a pencil-mark feel), and gridlines left
-    // off entirely because the plot's own CSS background (.ledger-plot) already draws the ruled
-    // horizontal lines — Chart.js drawing its own on top would double them up.
-    const INK = '#211d13';
-    const INK_MUTED = '#8c8570';
+    // "The Daily Ledger" — a plain ink line rather than a filled dashboard-style area chart: no
+    // fill, hollow rings for real readings, light horizontal gridlines, and titled axes so a
+    // reader never has to guess what the numbers are.
+    // Colours come from the page's own theme tokens, so the chart follows light/dark paper.
+    const css = getComputedStyle(document.documentElement);
+    const tok = (name, fallback) => css.getPropertyValue(name).trim() || fallback;
+    const INK = tok('--ink', '#211d13');
+    const INK_MUTED = tok('--ink-3', '#8c8570');
+    const CARD = tok('--card', '#ffffff');
+    const GRID = tok('--line-soft', 'rgba(38,58,32,0.09)');
+    const MONO = "'JetBrains Mono', monospace";
+    const BODY = "'Plus Jakarta Sans', system-ui, sans-serif";
+    const axisTitle = (text) => ({ display: true, text, color: INK_MUTED, font: { size: 13, family: BODY, weight: '600' }, padding: { top: 6, bottom: 6 } });
     chart = new Chart(canvas, {
       type: 'line',
       data: {
@@ -567,7 +655,7 @@ AgriPricePH.History = (function () {
           data: line,
           borderColor: m.color,
           backgroundColor: 'transparent',
-          borderWidth: 2,
+          borderWidth: 2.6,
           fill: false,
           tension: 0.2,
           // `spanGaps` was pointless here: build() forward-fills `values`, so the series never
@@ -579,13 +667,13 @@ AgriPricePH.History = (function () {
             borderColor: (ctx) => (c.observed[from + ctx.p1DataIndex] ? undefined : `${m.color}66`),
           },
           pointRadius: dots,
-          pointHoverRadius: 5,
+          pointHoverRadius: 7,
           pointStyle: 'circle',
-          pointBackgroundColor: '#faf6ec',
+          pointBackgroundColor: CARD,
           pointBorderColor: m.color,
           pointBorderWidth: 1.6,
           pointHoverBackgroundColor: m.color,
-          pointHoverBorderColor: '#faf6ec',
+          pointHoverBorderColor: CARD,
         }],
       },
       options: {
@@ -599,15 +687,15 @@ AgriPricePH.History = (function () {
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: '#fff',
-            titleColor: INK,
+            backgroundColor: CARD,
+            titleColor: INK_MUTED,
             bodyColor: INK,
-            borderColor: 'rgba(38,58,32,.22)',
+            borderColor: GRID,
             borderWidth: 1,
-            cornerRadius: 4,
-            padding: 10,
-            titleFont: { size: 11.5, family: "'JetBrains Mono', monospace", weight: '600' },
-            bodyFont: { size: 12.5, family: "'JetBrains Mono', monospace" },
+            cornerRadius: 10,
+            padding: 12,
+            titleFont: { size: 13, family: BODY, weight: '600' },
+            bodyFont: { size: 16, family: MONO, weight: '700' },
             displayColors: false,
             callbacks: {
               // Says whether the hovered day was actually published or carried forward — the one
@@ -628,19 +716,21 @@ AgriPricePH.History = (function () {
             // half-width column, and the axis read as a solid grey band.
             ticks: {
               maxTicksLimit: 5, maxRotation: 0, autoSkipPadding: 18,
-              font: { size: 10, family: "'JetBrains Mono', monospace" }, color: INK_MUTED, padding: 8,
+              font: { size: 12.5, family: BODY, weight: '600' }, color: INK_MUTED, padding: 10,
             },
+            title: axisTitle('Date'),
           },
           y: {
             // A few flat reference lines read faster than the eye tracing back to the axis
             // labels — functional, not decorative, which is why this replaced the card's old
             // ruled-paper background texture instead of just sitting on top of it.
-            grid: { color: 'rgba(38,58,32,0.08)', drawTicks: false },
+            grid: { color: GRID, drawTicks: false },
             border: { display: false },
             ticks: {
-              maxTicksLimit: 5, font: { size: 10, family: "'JetBrains Mono', monospace" }, color: INK_MUTED, padding: 8,
+              maxTicksLimit: 5, font: { size: 12.5, family: MONO, weight: '600' }, color: INK_MUTED, padding: 10,
               callback: (v) => peso(v, { raw: true }),
             },
+            title: axisTitle(unit === 'sack' ? 'Price per 25kg sack' : 'Price per kilo'),
           },
         },
       },
@@ -672,10 +762,14 @@ AgriPricePH.History = (function () {
     if (legend) {
       legend.innerHTML = `
         <span class="hcc-legend-item">
-          <span class="hcc-legend-swatch" style="background:${m.color}"></span>${esc(m.label)}
+          <span class="hcc-legend-swatch" style="background:${m.color}"></span>${esc(m.label)} price
         </span>
-        <span class="hcc-legend-item" style="color:#8c8570">
-          <span class="hcc-legend-swatch dashed" style="color:${m.color}"></span>Dashed = price carried forward, no reading that day
+        <span class="hcc-legend-item">
+          <span class="hcc-legend-dot" style="color:${m.color}"></span>A day with a recorded price
+        </span>
+        <span class="hcc-legend-item">
+          <span class="hcc-legend-swatch dashed" style="color:${m.color}"></span>No reading that day (last price repeated)
+          ${info('The source did not publish a price that day, so the previous price is carried forward to keep the line continuous.')}
         </span>`;
     }
   }
@@ -723,6 +817,140 @@ AgriPricePH.History = (function () {
     renderAll();
   }
 
+  /* ─────────────────────── tabs ─────────────────────── */
+
+  /**
+   * One entry at a time instead of five stacked panels. Standard WAI-ARIA tabs: click, or
+   * Left/Right/Home/End on the focused tab. The open tab is kept in the URL hash (replaceState, so
+   * the Back button and scroll position are untouched) — a link to #chart opens the chart.
+   *
+   * The chart needs a redraw when its tab opens: while hidden its box measures 0×0, and the canvas
+   * is sized from that box (see renderChart).
+   */
+  const TABS = ['today', 'chart', 'years', 'season', 'swings'];
+
+  function showTab(name, { focus = false, animate = true } = {}) {
+    if (!TABS.includes(name)) name = 'today';
+    TABS.forEach((t) => {
+      const tab = document.getElementById(`tab-${t}`);
+      const panel = document.getElementById(`panel-${t}`);
+      const on = t === name;
+      if (tab) {
+        tab.setAttribute('aria-selected', on ? 'true' : 'false');
+        tab.tabIndex = on ? 0 : -1;
+        if (on && focus) tab.focus();
+        if (on) tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
+      if (panel) {
+        panel.hidden = !on;
+        panel.classList.toggle('is-entering', on && animate);
+      }
+    });
+    try { history.replaceState(null, '', `#${name}`); } catch { /* file:// or sandboxed */ }
+    // Synchronous on purpose: reading the box's size forces layout, so it is already correct here,
+    // and a requestAnimationFrame never fires while the browser tab is in the background.
+    if (name === 'chart' && store) {
+      renderChartNote();
+      renderChart();
+    }
+  }
+
+  function bindTabs() {
+    const list = document.querySelector('.ph-tabs');
+    if (!list || list.dataset.bound) return;
+    list.dataset.bound = '1';
+    list.addEventListener('click', (e) => {
+      const tab = e.target.closest('[data-tab]');
+      if (tab) showTab(tab.dataset.tab);
+    });
+    list.addEventListener('keydown', (e) => {
+      const cur = TABS.indexOf(document.activeElement?.dataset?.tab);
+      if (cur < 0) return;
+      const to = { ArrowRight: cur + 1, ArrowLeft: cur - 1, Home: 0, End: TABS.length - 1 }[e.key];
+      if (to == null) return;
+      e.preventDefault();
+      showTab(TABS[(to + TABS.length) % TABS.length], { focus: true });
+    });
+    // Switching tabs from further down the page (the pinned tab bar, or a Next button at the foot
+    // of a card) lands on the top of the new card instead of leaving the reader mid-page. Clicking a
+    // tab while the banner is still in view does not move the page.
+    list.addEventListener('click', (e) => { if (e.target.closest('[data-tab]')) toCardTop(); });
+    document.querySelectorAll('.ph-next[data-go]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        showTab(btn.dataset.go, { focus: true });
+        toCardTop();
+      });
+    });
+    showTab((location.hash || '').slice(1), { animate: false });
+    trackStickyTop();
+    bindTipEdges();
+  }
+
+  /** Scroll so the tab bar sits in its pinned spot, if the page is already scrolled past it. */
+  function toCardTop() {
+    const list = document.querySelector('.ph-tabs');
+    const scroller = document.scrollingElement || document.documentElement;
+    if (!list) return;
+    const pinned = parseFloat(getComputedStyle(list).top) || 0;
+    const tabsTop = list.getBoundingClientRect().top;
+    if (tabsTop > pinned + 1) return;                        // banner still showing — stay put
+    const panel = document.querySelector('.ph-tabpanel:not([hidden])');
+    if (!panel) return;
+    const target = scroller.scrollTop + panel.getBoundingClientRect().top - pinned - list.offsetHeight;
+    scroller.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+  }
+
+  /**
+   * The tab bar pins directly under the site nav. The nav is pinned by its wrapper,
+   * #public-navbar-host (landpage-nav.css), so that wrapper is what gets measured: its height
+   * changes when the nav wraps on narrow screens. If it is not pinned (a page without the shared
+   * shell, or an older stylesheet), the tabs pin to the very top instead of leaving an empty strip.
+   * The card height (CSS clamp on --ph-chrome) follows the same numbers.
+   */
+  function trackStickyTop() {
+    const nav = document.getElementById('public-navbar-host') || document.querySelector('.lp-site-nav');
+    const set = () => {
+      const pos = nav ? getComputedStyle(nav).position : '';
+      const canPin = pos === 'sticky' || pos === 'fixed';
+      const top = canPin ? nav.offsetHeight : 0;
+      const tabs = document.querySelector('.ph-tabs');
+      document.documentElement.style.setProperty('--ph-sticky-top', `${top}px`);
+      document.documentElement.style.setProperty('--ph-chrome', `${top + (tabs ? tabs.offsetHeight : 0)}px`);
+    };
+    set();
+    window.addEventListener('resize', set, { passive: true });
+    if (nav && typeof ResizeObserver !== 'undefined') new ResizeObserver(set).observe(nav);
+  }
+
+  /**
+   * Tooltips open centred above their icon by default; near a screen edge that pushes part of the
+   * bubble off-screen (or up under the pinned tab bar). Just before one shows, slide it sideways
+   * by exactly the amount needed to stay inside the window, and open it below the icon when there
+   * is no room above.
+   */
+  function bindTipEdges() {
+    if (document.body.dataset.tipEdges) return;
+    document.body.dataset.tipEdges = '1';
+    const GUTTER = 12;
+    const ROOM_Y = 150;
+    const place = (e) => {
+      const el = e.target.closest?.('[data-tip]');
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const vw = document.documentElement.clientWidth;
+      // Widest the bubble can be (CSS: max-width min(300px, 80vw)); assuming the widest keeps it
+      // on screen even when the text is long enough to reach it.
+      const w = Math.min(300, vw * 0.8) + 26;
+      const cx = r.left + r.width / 2;
+      const clamped = Math.min(Math.max(cx, GUTTER + w / 2), vw - GUTTER - w / 2);
+      el.style.setProperty('--tip-shift', `${Math.round(clamped - cx)}px`);
+      const topLimit = (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ph-chrome')) || 0);
+      el.dataset.tipY = r.top - topLimit < ROOM_Y ? 'below' : '';
+    };
+    document.addEventListener('pointerover', place, true);
+    document.addEventListener('focusin', place, true);
+  }
+
   /* ─────────────────────── controls ─────────────────────── */
 
   function renderControls() {
@@ -764,6 +992,7 @@ AgriPricePH.History = (function () {
 
   async function init() {
     if (!document.getElementById('ph-verdict')) return;
+    bindTabs();
     let payload = null;
     try { payload = await AgriPricePH.API.historical(); } catch { /* handled below */ }
     store = build(payload);

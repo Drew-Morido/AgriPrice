@@ -20,9 +20,11 @@
 
   <div id="settings-toast" class="settings-toast" role="status" aria-live="polite"></div>
 
+  <div class="public-page-header">
+    <h1 class="page-heading">Settings</h1>
+  </div>
   <p class="public-page-lead">
-    Appearance, preferences, and data. Changes are saved in your browser on this device. Looking for
-    your name, email, or password? That's in your <a href="profile.html">Profile</a>.
+    Control how AgriPricePH looks and behaves on this device.
   </p>
 
   <section class="public-card settings-section">
@@ -74,28 +76,29 @@
         <option value="statistics.html">Charts &amp; Stats</option>
       </select>
     </div>
-    <div class="settings-row">
-      <div class="settings-row-label">
-        <strong>Date format</strong>
-        <span>How dates appear in tables and charts</span>
-      </div>
-      <select class="form-input settings-select" id="set-date-format" aria-label="Date format">
-        <option value="mdy">MM/DD/YYYY</option>
-        <option value="dmy">DD/MM/YYYY</option>
-        <option value="iso">YYYY-MM-DD</option>
-      </select>
-    </div>
   </section>
 
   <section class="public-card settings-section">
-    <h3>Privacy &amp; data</h3>
-    <p class="settings-hint" style="margin-top:0">
-      These preferences are stored only in this browser (demo mode). Nothing is uploaded. Your
-      account itself is stored on the AgriPricePH server — see your <a href="profile.html">Profile</a>.
-    </p>
-    <div class="settings-inline-actions" style="display:flex;gap:10px;flex-wrap:wrap;">
-      <button type="button" class="btn btn-outline btn-sm" id="set-export-data">Export my data (JSON)</button>
-      <button type="button" class="btn btn-outline btn-sm" id="set-reset-prefs">Reset preferences</button>
+    <h3>This device</h3>
+    <div class="settings-row">
+      <div class="settings-row-label">
+        <strong>Download your preferences</strong>
+        <span>Save a copy of your appearance and preference settings as a file</span>
+      </div>
+      <button type="button" class="btn btn-outline btn-sm" id="set-export-data">Export (JSON)</button>
+    </div>
+    <div class="settings-row">
+      <div class="settings-row-label">
+        <strong>Reset preferences</strong>
+        <span>Put appearance and preferences back to their defaults on this device</span>
+      </div>
+      <button type="button" class="btn btn-outline btn-sm" id="set-reset-prefs">Reset</button>
+    </div>
+    <div class="settings-row">
+      <div class="settings-row-label">
+        <strong>Log out everywhere on this device</strong>
+        <span>Clear saved logins from this browser. Your appearance settings stay as they are</span>
+      </div>
       <button type="button" class="btn btn-ghost btn-sm" id="set-clear-data" style="color:var(--color-danger,#e0645f);">Clear saved logins</button>
     </div>
   </section>

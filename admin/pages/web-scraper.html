@@ -119,3 +119,19 @@
 
 </div>
 
+<!-- ── HELD FOR REVIEW (JS populates #scraper-review) ──────────
+     Rice prices the scraper held back as suspicious (tools/scrape_guard.py). They are saved as
+     empty until approved, so a misread bulletin cannot reach the forecasts unnoticed. -->
+<div class="card" style="margin-top:20px;">
+  <div class="card-header">
+    <span class="card-title">Held for review</span>
+    <span class="pill pill-green" id="scraper-review-count" style="margin-left:auto;">0 pending</span>
+  </div>
+  <div class="card-body">
+    <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px;">
+      A scraped rice price is held when it equals the next grade's price, or is far from that grade's recent median.
+      Approve it if the DA bulletin really shows that price; reject it if it was misread.
+    </p>
+    <div id="scraper-review"><div style="font-size:13px;color:var(--text-muted);">Nothing held.</div></div>
+  </div>
+</div>

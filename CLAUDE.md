@@ -59,7 +59,7 @@ cd api && py -3.13 app.py --loop --interval 3600
 cd api && py -3.13 app.py --serve --port 8080 # custom port/host for the server itself
 ```
 
-There is no test suite, linter, or JS build step in this repo — frontend is plain HTML/CSS/JS served as static files, no bundler/npm project.
+Tests: `py -3.13 -m pytest tests -q` (model/API contracts, the DA bulletin reader, the scraper guard, weekday reversion; API tests skip if :5000 is down). No linter or JS build step — frontend is plain HTML/CSS/JS served as static files, no bundler/npm project.
 
 ### Opening the app
 
@@ -135,7 +135,7 @@ the mean-reversion coefficient does not — a paired McNemar test on **genuine-s
 (last change non-zero and price actually moved), because on ~13% of moving-price forecasts the
 reversion term is structurally silent (`phi * 0 == 0`), `sign(0)` matches nothing, and counting those
 rows inflates the network's apparent directional contribution by ~9 points when it is in fact
-coin-flipping them at 50.7%. Current verdict: 158 fixes vs 150 breaks, **p = 0.69, not significant**.
+coin-flipping them at 50.7%. Current verdict (weekday retrain 2026-09-26): 149 fixes vs 151 breaks, **p = 0.95, not significant**.
 **Do not "improve" this by widening the subset or by scoring a window that overlaps training** — under
 the regime-aware split only ~342 rows per type are held out, and scoring the full active era instead
 credits the network for memorised rows (this produced a spurious p < 0.0001 in Round 19; see
@@ -160,17 +160,23 @@ p < 0.0001, t = −3.0 to −7.2), so one OLS coefficient per horizon — fit on
 only, shrunk ×0.8, clipped to [−1, 0], and deployed only when |t| ≥ 2 — recovers it. With that
 term the model **does** beat naive persistence: **skill +3.51%, positive on 7/8 types,
 directional accuracy 57–67%, `movement_ratio` 0.24**. Shrinkage is 0.6 and a second lag was tested and rejected (dominated end-to-end at every shrink level). See PAPER_CORRECTIONS.md Rounds 11, 13 and 15. The coefficient is re-fitted on a rolling 120-day window before each forecast (`mean_reversion.rolling_phi`) rather than frozen at training time — scoring and serving use the same path, so they cannot diverge.
+**The coefficient is weekday-aware** (`mean_reversion.WEEKDAY_MODE`, default on): the anchor day's weekday
+gets its own coefficient, because DA's Sunday bulletin (fewer markets) is ~5× noisier than weekdays and is
+reversed on Monday, while Thursday/Friday moves persist. Chosen on the validation window only
+(`model/experiments/weekday_reversion.py`), it lifted test skill **+3.42% → +7.80%** (8/8 types improved).
+`AGRIPRICE_REVERSION_WEEKDAY=0` restores the single global coefficient.
 
 State this precisely: the **combined** model beats persistence on all 8 types, but beats
-**ARIMA(1,1,1) on only 3 of 8** (`meta.json` per-type `beats_arima`) — on `locWellMilled` ARIMA is
-ahead, PHP 0.2741 vs 0.2940. Do not write "beats ARIMA" without that qualifier; the panel can check
+**ARIMA(1,1,1) on only 4 of 8** (`meta.json` per-type `beats_arima`; locRegular by PHP 0.0002, a tie) —
+on `locWellMilled` ARIMA is ahead, PHP 0.2842 vs 0.2877 (weekday retrain 2026-09-26). Do not write "beats ARIMA" without that qualifier; the panel can check
 it in one command. The defensible framing is that the two are close, and that this system adds
 prediction intervals, 8 simultaneous targets, and a daily operational pipeline that a single-series
 ARIMA does not. The **LSTM alone does
 not**. Round 16 went further and measured the network's *marginal* contribution by ablation — it
 is **negative on all 8 rice types**, so its delta is down-weighted to `LSTM_DELTA_WEIGHT=0.25`
-(w=0 scores best; 0.25 keeps it in the path, disclosed). Current: **skill +3.71%, 8/8 types
-positive, worst +1.25, directional 55–66%**. Never attribute the gain to the network — the
+(w=0 scores best; 0.25 keeps it in the path, disclosed). Current (weekday retrain 2026-09-26): **skill +7.80%, 8/8 types
+positive, worst +1.88 (impWellMilled), directional 45–66% per horizon**. The weekday gain is the
+reversion term's, not the network's (the ablation above is unchanged). Never attribute the gain to the network — the
 ablation table in Round 16 is the evidence and a panel will ask.
 
 ### Backend — `api/app.py`

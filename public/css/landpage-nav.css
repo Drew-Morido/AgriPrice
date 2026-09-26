@@ -18,10 +18,30 @@
   --lp-nav-btn-h: 36px;
 }
 
+/* Dark mode: this file's --lp-* vars drive the body background/text and navbar on every public
+   page (via body.public-body below), independently of global.css's --bg-body/--text-* vars — so
+   the theme switch needs its own override here too, or dark mode silently does nothing site-wide. */
+html.theme-dark {
+  --lp-green-900: #d9f0e3;
+  --lp-green-50: rgba(76, 175, 110, 0.16);
+  --lp-text-primary: #e8f0eb;
+  --lp-text-secondary: #9bb0a4;
+  --lp-bg: #0f1a14;
+  --lp-border: rgba(76, 175, 110, 0.16);
+  --lp-border-md: rgba(76, 175, 110, 0.26);
+}
+
+/* The host — not the <nav> inside it — is what pins. A sticky element can only travel within its
+   parent, and the host is exactly the nav's height, so a sticky <nav> had nowhere to go and
+   scrolled away with the page. The host is a direct child of <body> (public-shell.js inserts it
+   first), so it can travel the full page. */
 #public-navbar-host {
   display: block;
   width: 100%;
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 200;
 }
 
 /*
@@ -35,6 +55,12 @@ html.public-site {
   -ms-overflow-style: none !important;
 }
 
+/* Scroll lock while a modal is open (public-auth-modal.js, public-catalog.js). It goes on <html>
+   because <html> is the scroller; locking <body> did not stop scrolling and un-pinned the nav. */
+html.public-site.public-scroll-locked {
+  overflow-y: hidden;
+}
+
 html.public-site::-webkit-scrollbar {
   display: none !important;
   width: 0 !important;
@@ -42,8 +68,15 @@ html.public-site::-webkit-scrollbar {
   background: transparent !important;
 }
 
+/* `clip`, not `hidden`: an overflow of `hidden` on one axis forces the other axis to `auto`, which
+   made <body> a scroll container that never scrolls (the real scroller is <html>) — and sticky
+   elements pin to their nearest scroll container, so nothing inside <body> could ever pin.
+   `clip` hides the same horizontal overflow without creating a scroll container. `hidden` stays
+   first as the fallback for browsers without `clip`. This rule also outranks global.css's plain
+   `body { overflow-x: hidden }` on every public page. */
 html.public-site body {
   overflow-x: hidden;
+  overflow-x: clip;
   overflow-y: visible;
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
@@ -73,8 +106,7 @@ body[data-page="home"] {
 
 /* Isolate navbar from global .btn-* and root font-size */
 .lp-site-nav {
-  position: sticky;
-  top: 0;
+  position: relative;   /* pinning is done by #public-navbar-host; relative anchors the phone menu panel */
   z-index: 200;
   width: 100%;
   flex-shrink: 0;
@@ -85,6 +117,10 @@ body[data-page="home"] {
   font-family: var(--lp-font-body);
   font-size: 13.5px;
   line-height: 1.2;
+}
+
+html.theme-dark .lp-site-nav {
+  background: rgba(15, 26, 20, 0.88);
 }
 
 .lp-site-nav .nav-inner {
@@ -183,6 +219,11 @@ body[data-page="home"] {
   background: var(--lp-green-50);
   color: var(--lp-green-700);
   font-weight: 500;
+}
+
+html.theme-dark .lp-site-nav .nav-links a:hover,
+html.theme-dark .lp-site-nav .nav-links a.active {
+  color: #a3d9b8;
 }
 
 .lp-site-nav .nav-actions {
@@ -321,6 +362,7 @@ body[data-page="home"] {
   background: var(--lp-green-50, #e8f3ec);
   color: var(--lp-green-700, #1f5a3d);
 }
+html.theme-dark .lp-site-nav .lp-nav-mobile-toggle[aria-expanded="true"] { color: #a3d9b8; }
 .lp-site-nav .lp-nav-mobile-panel {
   position: absolute;
   top: 100%;
@@ -346,6 +388,8 @@ body[data-page="home"] {
 }
 .lp-site-nav .lp-nav-mobile-links a.active,
 .lp-site-nav .lp-nav-mobile-links a:hover { background: var(--lp-green-50, #e8f3ec); color: var(--lp-green-700, #1f5a3d); font-weight: 600; }
+html.theme-dark .lp-site-nav .lp-nav-mobile-links a.active,
+html.theme-dark .lp-site-nav .lp-nav-mobile-links a:hover { color: #a3d9b8; }
 .lp-site-nav .lp-nav-mobile-auth {
   display: flex;
   flex-wrap: wrap;

@@ -16,6 +16,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from pdfconvrt import TARGET_ORDER, extract_rice_prices_from_pdf_bytes
+from scrape_guard import check_rice_row, queue
 from rice_estimate import (
     SOURCE_ESTIMATED,
     SOURCE_OFFICIAL,
@@ -417,6 +418,17 @@ def _sync_official_bulletin(
             len(TARGET_ORDER),
             ", ".join(missing),
         )
+
+    # Sanity guard: a price that copies its neighbour grade or jumps far from the recent median is
+    # held for review (Admin → Web Scraper) instead of going straight into the forecasts.
+    try:
+        prices, held = check_rice_row(date_str, prices, load_official_rice_history(DB_PATH))
+        if held:
+            queue(held)
+            for h in held:
+                logger.warning("HELD for review: %s %s = %.2f — %s", h["date"], h["column"], h["value"], h["reason"])
+    except Exception as e:
+        logger.warning("Rice sanity guard skipped: %s", e)
 
     row = {"Date": date_str, "Source": SOURCE_OFFICIAL}
     row.update(prices)

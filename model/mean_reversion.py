@@ -149,17 +149,84 @@ def fit_reversion(values, fit_start: int, fit_end: int, horizon: int) -> dict:
     }
 
 
-def rolling_phi(values, anchor_row: int, horizon: int, window: int | None = None):
+# Day-of-week-aware coefficient (PAPER_CORRECTIONS.md, "Weekday-aware mean reversion"). How much of
+# a day's change is undone next depends on which DA bulletin produced it: the Sunday bulletin is
+# compiled from fewer markets (its distance from the week's median is ~PHP 0.83 against 0.12-0.19 on
+# weekdays) and is reversed on Monday, while Thursday/Friday moves mostly persist. One coefficient
+# for every day under-corrects the first and over-corrects the second. Chosen on the VALIDATION
+# window from {global, 3 weekday groups, 7 weekdays} x {120, 240, 365}-day windows, then scored once
+# on test (model/experiments/weekday_reversion.py):
+#     global (previous rule)   -> test +3.41% mean skill, 8/8 positive, worst +0.29
+#     per-weekday, 120 days    -> test +7.78%            8/8 positive, worst +2.15   <- chosen
+# A weekday whose coefficient fails the same |t| >= MIN_ABS_T gate falls back to the global one.
+# Set AGRIPRICE_REVERSION_WEEKDAY=0 to restore the single global coefficient.
+WEEKDAY_MODE = os.environ.get("AGRIPRICE_REVERSION_WEEKDAY", "1") != "0"
+
+
+def fit_weekday_phi(values, dows, fit_start: int, fit_end: int, horizon: int) -> dict:
+    """{weekday: [phi_h, ...]} from rows [fit_start, fit_end), OLS through the origin per weekday.
+
+    `dows` is the weekday (Mon=0 .. Sun=6) of every row of `values`. Only reversion that passes the
+    significance gate is kept (shrunk and clipped exactly like the global coefficient); a weekday or
+    horizon without it is omitted / left at 0 so the caller falls back to the global value.
+    """
+    s = np.asarray(values, dtype=float)
+    out: dict = {}
+    for h in range(1, horizon + 1):
+        xs, ys, gs = [], [], []
+        for i in range(max(fit_start, 1) + 1, min(fit_end, len(s)) - h):
+            d, y = s[i] - s[i - 1], s[i + h] - s[i]
+            if np.isfinite(d) and np.isfinite(y):
+                xs.append(d); ys.append(y); gs.append(int(dows[i]))
+        if not xs:
+            continue
+        xs, ys, gs = np.asarray(xs), np.asarray(ys), np.asarray(gs)
+        for g in np.unique(gs):
+            m = gs == g
+            x, y = xs[m], ys[m]
+            sxx = float((x * x).sum())
+            if m.sum() < 12 or sxx <= 1e-12:
+                continue
+            b = float((x * y).sum() / sxx)
+            se = np.sqrt(float(((y - b * x) ** 2).sum()) / max(len(x) - 1, 1) / sxx)
+            if b < 0 and abs(b / max(se, 1e-12)) >= MIN_ABS_T:
+                out.setdefault(int(g), [0.0] * horizon)[h - 1] = round(max(-1.0, min(0.0, b * SHRINK)), 4)
+    return out
+
+
+def rolling_phi(values, anchor_row: int, horizon: int, window: int | None = None, dows=None):
     """Reversion coefficients estimated from the `window` days ending at `anchor_row`.
 
     Uses only rows strictly before the forecast, so it is safe to call at inference time and in
     back-tests alike. Returns an (horizon, n_lags) array; all-zero when the recent window has too
     little data or no significant reversion.
+
+    When `dows` (weekday of every row) is given and WEEKDAY_MODE is on, each horizon uses the
+    coefficient of the anchor day's weekday, falling back to the global one where that weekday has
+    no significant reversion. The weekday variant is single-lag.
     """
     w = int(window or ROLLING_WINDOW)
     start = max(0, int(anchor_row) - w)
     rev = fit_reversion(values, start, int(anchor_row), horizon)
-    return np.atleast_2d(np.asarray(rev.get("phi") or [[0.0]], dtype=float)), rev
+    phi = np.atleast_2d(np.asarray(rev.get("phi") or [[0.0]], dtype=float))
+    if not WEEKDAY_MODE or dows is None or int(anchor_row) >= len(dows):
+        return phi, rev
+
+    base = phi[:, 0] if rev.get("applied") else np.zeros(horizon)
+    by_day = fit_weekday_phi(values, dows, start, int(anchor_row), horizon)
+    day = int(dows[int(anchor_row)])
+    own = by_day.get(day) or [0.0] * horizon
+    use = np.array([own[h] if own[h] < 0 else float(base[h]) for h in range(horizon)])
+    rev = {
+        **rev,
+        "phi": [[round(float(v), 4)] for v in use],
+        "n_lags": 1,
+        "applied": bool((use < 0).any()),
+        "weekday_mode": True,
+        "weekday": day,
+        "weekday_phi": own,
+    }
+    return use[:, None], rev
 
 
 def apply_reversion(prices, last_deltas, reversion: dict | None):

@@ -749,6 +749,39 @@ def api_scrape_status():
     })
 
 
+# ── /api/scrape-review ────────────────────────────────────────────────────────
+# Rice prices the scraper held back as suspicious (tools/scrape_guard.py): a price equal to the
+# neighbouring grade's, or far from that grade's recent median. Reading the queue is open (it holds
+# only public DA prices); approving or rejecting needs an admin session.
+@app.route("/api/scrape-review", methods=["GET"])
+def api_scrape_review():
+    try:
+        import scrape_guard
+        return jsonify({"pending": scrape_guard.pending(), "guard_pct": scrape_guard.GUARD_PCT})
+    except Exception as e:
+        return jsonify({"pending": [], "error": str(e)}), 500
+
+
+@app.route("/api/scrape-review/resolve", methods=["POST"])
+def api_scrape_review_resolve():
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    body = request.get_json(silent=True) or {}
+    date_str = str(body.get("date") or "").strip()
+    column = str(body.get("column") or "").strip()
+    action = str(body.get("action") or "").strip().lower()
+    try:
+        import scrape_guard
+        entry = scrape_guard.resolve(date_str, column, action, DB_PATH, PRICE_CSV)
+    except (ValueError, KeyError) as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+    _add_log("INFO", f"Scrape review: {action} {date_str} {column} = {entry.get('value')}", "REVIEW")
+    return jsonify({"ok": True, "entry": entry})
+
+
 def _build_live_source(
     source_id: str,
     name: str,
@@ -1039,8 +1072,51 @@ def api_stream_scrape():
 
 
 # ── /api/historical-data ──────────────────────────────────────────────────────
+# Every public chart page loads this (~4,400 days × 10 series). Rebuilding it from SQLite + pandas
+# took ~0.5 s and sent 342 KB uncompressed on every visit. The payload only changes when the
+# database file does, so it is built once per database version, kept in memory as gzip-ready JSON,
+# and tagged with an ETag: a browser that already has it gets a 304 with no body.
+_HIST_CACHE: dict = {"key": None, "json": None, "gz": None, "etag": None}
+_HIST_CACHE_LOCK = threading.Lock()
+
+
 @app.route("/api/historical-data", methods=["GET"])
 def get_historical_data():
+    """Unified rice/fuel/exchange time series for the charts (cached per database version)."""
+    import gzip
+    import hashlib
+
+    try:
+        st = os.stat(DB_PATH)
+        key = (int(st.st_mtime_ns), int(st.st_size))
+    except OSError:
+        key = None
+    with _HIST_CACHE_LOCK:
+        if key is None or _HIST_CACHE["key"] != key:
+            payload = _build_historical_payload()
+            if isinstance(payload, tuple):          # (error response, status)
+                return payload
+            body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+            _HIST_CACHE.update(
+                key=key, json=body, gz=gzip.compress(body, compresslevel=6),
+                etag='"' + hashlib.sha1(body).hexdigest()[:20] + '"',
+            )
+        body, gz, etag = _HIST_CACHE["json"], _HIST_CACHE["gz"], _HIST_CACHE["etag"]
+
+    if request.headers.get("If-None-Match") == etag:
+        resp = app.response_class(status=304)
+    elif "gzip" in (request.headers.get("Accept-Encoding") or "").lower():
+        resp = app.response_class(gz, mimetype="application/json")
+        resp.headers["Content-Encoding"] = "gzip"
+        resp.headers["Vary"] = "Accept-Encoding"
+    else:
+        resp = app.response_class(body, mimetype="application/json")
+    resp.headers["ETag"] = etag
+    resp.headers["Cache-Control"] = "no-cache"      # always revalidate; the ETag makes that cheap
+    return resp
+
+
+def _build_historical_payload():
     """
     Merges historical DB tables with web-scraped tables and returns a unified
     time-series payload for the dashboard charts.
@@ -1134,7 +1210,7 @@ def get_historical_data():
     df_final = df_final.ffill().bfill().fillna(0)
 
     # ── 5. Build response ─────────────────────────────────────────────────────
-    return jsonify({
+    return {
         "labels": df_final["Date"].tolist(),
         "historical": {
             "impSpecial":    df_final["impSpecial"].tolist(),
@@ -1148,7 +1224,7 @@ def get_historical_data():
             "fuel":          df_final["fuel"].tolist()     if "fuel"     in df_final.columns else [],
             "exchange":      df_final["exchange"].tolist() if "exchange" in df_final.columns else [],
         },
-    })
+    }
 
 
 

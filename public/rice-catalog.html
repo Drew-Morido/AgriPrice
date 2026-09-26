@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Prices — AgriPricePH</title>
+  <script src="js/public-settings.js"></script>
+  <title>Rice Catalog — AgriPricePH</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
@@ -13,7 +14,7 @@
   <link rel="stylesheet" href="css/landpage-nav.css" />
   <link rel="stylesheet" href="css/public-alert.css" />
   <style>
-    /* AgriPricePH — Prices (public, NCR rice catalog). Card-based catalog so brand detail already
+    /* AgriPricePH — Rice Catalog (public, NCR rice catalog). Card-based catalog so brand detail already
        tracked in the admin Rice Brands module (verification, image, source, survey provenance) has
        room to show without overwhelming the default view — cards show only name/type/price/image;
        hover (or tap, on touch) reveals a short second layer of detail. Colors are NOT reinvented
@@ -82,14 +83,14 @@
        closed control is themed, the popup always falls back to plain OS chrome. This is a small
        custom button + listbox widget instead, so both the closed and open states match the rest
        of the page (cards, badges, one accent). */
-    .rc-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+    .rc-toolbar { --rc-ctl-h: 46px; display: flex; align-items: stretch; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
 
-    .rc-dropdown { position: relative; min-width: 270px; max-width: 100%; }
+    .rc-dropdown { position: relative; min-width: 270px; max-width: 100%; height: var(--rc-ctl-h); }
     .rc-dropdown-trigger {
       display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%;
       font: inherit; font-weight: 600; font-size: 13.5px; color: var(--lp-text-primary, #0f1e14);
       background: #fff; border: 1px solid var(--lp-border-md, #cfe0d4); border-radius: 12px;
-      padding: 12px 14px 12px 16px; cursor: pointer; text-align: left;
+      padding: 0 14px 0 16px; height: 100%; cursor: pointer; text-align: left;
     }
     .rc-dropdown-trigger:hover { border-color: var(--lp-green-600, #357350); }
     .rc-dropdown-trigger:focus-visible { outline: 2px solid var(--lp-green-600, #357350); outline-offset: 1px; }
@@ -128,10 +129,130 @@
     .rc-dropdown-option:hover { background: var(--lp-green-50, #edf8f3); }
     .rc-dropdown-option[aria-selected="true"] { background: var(--lp-green-600, #357350); color: #fff; }
 
-    .rc-price-callout {
-      background: var(--lp-green-50, #edf8f3); border: 1px solid var(--lp-border, rgba(53,115,80,.14));
-      border-radius: 12px; padding: 9px 16px; text-align: right; flex-shrink: 0;
+    /* One-line toolbar: category dropdown | search | category price */
+    .rc-search { position: relative; flex: 1 1 260px; min-width: 0; }
+    .rc-search-input {
+      width: 100%; font: inherit; font-size: 13.5px; font-weight: 500; color: var(--lp-text-primary, #0f1e14);
+      background: #fff; border: 1px solid var(--lp-border-md, #cfe0d4); border-radius: 12px;
+      padding: 0 38px 0 40px; height: var(--rc-ctl-h); box-sizing: border-box; -webkit-appearance: none; appearance: none;
     }
+    .rc-search-input::placeholder { color: var(--lp-text-secondary, #3a5045); opacity: .7; font-weight: 400; }
+    .rc-search-input::-webkit-search-cancel-button { display: none; }
+    .rc-search-input:hover { border-color: var(--lp-green-600, #357350); }
+    .rc-search-input:focus-visible { outline: 2px solid var(--lp-green-600, #357350); outline-offset: 1px; border-color: var(--lp-green-600, #357350); }
+    .rc-search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--lp-green-700, #2a5c3f); pointer-events: none; }
+    .rc-search-clear {
+      position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 24px; height: 24px; border: 0; border-radius: 50%;
+      background: var(--lp-green-50, #edf8f3); color: var(--lp-green-700, #2a5c3f); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .rc-search-clear[hidden] { display: none; }
+    .rc-search-clear svg { width: 12px; height: 12px; }
+    .rc-search-clear:hover { background: var(--lp-green-600, #357350); color: #fff; }
+    .rc-suggest {
+      position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 25;
+      background: #fff; border: 1px solid var(--lp-border-md, #cfe0d4); border-radius: 14px; padding: 6px;
+      box-shadow: 0 14px 32px rgba(8,34,18,.16), 0 4px 10px rgba(8,34,18,.06);
+    }
+    .rc-suggest[hidden] { display: none; }
+    .rc-suggest-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 10px; border-radius: 9px; cursor: pointer; font-size: 13px; }
+    .rc-suggest-item:hover, .rc-suggest-item.is-active { background: var(--lp-green-50, #edf8f3); }
+    .rc-suggest-label { font-weight: 600; color: var(--lp-text-primary, #0f1e14); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rc-suggest-meta { flex-shrink: 0; font-size: 11px; color: var(--lp-text-secondary, #3a5045); display: flex; align-items: center; gap: 8px; }
+    .rc-suggest-type { font-size: 9.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--lp-green-700, #2a5c3f); background: var(--lp-green-50, #edf8f3); border-radius: 99px; padding: 2px 7px; }
+    .rc-suggest-item.is-active .rc-suggest-type { background: #fff; }
+    .rc-card-variety { min-height: 1.3em; font-size: 11.5px; font-style: italic; color: var(--lp-green-700, #2a5c3f); margin-top: 2px; line-height: 1.3; }
+    /* Dark mode. Surfaces on this page were hard-coded #fff while the text tokens (--lp-text-*)
+       flip to near-white in dark mode, so brand names, the modal and the search box went
+       white-on-white. Surfaces get a dark card tone, and dark-green accent text (readable only on
+       white) gets a light green. */
+    html.theme-dark .rc-card,
+    html.theme-dark .rc-modal,
+    html.theme-dark .rc-dropdown-trigger,
+    html.theme-dark .rc-dropdown-panel,
+    html.theme-dark .rc-search-input,
+    html.theme-dark .rc-suggest,
+    html.theme-dark .rc-note,
+    html.theme-dark .rc-empty,
+    html.theme-dark .rc-sib { background: #16261d; }
+    html.theme-dark .rc-modal::-webkit-scrollbar-thumb { border-color: #16261d; }
+    html.theme-dark .rc-card-price,
+    html.theme-dark .rc-card-variety,
+    html.theme-dark .rc-card-more,
+    html.theme-dark .rc-modal-price,
+    html.theme-dark .rc-modal-link,
+    html.theme-dark .rc-price-callout-value,
+    html.theme-dark .rc-grade-chip--local,
+    html.theme-dark .rc-card-pack.is-loose,
+    html.theme-dark .rc-trend--down,
+    html.theme-dark .rc-modal-how summary,
+    html.theme-dark .rc-dropdown-group-label,
+    html.theme-dark .rc-dropdown-chevron,
+    html.theme-dark .rc-search-icon,
+    html.theme-dark .rc-search-clear,
+    html.theme-dark .rc-suggest-type,
+    html.theme-dark .rc-howto > i { color: #8fd8ab; }
+    html.theme-dark .rc-grade-chip--imported { background: rgba(120,160,230,.16); color: #a9c4f2; }
+    html.theme-dark .rc-card-variety--general { color: var(--lp-text-secondary); }
+    html.theme-dark .rc-card-pack { background: #2f6b48; }
+    html.theme-dark .rc-dropdown-option:hover,
+    html.theme-dark .rc-suggest-item:hover,
+    html.theme-dark .rc-suggest-item.is-active { background: rgba(120,202,151,.12); }
+    html.theme-dark .rc-suggest-item.is-active .rc-suggest-type { background: transparent; }
+    /* (i) info icon + tooltip. Opens below and to the left so it stays inside the modal's scroll box
+       (a tooltip above/centred got clipped by the modal's own overflow). */
+    .rc-tip { position: relative; display: inline-flex; vertical-align: -3px; margin-left: 4px; color: var(--lp-text-secondary, #3a5045); cursor: help; outline: none; }
+    .rc-tip svg { width: 16px; height: 16px; }
+    .rc-tip:hover, .rc-tip:focus { color: var(--lp-green-600, #357350); }
+    .rc-tip::after {
+      content: attr(data-tip); position: absolute; top: calc(100% + 8px); right: -8px; z-index: 30;
+      width: max-content; max-width: min(280px, 72vw); text-align: left; white-space: normal;
+      font-family: var(--lp-font-body, system-ui); font-size: 12.5px; font-weight: 500; line-height: 1.55; letter-spacing: 0;
+      color: #fff; background: #13241a; border-radius: 8px; padding: 9px 12px; box-shadow: 0 10px 26px rgba(8,20,14,.3);
+      opacity: 0; visibility: hidden; transition: opacity .15s, visibility .15s; pointer-events: none;
+    }
+    .rc-tip:hover::after, .rc-tip:focus::after { opacity: 1; visibility: visible; }
+    .rc-note .rc-tip::after { right: auto; left: -8px; top: auto; bottom: calc(100% + 8px); }
+    html.theme-dark .rc-tip::after { background: #e8f0eb; color: #0f1e14; }
+    .rc-card-perkg { font-size: 11.5px; color: var(--lp-text-secondary, #3a5045); margin-top: 1px; }
+    .rc-card-pack {
+      display: inline-flex; align-items: center; gap: 5px; margin-top: 8px;
+      font-size: 11px; font-weight: 800; letter-spacing: .02em;
+      color: #fff; background: var(--lp-green-700, #2a5c3f); border-radius: 99px; padding: 3px 10px;
+    }
+    .rc-card-pack.is-loose { color: var(--lp-green-700, #2a5c3f); background: var(--lp-green-50, #edf8f3); }
+    .rc-modal-pack { display: inline-block; font-size: 11px; font-weight: 800; color: #fff; background: var(--lp-green-700, #2a5c3f); border-radius: 99px; padding: 2px 9px; margin-left: 4px; vertical-align: 1px; }
+    .rc-modal-perkg { display: block; font-family: var(--lp-font-body, system-ui); font-size: 13px; font-weight: 500; color: var(--lp-text-secondary, #3a5045); margin-top: 2px; letter-spacing: 0; }
+    .rc-sib-pack { font-weight: 600; color: var(--lp-text-secondary, #3a5045); }
+    .rc-card-packs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+    .rc-card-packs span { font-size: 10.5px; font-weight: 700; color: var(--lp-text-secondary, #3a5045); border: 1px solid var(--lp-border-md, #cfe0d4); border-radius: 99px; padding: 1px 7px; }
+    .rc-pack-kg { color: var(--lp-text-secondary, #3a5045); font-size: 12px; }
+    .rc-card-more { font-size: 10.5px; font-weight: 600; color: var(--lp-green-700, #2a5c3f); margin-top: 6px; }
+    .rc-modal-siblings { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--lp-border, rgba(53,115,80,.14)); }
+    .rc-modal-siblings[hidden] { display: none; }
+    .rc-sib-title { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--lp-text-secondary, #3a5045); margin-bottom: 8px; }
+    .rc-sib { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 10px; font: inherit; font-size: 12.5px; text-align: left; background: #fff; border: 1px solid var(--lp-border-md, #cfe0d4); border-radius: 10px; padding: 8px 12px; margin-bottom: 6px; cursor: pointer; }
+    .rc-sib:hover { border-color: var(--lp-green-600, #357350); background: var(--lp-green-50, #edf8f3); }
+    .rc-sib-name { font-weight: 600; color: var(--lp-text-primary, #0f1e14); }
+    .rc-sib-grade { font-size: 11px; color: var(--lp-text-secondary, #3a5045); flex-shrink: 0; }
+    /* No sourced variety yet: a plain general term, visibly quieter than a real variety name. */
+    .rc-card-variety--general { font-style: normal; color: var(--lp-text-secondary, #3a5045); opacity: .75; }
+    .rc-modal-how { margin-top: 12px; font-size: 12px; color: var(--lp-text-secondary, #3a5045); }
+    .rc-modal-how[hidden] { display: none; }
+    .rc-modal-how summary { cursor: pointer; font-weight: 600; color: var(--lp-green-700, #2a5c3f); }
+    .rc-modal-how p { margin-top: 6px; line-height: 1.55; }
+    .rc-search-status { font-size: 12.5px; color: var(--lp-text-secondary, #3a5045); margin: -6px 2px 14px; }
+    .rc-search-status[hidden] { display: none; }
+    .rc-toolbar.is-searching .rc-dropdown-trigger { opacity: .6; }
+
+    /* Same height, radius and border weight as the dropdown and search box, so the three read as one bar. */
+    .rc-price-callout {
+      height: var(--rc-ctl-h); box-sizing: border-box; flex-shrink: 0;
+      display: flex; align-items: center; gap: 12px;
+      background: var(--lp-green-50, #edf8f3); border: 1px solid var(--lp-border-md, #cfe0d4);
+      border-radius: 12px; padding: 0 16px; text-align: left;
+    }
+    .rc-price-callout-main { display: flex; flex-direction: column; justify-content: center; }
     .rc-price-callout-label { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--lp-text-secondary, #3a5045); }
     .rc-price-callout-value { font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 600; color: var(--lp-green-700, #2a5c3f); margin-top: 1px; }
 
@@ -258,7 +379,22 @@
     .rc-modal-type { font-size: 12.5px; color: var(--lp-text-secondary, #3a5045); margin-top: 2px; }
     .rc-modal-price { margin-top: 16px; font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 600; color: var(--lp-green-700, #2a5c3f); }
     .rc-modal-price .rc-unit { font-size: 13px; font-weight: 500; color: var(--lp-text-secondary, #3a5045); }
-    .rc-modal-price-note { font-size: 12px; color: var(--lp-text-secondary, #3a5045); margin-top: 3px; }
+    .rc-modal-asof { font-size: 11.5px; font-weight: 600; color: var(--lp-text-secondary, #3a5045); margin-top: 4px; }
+    .rc-modal-price-note { font-size: 12px; line-height: 1.55; color: var(--lp-text-secondary, #3a5045); margin-top: 6px; }
+    .rc-modal-price-note.is-stale { color: #8a5a00; }
+    .rc-modal-outlook { display: flex; gap: 9px; align-items: flex-start; margin-top: 14px; padding: 10px 12px; border: 1px solid var(--lp-border, rgba(53,115,80,.14)); border-radius: 10px; font-size: 12px; line-height: 1.55; color: var(--lp-text-secondary, #3a5045); }
+    .rc-modal-outlook[hidden] { display: none; }
+    .rc-trend { flex-shrink: 0; font-size: 11px; font-weight: 700; border-radius: 99px; padding: 2px 8px; white-space: nowrap; }
+    .rc-trend--up { background: #fdecea; color: #a12a1f; }
+    .rc-trend--down { background: var(--lp-green-50, #edf8f3); color: var(--lp-green-700, #2a5c3f); }
+    .rc-trend--flat { background: #eef1ef; color: #4a5a50; }
+    .rc-price-callout-trend { font-size: 11px; line-height: 1.25; color: var(--lp-text-secondary, #3a5045); display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+    .rc-price-callout-trend:empty { display: none; }
+    .rc-grade-chip { display: inline-block; font-size: 10.5px; font-weight: 600; border-radius: 99px; padding: 2px 8px; }
+    .rc-grade-chip--local { background: var(--lp-green-50, #edf8f3); color: var(--lp-green-700, #2a5c3f); }
+    .rc-grade-chip--imported { background: #eaf1fb; color: #24518f; }
+    .rc-card-asof { font-size: 10.5px; color: var(--lp-text-secondary, #3a5045); margin-top: 3px; }
+    .rc-card-asof.is-stale { color: #8a5a00; }
     .rc-modal-meta { display: flex; flex-direction: column; gap: 9px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--lp-border, rgba(53,115,80,.14)); }
     .rc-modal-meta > div { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
     .rc-modal-meta dt { color: var(--lp-text-secondary, #3a5045); flex-shrink: 0; }
@@ -279,6 +415,7 @@
       .rc-toolbar { flex-direction: column; align-items: stretch; }
       .rc-price-callout { text-align: left; }
       .rc-dropdown { min-width: 0; width: 100%; }
+      .rc-search { flex-basis: 100%; }
       .rc-cards { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
       .rc-modal-overlay { padding: 0; align-items: flex-end; }
       .rc-modal { max-width: 100%; max-height: 92vh; border-radius: 20px 20px 0 0; }
@@ -286,18 +423,18 @@
     }
   </style>
 </head>
-<body data-page="catalog" data-title="Prices" data-subtitle="NCR rice prices by brand">
+<body data-page="catalog" data-title="Rice Catalog" data-subtitle="NCR rice prices by brand">
 
 <main class="page-content" id="public-page-content">
   <div class="rc-shell">
     <header class="rc-hero">
       <span class="rc-eyebrow">NCR / Metro Manila only</span>
-      <h1 class="rc-heading">Rice <em>Prices</em></h1>
+      <h1 class="rc-heading">Rice <em>Catalog</em></h1>
       <p class="rc-lead">
         Verified rice products available in Metro Manila, organized by the eight official rice
         categories. Pick a category to see the brands, actual package names, where they're sold, and
-        the source. <strong>Prices come from the Price Forecast page</strong> — the prevailing
-        range/price for that category.
+        the source. <strong>Each brand's price is an expected range</strong> for that product, based
+        on its category's price and how that brand usually sells against it.
       </p>
     </header>
 
@@ -310,11 +447,25 @@
         </button>
         <div class="rc-dropdown-panel" id="rc-dropdown-panel" role="listbox" aria-label="Rice category" hidden></div>
       </div>
+      <div class="rc-search" role="search">
+        <svg class="rc-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="search" id="rc-search-input" class="rc-search-input" autocomplete="off" spellcheck="false"
+          placeholder="Search a brand or variety, e.g. Sinandomeng" aria-label="Search rice brands and varieties"
+          role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="rc-suggest">
+        <div class="rc-suggest" id="rc-suggest" role="listbox" aria-label="Suggestions" hidden></div>
+        <button type="button" class="rc-search-clear" id="rc-search-clear" aria-label="Clear search" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
       <div class="rc-price-callout">
-        <div class="rc-price-callout-label">Category price</div>
-        <div class="rc-price-callout-value" id="rc-active-price">—</div>
+        <div class="rc-price-callout-main">
+          <div class="rc-price-callout-label" id="rc-count-label">Showing</div>
+          <div class="rc-price-callout-value" id="rc-result-count">—</div>
+        </div>
       </div>
     </div>
+
+    <p class="rc-search-status" id="rc-search-status" aria-live="polite" hidden></p>
 
     <div class="rc-cards" id="rc-cards">
       <div class="rc-empty">Loading…</div>
@@ -342,8 +493,15 @@
           <span id="rc-modal-badge"></span>
         </div>
         <p class="rc-modal-price" id="rc-modal-price"></p>
+        <p class="rc-modal-asof" id="rc-modal-asof"></p>
         <p class="rc-modal-price-note" id="rc-modal-price-note"></p>
+        <p class="rc-modal-outlook" id="rc-modal-outlook" hidden></p>
+        <details class="rc-modal-how" id="rc-modal-how" hidden>
+          <summary>How is this price worked out?</summary>
+          <p id="rc-modal-how-text"></p>
+        </details>
         <dl class="rc-modal-meta" id="rc-modal-meta"></dl>
+        <div class="rc-modal-siblings" id="rc-modal-siblings" hidden></div>
         <p class="rc-modal-note" id="rc-modal-note" hidden></p>
       </div>
     </div>
@@ -357,6 +515,7 @@
 <script src="js/public-auth-modal.js"></script>
 <script src="js/public-shell.js"></script>
 <script src="js/public-pages.js"></script>
-<script src="js/public-catalog.js"></script>
+<script src="js/public-varieties.js?v=6"></script>
+<script src="js/public-catalog.js?v=24"></script>
 </body>
 </html>

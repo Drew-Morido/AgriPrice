@@ -326,8 +326,9 @@ def _run_lstm_inference(
             # Re-fit on the most recent ROLLING_WINDOW days rather than using the frozen
             # training-time coefficient, which can be up to a year stale by the time it is
             # served. Uses past data only, and falls back to the stored value if the recent
-            # window is not significant.
-            _phi, _fresh = rolling_phi(_ser, len(_ser) - 1, HORIZON)
+            # window is not significant. The coefficient depends on the weekday of the last
+            # bulletin (see mean_reversion.WEEKDAY_MODE).
+            _phi, _fresh = rolling_phi(_ser, len(_ser) - 1, HORIZON, dows=_row_weekdays(sub))
             _use = _fresh if _fresh.get("applied") else _rev
             _nl = int(_use.get("n_lags", 1))
             _lags = [
@@ -346,6 +347,8 @@ def _run_lstm_inference(
     half_widths = _conformal_half_widths(
         model, scaled, target_idx, len(features), scaler, delta_mode,
         reversion=target_meta.get("reversion"),
+        series=pd.to_numeric(sub[target], errors="coerce").values.astype(float),
+        dows=_row_weekdays(sub),
     )
 
     days: list = []
@@ -441,6 +444,7 @@ def _backtest_recent_days(
     pred_price = _inverse_target(pred_scaled_1d, scaler, target_idx)
     ser = pd.to_numeric(sub[target], errors="coerce").values.astype(float)
     dates = sub["Date"] if "Date" in sub.columns else None
+    dows_bt = _row_weekdays(sub)
 
     out: list = []
     for idx, r in enumerate(rs):
@@ -452,7 +456,7 @@ def _backtest_recent_days(
         predicted = float(pred_price[idx])
         try:
             from mean_reversion import apply_reversion, rolling_phi
-            _, rev = rolling_phi(ser, r, 1)
+            _, rev = rolling_phi(ser, r, 1, dows=dows_bt)
             if rev.get("applied"):
                 n_lags = int(rev.get("n_lags", 1))
                 lags = [
@@ -469,6 +473,13 @@ def _backtest_recent_days(
             "actual": round(actual, 2),
         })
     return out
+
+
+def _row_weekdays(sub: pd.DataFrame):
+    """Weekday (Mon=0 .. Sun=6) of every row, or None when the frame has no Date column."""
+    if "Date" not in sub.columns:
+        return None
+    return pd.to_datetime(sub["Date"], errors="coerce").dt.dayofweek.fillna(0).astype(int).values
 
 
 # ── Conformal prediction intervals ────────────────────────────────────────────
@@ -489,7 +500,8 @@ CONFORMAL_WINDOW = int(os.environ.get("AGRIPRICE_INTERVAL_WINDOW", "60"))
 CONFORMAL_REPORTED_PCT = int(os.environ.get("AGRIPRICE_INTERVAL_REPORTED_PCT", "90"))
 
 
-def _conformal_half_widths(model, scaled, target_idx, n_feat, scaler, delta_mode, reversion=None):
+def _conformal_half_widths(model, scaled, target_idx, n_feat, scaler, delta_mode, reversion=None,
+                           series=None, dows=None):
     """Half-width of the prediction interval for each forecast day, in pesos.
 
     Split-conformal calibration: replay the model over the last CONFORMAL_WINDOW windows whose
@@ -526,7 +538,21 @@ def _conformal_half_widths(model, scaled, target_idx, n_feat, scaler, delta_mode
         # Calibrate on the residuals of the forecast we actually publish. The mean-reversion
         # correction is part of that forecast, so replaying without it would size the band from a
         # different (larger-error) model and quietly over-cover.
-        if reversion and reversion.get("applied"):
+        if reversion and reversion.get("applied") and series is not None and dows is not None:
+            # Weekday mode: each calibration window gets the coefficient its own anchor day would
+            # have been served (past data only), exactly as the live forecast does.
+            from mean_reversion import rolling_phi
+            anchor_rows = [st + SEQ_LEN - 1 for st in starts]
+            corr = np.zeros_like(pred)
+            for i, r in enumerate(anchor_rows):
+                if r < 1:
+                    continue
+                phi_r, _ = rolling_phi(series, r, HORIZON, dows=dows)
+                d = series[r] - series[r - 1]
+                if np.isfinite(d):
+                    corr[i] = phi_r[: pred.shape[1], 0] * d
+            pred = pred + corr * scale
+        elif reversion and reversion.get("applied"):
             phi = np.asarray(reversion.get("phi") or [], dtype=float)
             if phi.size:
                 phi = np.atleast_2d(phi)[: pred.shape[1]]

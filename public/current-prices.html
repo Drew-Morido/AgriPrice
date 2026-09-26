@@ -36,6 +36,14 @@
   --shadow:0 2px 10px rgba(8,34,18,0.08),0 1px 3px rgba(8,34,18,0.05);
   --shadow-lg:0 12px 36px rgba(8,34,18,0.12),0 4px 12px rgba(8,34,18,0.06);
 }
+/* Dark mode: this page defines its own --ink/--card/--bg/--bd set (used by dozens of components
+   below — cards, tables, chart panels, confidence bars) independently of global.css's/landpage-
+   nav.css's vars, so the theme switch needs its own override here too. Palette matches those
+   files' html.theme-dark blocks for a coherent look site-wide. */
+html.theme-dark{
+  --ink:#e8f0eb;--ink2:#c3d6c9;--ink3:#9bb0a4;--ink4:#849c8e;
+  --card:#152820;--bg:#0f1a14;--bd:rgba(76,175,110,0.16);
+}
 body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink)}
 #public-app .page-content{max-width:100%!important;padding:0!important;margin:0!important}
 .topbar{display:none}
@@ -116,6 +124,7 @@ body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);c
   padding:4px;
   gap:2px;
 }
+html.theme-dark .origin-seg{background:rgba(76,175,110,.10);border-color:rgba(76,175,110,.20)}
 .origin-btn{
   font-family:inherit;
   font-size:13px;
@@ -151,12 +160,14 @@ body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);c
   transition:background .15s, color .15s, border-color .15s;
 }
 .type-nav-item:hover{background:#f3faf6;color:var(--ink2)}
+html.theme-dark .type-nav-item:hover{background:rgba(76,175,110,.10)}
 .type-nav-item.active{background:var(--g700);border-color:var(--g700);color:#fff}
 .type-nav-item .tn-price{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;opacity:.8}
 
 /* Sidebar typical-price card */
 .typical-price-title{font-size:12.5px;font-weight:700;color:var(--ink2);line-height:1.3}
 .typical-price-val{font-family:'JetBrains Mono',monospace;font-size:21px;font-weight:700;color:var(--g700)}
+html.theme-dark .typical-price-val{color:var(--g300)}
 .typical-price-val span{font-size:11px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;color:var(--ink3);margin-left:4px}
 
 /* Prices by brand — real data from GET /api/brand-prices (same source + wording as the Rice
@@ -167,16 +178,19 @@ body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);c
 .brand-compare-head{padding:22px 28px 14px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:end}
 .brand-compare-head h2{font-family:'Fraunces',serif;font-size:22px;color:var(--ink2);font-weight:400}
 .brand-compare-head h2 em{color:var(--g500);font-style:italic}
+html.theme-dark .brand-compare-head h2 em{color:var(--g300)}
 .brand-compare-head p{font-size:12.5px;color:var(--ink3);max-width:440px;line-height:1.5}
 .bc-table{width:100%;border-collapse:collapse}
 .bc-table th{
   text-align:left;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ink4);
   background:#f7fbf8;padding:12px 16px;border-bottom:1px solid var(--bd);
 }
+html.theme-dark .bc-table th{background:rgba(76,175,110,.06)}
 .bc-table td{padding:14px 16px;border-bottom:1px solid var(--bd);font-size:13.5px;vertical-align:middle}
 .bc-table tr:last-child td{border-bottom:none}
 .bc-table tbody tr{cursor:pointer;transition:background .15s}
 .bc-table tbody tr:hover{background:#f3faf6}
+html.theme-dark .bc-table tbody tr:hover{background:rgba(76,175,110,.10)}
 .bc-table tbody tr.bc-selected{background:var(--g700)}
 .bc-table tbody tr.bc-selected td{color:#fff;border-color:rgba(255,255,255,.12)}
 .bc-table tbody tr.bc-selected .bc-brand{color:#fff}
@@ -202,17 +216,21 @@ body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);c
   border-left:4px solid var(--g600);
   font-size:13px;line-height:1.55;color:var(--ink2);
 }
+html.theme-dark .bc-tip{background:rgba(76,175,110,.12);border-left-color:var(--g400)}
 .bc-tip i{color:var(--g600);font-size:17px;line-height:1.4;flex-shrink:0}
+html.theme-dark .bc-tip i{color:var(--g300)}
 
 .bc-pagination{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:14px 28px 20px;border-top:1px solid var(--bd)}
 .bc-page-info{font-size:12px;color:var(--ink3)}
 .bc-page-btns{display:flex;gap:6px;flex-wrap:wrap}
 .bc-page-btn{font-family:inherit;font-size:12px;font-weight:600;color:var(--ink3);background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:6px 12px;cursor:pointer;min-width:32px;text-align:center}
 .bc-page-btn:hover:not(:disabled){border-color:var(--g500);color:var(--g600)}
+html.theme-dark .bc-page-btn:hover:not(:disabled){color:var(--g300)}
 .bc-page-btn.active{background:var(--g700);border-color:var(--g700);color:#fff}
 .bc-page-btn:disabled{opacity:.4;cursor:not-allowed}
 
 .stat-icon{width:38px;height:38px;border-radius:10px;background:#ecf8f1;color:var(--g600);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+html.theme-dark .stat-icon{background:rgba(76,175,110,.14);color:var(--g300)}
 .stat-lbl{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ink4)}
 .stat-val{font-size:15px;font-weight:700;color:var(--ink2);margin-top:6px}
 
@@ -221,6 +239,7 @@ body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);c
 .chart-eyebrow{font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--ink4);margin-bottom:8px}
 .chart-title{font-family:'Fraunces',serif;font-size:24px;color:var(--ink2)}
 .chart-title em{color:var(--g500)}
+html.theme-dark .chart-title em{color:var(--g300)}
 .chart-sub-txt{font-size:13px;color:var(--ink3);margin-top:6px}
 .legend{display:flex;gap:16px;flex-wrap:wrap;align-self:end;padding-bottom:2px}
 .leg-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink3)}
@@ -234,36 +253,52 @@ canvas{width:100%!important;height:100%!important}
 .cb-lbl{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ink4);margin-bottom:12px}
 .cb-main{display:flex;align-items:baseline;gap:10px}
 .cb-price{font-family:'JetBrains Mono',monospace;font-size:19px;color:var(--g700);font-weight:700;white-space:nowrap}
+html.theme-dark .cb-price{color:var(--g300)}
 .cb-change{font-size:12px;font-weight:700;background:#ecf8f1;color:var(--g600);border:1px solid rgba(38,84,56,.16);border-radius:99px;padding:4px 10px;display:inline-flex;gap:4px;align-items:center}
+html.theme-dark .cb-change{background:rgba(76,175,110,.14);color:var(--g300);border-color:rgba(76,175,110,.22)}
 .cb-sub{font-size:12px;color:var(--ink3);margin-top:8px}
 .cb-timeline{display:flex;flex-direction:column;gap:10px}
 .cb-trow{display:flex;align-items:center;gap:10px}.cb-tlbl{font-size:11px;min-width:50px;color:var(--ink3);font-weight:600}
 .cb-ttrack{flex:1;height:22px;background:#eef6f1;border:1px solid var(--bd);border-radius:99px;overflow:hidden}
+html.theme-dark .cb-ttrack{background:rgba(76,175,110,.06)}
 .cb-tbar{height:100%;display:flex;align-items:center;justify-content:flex-end;padding-right:10px;background:linear-gradient(90deg,var(--g500),var(--g700));border-radius:99px}
 .cb-tval{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:#fff}
 .conf-rows{display:flex;flex-direction:column;gap:12px}
 .conf-row-item{display:flex;align-items:center;gap:10px}.conf-day{font-size:12px;color:var(--ink3);min-width:60px;font-weight:600}
 .conf-track{flex:1;height:8px;background:#edf4ef;border:1px solid var(--bd);border-radius:99px;overflow:hidden}
+html.theme-dark .conf-track{background:rgba(76,175,110,.06)}
 .conf-fill{height:100%;background:var(--g600);border-radius:99px;transition:width .5s}
 .conf-pct{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink2);font-weight:600;min-width:34px;text-align:right}
 
 .table-card{background:var(--card);border:1px solid var(--bd);border-radius:24px;overflow:hidden;box-shadow:var(--shadow)}
 .table-header{padding:24px 30px 16px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;gap:12px;align-items:center}
 .table-title{font-family:'Fraunces',serif;font-size:20px;color:var(--ink2)}.table-title em{color:var(--g500)}
+html.theme-dark .table-title em{color:var(--g300)}
 .trow{display:grid;grid-template-columns:1.7fr 1fr 1fr 1fr .8fr;gap:12px;align-items:center;padding:0 30px;min-height:64px;border-bottom:1px solid var(--bd)}
 .trow:last-child{border-bottom:none}
 .hdr{min-height:44px;background:#f7fbf8;font-size:11px;color:var(--ink4);font-weight:700;text-transform:uppercase;letter-spacing:.8px}
+html.theme-dark .hdr{background:rgba(76,175,110,.06)}
 .date-main{font-size:14px;font-weight:700;color:var(--ink2)}.date-sub{font-size:12px;color:var(--ink3);margin-top:2px}
 .dir{font-size:13px;font-weight:700;color:var(--good);display:inline-flex;gap:6px;align-items:center}.dir.down{color:var(--bad)}
 .fp{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:var(--ink2)}
 .cbadge{font-size:12px;font-weight:700;padding:5px 10px;border-radius:8px;background:#ecf8f1;color:var(--g600);display:inline-block}
+html.theme-dark .cbadge{background:rgba(76,175,110,.14);color:var(--g300)}
 .cbadge.down{background:#fdf0ee;color:var(--bad)}
+html.theme-dark .cbadge.down{background:rgba(239,68,68,.16);color:#ff8a7a}
 .conf-bar-cell{display:flex;align-items:center;gap:8px}
 .conf-bar-track{flex:1;height:6px;background:#edf4ef;border:1px solid var(--bd);border-radius:99px;overflow:hidden}
+html.theme-dark .conf-bar-track{background:rgba(76,175,110,.06)}
 .conf-bar-fill{height:100%;background:var(--g600);border-radius:99px}
 .conf-bar-pct{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink2);font-weight:700}
 
 .table-footnote{padding:14px 30px 22px;font-size:12px;color:var(--ink3);border-top:1px solid var(--bd);margin-top:4px}
+
+/* Compact density (matches the padding-reduction magnitude used by public.css's own
+   html.public-compact block for .public-card/.lp-price-card/.lp-forecast-card). */
+html.public-compact .side-card{padding:10px 12px}
+html.public-compact .chart-top{padding:18px 22px 0}
+html.public-compact .table-header,
+html.public-compact .brand-compare-head{padding:16px 20px 10px}
 
 /* Back to top */
 .back-to-top{position:fixed;right:28px;bottom:28px;width:46px;height:46px;border-radius:50%;background:var(--g600);color:#fff;border:none;box-shadow:var(--shadow-lg);display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;opacity:0;visibility:hidden;transform:translateY(8px);transition:opacity .2s,transform .2s,visibility .2s;z-index:150}
@@ -747,11 +782,13 @@ function brandRowsForType(tabKey) {
   const fc = getForecastDays(tabKey, fallback);
   const cat = (brandPricesData?.categories || []).find((c) => c.canonical_key === apiKey);
   const rows = (cat?.brands || []).map((b) => {
-    const hasWeight = b.estimated && b.weight_pct != null;
+    // Government-set brands (e.g. NFA) hold a fixed price — never scaled by the category band.
+    const fixed = !!b.fixed_price && b.price != null;
+    const hasWeight = !fixed && b.estimated && b.weight_pct != null;
     const factor = hasWeight ? 1 + Number(b.weight_pct) / 100 : 1;
-    const todayPrice = (hasWeight && b.price != null) ? Number(b.price) : today;
-    const tomorrowPrice = fc.d1 * factor;
-    return { ...b, gradeKey: tabKey, todayPrice, tomorrowPrice, estimated: !!hasWeight };
+    const todayPrice = fixed ? Number(b.price) : (hasWeight && b.price != null) ? Number(b.price) : today;
+    const tomorrowPrice = fixed ? todayPrice : fc.d1 * factor;
+    return { ...b, gradeKey: tabKey, todayPrice, tomorrowPrice, estimated: !!hasWeight, fixed_price: fixed };
   });
   return rows.sort((a, b) => a.todayPrice - b.todayPrice);
 }
@@ -814,7 +851,9 @@ function renderBrandCompare() {
     // calibrated range. The "Estimated · surveyed …" sub-line was removed from every row — it
     // repeated on nearly all of them and said nothing that distinguished one brand from another.
     const factor = b.estimated && b.weight_pct != null ? 1 + Number(b.weight_pct) / 100 : 1;
-    const tomorrow = toRange(catFc.lo1, catFc.hi1, b.tomorrowPrice / (factor || 1), factor);
+    const tomorrow = b.fixed_price
+      ? `${toPeso(b.todayPrice)} (fixed)`
+      : toRange(catFc.lo1, catFc.hi1, b.tomorrowPrice / (factor || 1), factor);
     const row = `<tr class="${selected ? 'bc-selected' : ''}" data-brand-id="${b.id}">
       <td><div class="bc-brand">${esc(b.brand_name)}</div></td>
       <td class="bc-peso">${toPeso(b.todayPrice)}</td>
@@ -845,10 +884,18 @@ function updateUI(key) {
 
   const brandRow = getSelectedBrandRow();
   const factor = brandRow ? (brandRow.estimated && brandRow.weight_pct != null ? 1 + Number(brandRow.weight_pct) / 100 : 1) : 1;
-  const d = brandRow ? { ...catD, today: brandRow.todayPrice, d1: catD.d1 * factor, d2: catD.d2 * factor, d3: catD.d3 * factor } : catD;
+  const fixedRow = !!(brandRow && brandRow.fixed_price);
+  const d = fixedRow
+    ? { ...catD, today: brandRow.todayPrice, d1: brandRow.todayPrice, d2: brandRow.todayPrice, d3: brandRow.todayPrice }
+    : brandRow ? { ...catD, today: brandRow.todayPrice, d1: catD.d1 * factor, d2: catD.d2 * factor, d3: catD.d3 * factor } : catD;
   // Bands scale with the brand exactly as the prices do, so a brand's range stays proportionate.
-  const band = (lo, hi, price) => toRange(catD[lo], catD[hi], catD[price], factor);
-  const history = brandRow ? { values: catHistory.values.map((v) => v * factor), labels: catHistory.labels } : catHistory;
+  // A fixed-price brand has no market band: it is one figure on every day.
+  const band = fixedRow
+    ? () => toPeso(brandRow.todayPrice)
+    : (lo, hi, price) => toRange(catD[lo], catD[hi], catD[price], factor);
+  const history = fixedRow
+    ? { values: catHistory.values.map(() => brandRow.todayPrice), labels: catHistory.labels }
+    : brandRow ? { values: catHistory.values.map((v) => v * factor), labels: catHistory.labels } : catHistory;
   const displayName = brandRow ? brandRow.brand_name : catD.name;
 
   const chg1 = d.d1 - d.today;
@@ -868,7 +915,7 @@ function updateUI(key) {
   // calibrated range instead — see toRange().
   document.getElementById('kpi-today').textContent = toPeso(d.today);
   document.getElementById('kpi-today-sub').textContent = 'Actual price · per kilo';
-  const hasBand = catD.lo1 != null;
+  const hasBand = catD.lo1 != null && !fixedRow;
   const bandNote = hasBand ? ` · expected range (${catD.bandPct || 90}% of the time)` : '';
   setKpi('kpi-tomorrow', band('lo1', 'hi1', 'd1'), hasBand);
   document.getElementById('kpi-tomorrow-sub').textContent = d.date1 + bandNote;
@@ -1008,6 +1055,30 @@ function renderSystemStatus(systemOk) {
     : 'Unavailable <span class="status-dot-mini offline"></span>';
 }
 
+// The Rice Prices (catalog) page links here as ?grade=locPremium&brand=12 so "See the 3-day
+// forecast" lands on that grade (and brand, when it belongs to the grade). Applied once, after the
+// brand data has loaded, so the brand row can be located and its table page opened.
+function applyDeepLink() {
+  let q;
+  try { q = new URLSearchParams(location.search); } catch { return; }
+  const grade = q.get('grade');
+  const tabKey = Object.keys(TAB_TO_API_KEY).find((k) => TAB_TO_API_KEY[k] === grade);
+  if (!tabKey) return;
+  activeOrigin = grade.startsWith('imp') ? 'imported' : 'local';
+  document.querySelectorAll('.origin-btn').forEach((b) => b.classList.toggle('active', b.dataset.origin === activeOrigin));
+  activeKey = tabKey;
+  activeBrandId = null;
+  bcPage = 0;
+  const brandId = Number(q.get('brand'));
+  if (brandId) {
+    const idx = brandRowsForType(tabKey).findIndex((b) => b.id === brandId);
+    if (idx >= 0) {
+      activeBrandId = brandId;
+      bcPage = Math.floor(idx / BC_PAGE_SIZE);
+    }
+  }
+}
+
 async function loadLiveData() {
   let pred = null;
   try {
@@ -1043,6 +1114,7 @@ async function loadLiveData() {
   if (lastUpdatedEl) lastUpdatedEl.textContent = lastUpdated || 'Unavailable';
   renderSystemStatus(!!pred?.ready);
 
+  applyDeepLink();
   updateUI(activeKey);
 }
 

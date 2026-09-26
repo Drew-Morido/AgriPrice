@@ -28,9 +28,10 @@
        real ledger uses it for — a loss, a price that went up.
        Same functional contract as before: every id/class public-history.js writes into or queries
        is unchanged (ph-verdict, ph-thennow, ph-seasonal, ph-moves, ph-coverage, ph-chart-note,
-       chart-historical, hcc-legend, hcc-rice, ph-rice, ph-unit, .hist-chart-card .hist-period-tabs,
-       .ph-panel-body). Everything else — every wrapper, every class name around that content — is
-       new. Chart.js's own colors/line/points/tooltip/grid are restyled in public-history.js
+       chart-historical, hcc-legend, ph-rice, ph-unit, .hist-chart-card .hist-period-tabs,
+       .ph-panel-body). The five entries are shown one at a time as tabs (.ph-tabs / .ph-tabpanel,
+       bound in public-history.js bindTabs); the chart's duplicate variety dropdown (hcc-rice) was
+       dropped — the banner's one variety control drives every tab. Chart.js's own colors/line/points/tooltip/grid are restyled in public-history.js
        (renderChart()) to match; the data it draws is untouched. */
 
     :root {
@@ -53,10 +54,38 @@
       --credit-soft: #e9f0e6;
 
       --shadow: 0 1px 2px rgba(33,29,19,0.06);
+      --card:   #ffffff;
 
       --f-display: 'DM Serif Display', Georgia, serif;
       --f-body:    'Plus Jakarta Sans', system-ui, sans-serif;
       --f-mono:    'JetBrains Mono', monospace;
+    }
+
+    /* Dark-mode "ledger" — same paper/ink/ledger/debit/credit identity, inverted from a cream
+       paper to a deep warm espresso-brown paper so this page keeps its own look instead of
+       borrowing the app's generic dark-green dashboard palette. Applied when public-settings.js
+       adds theme-dark to <html> (Settings → Theme: Dark, or System matching OS dark). */
+    html.theme-dark {
+      --paper:     #1c1712;
+      --paper-2:   #241d15;
+      --line:      rgba(230,225,210,0.16);
+      --line-soft: rgba(230,225,210,0.08);
+      --ink:       #f0ebe0;
+      --ink-2:     #c9c0ac;
+      --ink-3:     #8c8570;
+
+      --ledger:      #4a8a63;
+      --ledger-deep: #2a5c3f;
+      --ledger-soft: rgba(74,138,99,0.16);
+      --ledger-tint: rgba(74,138,99,0.14);
+
+      --debit:      #d97563;
+      --debit-soft: rgba(217,117,99,0.16);
+      --credit:     #5cb37e;
+      --credit-soft: rgba(92,179,126,0.16);
+
+      --shadow: 0 1px 3px rgba(0,0,0,0.35);
+      --card:   #231d16;
     }
 
     *, *::before, *::after { box-sizing: border-box; }
@@ -121,10 +150,17 @@
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q5,0 10,10 T20,10 L20,0 L0,0 Z' fill='%232a5c3f'/%3E%3C/svg%3E");
       background-repeat: repeat-x; background-size: 48px 22px;
     }
+    /* The wave's fill is a baked-in SVG data URI matching --ledger's light-mode hex (it can't
+       reference the CSS var) — the banner itself stays this same dark-green gradient in both
+       themes, so the wave just needs to track the brightened dark-mode --ledger value to keep
+       the seam between banner and page from reading as a mismatched dark-then-different-dark. */
+    html.theme-dark .ledger-banner-wave {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q5,0 10,10 T20,10 L20,0 L0,0 Z' fill='%234a8a63'/%3E%3C/svg%3E");
+    }
     .ledger-kicker {
       position: relative;
       display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-      font-family: var(--f-mono); font-size: 11px; font-weight: 600; letter-spacing: .08em;
+      font-family: var(--f-mono); font-size: 12.5px; font-weight: 600; letter-spacing: .08em;
       text-transform: uppercase; color: rgba(255,255,255,.75);
     }
     .ledger-kicker::before { content: '§'; font-size: 14px; }
@@ -144,13 +180,13 @@
     }
     .ledger-field { display: flex; flex-direction: column; gap: 6px; }
     .ledger-field-label {
-      font-family: var(--f-mono); font-size: 10px; font-weight: 600; letter-spacing: .08em;
-      text-transform: uppercase; color: rgba(255,255,255,.62);
+      font-family: var(--f-mono); font-size: 12px; font-weight: 600; letter-spacing: .08em;
+      text-transform: uppercase; color: rgba(255,255,255,.72);
     }
     .ph-select {
-      font-family: var(--f-body); font-size: 14px; font-weight: 600; color: #fff;
+      font-family: var(--f-body); font-size: 17px; font-weight: 700; color: #fff;
       background: transparent; border: none; border-bottom: 2px solid rgba(255,255,255,.55);
-      padding: 2px 22px 5px 0; min-width: 190px; cursor: pointer; border-radius: 0;
+      padding: 2px 26px 6px 0; min-width: 220px; cursor: pointer; border-radius: 0;
       appearance: none; -webkit-appearance: none;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
       background-repeat: no-repeat; background-position: right 2px center; background-size: 12px;
@@ -171,9 +207,9 @@
       background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.24); border-radius: 99px;
     }
     .ph-seg button {
-      font-family: var(--f-mono); font-size: 11.5px; font-weight: 600; letter-spacing: .02em;
-      color: rgba(255,255,255,.75); background: transparent; border: none; border-radius: 99px;
-      padding: 7px 15px; cursor: pointer; white-space: nowrap;
+      font-family: var(--f-body); font-size: 14px; font-weight: 700; letter-spacing: 0;
+      color: rgba(255,255,255,.8); background: transparent; border: none; border-radius: 99px;
+      padding: 9px 18px; cursor: pointer; white-space: nowrap;
     }
     .ph-seg button:hover:not(.active) { color: #fff; }
     .ph-seg button.active { background: #fff; color: var(--ledger-deep); }
@@ -182,8 +218,8 @@
     .ph-coverage {
       display: flex; gap: 10px; align-items: flex-start;
       background: #fbf1da; border: 1px solid rgba(163,90,20,.24); border-left: 3px solid #b5741a;
-      border-radius: 4px; padding: 11px 15px; margin: 16px 0 0;
-      font-size: 12.5px; line-height: 1.55; color: #5c4415;
+      border-radius: 10px; padding: 13px 16px; margin: 18px 0 0;
+      font-size: 14px; line-height: 1.55; color: #5c4415;
     }
     .ph-coverage i { color: #b5741a; font-size: 16px; flex-shrink: 0; margin-top: 1px; }
     .ph-coverage-x {
@@ -191,233 +227,424 @@
       color: #a08048; font-size: 14px; line-height: 1; padding: 4px; border-radius: 4px; flex-shrink: 0;
     }
     .ph-coverage-x:hover { background: rgba(180,120,20,.12); color: #5c4415; }
-
-    /* ══════════ LEDGER ENTRIES ══════════
-       Numbered like a table of contents; each entry is a rule-divided block, not a floating card.
-       .ph-panel-body stays on every content container — public-history.js falls back to it in bulk
-       if the API is unreachable. */
-    .ledger-entry { padding: 34px 0; border-bottom: 1px solid var(--line); }
-    .ledger-entry:last-of-type { border-bottom: none; }
-    .ledger-entry-head { display: flex; gap: 16px; align-items: baseline; margin-bottom: 20px; }
-    .ledger-index {
-      font-family: var(--f-mono); font-size: 12px; font-weight: 700; color: var(--ledger);
-      border: 1px solid var(--ledger); border-radius: 99px; width: 26px; height: 26px;
-      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    /* Coverage notice is a fixed amber/brown tint regardless of page theme — on the dark paper
+       it needs to darken and desaturate the same way the rest of the "paper" surfaces do, or it
+       reads as a bright light-mode rectangle dropped onto a dark page. */
+    html.theme-dark .ph-coverage {
+      background: rgba(181,116,26,0.14); border-color: rgba(181,116,26,.38); border-left-color: #d9963f;
+      color: #e8c896;
     }
-    .ledger-entry-titles h2 {
-      font-family: var(--f-display); font-weight: 400; font-size: 22px; color: var(--ink);
+    html.theme-dark .ph-coverage i { color: #d9963f; }
+    html.theme-dark .ph-coverage-x { color: #b5985f; }
+    html.theme-dark .ph-coverage-x:hover { background: rgba(217,150,63,.16); color: #e8c896; }
+
+    /* ══════════ TABS ══════════
+       The ledger's numbered index (01–05) is the navigation itself: one row of index tabs under
+       the banner, one entry shown at a time. Active tab = filled ledger-green number disc + a green
+       rule under it. Type is sized for comfortable reading (nothing under 12px) — this page is used
+       by working adults glancing at it on a phone, not by designers at 100% zoom.
+       .ph-panel-body stays on every content container — public-history.js falls back to it in
+       bulk if the API is unreachable. */
+    .ph-tabs {
+      position: sticky; top: var(--ph-sticky-top, var(--lp-nav-height, 64px)); z-index: 40;
+      display: flex; gap: 6px; margin-top: 20px;
+      background: var(--lp-bg, var(--paper));
+      border-bottom: 1px solid var(--line);
+      overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
     }
-    .ledger-entry-titles p { margin-top: 2px; font-size: 12.5px; color: var(--ink-3); }
+    .ph-tabs::-webkit-scrollbar { display: none; }
+    .ph-tab {
+      position: relative; flex: 1 1 0; min-width: 0;
+      display: flex; align-items: center; gap: 12px;
+      font: inherit; text-align: left; color: var(--ink-3);
+      background: transparent; border: none; cursor: pointer;
+      padding: 16px 14px 17px; border-radius: 10px 10px 0 0;
+      transition: color .18s, background .18s;
+    }
+    .ph-tab::after {
+      content: ''; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 3px;
+      background: var(--ledger); border-radius: 3px 3px 0 0;
+      transform: scaleX(0); transition: transform .25s cubic-bezier(.2,.8,.2,1);
+    }
+    .ph-tab:hover { color: var(--ink); background: var(--ledger-soft); }
+    .ph-tab:focus-visible { outline: 2px solid var(--ledger); outline-offset: -2px; }
+    .ph-tab[aria-selected="true"] { color: var(--ink); }
+    .ph-tab[aria-selected="true"]::after { transform: scaleX(1); }
+    .ph-tab-num {
+      font-family: var(--f-mono); font-size: 12.5px; font-weight: 700;
+      width: 32px; height: 32px; border-radius: 99px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      border: 1.5px solid currentColor; opacity: .7;
+      transition: background .18s, color .18s, opacity .18s;
+    }
+    .ph-tab[aria-selected="true"] .ph-tab-num { background: var(--ledger); border-color: var(--ledger); color: #fff; opacity: 1; }
+    .ph-tab-text { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+    .ph-tab-name { font-size: 15.5px; font-weight: 700; white-space: nowrap; }
+    .ph-tab-sub { font-size: 12.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Today's verdict at a glance, before the tab is even opened — set by renderVerdict(). */
+    .ph-tab-dot { width: 10px; height: 10px; border-radius: 50%; margin-left: auto; flex-shrink: 0; background: transparent; }
+    .ph-tab-dot[data-state="low"]  { background: var(--credit); box-shadow: 0 0 0 4px var(--credit-soft); }
+    .ph-tab-dot[data-state="mid"]  { background: var(--ink-3); box-shadow: 0 0 0 4px var(--line-soft); }
+    .ph-tab-dot[data-state="high"] { background: var(--debit); box-shadow: 0 0 0 4px var(--debit-soft); }
 
-    .ledger-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 48px; }
-    .ledger-cols > .ledger-entry { padding-top: 28px; border-bottom: none; }
-    .ledger-cols > .ledger-entry + .ledger-entry {
-      border-left: 1px solid var(--line); padding-left: 48px; margin-left: -1px;
+    /* ══════════ THE CARD — identical frame for every tab ══════════
+       Same width, same padding, same minimum height and the same header/foot on all five tabs, so
+       switching tabs changes the content, never the frame. Content sits in a centred column of one
+       readable width; only the chart uses the card's full width. A faint oversized icon in the
+       corner is the tab's "illustration" — the same watermark idea as the banner's ₱ signs. */
+    .ph-tabpanel { padding: 16px 0 8px; }
+    .ph-tabpanel[hidden] { display: none; }
+    .ph-tabpanel:focus-visible { outline: none; }
+    .ph-tabpanel.is-entering .ph-card { animation: ph-in .32s cubic-bezier(.2,.8,.2,1) both; }
+    @keyframes ph-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+    .ph-card {
+      position: relative; isolation: isolate;
+      display: flex; flex-direction: column;
+      /* --ph-chrome = pinned nav + tab bar heights, measured in JS; 36px = panel top padding + a
+         small gap at the bottom of the screen. */
+      min-height: clamp(540px, calc(100vh - var(--ph-chrome, 150px) - 36px), 780px);
+      min-height: clamp(540px, calc(100dvh - var(--ph-chrome, 150px) - 36px), 780px);
+      background: var(--card); border: 1px solid var(--line); border-radius: 18px;
+      padding: 24px 36px 18px;
+      box-shadow: 0 1px 2px rgba(33,29,19,.05), 0 18px 40px -26px rgba(33,29,19,.28);
+    }
+    .ph-card-deco { position: absolute; inset: 0; z-index: -1; overflow: hidden; border-radius: inherit; pointer-events: none; }
+    .ph-card-mark {
+      position: absolute; right: -26px; bottom: -40px;
+      font-size: 230px; line-height: 1; color: var(--ledger); opacity: .05; pointer-events: none;
+    }
+    .ph-tp-head {
+      display: flex; gap: 16px; align-items: center;
+      padding-bottom: 16px; margin-bottom: 20px; border-bottom: 1px solid var(--line-soft);
+    }
+    .ph-tp-icon {
+      width: 46px; height: 46px; border-radius: 14px; flex-shrink: 0;
+      display: grid; place-items: center;
+      background: var(--ledger-tint); color: var(--ledger); font-size: 23px;
+    }
+    html.theme-dark .ph-tp-icon { color: var(--credit); }
+    .ph-tp-head h2 { font-family: var(--f-display); font-weight: 400; font-size: 27px; color: var(--ink); line-height: 1.15; }
+    .ph-tp-head p { margin-top: 3px; font-size: 15px; color: var(--ink-2); line-height: 1.5; }
+
+    .ph-card-body {
+      flex: 1; width: 100%; max-width: 820px; margin: 0 auto;
+      display: flex; flex-direction: column; justify-content: center;
+    }
+    .ph-card-body--wide { max-width: none; justify-content: flex-start; }
+    .ph-card-body--full { max-width: none; }
+
+    .ph-card-foot {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+      margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line-soft);
+    }
+    .ph-step { font-family: var(--f-mono); font-size: 13px; font-weight: 600; color: var(--ink-3); display: inline-flex; align-items: center; gap: 10px; }
+    .ph-step-dots { display: inline-flex; gap: 5px; }
+    .ph-step-dots span { width: 7px; height: 7px; border-radius: 99px; background: var(--line); transition: width .25s, background .25s; }
+    .ph-step-dots span.on { width: 20px; background: var(--ledger); }
+    .ph-next {
+      display: inline-flex; align-items: center; gap: 8px;
+      font: inherit; font-size: 14.5px; font-weight: 700; color: #fff;
+      background: var(--ledger); border: none; border-radius: 99px;
+      padding: 11px 20px; cursor: pointer; transition: background .15s, transform .15s;
+    }
+    .ph-next:hover { background: var(--ledger-deep); }
+    .ph-next:hover i { transform: translateX(3px); }
+    .ph-next i { transition: transform .15s; font-size: 16px; }
+    .ph-next:focus-visible { outline: 2px solid var(--ledger); outline-offset: 3px; }
+    html.theme-dark .ph-next:hover { background: #3c7a54; }
+
+    /* "How to read this" — one plain sentence under every chart, with an icon so it is findable. */
+    .ph-howto {
+      display: flex; gap: 12px; align-items: flex-start; margin-top: 16px;
+      background: var(--ledger-tint); border-radius: 12px; padding: 11px 16px;
+      font-size: 14px; line-height: 1.6; color: var(--ink-2);
+    }
+    .ph-howto > i { color: var(--ledger); font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+    html.theme-dark .ph-howto > i { color: var(--credit); }
+    .ph-howto strong { color: var(--ink); }
+
+    .ph-empty { padding: 30px 2px; color: var(--ink-3); font-size: 15px; text-align: center; }
+    .ph-foot { margin: 18px 0 0; font-size: 13.5px; color: var(--ink-3); line-height: 1.6; }
+    .ph-sec-label {
+      font-family: var(--f-mono); font-size: 12.5px; font-weight: 700; letter-spacing: .05em;
+      text-transform: uppercase; color: var(--ink-3); margin-bottom: 10px;
     }
 
-    .ph-empty { padding: 20px 2px; color: var(--ink-3); font-size: 13.5px; }
-    .ph-foot { margin: 16px 0 0; padding-top: 12px; border-top: 1px dashed var(--line); font-size: 11.5px; color: var(--ink-3); line-height: 1.55; }
-
-    .ph-info { font-size: 12.5px; color: var(--ink-3); cursor: help; vertical-align: -1px; margin-left: 3px; }
+    .ph-info { font-size: 16px; color: var(--ink-3); cursor: help; vertical-align: -2px; margin-left: 5px; }
     .ph-info:hover, .ph-info:focus-visible { color: var(--ledger); }
     [data-tip] { position: relative; }
     [data-tip]::after {
       content: attr(data-tip);
-      position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+      position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%);
       background: var(--ink); color: var(--paper);
-      font-family: var(--f-body); font-weight: 500; font-style: normal;
-      font-size: 11.5px; line-height: 1.5; text-align: left; letter-spacing: 0;
-      width: max-content; max-width: min(280px, 74vw);
-      padding: 9px 11px; border-radius: 6px; box-shadow: 0 8px 24px rgba(33,29,19,.22);
+      font-family: var(--f-body); font-weight: 500; font-style: normal; text-transform: none;
+      font-size: 13.5px; line-height: 1.55; text-align: left; letter-spacing: 0;
+      width: max-content; max-width: min(300px, 80vw);
+      padding: 10px 13px; border-radius: 8px; box-shadow: 0 10px 28px rgba(33,29,19,.26);
       opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 60;
     }
     [data-tip]:hover::after, [data-tip]:focus-visible::after { opacity: 1; }
+    /* --tip-shift is set just before a tooltip shows (public-history.js bindTipEdges) so the
+       bubble slides sideways until it is fully on screen. */
+    [data-tip]::after { transform: translateX(calc(-50% + var(--tip-shift, 0px))); }
+    [data-tip][data-tip-y="below"]::after { bottom: auto; top: calc(100% + 10px); }
 
-    /* ── 01 · Today's Entry ── */
-    .ph-verdict { display: flex; flex-wrap: wrap; gap: 30px 48px; align-items: flex-end; }
-    .ph-verdict-main { min-width: 220px; }
-    .ph-v-label { font-family: var(--f-mono); font-size: 11px; font-weight: 600; letter-spacing: .04em; color: var(--ink-3); margin-bottom: 6px; }
+    /* ── 01 · Today ── */
+    .ph-verdict-top { display: grid; grid-template-columns: minmax(240px, 1fr) 1.3fr; gap: 28px 48px; align-items: center; }
+    .ph-v-label { font-size: 15px; font-weight: 600; color: var(--ink-2); margin-bottom: 8px; }
     .ph-v-price {
-      font-family: var(--f-mono); font-size: 56px; font-weight: 600;
+      font-family: var(--f-mono); font-size: 64px; font-weight: 600;
       color: var(--ink); letter-spacing: -2px; line-height: 1;
     }
-    .ph-v-price span { font-size: 14px; font-weight: 500; color: var(--ink-3); letter-spacing: 0; margin-left: 6px; }
+    .ph-v-price span { font-size: 16px; font-weight: 500; color: var(--ink-3); letter-spacing: 0; margin-left: 6px; }
     .ph-v-badge {
-      display: inline-flex; align-items: center; gap: 6px; margin-top: 13px;
-      font-family: var(--f-mono); font-size: 11.5px; font-weight: 700; letter-spacing: .03em;
-      text-transform: uppercase;
+      display: inline-flex; align-items: center; gap: 8px; margin-top: 16px;
+      font-size: 14.5px; font-weight: 700; padding: 7px 14px; border-radius: 99px;
     }
-    .ph-v-badge::before { content: ''; width: 7px; height: 7px; border-radius: 50%; }
-    .ph-v-badge.good { color: var(--credit); }
-    .ph-v-badge.good::before { background: var(--credit); }
-    .ph-v-badge.mid  { color: var(--ink-3); }
-    .ph-v-badge.mid::before { background: var(--ink-3); }
-    .ph-v-badge.bad  { color: var(--debit); }
-    .ph-v-badge.bad::before { background: var(--debit); }
-    .ph-verdict-side { flex: 1; min-width: 260px; }
+    .ph-v-badge i { font-size: 17px; }
+    .ph-v-badge.good { color: var(--credit); background: var(--credit-soft); }
+    .ph-v-badge.mid  { color: var(--ink-2); background: var(--line-soft); }
+    .ph-v-badge.bad  { color: var(--debit); background: var(--debit-soft); }
+    .ph-v-list { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
     .ph-v-row {
-      display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: baseline;
-      padding: 8px 0; border-bottom: 1px dotted var(--line); font-size: 13px;
+      display: grid; grid-template-columns: 1fr auto; gap: 4px 14px; align-items: center;
+      padding: 15px 18px; font-size: 15px;
     }
-    .ph-v-window { color: var(--ink-2); }
-    .ph-v-usual { color: var(--ink-3); font-family: var(--f-mono); font-size: 11.5px; }
-    .ph-v-delta { font-family: var(--f-mono); font-weight: 700; font-size: 12px; white-space: nowrap; }
+    .ph-v-row + .ph-v-row { border-top: 1px solid var(--line-soft); }
+    .ph-v-window { color: var(--ink); font-weight: 600; }
+    .ph-v-usual { grid-column: 1; color: var(--ink-3); font-size: 13.5px; }
+    .ph-v-delta { grid-column: 2; grid-row: 1 / span 2; font-family: var(--f-mono); font-weight: 700; font-size: 15px; white-space: nowrap; text-align: right; }
+    .ph-v-delta small { display: block; font-family: var(--f-body); font-size: 12.5px; font-weight: 600; opacity: .85; }
     .ph-v-delta.low { color: var(--credit); }
-    .ph-v-delta.mid { color: var(--ink-3); }
+    .ph-v-delta.mid { color: var(--ink-2); }
     .ph-v-delta.high { color: var(--debit); }
-    .ph-v-note { margin: 10px 0 0; font-size: 11.5px; color: var(--ink-3); line-height: 1.5; }
 
-    /* ── 02 · Year on Year ── */
-    .ph-tn-now {
-      display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
-      padding-bottom: 12px; margin-bottom: 6px; border-bottom: 2px solid var(--ink);
+    /* Where today sits: a thermometer of the last 6 months — cheap / usual / pricey zones and a pin. */
+    .ph-gauge { margin-top: 38px; }
+    .ph-gauge-title { font-size: 15px; font-weight: 600; color: var(--ink-2); margin-bottom: 58px; }
+    .ph-gauge-track { position: relative; display: flex; height: 38px; border-radius: 12px; }
+    .ph-gauge-zone {
+      display: flex; align-items: center; justify-content: center; min-width: 0; overflow: hidden;
+      font-size: 12.5px; font-weight: 700; letter-spacing: .02em; white-space: nowrap;
     }
-    .ph-tn-now-label { font-family: var(--f-mono); font-size: 12px; font-weight: 600; color: var(--ink-2); }
-    .ph-tn-now-val { font-family: var(--f-mono); font-size: 20px; font-weight: 700; color: var(--ink); }
-    .ph-tn-now-val small { font-size: 10.5px; color: var(--ink-3); margin-left: 3px; }
-    .ph-tn-row { display: grid; grid-template-columns: 60px 62px 1fr auto; gap: 10px; align-items: center; padding: 9px 0; font-size: 12.5px; }
-    .ph-tn-year { color: var(--ink-2); font-weight: 600; font-family: var(--f-mono); font-size: 11.5px; }
-    .ph-tn-was { font-family: var(--f-mono); color: var(--ink-3); font-size: 11.5px; }
-    .ph-tn-bar-wrap { background: var(--paper-2); border-radius: 99px; height: 5px; overflow: hidden; }
-    .ph-tn-bar { display: block; height: 100%; border-radius: 99px; }
+    .ph-gauge-zone.low  { background: var(--credit-soft); color: var(--credit); border-radius: 12px 0 0 12px; }
+    .ph-gauge-zone.mid  { background: var(--line); color: var(--ink); }
+    .ph-gauge-zone.high { background: var(--debit-soft); color: var(--debit); border-radius: 0 12px 12px 0; }
+    .ph-gauge-pin {
+      position: absolute; top: -9px; bottom: -9px; left: var(--pos); width: 4px; margin-left: -2px;
+      background: var(--ink); border-radius: 3px;
+      animation: pin-in 1s cubic-bezier(.2,.8,.2,1) .15s both;
+    }
+    .ph-gauge-pin b {
+      position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+      background: var(--ink); color: var(--card); white-space: nowrap;
+      font-family: var(--f-mono); font-size: 13.5px; font-weight: 600; padding: 5px 10px; border-radius: 8px;
+    }
+    .ph-gauge-pin b::after {
+      content: ''; position: absolute; top: 100%; left: 50%; margin-left: -5px;
+      border: 5px solid transparent; border-top-color: var(--ink);
+    }
+    .ph-gauge-pin.edge-l b { left: -2px; transform: none; }
+    .ph-gauge-pin.edge-l b::after { left: 6px; }
+    .ph-gauge-pin.edge-r b { left: auto; right: -2px; transform: none; }
+    .ph-gauge-pin.edge-r b::after { left: auto; right: 1px; }
+    @keyframes pin-in { from { left: 0; opacity: 0; } to { left: var(--pos); opacity: 1; } }
+    .ph-gauge-scale { display: flex; justify-content: space-between; margin-top: 10px; font-family: var(--f-mono); font-size: 13px; color: var(--ink-3); }
+
+    /* ── 03 · Past years ── */
+    .ph-tn-now {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      background: var(--ledger-tint); border-radius: 14px; padding: 18px 22px; margin-bottom: 18px;
+    }
+    .ph-tn-now-label { font-size: 15px; font-weight: 600; color: var(--ink-2); }
+    .ph-tn-now-label small { display: block; font-size: 12.5px; font-weight: 500; color: var(--ink-3); margin-top: 2px; }
+    .ph-tn-now-val { font-family: var(--f-mono); font-size: 30px; font-weight: 700; color: var(--ink); }
+    .ph-tn-now-val small { font-size: 13px; color: var(--ink-3); margin-left: 4px; }
+    .ph-tn-grid { display: grid; grid-template-columns: max-content 120px 1fr 170px; gap: 0 18px; align-items: center; }
+    .ph-tn-hd { font-family: var(--f-mono); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); padding: 0 0 10px; border-bottom: 1px solid var(--line); }
+    .ph-tn-hd:last-child { text-align: right; }
+    .ph-tn-cell { padding: 16px 0; border-bottom: 1px solid var(--line-soft); font-size: 15px; }
+    .ph-tn-year { color: var(--ink); font-weight: 700; white-space: nowrap; }
+    .ph-tn-year small { display: none; }   /* phone only: the "average then" column folds in here */
+    .ph-tn-was { font-family: var(--f-mono); color: var(--ink-2); }
+    .ph-tn-bar-wrap { display: block; background: var(--paper-2); border-radius: 99px; height: 12px; overflow: hidden; }
+    .ph-tn-bar { display: block; height: 100%; border-radius: 99px; animation: bar-in .8s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i, 0) * 110ms + .1s); }
+    @keyframes bar-in { from { width: 0; } }
     .ph-tn-bar.up { background: var(--debit); }
     .ph-tn-bar.down { background: var(--credit); }
-    .ph-tn-diff { font-family: var(--f-mono); font-weight: 700; font-size: 11.5px; white-space: nowrap; }
-    .ph-tn-diff small { font-weight: 600; opacity: .75; }
+    .ph-tn-diff { font-family: var(--f-mono); font-weight: 700; white-space: nowrap; text-align: right; }
+    .ph-tn-diff small { display: block; font-family: var(--f-body); font-weight: 600; font-size: 12.5px; opacity: .85; }
     .ph-tn-diff.up { color: var(--debit); }
     .ph-tn-diff.down { color: var(--credit); }
 
-    /* ── 03 · The Season ── */
-    .ph-se-summary { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
-    .ph-se-pick { flex: 1; min-width: 130px; border-radius: 4px; padding: 10px 13px; border: 1px solid; }
-    .ph-se-pick.good { background: var(--credit-soft); border-color: rgba(42,92,63,.2); }
-    .ph-se-pick.bad  { background: var(--debit-soft); border-color: rgba(163,54,42,.2); }
-    .ph-se-pick-lbl {
-      display: block; font-family: var(--f-mono); font-size: 10px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: .05em; margin-bottom: 3px;
-    }
-    .ph-se-pick.good .ph-se-pick-lbl { color: var(--credit); }
-    .ph-se-pick.bad  .ph-se-pick-lbl { color: var(--debit); }
-    .ph-se-pick-val { font-size: 13.5px; font-weight: 700; color: var(--ink); }
-    .ph-se-chart { position: relative; display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; padding: 6px 0 0; min-width: 0; }
-    .ph-se-axis { position: absolute; left: 0; right: 0; top: 56px; height: 1px; background: var(--line); }
-    .ph-se-col { display: flex; flex-direction: column; align-items: center; cursor: help; min-width: 0; }
-    .ph-se-col:focus-visible { outline: 2px solid var(--ledger); outline-offset: 2px; border-radius: 4px; }
-    .ph-se-slot { position: relative; width: 100%; height: 100px; }
-    .ph-se-bar { position: absolute; left: 28%; right: 28%; }
-    .ph-se-bar.up { background: var(--debit); }
-    .ph-se-bar.down { background: var(--credit); }
-    .ph-se-mon { font-family: var(--f-mono); font-size: 9.5px; color: var(--ink-3); font-weight: 600; margin-top: 5px; text-transform: uppercase; }
-    .ph-se-col:hover .ph-se-mon { color: var(--ink); }
+    /* ── 04 · Best month ── */
+    .ph-se-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 30px; }
+    .ph-se-pick { display: flex; gap: 14px; align-items: center; border-radius: 14px; padding: 16px 18px; border: 1px solid; }
+    .ph-se-pick > i { font-size: 30px; flex-shrink: 0; }
+    .ph-se-pick.good { background: var(--credit-soft); border-color: rgba(42,92,63,.2); color: var(--credit); }
+    .ph-se-pick.bad  { background: var(--debit-soft); border-color: rgba(163,54,42,.2); color: var(--debit); }
+    html.theme-dark .ph-se-pick.good { border-color: rgba(92,179,126,.4); }
+    html.theme-dark .ph-se-pick.bad  { border-color: rgba(217,117,99,.4); }
+    .ph-se-pick-lbl { display: block; font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px; }
+    .ph-se-pick-val { font-size: 18px; font-weight: 700; color: var(--ink); }
+    .ph-se-wrap { --slot: 180px; display: grid; grid-template-columns: 96px 1fr; gap: 0 10px; }
+    .ph-se-y { position: relative; height: var(--slot); font-size: 12.5px; font-weight: 600; color: var(--ink-3); }
+    .ph-se-y span { position: absolute; right: 0; text-align: right; line-height: 1.25; }
+    .ph-se-y .t { top: 0; color: var(--debit); }
+    .ph-se-y .m { top: 50%; transform: translateY(-50%); }
+    .ph-se-y .b { bottom: 0; color: var(--credit); }
+    .ph-se-chart { position: relative; display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; min-width: 0; }
+    .ph-se-axis { position: absolute; left: 0; right: 0; top: calc(var(--slot) / 2); height: 0; border-top: 1.5px dashed var(--line); }
+    .ph-se-col { display: flex; flex-direction: column; align-items: center; cursor: help; min-width: 0; border-radius: 8px; transition: background .15s; }
+    .ph-se-col:hover { background: var(--ledger-soft); }
+    .ph-se-col:focus-visible { outline: 2px solid var(--ledger); outline-offset: 2px; }
+    .ph-se-slot { position: relative; width: 100%; height: var(--slot); }
+    .ph-se-bar { position: absolute; left: 20%; right: 20%; animation: se-grow .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i) * 45ms + .1s); }
+    .ph-se-bar.up { background: var(--debit); border-radius: 6px 6px 0 0; transform-origin: bottom; opacity: .55; }
+    .ph-se-bar.down { background: var(--credit); border-radius: 0 0 6px 6px; transform-origin: top; opacity: .55; }
+    .ph-se-col.key .ph-se-bar { opacity: 1; }
+    @keyframes se-grow { from { transform: scaleY(0); } }
+    .ph-se-val { position: absolute; left: 0; right: 0; text-align: center; font-family: var(--f-mono); font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .ph-se-val.up { color: var(--debit); }
+    .ph-se-val.down { color: var(--credit); }
+    .ph-se-mon { font-size: 13px; color: var(--ink-3); font-weight: 600; margin: 8px 0 4px; }
+    .ph-se-col.key .ph-se-mon { color: var(--ink); font-weight: 800; }
 
-    /* ── 04 · The Record Book ── */
-    .ph-moves { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
-    .ph-mv { display: flex; gap: 13px; align-items: center; background: #fff; padding: 12px 14px; }
-    .ph-mv-ico { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; font-size: 14px; }
+    /* ── 05 · Big swings ── */
+    .ph-moves { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .ph-mv {
+      display: flex; flex-direction: column; gap: 9px;
+      background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+      border-top-width: 4px; padding: 14px 18px 13px;
+      animation: mv-in .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i) * 90ms + .05s);
+    }
+    @keyframes mv-in { from { opacity: 0; transform: translateY(12px); } }
+    .ph-mv.up { border-top-color: var(--debit); }
+    .ph-mv.down { border-top-color: var(--credit); }
+    .ph-mv-top { display: flex; align-items: center; gap: 12px; }
+    .ph-mv-ico { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; flex-shrink: 0; font-size: 22px; }
     .ph-mv.up .ph-mv-ico   { background: var(--debit-soft); color: var(--debit); }
     .ph-mv.down .ph-mv-ico { background: var(--credit-soft); color: var(--credit); }
-    .ph-mv-body { min-width: 0; flex: 1; }
-    .ph-mv-top { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
-    .ph-mv-top strong { font-family: var(--f-mono); font-size: 14px; }
-    .ph-mv.up .ph-mv-top strong   { color: var(--debit); }
-    .ph-mv.down .ph-mv-top strong { color: var(--credit); }
-    .ph-mv-pct { font-family: var(--f-mono); font-size: 11px; font-weight: 700; color: var(--ink-2); }
-    .ph-mv-when { font-family: var(--f-mono); font-size: 10.5px; font-weight: 700; color: var(--ink-3); margin-left: auto; }
-    .ph-mv-sub { font-size: 11.5px; color: var(--ink-2); margin-top: 3px; line-height: 1.5; }
-    .ph-mv-range { color: var(--ink-3); }
-    /* Alternating rows — dark green / white — so the eye can track a row across the card without
-       losing its place. Every other row flips to light-on-dark; the ico badge and the +/- amount
-       stay in the same red/green family, just brightened enough to hold contrast on green. */
-    .ph-mv:nth-child(odd) { background: var(--ledger-deep); }
-    .ph-mv:nth-child(odd) .ph-mv-ico { background: rgba(255,255,255,.16); }
-    .ph-mv:nth-child(odd).up .ph-mv-ico { color: #f0a99d; }
-    .ph-mv:nth-child(odd).down .ph-mv-ico { color: #9cdcb4; }
-    .ph-mv:nth-child(odd) .ph-mv-top strong { color: #fff; }
-    .ph-mv:nth-child(odd) .ph-mv-pct { color: rgba(255,255,255,.78); }
-    .ph-mv:nth-child(odd) .ph-mv-when { color: rgba(255,255,255,.55); }
-    .ph-mv:nth-child(odd) .ph-mv-sub { color: rgba(255,255,255,.82); }
-    .ph-mv:nth-child(odd) .ph-mv-range { color: rgba(255,255,255,.6); }
+    .ph-mv-amt { display: flex; flex-direction: column; }
+    .ph-mv-amt strong { font-family: var(--f-mono); font-size: 22px; line-height: 1.1; }
+    .ph-mv.up .ph-mv-amt strong   { color: var(--debit); }
+    .ph-mv.down .ph-mv-amt strong { color: var(--credit); }
+    .ph-mv-amt span { font-size: 13px; font-weight: 600; color: var(--ink-3); }
+    .ph-mv-when {
+      margin-left: auto; align-self: flex-start;
+      font-size: 13px; font-weight: 700; color: var(--ink-2);
+      background: var(--line-soft); border-radius: 99px; padding: 5px 11px; white-space: nowrap;
+    }
+    .ph-mv-spark { width: 100%; height: 34px; display: block; }
+    .ph-mv-spark path { fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 100; animation: draw 1.1s ease both; animation-delay: calc(var(--i) * 90ms + .25s); }
+    @keyframes draw { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+    .ph-mv.up .ph-mv-spark path { stroke: var(--debit); }
+    .ph-mv.down .ph-mv-spark path { stroke: var(--credit); }
+    .ph-mv-sub { font-size: 14.5px; color: var(--ink); font-weight: 600; }
+    .ph-mv-range { display: block; font-size: 13px; font-weight: 500; color: var(--ink-3); margin-top: 2px; }
 
-    /* ══════════ 05 · The Daily Ledger — the chart ══════════
+    /* ══════════ 02 · Price chart ══════════
        public-history.js sizes the canvas manually from THIS wrapper's clientWidth/clientHeight
        (canvas.parentElement) — .ledger-plot must stay position:relative with a real height, and
        the canvas itself must stay position:absolute so it can never feed its own size back into
-       this box. Load-bearing, not cosmetic (see the comment in renderChart()).
-       Kept plain on purpose: the ruled-paper/notebook-margin decoration tried here earlier
-       competed with the actual data at a glance. Chart.js now draws its own light horizontal
-       gridlines instead (see renderChart()'s y.grid) — a functional reference for reading values,
-       not a texture — and the card itself is just a flat card. */
-    .ledger-plot-card {
-      background: #fff;
-      border: 1px solid var(--line);
-      border-radius: 4px;
-      padding: 18px;
-    }
+       this box. Load-bearing, not cosmetic (see the comment in renderChart()). */
+    .hist-chart-card { display: flex; flex-direction: column; flex: 1; }
     .hcc-controls {
       display: flex; align-items: center; justify-content: space-between;
-      gap: 12px; flex-wrap: wrap; padding: 14px 0 16px;
+      gap: 12px 20px; flex-wrap: wrap; margin-bottom: 14px;
     }
-    .hist-period-tabs { display: inline-flex; gap: 2px; padding: 2px; background: #fff; border: 1px solid var(--line); border-radius: 99px; }
+    .hcc-period { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .hcc-controls .ph-chart-note { flex: 1 1 380px; margin: 0; }
+    .hcc-controls-label { font-size: 14px; font-weight: 600; color: var(--ink-2); }
+    .hist-period-tabs { display: inline-flex; gap: 3px; padding: 3px; background: var(--paper-2); border: 1px solid var(--line); border-radius: 99px; }
     .hist-period-tabs button {
-      font-family: var(--f-mono); font-size: 11.5px; font-weight: 600; color: var(--ink-2);
-      background: transparent; border: none; border-radius: 99px; padding: 7px 15px; cursor: pointer; white-space: nowrap;
+      font-family: var(--f-body); font-size: 14px; font-weight: 700; color: var(--ink-2);
+      background: transparent; border: none; border-radius: 99px; padding: 9px 18px; cursor: pointer; white-space: nowrap;
+      transition: background .15s, color .15s;
     }
-    .hist-period-tabs button:hover:not(.active) { color: var(--ink); }
+    .hist-period-tabs button:hover:not(.active) { color: var(--ink); background: var(--ledger-soft); }
     .hist-period-tabs button.active { background: var(--ledger); color: #fff; }
-    .hcc-select {
-      font-family: var(--f-mono); font-size: 12.5px; font-weight: 600; color: var(--ink);
-      background: #fff; border: 1px solid var(--line); border-radius: 6px;
-      padding: 8px 28px 8px 12px; cursor: pointer; min-width: 180px;
-      appearance: none; -webkit-appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232a5c3f' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-      background-repeat: no-repeat; background-position: right 10px center; background-size: 12px;
-    }
-    .hcc-select:focus-visible { outline: 2px solid var(--ledger); outline-offset: 1px; }
 
-    .hcc-canvas, .ledger-plot { background: transparent; margin: 0; min-height: 230px; flex: 1; position: relative; }
+    /* flex:1 — the plot takes whatever height the shared card frame leaves, so the chart tab is
+       exactly as tall as the others instead of setting their size. */
+    .hcc-canvas, .ledger-plot { background: transparent; margin: 0; min-height: 210px; flex: 1; position: relative; }
     .hcc-canvas canvas, .ledger-plot canvas { position: absolute; inset: 0; display: block; }
 
-    .hcc-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 12px 0 0; font-size: 11.5px; color: var(--ink-3); }
-    .hcc-legend-item { display: inline-flex; align-items: center; gap: 7px; }
-    .hcc-legend-swatch { width: 14px; height: 3px; border-radius: 2px; flex-shrink: 0; }
-    .hcc-legend-swatch.dashed { height: 0; border-top: 2px dashed currentColor; border-radius: 0; width: 16px; }
+    .hcc-legend { display: flex; flex-wrap: wrap; gap: 10px 26px; padding: 12px 0 0; font-size: 14px; color: var(--ink-2); }
+    .hcc-legend-item { display: inline-flex; align-items: center; gap: 9px; }
+    .hcc-legend-swatch { width: 22px; height: 4px; border-radius: 2px; flex-shrink: 0; }
+    .hcc-legend-swatch.dashed { height: 0; border-top: 3px dashed currentColor; border-radius: 0; width: 22px; }
+    .hcc-legend-dot { width: 11px; height: 11px; border-radius: 50%; border: 2px solid currentColor; background: var(--card); flex-shrink: 0; }
 
     .ph-chart-note {
-      margin: 14px 0 0; padding-top: 12px; border-top: 1px dashed var(--line);
-      font-size: 12px; line-height: 1.6; color: var(--ink-2);
+      display: flex; gap: 12px; align-items: flex-start;
+      margin: 0 0 14px; padding: 11px 16px; border-radius: 12px;
+      background: var(--line-soft); border: 1px solid var(--line-soft); font-size: 15px; line-height: 1.6; color: var(--ink-2);
     }
+    .ph-chart-note > i { font-size: 22px; flex-shrink: 0; margin-top: 1px; }
+    .ph-chart-note.up > i { color: var(--debit); }
+    .ph-chart-note.down > i { color: var(--credit); }
+    .ph-chart-note.flat > i { color: var(--ink-3); }
     .ph-chart-note strong { color: var(--ink); }
     .ph-chart-note:empty { display: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .ph-tabpanel.is-entering .ph-card, .ph-gauge-pin, .ph-tn-bar, .ph-se-bar, .ph-mv, .ph-mv-spark path { animation: none !important; }
+      .ph-tab::after { transition: none; }
+    }
+
+    /* Compact density (Settings → Density: Compact), same convention as public.css's
+       html.public-compact rules. */
+    html.public-compact .ph-card { padding: 24px 28px 20px; }
+    html.public-compact .ph-tabpanel { padding-top: 18px; }
+    html.public-compact .ph-tab { padding-top: 12px; padding-bottom: 13px; }
 
     /* ══════════ RESPONSIVE ══════════ */
     @media (max-width: 900px) {
       .ledger-title { font-size: 42px; }
-      .ledger-masthead::after { font-size: 190px; top: -40px; }
-    }
-    @media (max-width: 760px) {
-      .ledger-cols { grid-template-columns: 1fr; }
-      .ledger-cols > .ledger-entry + .ledger-entry {
-        border-left: none; padding-left: 0; margin-left: 0;
-        border-top: 1px solid var(--line); padding-top: 24px; margin-top: 10px;
-      }
+      /* tabs keep their width and the row scrolls sideways instead of squeezing five labels into
+         ellipses; the one-line hint under each tab name drops out first. */
+      .ph-tab { flex: 0 0 auto; }
+      .ph-tab-sub { display: none; }
+      .ph-card { padding: 28px 26px 22px; }
+      .ph-verdict-top { grid-template-columns: 1fr; }
     }
     @media (max-width: 640px) {
       .hist-shell { padding: 0 4px; }
       .ledger-banner-inner { padding: 34px 16px 8px; }
       .ledger-title { font-size: 34px; }
-      .ledger-masthead::after { font-size: 140px; top: -26px; right: -10px; }
       .ledger-toolbar { margin-top: 20px; padding: 16px 0 18px; }
       .ph-select { min-width: 0; width: 100%; }
-      .ledger-entry { padding: 26px 0; }
-      .ledger-entry-titles h2 { font-size: 19px; }
-      .ph-v-price { font-size: 42px; }
-      .ph-v-row { grid-template-columns: 1fr auto; }
-      .ph-v-usual { display: none; }
-      .ph-mv-when { margin-left: 0; width: 100%; }
-      .ph-se-slot { height: 84px; }
-      .ph-se-axis { top: 48px; }
-      .hist-period-tabs button { padding: 6px 11px; font-size: 11px; }
-      .hcc-select { width: 100%; min-width: 0; }
+      .ph-tab { padding: 12px 10px 13px; gap: 9px; }
+      .ph-tab-num { width: 28px; height: 28px; font-size: 11.5px; }
+      .ph-tab-name { font-size: 15px; }
+      .ph-tabpanel { padding-top: 18px; }
+      /* On a phone an enforced tall frame is just empty scrolling — let each card be its own height. */
+      .ph-card { min-height: 0; padding: 22px 18px 18px; border-radius: 16px; }
+      .ph-card-mark { font-size: 160px; }
+      .ph-tp-head { gap: 12px; padding-bottom: 16px; margin-bottom: 20px; }
+      .ph-tp-icon { width: 44px; height: 44px; font-size: 22px; border-radius: 13px; }
+      .ph-tp-head h2 { font-size: 23px; }
+      .ph-tp-head p { font-size: 14px; }
+      .ph-v-price { font-size: 48px; }
+      .ph-tn-grid { grid-template-columns: 1fr auto; }
+      .ph-tn-hd:nth-child(2), .ph-tn-hd:nth-child(3), .ph-tn-cell.ph-tn-barcell { display: none; }
+      .ph-tn-cell.ph-tn-was { display: none; }
+      .ph-tn-year small { display: block; font-family: var(--f-mono); font-weight: 500; font-size: 13px; color: var(--ink-3); }
+      .ph-se-summary { grid-template-columns: 1fr; }
+      .ph-se-wrap { --slot: 150px; grid-template-columns: 1fr; }
+      .ph-se-y { display: none; }
+      .ph-se-mon { font-size: 11px; }
+      .ph-se-val { font-size: 10.5px; }
+      .ph-moves { grid-template-columns: 1fr; }
+      .hcc-period { width: 100%; flex-wrap: wrap; }
+      .hist-period-tabs { width: 100%; }
+      .hist-period-tabs button { flex: 1; padding: 9px 6px; font-size: 13px; }
+      .hcc-canvas, .ledger-plot { min-height: 260px; }
+      .ph-card-foot { flex-direction: column-reverse; align-items: stretch; }
+      .ph-next { justify-content: center; }
+      .ph-step { justify-content: center; }
     }
   </style>
 </head>
@@ -439,7 +666,7 @@
       <!-- one variety + unit choice drives every entry below and the chart -->
       <div class="ledger-toolbar">
         <div class="ledger-field">
-          <label class="ledger-field-label" for="ph-rice">Rice variety<i class="ti ti-info-circle ph-info" tabindex="0" role="img" data-tip="Everything on this page — all four panels and the chart — follows the variety you pick here."></i></label>
+          <label class="ledger-field-label" for="ph-rice">Rice variety<i class="ti ti-info-circle ph-info" tabindex="0" role="img" data-tip="Every tab below follows the variety you pick here."></i></label>
           <select id="ph-rice" class="ph-select"></select>
         </div>
         <div class="ledger-field">
@@ -457,86 +684,166 @@
     <!-- Only appears when recent coverage is thin — renderCoverage() -->
     <div class="ph-coverage" id="ph-coverage" hidden></div>
 
-    <!-- 01 · Today's Entry -->
-    <section class="ledger-entry">
-      <div class="ledger-entry-head">
-        <span class="ledger-index">01</span>
-        <div class="ledger-entry-titles">
-          <h2>Is it expensive right now?<i class="ti ti-info-circle ph-info" tabindex="0" role="img" data-tip="Compares today with the middle half of prices recorded over each window, so one unusual stretch cannot label every day expensive. Two windows are shown because they can disagree."></i></h2>
-          <p>Today&rsquo;s price against what this variety normally costs.</p>
+    <!-- One question at a time. The five ledger entries used to be stacked in one long scroll with
+         two of them squeezed side by side; they are now tabs, in the order a buyer actually asks:
+         is it expensive now → how has it moved → vs past years → best month → how fast can it jump.
+         Bound in public-history.js (bindTabs); #today/#chart/#years/#season/#swings deep-link. -->
+    <nav class="ph-tabs" role="tablist" aria-label="Price history views">
+      <button type="button" class="ph-tab" role="tab" id="tab-today" data-tab="today" aria-controls="panel-today" aria-selected="true">
+        <span class="ph-tab-num">01</span>
+        <span class="ph-tab-text"><span class="ph-tab-name">Today</span><span class="ph-tab-sub">Is it expensive?</span></span>
+        <span class="ph-tab-dot" aria-hidden="true"></span>
+      </button>
+      <button type="button" class="ph-tab" role="tab" id="tab-chart" data-tab="chart" aria-controls="panel-chart" aria-selected="false" tabindex="-1">
+        <span class="ph-tab-num">02</span>
+        <span class="ph-tab-text"><span class="ph-tab-name">Price chart</span><span class="ph-tab-sub">How it moved</span></span>
+      </button>
+      <button type="button" class="ph-tab" role="tab" id="tab-years" data-tab="years" aria-controls="panel-years" aria-selected="false" tabindex="-1">
+        <span class="ph-tab-num">03</span>
+        <span class="ph-tab-text"><span class="ph-tab-name">Past years</span><span class="ph-tab-sub">Then vs now</span></span>
+      </button>
+      <button type="button" class="ph-tab" role="tab" id="tab-season" data-tab="season" aria-controls="panel-season" aria-selected="false" tabindex="-1">
+        <span class="ph-tab-num">04</span>
+        <span class="ph-tab-text"><span class="ph-tab-name">Best month</span><span class="ph-tab-sub">When to buy</span></span>
+      </button>
+      <button type="button" class="ph-tab" role="tab" id="tab-swings" data-tab="swings" aria-controls="panel-swings" aria-selected="false" tabindex="-1">
+        <span class="ph-tab-num">05</span>
+        <span class="ph-tab-text"><span class="ph-tab-name">Big swings</span><span class="ph-tab-sub">How fast it jumps</span></span>
+      </button>
+    </nav>
+
+    <!-- Every tab uses the same .ph-card frame: header (icon + question + one-line answer to "what
+         is this?"), a centred body, and a foot with the step count and a Next button. -->
+
+    <!-- 01 · Today -->
+    <section class="ph-tabpanel" role="tabpanel" id="panel-today" aria-labelledby="tab-today" tabindex="0">
+      <div class="ph-card">
+        <span class="ph-card-deco" aria-hidden="true"><i class="ti ti-receipt-2 ph-card-mark"></i></span>
+        <header class="ph-tp-head">
+          <span class="ph-tp-icon" aria-hidden="true"><i class="ti ti-receipt-2"></i></span>
+          <div>
+            <h2>Is it expensive right now?</h2>
+            <p>Today&rsquo;s price compared with what this rice normally costs.</p>
+          </div>
+        </header>
+        <div class="ph-card-body">
+          <div class="ph-panel-body ph-verdict" id="ph-verdict"></div>
         </div>
+        <footer class="ph-card-foot">
+          <span class="ph-step">Step 1 of 5 <span class="ph-step-dots" aria-hidden="true"><span class="on"></span><span></span><span></span><span></span><span></span></span></span>
+          <button type="button" class="ph-next" data-go="chart">Next: how the price moved <i class="ti ti-arrow-right"></i></button>
+        </footer>
       </div>
-      <div class="ph-panel-body ph-verdict" id="ph-verdict"></div>
     </section>
 
-    <!-- 02 · Year on Year  /  03 · The Season -->
-    <div class="ledger-cols">
-      <section class="ledger-entry">
-        <div class="ledger-entry-head">
-          <span class="ledger-index">02</span>
-          <div class="ledger-entry-titles">
-            <h2>Then vs now<i class="ti ti-info-circle ph-info" tabindex="0" role="img" data-tip="Each figure is the average of the days actually recorded in that month. Using the same month every year removes the harvest-season swing, leaving the year-on-year change."></i></h2>
-            <p>This month compared with the same month in earlier years.</p>
+    <!-- 02 · Price chart -->
+    <section class="ph-tabpanel" role="tabpanel" id="panel-chart" aria-labelledby="tab-chart" tabindex="0" hidden>
+      <div class="ph-card">
+        <span class="ph-card-deco" aria-hidden="true"><i class="ti ti-chart-line ph-card-mark"></i></span>
+        <header class="ph-tp-head">
+          <span class="ph-tp-icon" aria-hidden="true"><i class="ti ti-chart-line"></i></span>
+          <div>
+            <h2>How the price moved</h2>
+            <p>The daily price of the rice you picked above, over the period you choose.</p>
+          </div>
+        </header>
+        <div class="ph-card-body ph-card-body--wide">
+          <div class="hist-chart-card">
+            <div class="hcc-controls">
+              <div class="ph-chart-note" id="ph-chart-note"></div>
+              <div class="hcc-period">
+                <span class="hcc-controls-label">Show the last</span>
+                <div class="hist-period-tabs" aria-label="Chart period">
+                  <button type="button" data-period="30">30 days</button>
+                  <button type="button" data-period="90" class="active">90 days</button>
+                  <button type="button" data-period="180">6 months</button>
+                  <button type="button" data-period="all">All years</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="ledger-plot hcc-canvas">
+              <canvas id="chart-historical" aria-label="Rice price line chart"></canvas>
+            </div>
+
+            <div class="hcc-legend" id="hcc-legend"></div>
+            <div class="ph-howto"><i class="ti ti-bulb" aria-hidden="true"></i>
+              <span><strong>How to read this:</strong> the line goes up when rice got more expensive and down when it got cheaper. Point at the line (or tap it on a phone) to see the exact price on that day.</span>
+            </div>
           </div>
         </div>
-        <div class="ph-panel-body" id="ph-thennow"></div>
-      </section>
-
-      <section class="ledger-entry">
-        <div class="ledger-entry-head">
-          <span class="ledger-index">03</span>
-          <div class="ledger-entry-titles">
-            <h2>Cheapest time to buy<i class="ti ti-info-circle ph-info" tabindex="0" role="img" data-tip="Each year is measured against its own average before the months are combined, so this shows the seasonal shape rather than inflation. Bars above the line are dearer months, below are cheaper."></i></h2>
-            <p>Which months rice usually costs less, across every year on record.</p>
-          </div>
-        </div>
-        <div class="ph-panel-body" id="ph-seasonal"></div>
-      </section>
-    </div>
-
-    <!-- 04 · The Record Book -->
-    <section class="ledger-entry">
-      <div class="ledger-entry-head">
-        <span class="ledger-index">04</span>
-        <div class="ledger-entry-titles">
-          <h2>Biggest price swings on record<i class="ti ti-info-circle ph-info" tabindex="0" role="img" data-tip="Only gradual moves are listed. Where the whole change landed in a single day it is a break in the record rather than a market move, so it is left out."></i></h2>
-          <p>The sharpest 30-day moves since 2015 — how fast prices can change.</p>
-        </div>
+        <footer class="ph-card-foot">
+          <span class="ph-step">Step 2 of 5 <span class="ph-step-dots" aria-hidden="true"><span></span><span class="on"></span><span></span><span></span><span></span></span></span>
+          <button type="button" class="ph-next" data-go="years">Next: compare with past years <i class="ti ti-arrow-right"></i></button>
+        </footer>
       </div>
-      <div class="ph-panel-body ph-moves" id="ph-moves"></div>
     </section>
 
-    <!-- 05 · The Daily Ledger — the chart. Variety is chosen from a dropdown here rather than an
-         eight-item toggle grid: the grid took a third of the card, and on a phone the eight names
-         wrapped into a block taller than the chart itself. -->
-    <section class="ledger-entry">
-      <div class="ledger-entry-head">
-        <span class="ledger-index">05</span>
-        <div class="ledger-entry-titles">
-          <h2>Rice price chart
-            <i class="ti ti-info-circle ph-info" tabindex="0" role="img" data-tip="Daily recorded prices for the variety selected. Hover any point on the line for that day's price. Flat stretches are days the source published nothing and the previous price is carried forward."></i>
-          </h2>
-          <p>Pick a period and a variety — the panels above follow the same choice.</p>
-        </div>
-      </div>
-
-      <div class="ledger-plot-card hist-chart-card">
-        <div class="hcc-controls">
-          <div class="hist-period-tabs" aria-label="Chart period">
-            <button type="button" data-period="30">30 days</button>
-            <button type="button" data-period="90" class="active">90 days</button>
-            <button type="button" data-period="180">180 days</button>
-            <button type="button" data-period="all">All time</button>
+    <!-- 03 · Past years -->
+    <section class="ph-tabpanel" role="tabpanel" id="panel-years" aria-labelledby="tab-years" tabindex="0" hidden>
+      <div class="ph-card">
+        <span class="ph-card-deco" aria-hidden="true"><i class="ti ti-calendar-stats ph-card-mark"></i></span>
+        <header class="ph-tp-head">
+          <span class="ph-tp-icon" aria-hidden="true"><i class="ti ti-calendar-stats"></i></span>
+          <div>
+            <h2>Then vs now</h2>
+            <p>This month&rsquo;s average price next to the same month in earlier years.</p>
           </div>
-          <select id="hcc-rice" class="hcc-select" aria-label="Rice variety shown on chart"></select>
+        </header>
+        <div class="ph-card-body">
+          <div class="ph-panel-body" id="ph-thennow"></div>
         </div>
+        <footer class="ph-card-foot">
+          <span class="ph-step">Step 3 of 5 <span class="ph-step-dots" aria-hidden="true"><span></span><span></span><span class="on"></span><span></span><span></span></span></span>
+          <button type="button" class="ph-next" data-go="season">Next: the cheapest month <i class="ti ti-arrow-right"></i></button>
+        </footer>
+      </div>
+    </section>
 
-        <div class="ledger-plot hcc-canvas">
-          <canvas id="chart-historical" aria-label="Rice price line chart"></canvas>
+    <!-- 04 · Best month -->
+    <section class="ph-tabpanel" role="tabpanel" id="panel-season" aria-labelledby="tab-season" tabindex="0" hidden>
+      <div class="ph-card">
+        <span class="ph-card-deco" aria-hidden="true"><i class="ti ti-plant-2 ph-card-mark"></i></span>
+        <header class="ph-tp-head">
+          <span class="ph-tp-icon" aria-hidden="true"><i class="ti ti-plant-2"></i></span>
+          <div>
+            <h2>Cheapest time to buy</h2>
+            <p>Which months rice is usually cheaper or pricier, based on every year on record.</p>
+          </div>
+        </header>
+        <div class="ph-card-body">
+          <div class="ph-panel-body" id="ph-seasonal"></div>
         </div>
+        <footer class="ph-card-foot">
+          <span class="ph-step">Step 4 of 5 <span class="ph-step-dots" aria-hidden="true"><span></span><span></span><span></span><span class="on"></span><span></span></span></span>
+          <button type="button" class="ph-next" data-go="swings">Next: the biggest price jumps <i class="ti ti-arrow-right"></i></button>
+        </footer>
+      </div>
+    </section>
 
-        <div class="hcc-legend" id="hcc-legend"></div>
-        <div class="ph-chart-note" id="ph-chart-note"></div>
+    <!-- 05 · Big swings -->
+    <section class="ph-tabpanel" role="tabpanel" id="panel-swings" aria-labelledby="tab-swings" tabindex="0" hidden>
+      <div class="ph-card">
+        <span class="ph-card-deco" aria-hidden="true"><i class="ti ti-bolt ph-card-mark"></i></span>
+        <header class="ph-tp-head">
+          <span class="ph-tp-icon" aria-hidden="true"><i class="ti ti-bolt"></i></span>
+          <div>
+            <h2>Biggest price swings on record
+              <i class="ti ti-info-circle ph-info" tabindex="0" role="img" data-tip="Only gradual moves are listed. Where the whole change landed in a single day it is a break in the record rather than a real market move, so it is left out."></i>
+            </h2>
+            <p>The sharpest 30-day price changes since 2015, showing how fast prices can move.</p>
+          </div>
+        </header>
+        <div class="ph-card-body ph-card-body--full">
+          <div class="ph-panel-body ph-moves" id="ph-moves"></div>
+          <div class="ph-howto"><i class="ti ti-bulb" aria-hidden="true"></i>
+            <span><strong>How to read this:</strong> each card is one 30-day stretch. Red means the price jumped up, green means it dropped. The small line shows how it moved over those 30 days.</span>
+          </div>
+        </div>
+        <footer class="ph-card-foot">
+          <span class="ph-step">Step 5 of 5 <span class="ph-step-dots" aria-hidden="true"><span></span><span></span><span></span><span></span><span class="on"></span></span></span>
+          <button type="button" class="ph-next" data-go="today">Back to today&rsquo;s price <i class="ti ti-arrow-back-up"></i></button>
+        </footer>
       </div>
     </section>
 
@@ -554,7 +861,7 @@
 <script src="js/public-auth-modal.js"></script>
 <script src="js/public-shell.js"></script>
 <script src="js/public-data.js"></script>
-<script src="js/public-history.js"></script>
+<script src="js/public-history.js?v=7"></script>
 <script src="js/public-pages.js"></script>
 
 </body>
