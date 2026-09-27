@@ -3399,10 +3399,23 @@ def serve_frontend(path: str):
 
     full = os.path.join(PROJECT_ROOT, safe)
     if os.path.isfile(full):
-        return send_from_directory(PROJECT_ROOT, safe)
+        return _revalidate(send_from_directory(PROJECT_ROOT, safe))
     if safe.startswith("admin/") and "." not in os.path.basename(safe):
-        return send_from_directory(os.path.join(PROJECT_ROOT, "admin"), "index.html")
+        return _revalidate(send_from_directory(os.path.join(PROJECT_ROOT, "admin"), "index.html"))
     return redirect("/public/landpage.html", code=302)
+
+
+def _revalidate(resp):
+    """Make the browser re-check page code on every load instead of reusing a stale copy.
+
+    Without a Cache-Control header browsers cache HTML/JS/CSS heuristically, so after a `git pull`
+    a page could keep running last week's script against this week's API (or new HTML against an
+    old script) and sit on "Loading…". `no-cache` still lets the browser keep the file; it just
+    asks first, and an unchanged file costs a body-less 304. Images keep the default caching.
+    """
+    if (resp.mimetype or "").startswith(("text/", "application/javascript")):
+        resp.headers["Cache-Control"] = "no-cache"
+    return resp
 
 
 # ─── CLI entry point ──────────────────────────────────────────────────────────

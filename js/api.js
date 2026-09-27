@@ -35,11 +35,36 @@ AgriPricePH.API = (function () {
     }
   }
 
+  /* Every read gets a deadline. fetch() on its own never gives up: if the backend accepts the
+     connection but does not answer (a paused console window, a second stuck server on :5000, a
+     slow cold start), the promise stays pending forever and pages sit on "Loading…" with no error.
+     With a timeout the call rejects and each page shows its normal "cannot reach" message instead.
+     /api/predictions gets longer because its first call after a restart loads 8 Keras models. */
+  const READ_TIMEOUT_MS = 20000;
+  const SLOW_TIMEOUT_MS = 90000;
+
+  async function fetchWithTimeout(url, init = {}, ms = READ_TIMEOUT_MS) {
+    const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(() => ctrl.abort(), ms) : null;
+    try {
+      return await fetch(url, ctrl ? { ...init, signal: ctrl.signal } : init);
+    } catch (e) {
+      if (e && e.name === 'AbortError') {
+        const err = new Error(`Request timed out after ${Math.round(ms / 1000)} s: ${url}`);
+        err.timeout = true;
+        throw err;
+      }
+      throw e;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
   async function get(path, opts = {}) {
-    const res = await fetch(`${BASE}${path}`, {
+    const res = await fetchWithTimeout(`${BASE}${path}`, {
       cache: opts.noCache ? 'no-store' : 'default',
       headers: { ...adminAuthHeaders() },
-    });
+    }, opts.timeoutMs);
     if (!res.ok) {
       const err = new Error(`HTTP ${res.status}`);
       err.status = res.status;
@@ -50,10 +75,10 @@ AgriPricePH.API = (function () {
 
   /** Like get(), but returns JSON body even on 4xx/5xx (for /api/predictions). */
   async function getLenient(path, opts = {}) {
-    const res = await fetch(`${BASE}${path}`, {
+    const res = await fetchWithTimeout(`${BASE}${path}`, {
       cache: opts.noCache ? 'no-store' : 'default',
       headers: { ...adminAuthHeaders() },
-    });
+    }, opts.timeoutMs);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       return {
@@ -116,7 +141,7 @@ AgriPricePH.API = (function () {
     scrapeStatus: () => get('/api/scrape-status', { noCache: true }),
     runScraper: (source) => post('/api/run-scraper', source ? { source } : {}),
     historical: () => get('/api/historical-data'),
-    predictions: () => getLenient('/api/predictions', { noCache: true }),
+    predictions: () => getLenient('/api/predictions', { noCache: true, timeoutMs: SLOW_TIMEOUT_MS }),
     modelStatus: () => get('/api/model-status'),
     catalog: (includeInactive) => getLenient(
       '/api/catalog' + (includeInactive ? '?include_inactive=1' : ''), { noCache: true }),

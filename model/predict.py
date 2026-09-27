@@ -56,6 +56,13 @@ def _direction(change: float) -> str:
 # Ensemble blocks built during one payload build, reused by the chart's backtest (model/ensemble.py).
 _ENSEMBLE_BLOCKS: dict = {}
 
+# Only one thread builds the payload at a time. Without this, the startup warm-up and the first
+# visitors' requests all built it concurrently: N copies of the same ~480 Keras inferences fighting
+# over the CPU (and Keras' predict function, which is not safe to trace from several threads), so a
+# cold start that takes ~8 s alone could leave every page's /api/predictions call hanging.
+# Late arrivals now wait for the one build in progress and then read its cached result.
+_BUILD_LOCK = threading.Lock()
+
 
 def _inverse_target(scaled_vals, scaler, target_idx):
     scale = scaler.scale_[target_idx]
@@ -850,14 +857,29 @@ def _payload_cache_key(meta: dict) -> tuple:
     return (data_last, meta.get("last_date"), meta_stamp, formula_mode_enabled())
 
 
-def predict():
-    meta = _load_meta()
-
-    cache_key = _payload_cache_key(meta)
+def _cached_payload(cache_key):
     cached = _PAYLOAD_CACHE.get("payload")
     if cached is not None and _PAYLOAD_CACHE.get("key") == cache_key:
         return copy.deepcopy(cached)
+    return None
 
+
+def predict():
+    meta = _load_meta()
+    cached = _cached_payload(_payload_cache_key(meta))
+    if cached is not None:
+        return cached
+    with _BUILD_LOCK:
+        # Another thread may have finished building while this one waited for the lock.
+        meta = _load_meta()
+        cache_key = _payload_cache_key(meta)
+        cached = _cached_payload(cache_key)
+        if cached is not None:
+            return cached
+        return _build_payload(meta, cache_key)
+
+
+def _build_payload(meta, cache_key):
     has_any = (
         os.path.exists(SCALER_PATH)
         or os.path.exists(MODEL_PATH)

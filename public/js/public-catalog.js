@@ -773,17 +773,27 @@
     bindModal();
     bindScrollTop();
 
+    // The forecast is requested up front but NOT waited on. It is the slowest call (the first one
+    // after a backend restart loads 8 Keras models), and it only adds the 3-day outlook plus a
+    // fallback price band for categories without a DA bracket. The products render as soon as
+    // the catalog arrives; the forecast is merged in when (and if) it arrives.
+    const predPromise = AgriPricePH.API.predictions().catch(() => null);
     try {
-      const [cat, brk, pred, bp] = await Promise.all([
+      const [cat, brk, bp] = await Promise.all([
         AgriPricePH.API.catalog(),
-        AgriPricePH.API.priceBrackets(),
-        AgriPricePH.API.predictions().catch(() => ({})),
+        AgriPricePH.API.priceBrackets().catch(() => ({})),
         AgriPricePH.API.brandPrices().catch(() => ({})),
       ]);
       CATS = {};
       (cat.categories || []).forEach(c => { CATS[c.canonical_key] = c; });
-      PRICE = buildPriceMap(brk, pred);
-      OUTLOOK = buildOutlook(pred);
+      PRICE = buildPriceMap(brk, null);
+      OUTLOOK = {};
+      predPromise.then(pred => {
+        if (!pred || pred.ready === false) return;
+        PRICE = buildPriceMap(brk, pred);
+        OUTLOOK = buildOutlook(pred);
+        renderCards();
+      });
       BRAND_INFO = {};
       (bp.categories || []).forEach(c => (c.brands || []).forEach(b => { BRAND_INFO[b.id] = b; }));
 
