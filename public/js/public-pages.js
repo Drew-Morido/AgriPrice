@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // login.html is now a real, standalone page (see auth-hero.js for the form
     // wiring) — only bounce away a visitor who is already signed in.
     if (A?.isLoggedIn?.()) {
-      const next = new URLSearchParams(window.location.search).get('next') || A?.defaultLandingPage?.() || 'current-prices.html';
+      const next = A?.nextPageFromUrl?.() || A?.defaultLandingPage?.() || 'current-prices.html';
       window.location.replace(next);
     }
     return;

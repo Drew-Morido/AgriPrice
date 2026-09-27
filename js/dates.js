@@ -15,8 +15,10 @@ AgriPricePH.Dates = (function () {
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
+  // Local calendar date. toISOString() is UTC, which in the Philippines (UTC+8) is still
+  // "yesterday" until 8 AM.
   function iso(d) {
-    return d.toISOString().slice(0, 10);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
 
   function relativeTime(d) {

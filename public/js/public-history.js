@@ -207,6 +207,37 @@ AgriPricePH.History = (function () {
     </div>`;
   }
 
+  /**
+   * Today's verdict drives three colours: entry 01's tab dot (always — a passive hint while other
+   * entries are open), and the big price plus the "Today ₱…" bar label (only while entry 01 is in
+   * view; see watchVerdictInView). CSS reads data-verdict = low | mid | high.
+   */
+  function setVerdictState(state, words) {
+    const host = document.getElementById('ph-verdict');
+    const tab = document.getElementById('tab-today');
+    const dot = tab && tab.querySelector('.ph-tab-dot');
+    const sr = document.getElementById('tab-today-verdict');
+    [host, tab].forEach((el) => {
+      if (!el) return;
+      if (state) el.dataset.verdict = state;
+      else delete el.dataset.verdict;
+    });
+    const text = state ? `Today's price: ${words.toLowerCase()}` : '';
+    if (dot) dot.title = text;
+    if (sr) sr.textContent = text ? ` — ${text}` : '';
+  }
+
+  /** Entry 01 counts as "in view" while any of its panel is on screen; a hidden tab never is. */
+  function watchVerdictInView() {
+    const panel = document.getElementById('panel-today');
+    const host = document.getElementById('ph-verdict');
+    if (!panel || !host) return;
+    if (typeof IntersectionObserver === 'undefined') { host.classList.add('is-live'); return; }
+    new IntersectionObserver((entries) => {
+      host.classList.toggle('is-live', entries.some((e) => e.isIntersecting));
+    }, { threshold: 0 }).observe(panel);
+  }
+
   function renderVerdict() {
     const host = document.getElementById('ph-verdict');
     if (!host) return;
@@ -215,17 +246,17 @@ AgriPricePH.History = (function () {
     const m = meta();
     if (!six && !year) {
       host.innerHTML = `<div class="ph-empty">Not enough recorded prices for ${esc(m.label)} yet.</div>`;
+      setVerdictState(null);
       return;
     }
     const lead = six || year;
-    const dot = document.querySelector('#tab-today .ph-tab-dot');
-    if (dot) dot.dataset.state = lead.state;
     const WORD = {
       low: { t: 'Cheaper than usual', cls: 'good', ico: 'thumb-up' },
       mid: { t: 'About the usual price', cls: 'mid', ico: 'equal' },
       high: { t: 'Pricier than usual', cls: 'bad', ico: 'alert-triangle' },
     };
     const w = WORD[lead.state];
+    setVerdictState(lead.state, w.t);
 
     // The word follows the sign of the gap, not the verdict: a price can sit a few centavos below
     // the middle price and still be "about usual", and "−₱0.68 in line with" reads as a mistake.
@@ -817,6 +848,161 @@ AgriPricePH.History = (function () {
     renderAll();
   }
 
+  /* ─────────────────────── variety dropdown ─────────────────────── */
+
+  /**
+   * A ledger-styled button + listbox in place of the native <select>'s OS-drawn menu (a plain
+   * white system list that ignored the page's paper/ink/green). The <select id="ph-rice"> stays,
+   * hidden, as the value holder: a pick sets its value and fires its normal `change`, so
+   * selectRice() and everything downstream are unchanged. WAI-ARIA listbox pattern: the button
+   * opens it (click, Enter, Space, ↑/↓); in the list ↑/↓/Home/End move, Enter/Space pick, Esc
+   * closes, a letter jumps to the next variety starting with it.
+   */
+  const CHECK_ICON = '<i class="ti ti-check ph-dd-check" aria-hidden="true"></i>';
+
+  function latestValue(key) {
+    const v = store?.byKey?.[key]?.values || [];
+    for (let i = v.length - 1; i >= 0; i--) if (v[i] != null) return v[i];
+    return null;
+  }
+
+  function buildRiceDropdown(sel) {
+    if (document.getElementById('ph-rice-dd')) return;
+    const dd = document.createElement('div');
+    dd.className = 'ph-dd';
+    dd.id = 'ph-rice-dd';
+    dd.innerHTML = `
+      <button type="button" class="ph-dd-btn" id="ph-rice-btn" aria-haspopup="listbox" aria-expanded="false"
+        aria-controls="ph-rice-list" aria-labelledby="ph-rice-label ph-rice-val">
+        <span class="ph-dd-value" id="ph-rice-val"></span>
+        <span class="ph-dd-chev" aria-hidden="true"><i class="ti ti-chevron-down"></i></span>
+      </button>
+      <div class="ph-dd-panel" id="ph-rice-list" role="listbox" tabindex="-1" aria-labelledby="ph-rice-label" hidden></div>`;
+    sel.after(dd);
+    sel.hidden = true;
+    sel.tabIndex = -1;
+    sel.setAttribute('aria-hidden', 'true');
+    // A <label for> pointing at a button would "click" it, so the (i) inside the label would open
+    // the list. The button is named with aria-labelledby instead.
+    document.getElementById('ph-rice-label')?.removeAttribute('for');
+
+    const btn = dd.querySelector('.ph-dd-btn');
+    const panel = dd.querySelector('.ph-dd-panel');
+    const opts = () => [...panel.querySelectorAll('.ph-dd-opt')];
+    let active = -1;
+    let closeTimer = null;
+
+    const setActive = (i) => {
+      const list = opts();
+      if (!list.length) return;
+      active = Math.max(0, Math.min(list.length - 1, i));
+      list.forEach((o, n) => o.classList.toggle('is-active', n === active));
+      panel.setAttribute('aria-activedescendant', list[active].id);
+      list[active].scrollIntoView({ block: 'nearest' });
+    };
+    const open = () => {
+      if (dd.classList.contains('is-open')) return;
+      clearTimeout(closeTimer);
+      renderRiceOptions();
+      panel.hidden = false;
+      void panel.offsetWidth;          // commit the closed state so the open transition runs
+      dd.classList.add('is-open');
+      btn.setAttribute('aria-expanded', 'true');
+      setActive(opts().findIndex((o) => o.dataset.key === riceKey));
+      panel.focus({ preventScroll: true });
+    };
+    const close = (refocus = true) => {
+      if (!dd.classList.contains('is-open')) return;
+      dd.classList.remove('is-open');
+      btn.setAttribute('aria-expanded', 'false');
+      panel.removeAttribute('aria-activedescendant');
+      closeTimer = setTimeout(() => { if (!dd.classList.contains('is-open')) panel.hidden = true; }, 200);
+      if (refocus) btn.focus({ preventScroll: true });
+    };
+    const pick = (i) => {
+      const o = opts()[i];
+      if (!o) return;
+      o.classList.remove('is-picked');
+      void o.offsetWidth;
+      o.classList.add('is-picked');    // brief press flash on the chosen row before the list closes
+      const key = o.dataset.key;
+      setTimeout(() => {
+        close();
+        if (key !== riceKey) {
+          sel.value = key;
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }, 150);
+    };
+
+    btn.addEventListener('click', () => (dd.classList.contains('is-open') ? close() : open()));
+    btn.addEventListener('keydown', (e) => {
+      if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(e.key)) { e.preventDefault(); open(); }
+    });
+    panel.addEventListener('keydown', (e) => {
+      const n = opts().length;
+      if (e.key === 'ArrowDown') setActive(active + 1);
+      else if (e.key === 'ArrowUp') setActive(active - 1);
+      else if (e.key === 'Home') setActive(0);
+      else if (e.key === 'End') setActive(n - 1);
+      else if (e.key === 'Enter' || e.key === ' ') pick(active);
+      else if (e.key === 'Escape') close();
+      else if (e.key === 'Tab') { close(false); return; }
+      else if (/^[a-z]$/i.test(e.key)) {
+        const list = opts();
+        for (let k = 1; k <= n; k++) {
+          const i = (active + k) % n;
+          if ((list[i].dataset.name || '').toLowerCase().startsWith(e.key.toLowerCase())) { setActive(i); break; }
+        }
+      } else return;
+      e.preventDefault();
+    });
+    panel.addEventListener('mousemove', (e) => {
+      const o = e.target.closest('.ph-dd-opt');
+      if (o) { const i = opts().indexOf(o); if (i !== active) setActive(i); }
+    });
+    panel.addEventListener('click', (e) => {
+      const o = e.target.closest('.ph-dd-opt');
+      if (o) pick(opts().indexOf(o));
+    });
+    document.addEventListener('pointerdown', (e) => { if (!dd.contains(e.target)) close(false); });
+  }
+
+  /** Options (with each variety's latest price, in the current unit) and the button's label. */
+  function renderRiceOptions() {
+    const panel = document.getElementById('ph-rice-list');
+    const val = document.getElementById('ph-rice-val');
+    if (!panel || !store) return;
+    const available = RICE.filter((r) => store.byKey[r.key]);
+    const perUnit = unit === 'sack' ? `per ${SACK_KG}kg sack` : 'per kilo';
+    const group = (g, title) => {
+      const items = available.filter((r) => r.group === g);
+      if (!items.length) return '';
+      return `<div class="ph-dd-group" role="group" aria-labelledby="ph-dd-g-${g}">
+        <div class="ph-dd-glabel" id="ph-dd-g-${g}">${title}</div>
+        ${items.map((r) => {
+          const name = r.label.replace(/^(Local|Imported)\s+/, '');
+          const price = peso(latestValue(r.key));
+          return `<div class="ph-dd-opt" role="option" id="ph-opt-${r.key}" data-key="${r.key}" data-name="${esc(name)}"
+              aria-selected="${r.key === riceKey}" aria-label="${esc(r.label)}, latest ${price} ${perUnit}">
+              ${CHECK_ICON}<span class="ph-dd-name">${esc(name)}</span><span class="ph-dd-price">${price}</span>
+            </div>`;
+        }).join('')}
+      </div>`;
+    };
+    panel.innerHTML = group('local', 'Local') + group('imported', 'Imported')
+      + `<div class="ph-dd-foot" aria-hidden="true">Latest recorded DA price, ${perUnit}</div>`;
+    if (val && val.textContent !== meta().label) {
+      const changed = !!val.textContent;
+      val.textContent = meta().label;
+      if (changed) {             // the new name slides in — the visible result of the pick
+        val.classList.remove('is-swapping');
+        void val.offsetWidth;
+        val.classList.add('is-swapping');
+      }
+    }
+  }
+
   /* ─────────────────────── tabs ─────────────────────── */
 
   /**
@@ -884,6 +1070,7 @@ AgriPricePH.History = (function () {
     showTab((location.hash || '').slice(1), { animate: false });
     trackStickyTop();
     bindTipEdges();
+    watchVerdictInView();
   }
 
   /** Scroll so the tab bar sits in its pinned spot, if the page is already scrolled past it. */
@@ -928,6 +1115,24 @@ AgriPricePH.History = (function () {
    * by exactly the amount needed to stay inside the window, and open it below the icon when there
    * is no room above.
    */
+  /**
+   * Bottom edge of whatever is pinned over the page above `r`: the site nav, plus the tab bar only
+   * while it is actually pinned and `r` sits below it. This used to assume the tab bar was always
+   * pinned, so near the top of the page — where it is not — tooltips in the banner opened
+   * downward for no reason.
+   */
+  function obstructionBottom(r) {
+    const nav = document.getElementById('public-navbar-host') || document.querySelector('.lp-site-nav');
+    let bottom = nav ? Math.max(0, nav.getBoundingClientRect().bottom) : 0;
+    const tabs = document.querySelector('.ph-tabs');
+    if (tabs) {
+      const t = tabs.getBoundingClientRect();
+      const pinnedAt = parseFloat(getComputedStyle(tabs).top) || 0;
+      if (t.top <= pinnedAt + 1 && r.top >= t.bottom) bottom = Math.max(bottom, t.bottom);
+    }
+    return bottom;
+  }
+
   function bindTipEdges() {
     if (document.body.dataset.tipEdges) return;
     document.body.dataset.tipEdges = '1';
@@ -944,8 +1149,7 @@ AgriPricePH.History = (function () {
       const cx = r.left + r.width / 2;
       const clamped = Math.min(Math.max(cx, GUTTER + w / 2), vw - GUTTER - w / 2);
       el.style.setProperty('--tip-shift', `${Math.round(clamped - cx)}px`);
-      const topLimit = (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ph-chrome')) || 0);
-      el.dataset.tipY = r.top - topLimit < ROOM_Y ? 'below' : '';
+      el.dataset.tipY = r.top - obstructionBottom(r) < ROOM_Y ? 'below' : '';
     };
     document.addEventListener('pointerover', place, true);
     document.addEventListener('focusin', place, true);
@@ -962,6 +1166,7 @@ AgriPricePH.History = (function () {
       fillRiceSelect(sel);
       sel.addEventListener('change', () => { selectRice(sel.value); });
       sel.dataset.bound = '1';
+      buildRiceDropdown(sel);
     }
 
     const unitWrap = document.getElementById('ph-unit');
@@ -978,6 +1183,7 @@ AgriPricePH.History = (function () {
   }
 
   function renderAll() {
+    renderRiceOptions();
     renderCoverage();
     renderVerdict();
     renderThenNow();

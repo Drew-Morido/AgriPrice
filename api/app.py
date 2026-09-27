@@ -2980,10 +2980,14 @@ try:
     # the wrong arity and 500, since admin_auth's own call sites only pass
     # one argument) even though admin_auth's functions were imported first.
     from user_auth import (
+        CHANGE_PASSWORD_ATTEMPTS,
         DEACTIVATED_MSG as USER_DEACTIVATED_MSG,
         LOGIN_ATTEMPTS,
+        REMEMBER_TTL_SECONDS,
         RESET_REQUEST_ATTEMPTS,
         RESET_VERIFY_ATTEMPTS,
+        SESSION_TTL_SECONDS,
+        WRONG_CURRENT_PASSWORD_MSG,
         change_password_for_user,
         check_lockout as user_check_lockout,
         clear_failures as user_clear_failures,
@@ -2994,12 +2998,56 @@ try:
         signup_user,
         verify_reset_code,
     )
-    from user_store import update_profile as user_update_profile
+    from user_store import (
+        add_activity as user_add_activity,
+        create_user_session,
+        get_session_user,
+        get_user_by_email as user_get_by_email,
+        list_activity as user_list_activity,
+        revoke_user_session,
+        revoke_user_sessions,
+        update_profile as user_update_profile,
+    )
     from mailer import is_configured as mailer_is_configured
     _USER_AUTH_AVAILABLE = True
 except ImportError as _user_auth_err:
     _USER_AUTH_AVAILABLE = False
     _USER_AUTH_IMPORT_ERROR = str(_user_auth_err)
+
+
+def _public_user(user: dict) -> dict:
+    """The account's own profile, as returned to that account only (login, session, profile)."""
+    return {
+        "name": user["name"], "email": user["email"], "role": user["role"],
+        "title": user.get("title") or "", "phone": user.get("phone") or "", "bio": user.get("bio") or "",
+        "avatar": user.get("avatar") or "", "extra_info": user.get("extra_info") or [],
+        "created_at": user.get("created_at"), "last_login_at": user.get("last_login_at"),
+    }
+
+
+def _start_user_session(user: dict, remember: bool) -> dict:
+    """Issue the server-side session a retailer's browser must present on account changes.
+    Before this, "logged in" was only a note in the browser, and the account endpoints trusted
+    whatever email the request named."""
+    ttl = REMEMBER_TTL_SECONDS if remember else SESSION_TTL_SECONDS
+    token = create_user_session(user["id"], ttl)
+    return {"user": _public_user(user), "token": token, "expires_in": ttl, "remember": remember}
+
+
+def _user_token_from_request() -> str:
+    auth = request.headers.get("Authorization") or ""
+    return auth[7:].strip() if auth.lower().startswith("bearer ") else ""
+
+
+def _require_user():
+    """(user, None) for a valid retailer session, else (None, 401 response)."""
+    user = get_session_user(_user_token_from_request())
+    if not user:
+        return None, (jsonify({
+            "success": False, "code": "session_expired",
+            "error": "Your session has expired. Please log in again.",
+        }), 401)
+    return user, None
 
 
 @app.route("/api/auth/signup", methods=["POST"])
@@ -3011,7 +3059,9 @@ def api_auth_signup():
         ok, msg = signup_user(payload.get("name"), payload.get("email"), payload.get("password"))
         if not ok:
             return jsonify({"success": False, "error": msg}), 400
-        return jsonify({"success": True})
+        user = user_get_by_email(payload.get("email"))
+        user_add_activity(user["id"], "INFO", "Account created")
+        return jsonify({"success": True, **_start_user_session(user, remember=False)})
     except Exception as exc:
         return jsonify({"success": False, "error": str(exc)}), 500
 
@@ -3033,9 +3083,17 @@ def api_auth_login():
                 # Correct credentials, so not a guessing attempt — don't burn a lockout strike.
                 return jsonify({"success": False, "error": msg, "code": "deactivated"}), 403
             user_record_failure(LOGIN_ATTEMPTS, client_key)
+            # Shown on that account's Recent Activity (no IP is recorded).
+            target = user_get_by_email(payload.get("email"))
+            if target:
+                user_add_activity(target["id"], "WARN", "Failed sign-in attempt (wrong password)")
+                if not user_check_lockout(LOGIN_ATTEMPTS, client_key)[0]:
+                    user_add_activity(target["id"], "ERROR", "Sign-in locked for 15 minutes after too many failed attempts")
             return jsonify({"success": False, "error": msg}), 401
         user_clear_failures(LOGIN_ATTEMPTS, client_key)
-        return jsonify({"success": True, "user": user})
+        full = user_get_by_email(user["email"]) or user
+        user_add_activity(full["id"], "INFO", "Signed in" + (" (remembered on this device)" if payload.get("remember") else ""))
+        return jsonify({"success": True, **_start_user_session(full, remember=bool(payload.get("remember")))})
     except Exception as exc:
         return jsonify({"success": False, "error": str(exc)}), 500
 
@@ -3082,6 +3140,10 @@ def api_auth_forgot_password():
     if status == "mail_error":
         return jsonify({"success": False, "error": "Could not send the code right now. Try again shortly."}), 502
     user_clear_failures(RESET_REQUEST_ATTEMPTS, client_key)
+    if status == "sent":
+        target = user_get_by_email(email)
+        if target:
+            user_add_activity(target["id"], "INFO", "Password reset code sent to this email")
     return jsonify({"success": True, "status": status, "message": message})
 
 
@@ -3127,34 +3189,117 @@ def api_auth_reset_password():
             user_record_failure(RESET_VERIFY_ATTEMPTS, client_key)
             return jsonify({"success": False, "error": msg}), 400
         user_clear_failures(RESET_VERIFY_ATTEMPTS, client_key)
+        target = user_get_by_email(payload.get("email"))
+        if target:
+            user_add_activity(target["id"], "INFO", "Password reset with an email code (other devices signed out)")
         return jsonify({"success": True, "message": msg})
     except Exception as exc:
         return jsonify({"success": False, "error": str(exc)}), 500
+
+
+@app.route("/api/auth/session", methods=["GET"])
+def api_auth_session():
+    """Is this retailer session still valid? Also returns the current name/email, so a rename by
+    an admin shows up without logging out."""
+    if not _USER_AUTH_AVAILABLE:
+        return jsonify({"success": False, "error": _USER_AUTH_IMPORT_ERROR}), 503
+    user, err = _require_user()
+    if err:
+        return err
+    return jsonify({"success": True, "user": _public_user(user)})
+
+
+@app.route("/api/auth/logout", methods=["POST"])
+def api_auth_logout():
+    if not _USER_AUTH_AVAILABLE:
+        return jsonify({"success": False, "error": _USER_AUTH_IMPORT_ERROR}), 503
+    token = _user_token_from_request()
+    who = get_session_user(token)
+    revoke_user_session(token)
+    if who:
+        user_add_activity(who["id"], "INFO", "Signed out")
+    return jsonify({"success": True})
+
+
+@app.route("/api/auth/profile", methods=["GET"])
+def api_auth_get_profile():
+    if not _USER_AUTH_AVAILABLE:
+        return jsonify({"success": False, "error": _USER_AUTH_IMPORT_ERROR}), 503
+    user, err = _require_user()
+    if err:
+        return err
+    return jsonify({"success": True, "user": _public_user(user)})
 
 
 @app.route("/api/auth/profile", methods=["PUT"])
 def api_auth_update_profile():
+    """Partial update, like the admin profile: only the fields sent change (the photo and the
+    additional-info rows save on their own). The account is the session's; the body's "email"
+    is the NEW login email (legacy clients sent it as "new_email")."""
     if not _USER_AUTH_AVAILABLE:
         return jsonify({"success": False, "error": _USER_AUTH_IMPORT_ERROR}), 503
+    user, err = _require_user()
+    if err:
+        return err
     payload = request.get_json(silent=True) or {}
+    patch = {k: payload[k] for k in ("name", "title", "phone", "bio", "avatar", "extra_info") if k in payload}
+    if "new_email" in payload or "email" in payload:
+        patch["email"] = payload.get("new_email", payload.get("email"))
     try:
-        ok, msg = user_update_profile(payload.get("email"), payload.get("name"), payload.get("new_email"))
+        ok, msg = user_update_profile(user["id"], patch)
         if not ok:
             return jsonify({"success": False, "error": msg}), 400
-        return jsonify({"success": True, "message": msg})
+        # Recent Activity keeps to sign-in and security events, like the admin profile's; of the
+        # profile fields only a change of the login email is one.
+        if "email" in patch and str(patch["email"] or "").strip().lower() != user["email"]:
+            user_add_activity(user["id"], "WARN", "Login email changed")
+        user = get_session_user(_user_token_from_request()) or user
+        return jsonify({"success": True, "message": msg, "user": _public_user(user)})
     except Exception as exc:
         return jsonify({"success": False, "error": str(exc)}), 500
+
+
+@app.route("/api/auth/activity", methods=["GET"])
+def api_auth_activity():
+    """This account's own recent sign-in and account events (Profile → Recent Activity)."""
+    if not _USER_AUTH_AVAILABLE:
+        return jsonify({"success": False, "error": _USER_AUTH_IMPORT_ERROR}), 503
+    user, err = _require_user()
+    if err:
+        return err
+    try:
+        limit = int(request.args.get("limit", 6))
+    except ValueError:
+        limit = 6
+    return jsonify({"success": True, "ready": True, "logs": user_list_activity(user["id"], limit)})
 
 
 @app.route("/api/auth/change-password", methods=["POST"])
 def api_auth_change_password():
     if not _USER_AUTH_AVAILABLE:
         return jsonify({"success": False, "error": _USER_AUTH_IMPORT_ERROR}), 503
+    user, err = _require_user()
+    if err:
+        return err
+    # Keyed to the account, not the IP, so rotating addresses does not buy more guesses.
+    lock_key = f"user:{user['id']}"
+    ok_lock, lock_msg = user_check_lockout(CHANGE_PASSWORD_ATTEMPTS, lock_key)
+    if not ok_lock:
+        return jsonify({"success": False, "error": lock_msg}), 429
     payload = request.get_json(silent=True) or {}
     try:
-        ok, msg = change_password_for_user(payload.get("email"), payload.get("current"), payload.get("new"))
+        ok, msg = change_password_for_user(user["email"], payload.get("current"), payload.get("new"))
         if not ok:
+            if msg == WRONG_CURRENT_PASSWORD_MSG:
+                user_record_failure(CHANGE_PASSWORD_ATTEMPTS, lock_key)
+                user_add_activity(user["id"], "WARN", "Password change failed (wrong current password)")
+                if not user_check_lockout(CHANGE_PASSWORD_ATTEMPTS, lock_key)[0]:
+                    user_add_activity(user["id"], "ERROR", "Password changes locked for 15 minutes after too many wrong passwords")
             return jsonify({"success": False, "error": msg}), 400
+        user_clear_failures(CHANGE_PASSWORD_ATTEMPTS, lock_key)
+        user_add_activity(user["id"], "INFO", "Password changed (other devices signed out)")
+        # Other devices signed in with the old password are signed out; this one stays in.
+        revoke_user_sessions(user["id"], keep_token=_user_token_from_request())
         return jsonify({"success": True, "message": msg})
     except Exception as exc:
         return jsonify({"success": False, "error": str(exc)}), 500

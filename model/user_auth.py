@@ -32,7 +32,13 @@ from typing import Any
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from mailer import send_reset_code_email
-from user_store import create_user, get_user_by_email, touch_user_login, update_password_hash
+from user_store import (
+    create_user,
+    get_user_by_email,
+    revoke_user_sessions,
+    touch_user_login,
+    update_password_hash,
+)
 
 DEACTIVATED_MSG = "This account has been deactivated. Please contact the AgriPricePH administrator."
 
@@ -40,12 +46,21 @@ MAX_ATTEMPTS = 5
 LOCKOUT_SECONDS = 15 * 60
 CODE_TTL_SECONDS = 15 * 60
 RESEND_COOLDOWN_SECONDS = 60  # how long a just-sent code blocks another send ("double codes")
+# Retailer session lifetimes. Without "Remember me" the browser keeps the token only for the tab
+# (sessionStorage); the server-side day limit is the backstop. With it, the token is kept across
+# browser restarts for 30 days.
+SESSION_TTL_SECONDS = 24 * 60 * 60
+REMEMBER_TTL_SECONDS = 30 * 24 * 60 * 60
+WRONG_CURRENT_PASSWORD_MSG = "Your current password is incorrect."
 
 # Separate buckets so a burst of failed login attempts doesn't also lock the
 # visitor out of *requesting* a reset code, and vice versa.
 LOGIN_ATTEMPTS: dict[str, dict[str, Any]] = {}
 RESET_REQUEST_ATTEMPTS: dict[str, dict[str, Any]] = {}
 RESET_VERIFY_ATTEMPTS: dict[str, dict[str, Any]] = {}
+# Wrong "current password" guesses on Profile → Change Password. Without its own limit this was an
+# unthrottled password-guessing route around LOGIN_ATTEMPTS.
+CHANGE_PASSWORD_ATTEMPTS: dict[str, dict[str, Any]] = {}
 
 # email (lowercased) -> {code_hash, expires_at}. In-memory like admin_auth's
 # _SESSIONS/_FAILED — lost on server restart, which just means an in-flight
@@ -122,7 +137,7 @@ def login_user(email: str, password: str) -> tuple[bool, str, dict[str, Any] | N
     if user.get("status") == "deactivated":
         return False, DEACTIVATED_MSG, None
     touch_user_login(email)
-    return True, "", {"name": user["name"], "email": user["email"], "role": user["role"]}
+    return True, "", {"id": user["id"], "name": user["name"], "email": user["email"], "role": user["role"]}
 
 
 def change_password_for_user(email: str, current: str, new_password: str) -> tuple[bool, str]:
@@ -131,7 +146,7 @@ def change_password_for_user(email: str, current: str, new_password: str) -> tup
     if not user:
         return False, "Account not found."
     if not check_password_hash(user["password_hash"], current or ""):
-        return False, "Your current password is incorrect."
+        return False, WRONG_CURRENT_PASSWORD_MSG
     ok, msg = validate_password_strength(new_password)
     if not ok:
         return False, msg
@@ -229,4 +244,7 @@ def reset_password_with_ticket(email: str, ticket: str, new_password: str) -> tu
         return False, msg
     update_password_hash(email, generate_password_hash(new_password))
     _RESET_CODES.pop(email, None)  # single-use
+    user = get_user_by_email(email)
+    if user:
+        revoke_user_sessions(user["id"])  # whoever else was signed in with the old password is out
     return True, "Password updated."

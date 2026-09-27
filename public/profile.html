@@ -13,13 +13,13 @@
   <link rel="stylesheet" href="css/public.css" />
   <link rel="stylesheet" href="css/landpage-nav.css" />
   <link rel="stylesheet" href="css/public-alert.css" />
-  <link rel="stylesheet" href="css/profile.css" />
+  <!-- The admin Account Profile's own dialogs (loading / alert / confirm), shared so both profiles behave the same. -->
+  <link rel="stylesheet" href="../admin/css/ui-modals.css" />
+  <link rel="stylesheet" href="css/profile.css?v=2" />
 </head>
 <body data-page="profile" data-title="Profile" data-subtitle="Your account">
 
 <main class="page-content" id="public-page-content">
-
-  <p class="public-page-lead">Your name, email, and password for signing in to AgriPricePH.</p>
 
   <div class="account-page">
 
@@ -28,34 +28,109 @@
     <div class="account-header card">
       <div class="account-avatar-wrap">
         <div class="account-avatar" id="profile-avatar">U</div>
+        <button type="button" class="account-avatar-edit" id="profile-avatar-edit-btn" title="Change profile picture" aria-label="Change profile picture">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+        </button>
+        <input type="file" id="profile-avatar-input" accept="image/png,image/jpeg,image/webp" hidden />
       </div>
 
       <div class="account-header-info">
         <h2 id="profile-name">Account</h2>
-        <span class="pill pill-blue" id="profile-role">Retailer</span>
+        <span class="account-role" id="profile-role">Retailer</span>
         <span class="account-username" id="profile-email"></span>
       </div>
 
       <button type="button" class="btn btn-outline account-edit-btn" id="profile-edit-btn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+        </svg>
         Edit Profile
       </button>
     </div>
 
     <div class="account-grid">
       <div class="card account-card">
-        <div class="card-header"><span class="card-title">Security</span></div>
+        <div class="card-header">
+          <span class="card-title">About</span>
+        </div>
         <div class="card-body">
-          <p class="account-card-body-text">Change the password you use to sign in.</p>
-          <button type="button" class="btn btn-outline btn-sm" id="profile-password-btn">Change Password</button>
+          <p class="account-bio-text" id="profile-bio">No bio yet — click "Edit Profile" to add one.</p>
         </div>
       </div>
 
       <div class="card account-card">
-        <div class="card-header"><span class="card-title">Session</span></div>
+        <div class="card-header">
+          <span class="card-title">Contact Information</span>
+        </div>
+        <div class="card-body account-contact-list">
+          <div class="account-contact-row">
+            <span class="account-contact-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22 6 12 13 2 6"/>
+              </svg>
+            </span>
+            <div>
+              <div class="account-contact-label">Email</div>
+              <div class="account-contact-value" id="profile-contact-email">Not set</div>
+            </div>
+          </div>
+          <div class="account-contact-row">
+            <span class="account-contact-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+              </svg>
+            </span>
+            <div>
+              <div class="account-contact-label">Phone</div>
+              <div class="account-contact-value" id="profile-phone">Not set</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card account-card account-activity-card">
+        <div class="card-header">
+          <span class="card-title">Recent Activity</span>
+        </div>
         <div class="card-body">
-          <p class="account-card-body-text">Signed in on this device.</p>
-          <button type="button" class="btn btn-outline btn-sm" id="profile-logout-btn">Log Out</button>
+          <div class="account-activity-list" id="profile-activity-list"></div>
+          <p class="account-activity-empty" id="profile-activity-empty">No recent activity yet.</p>
+        </div>
+      </div>
+
+      <div class="card account-card account-card-wide">
+        <div class="card-header">
+          <span class="card-title">Additional Information</span>
+          <button type="button" class="btn btn-ghost btn-sm" id="profile-add-info-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Add Info
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="account-extra-list" id="profile-extra-list"></div>
+          <p class="account-extra-empty" id="profile-extra-empty">No additional info added yet.</p>
+        </div>
+      </div>
+
+      <!-- Retailer-only: the admin changes its password in Admin → Settings and signs out from the
+           admin top bar; a retailer has neither, so both live here. -->
+      <div class="card account-card account-card-wide">
+        <div class="card-header">
+          <span class="card-title">Sign-in &amp; Security</span>
+        </div>
+        <div class="card-body account-security">
+          <p class="account-card-body-text">Change the password you use to sign in, or sign out of AgriPricePH on this device.</p>
+          <div class="account-security-actions">
+            <button type="button" class="btn btn-outline btn-sm" id="profile-password-btn">Change Password</button>
+            <button type="button" class="btn btn-outline btn-sm" id="profile-logout-btn">Log Out</button>
+          </div>
         </div>
       </div>
     </div>
@@ -64,19 +139,28 @@
 
 </main>
 
-<div class="alert-modal-overlay" id="profile-edit-overlay" hidden>
-  <div class="alert-modal card">
+<div class="alert-modal-overlay account-modal-overlay" id="profile-edit-overlay" hidden>
+  <div class="alert-modal card" style="max-width:440px;">
     <div class="card-header">
       <span class="card-title">Edit Profile</span>
       <button type="button" class="btn btn-ghost btn-sm" id="profile-edit-close">✕</button>
     </div>
     <div class="card-body">
       <div class="alert-form">
-        <label class="alert-form-label">Name
+        <label class="alert-form-label">Display Name
           <input type="text" class="alert-form-input" id="profile-edit-name" maxlength="80" />
+        </label>
+        <label class="alert-form-label">Role / Title
+          <input type="text" class="alert-form-input" id="profile-edit-role" maxlength="60" placeholder="e.g. Rice retailer, Quiapo market" />
         </label>
         <label class="alert-form-label">Email (your login)
           <input type="email" class="alert-form-input" id="profile-edit-email" maxlength="120" />
+        </label>
+        <label class="alert-form-label">Phone
+          <input type="text" class="alert-form-input" id="profile-edit-phone" maxlength="30" />
+        </label>
+        <label class="alert-form-label">About / Bio
+          <textarea class="alert-form-input" id="profile-edit-bio" rows="3" maxlength="280"></textarea>
         </label>
         <div class="alert-form-actions">
           <button type="button" class="btn btn-outline" id="profile-edit-cancel">Cancel</button>
@@ -87,7 +171,30 @@
   </div>
 </div>
 
-<div class="alert-modal-overlay" id="profile-password-overlay" hidden>
+<div class="alert-modal-overlay account-modal-overlay" id="profile-info-overlay" hidden>
+  <div class="alert-modal card" style="max-width:380px;">
+    <div class="card-header">
+      <span class="card-title" id="profile-info-modal-title">Add Info</span>
+      <button type="button" class="btn btn-ghost btn-sm" id="profile-info-close">✕</button>
+    </div>
+    <div class="card-body">
+      <div class="alert-form">
+        <label class="alert-form-label">Label
+          <input type="text" class="alert-form-input" id="profile-info-label" maxlength="40" placeholder="e.g. Stall" />
+        </label>
+        <label class="alert-form-label">Value
+          <input type="text" class="alert-form-input" id="profile-info-value" maxlength="120" placeholder="e.g. Stall 14, Quiapo Public Market" />
+        </label>
+        <div class="alert-form-actions">
+          <button type="button" class="btn btn-outline" id="profile-info-cancel">Cancel</button>
+          <button type="button" class="btn btn-primary" id="profile-info-save">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="alert-modal-overlay account-modal-overlay" id="profile-password-overlay" hidden>
   <div class="alert-modal card">
     <div class="card-header">
       <span class="card-title">Change Password</span>
@@ -120,7 +227,8 @@
 <script src="js/public-auth.js"></script>
 <script src="js/public-auth-modal.js"></script>
 <script src="js/public-shell.js"></script>
+<script src="../admin/js/ui-modals.js"></script>
 <script src="js/public-pages.js"></script>
-<script src="js/public-profile.js"></script>
+<script src="js/public-profile.js?v=2"></script>
 </body>
 </html>

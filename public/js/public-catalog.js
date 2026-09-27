@@ -268,10 +268,55 @@
     return v.length > 2 ? `${v.slice(0, 2).join(', ')} +${v.length - 2}` : v.join(', ');
   }
 
-  function brandMedia(b, cls) {
-    return b.image_path
-      ? `<img class="${cls}" src="${esc(resolveImageUrl(b.image_path))}" alt="${esc(b.brand_name)}" loading="lazy">`
-      : `<div class="rc-card-placeholder">${PLACEHOLDER_SVG}</div>`;
+  /** The photo a product shows: its own uploaded image, else a representative photo of the kind of
+   *  rice it is (rice-photos.js). { card, full, alt, uploaded, …credit fields } or null. */
+  function photoFor(b) {
+    if (b.image_path) {
+      const src = resolveImageUrl(b.image_path);
+      return { card: src, full: src, alt: b.brand_name, uploaded: true };
+    }
+    const p = AgriPricePH.RicePhotos && AgriPricePH.RicePhotos.forBrand(b, b._key || active);
+    return p ? Object.assign({}, p, { alt: `${p.caption} — representative photo, not ${b.brand_name}'s packaging`, uploaded: false }) : null;
+  }
+
+  const ZOOM_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>';
+
+  function cardMedia(b) {
+    const p = photoFor(b);
+    if (!p) return `<div class="rc-card-placeholder">${PLACEHOLDER_SVG}</div>`;
+    return `<img class="rc-card-img" src="${esc(p.card)}" alt="${esc(p.alt)}" loading="lazy">`
+      + (p.uploaded ? '' : '<span class="rc-photo-tag">Representative photo</span>');
+  }
+
+  /** "Photo: Takeaway, CC BY-SA 3.0, via Wikimedia Commons" — the attribution CC BY / BY-SA require. */
+  function creditHtml(p) {
+    if (!p || p.uploaded) return '';
+    const link = (href, text) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(text)}</a>`;
+    return `Photo${p.author ? ` by ${esc(p.author)}` : ''}, ${link(p.licenseUrl, p.license)}, via ${link(p.source, p.site)}`;
+  }
+
+  // The photo on screen in the modal, for the full-size viewer.
+  let MODAL_PHOTO = null;
+
+  function modalMedia(b) {
+    const p = photoFor(b);
+    MODAL_PHOTO = p;
+    if (!p) return `<div class="rc-card-placeholder">${PLACEHOLDER_SVG}</div>`;
+    return `<img class="rc-modal-img" src="${esc(p.full)}" alt="${esc(p.alt)}">`
+      + (p.uploaded ? '' : '<span class="rc-photo-tag">Representative photo</span>')
+      + `<button type="button" class="rc-zoom-btn" id="rc-zoom-btn" aria-label="View full-size photo">${ZOOM_SVG}<span>Zoom</span></button>`
+      + (p.uploaded ? '' : `<p class="rc-photo-credit"><span>${esc(p.caption)} &mdash; not this product&rsquo;s packaging.</span> ${creditHtml(p)}</p>`);
+  }
+
+  function openZoom() {
+    const p = MODAL_PHOTO;
+    const from = document.querySelector('#rc-modal-media .rc-modal-img');
+    if (!p || !from || !AgriPricePH.ImageZoom) return;
+    const name = document.getElementById('rc-modal-title')?.textContent || '';
+    const caption = p.uploaded
+      ? `<strong>${esc(name)}</strong>`
+      : `<strong>${esc(name)}</strong> &middot; Representative photo: ${esc(p.caption)} &middot; ${creditHtml(p)}`;
+    AgriPricePH.ImageZoom.open({ src: p.full, alt: p.alt, caption, from });
   }
 
   function gradeChip(label) {
@@ -300,7 +345,7 @@
       <article class="rc-card" data-cid="${b._cid}" tabindex="0" role="button"
         aria-haspopup="dialog" aria-label="${esc(b.brand_name)}${b._pack ? ` ${esc(packChip(b._pack))}` : ''} — view details">
         <div class="rc-card-media">
-          ${brandMedia(b, 'rc-card-img')}
+          ${cardMedia(b)}
           <div class="rc-card-reveal">
             ${verificationBadge(b.verification_status, 'rc-badge', 'rc-reveal-badge')}
             <span class="rc-reveal-line">${metaLine || '—'}</span>
@@ -416,7 +461,7 @@
     const typeLabel = gradeName(key);
     const price = brandPriceInfo(b, PRICE[key] || null, key);
 
-    document.getElementById('rc-modal-media').innerHTML = brandMedia(b, 'rc-modal-img');
+    document.getElementById('rc-modal-media').innerHTML = modalMedia(b);
     document.getElementById('rc-modal-title').textContent = b.brand_name;
     document.getElementById('rc-modal-type').innerHTML = gradeChip(typeLabel)
       + (b._pack ? ` <span class="rc-modal-pack">${esc(packChip(b._pack))}</span>` : '');
@@ -512,8 +557,27 @@
     document.getElementById('rc-modal-close')?.addEventListener('click', closeBrandModal);
     overlay.addEventListener('click', (e) => { if (e.target === overlay) closeBrandModal(); });
     document.addEventListener('keydown', (e) => {
+      if (AgriPricePH.ImageZoom?.isOpen?.()) return;   // Esc belongs to the full-size viewer first
       if (e.key === 'Escape' && overlay.classList.contains('is-open')) closeBrandModal();
     });
+    // The Zoom button, or a click on the photo itself, opens the full-size viewer.
+    document.getElementById('rc-modal-media')?.addEventListener('click', (e) => {
+      if (e.target.closest('a')) return;   // credit links open normally
+      if (e.target.closest('#rc-zoom-btn, .rc-modal-img')) openZoom();
+    });
+  }
+
+  // A photo that fails to load (moved/renamed upload) falls back to the plain placeholder icon.
+  function bindImageFallback() {
+    const swap = (e) => {
+      const el = e.target;
+      if (!(el instanceof HTMLImageElement) || !el.matches('.rc-card-img, .rc-modal-img')) return;
+      const holder = el.parentElement;
+      el.replaceWith(Object.assign(document.createElement('div'), { className: 'rc-card-placeholder', innerHTML: PLACEHOLDER_SVG }));
+      holder?.querySelectorAll('.rc-zoom-btn, .rc-photo-tag, .rc-photo-credit').forEach((x) => x.remove());
+    };
+    document.getElementById('rc-cards')?.addEventListener('error', swap, true);
+    document.getElementById('rc-modal-media')?.addEventListener('error', swap, true);
   }
 
   /* ================= Scroll to top =================
@@ -771,6 +835,7 @@
     bindDropdown();
     bindSearch();
     bindModal();
+    bindImageFallback();
     bindScrollTop();
 
     // The forecast is requested up front but NOT waited on. It is the slowest call (the first one
@@ -807,6 +872,8 @@
           'verified by the local government' + infoTip('Store prices were canvassed in local markets every day for 30 days (Aug 6 – Sep 4, 2026); the 30th and last day, Sep 4, is the one used.') + '. ' +
           'Many milled-rice categories are sold <em>by classification, not by brand</em> (per DA\'s ' +
           '2018 labeling rule), so they may show no branded products. ' +
+          'Products without their own photo show a <em>representative photo</em> of that kind of rice ' +
+          '(not the brand\'s packaging), credited in each product\'s details. ' +
           (anyBrands ? '' : 'No verified branded products are loaded yet.');
       }
       buildSuggestions();

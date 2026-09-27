@@ -173,6 +173,9 @@ def update_user(user_id: int, payload: dict) -> tuple[bool, str, dict | None]:
             return False, err, None
         new_hash = generate_password_hash(password)
     store.update_user_by_id(user_id, name, email, new_hash)
+    if new_hash:
+        store.revoke_user_sessions(user_id)  # an admin-set password signs the retailer out everywhere
+        store.add_activity(user_id, "WARN", "An administrator set a new password (all devices signed out)")
     msg = "Account updated." + (" A new password was set." if new_hash else "")
     return True, msg, _user_out(store.get_user_by_id(user_id))
 
@@ -182,6 +185,8 @@ def set_user_active(user_id: int, active: bool) -> tuple[bool, str, dict | None]
     if not user:
         return False, "Account not found.", None
     store.set_user_status(user_id, "active" if active else "deactivated")
+    store.add_activity(user_id, "INFO" if active else "ERROR",
+                       "Account reactivated by an administrator" if active else "Account deactivated by an administrator")
     verb = "reactivated" if active else "deactivated"
     return True, f"{user['name']}'s account was {verb}.", _user_out(store.get_user_by_id(user_id))
 

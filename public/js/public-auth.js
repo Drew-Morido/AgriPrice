@@ -44,22 +44,75 @@ AgriPricePH.PublicAuth = (function () {
     return { score, valid, label: labels[score], color: colors[score] };
   }
 
-  function getSession() {
+  /* A signed-in session is { name, email, role, token, expiresAt, remember }. The token is issued
+     by the server at login/signup and is what the account endpoints check. Without "Remember me"
+     it lives in sessionStorage (gone when the tab closes); with it, in localStorage for 30 days. */
+  function readStored(store) {
     try {
-      const s = JSON.parse(sessionStorage.getItem(STORAGE_SESSION) || 'null');
-      if (s && typeof s === 'object') s.role = normalizeRole(s.role);
-      return s;
+      const s = JSON.parse(store.getItem(STORAGE_SESSION) || 'null');
+      return s && typeof s === 'object' ? s : null;
     } catch {
       return null;
     }
   }
 
-  function setSession(user) {
-    sessionStorage.setItem(STORAGE_SESSION, JSON.stringify(user));
+  function clearSession() {
+    try { sessionStorage.removeItem(STORAGE_SESSION); } catch { /* ignore */ }
+    try { localStorage.removeItem(STORAGE_SESSION); } catch { /* ignore */ }
   }
 
+  function getSession() {
+    let s = null;
+    try { s = readStored(sessionStorage) || readStored(localStorage); } catch { s = null; }
+    if (!s) return null;
+    // Sessions saved before server-issued tokens existed cannot be verified: treat as signed out.
+    if (!s.token || (s.expiresAt && s.expiresAt < Date.now())) {
+      clearSession();
+      return null;
+    }
+    s.role = normalizeRole(s.role);
+    return s;
+  }
+
+  function writeSession(session) {
+    clearSession();
+    const store = session.remember ? localStorage : sessionStorage;
+    store.setItem(STORAGE_SESSION, JSON.stringify(session));
+  }
+
+  /** Save the session the server returned from /api/auth/login or /api/auth/signup. */
+  function startSession(data) {
+    writeSession({
+      name: data.user.name,
+      email: data.user.email,
+      avatar: data.user.avatar || '',
+      title: data.user.title || '',
+      role: normalizeRole(data.user.role),
+      token: data.token,
+      expiresAt: Date.now() + (Number(data.expires_in) || 86400) * 1000,
+      remember: !!data.remember,
+    });
+  }
+
+  /** Keep the token, refresh what the nav shows (after a profile edit, or an admin rename). */
+  function refreshSessionUser(user) {
+    const s = getSession();
+    if (!s || !user) return;
+    writeSession({
+      ...s,
+      name: user.name ?? s.name,
+      email: user.email ?? s.email,
+      avatar: user.avatar ?? s.avatar ?? '',
+      title: user.title ?? s.title ?? '',
+    });
+  }
+
+  const EXPIRED_MESSAGE = 'Your session has expired. Please log in again.';
+
   function logout() {
-    sessionStorage.removeItem(STORAGE_SESSION);
+    const token = getSession()?.token;
+    clearSession();
+    if (token) AgriPricePH.API?.authLogout?.(token).catch(() => {});
     const Alert = AgriPricePH.PublicAlert;
     if (Alert?.success) {
       Alert.success('You have been logged out.', {
@@ -74,7 +127,51 @@ AgriPricePH.PublicAuth = (function () {
 
   function isLoggedIn() {
     const s = getSession();
-    return !!(s && s.email && s.role === 'retailer');
+    return !!(s && s.email && s.token && s.role === 'retailer');
+  }
+
+  /* Only pages of this site may be a post-login destination. A raw ?next= value used to go
+     straight into location.href, so a crafted login link could send the visitor to another site
+     or run script ("javascript:..."). */
+  function safeNextPage(raw) {
+    const v = String(raw || '').trim();
+    return /^[a-z0-9-]+\.html(?:[?#][^\s]*)?$/i.test(v) ? v : null;
+  }
+
+  function nextPageFromUrl() {
+    try {
+      return safeNextPage(new URLSearchParams(window.location.search).get('next'));
+    } catch {
+      return null;
+    }
+  }
+
+  // Pages that show only to signed-in retailers: if their session turns out to be invalid, reload
+  // so the page's own guard (redirect or unlock prompt) takes over.
+  const MEMBER_PAGES = ['profile', 'settings', 'historical', 'statistics'];
+
+  /* Check the stored session with the server once per page load. Catches a session that expired,
+     was signed out elsewhere (password change/reset), or whose account was deactivated, and picks
+     up an admin rename. A network failure leaves the session alone. */
+  async function verifySession() {
+    const s = getSession();
+    if (!s || !AgriPricePH.API?.authSession) return;
+    let res;
+    try {
+      res = await AgriPricePH.API.authSession(s.token);
+    } catch {
+      return;
+    }
+    if (res.status === 401) {
+      clearSession();
+      updateTopbarUser();
+      if (MEMBER_PAGES.includes(document.body?.dataset?.page)) window.location.reload();
+      return;
+    }
+    if (res.ok && res.data?.user) {
+      refreshSessionUser(res.data.user);
+      updateTopbarUser();
+    }
   }
 
   /* The page a logged-in user is sent to (post-login + when they hit the landing page). Sourced
@@ -133,8 +230,8 @@ AgriPricePH.PublicAuth = (function () {
     }
     try {
       const res = await AgriPricePH.API.authSignup(name, email.toLowerCase(), password);
-      if (res.ok && res.data?.success) {
-        setSession({ name, email: email.toLowerCase(), role: normalizeRole() });
+      if (res.ok && res.data?.success && res.data?.token) {
+        startSession(res.data);
         return { ok: true };
       }
       return { ok: false, message: res.data?.error || 'Could not create your account.' };
@@ -145,22 +242,68 @@ AgriPricePH.PublicAuth = (function () {
 
   /* Update the signed-in account's name/email (server-side). Email is the login id, so a
      changed email must not collide with another account. */
-  async function updateProfile({ name, email }) {
+  /* Save part of the signed-in account's profile: any of name, email, title, phone, bio, avatar,
+     extra_info. Returns { ok, user } with the saved profile, like the admin profile's save. */
+  async function updateProfile(patch = {}) {
     const session = getSession();
     if (!session || !session.email) return { ok: false, message: 'You are not logged in.' };
-    name = (name || '').trim();
-    email = (email || '').trim().toLowerCase();
-    if (!name || !email) return { ok: false, message: 'Name and email are required.' };
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, message: 'Please enter a valid email address.' };
+    patch = { ...patch };
+    if ('name' in patch) {
+      patch.name = String(patch.name || '').trim();
+      if (!patch.name) return { ok: false, message: 'Please enter a display name.' };
+    }
+    if ('email' in patch) {
+      patch.email = String(patch.email || '').trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patch.email)) return { ok: false, message: 'Please enter a valid email address.' };
+    }
     try {
-      const res = await AgriPricePH.API.authUpdateProfile(session.email.toLowerCase(), name, email);
+      const res = await AgriPricePH.API.authUpdateProfile(session.token, patch);
       if (res.ok && res.data?.success) {
-        setSession({ name, email, role: normalizeRole() });
-        return { ok: true };
+        refreshSessionUser(res.data.user);
+        updateTopbarUser();
+        return { ok: true, user: res.data.user };
+      }
+      if (res.status === 401) {
+        clearSession();
+        return { ok: false, expired: true, message: EXPIRED_MESSAGE };
       }
       return { ok: false, message: res.data?.error || 'Could not update your profile.' };
     } catch {
       return { ok: false, message: NETWORK_ERROR };
+    }
+  }
+
+  /** The signed-in account's full profile from the server. */
+  async function getProfile() {
+    const session = getSession();
+    if (!session) return { ok: false, expired: true, message: EXPIRED_MESSAGE };
+    try {
+      const res = await AgriPricePH.API.authProfile(session.token);
+      if (res.ok && res.data?.user) {
+        refreshSessionUser(res.data.user);
+        return { ok: true, user: res.data.user };
+      }
+      if (res.status === 401) {
+        clearSession();
+        return { ok: false, expired: true, message: EXPIRED_MESSAGE };
+      }
+      return { ok: false, message: res.data?.error || 'Could not load your profile.' };
+    } catch {
+      return { ok: false, message: NETWORK_ERROR };
+    }
+  }
+
+  /** This account's recent sign-in and account events, newest first. */
+  async function getActivity(limit = 6) {
+    const session = getSession();
+    if (!session) return { ok: false, expired: true, logs: [] };
+    try {
+      const res = await AgriPricePH.API.authActivity(session.token, limit);
+      if (res.ok && Array.isArray(res.data?.logs)) return { ok: true, logs: res.data.logs };
+      if (res.status === 401) return { ok: false, expired: true, logs: [] };
+      return { ok: false, logs: [] };
+    } catch {
+      return { ok: false, logs: [] };
     }
   }
 
@@ -172,8 +315,12 @@ AgriPricePH.PublicAuth = (function () {
       return { ok: false, message: 'New password must be at least 8 characters with uppercase, lowercase, and a number.' };
     }
     try {
-      const res = await AgriPricePH.API.authChangePassword(session.email.toLowerCase(), current, next);
+      const res = await AgriPricePH.API.authChangePassword(session.token, current, next);
       if (res.ok && res.data?.success) return { ok: true };
+      if (res.status === 401) {
+        clearSession();
+        return { ok: false, expired: true, message: EXPIRED_MESSAGE };
+      }
       return { ok: false, message: res.data?.error || 'Could not change your password.' };
     } catch {
       return { ok: false, message: NETWORK_ERROR };
@@ -192,23 +339,24 @@ AgriPricePH.PublicAuth = (function () {
     const idx = users.findIndex((u) => u.email === email.toLowerCase() && u.password === password);
     if (idx === -1) return null;
     const legacy = users[idx];
+    let res;
     try {
-      const res = await AgriPricePH.API.authSignup(legacy.name, legacy.email, password);
-      if (!res.ok || !res.data?.success) return null;
+      res = await AgriPricePH.API.authSignup(legacy.name, legacy.email, password);
+      if (!res.ok || !res.data?.success || !res.data?.token) return null;
     } catch {
       return null;
     }
     users.splice(idx, 1);
     saveUsers(users);
-    return { name: legacy.name, email: legacy.email, role: normalizeRole(legacy.role) };
+    return res.data;
   }
 
-  async function login({ email, password }) {
+  async function login({ email, password, remember }) {
     email = (email || '').trim().toLowerCase();
     try {
-      const res = await AgriPricePH.API.authLogin(email, password);
-      if (res.ok && res.data?.success && res.data?.user) {
-        setSession({ name: res.data.user.name, email: res.data.user.email, role: normalizeRole(res.data.user.role) });
+      const res = await AgriPricePH.API.authLogin(email, password, remember);
+      if (res.ok && res.data?.success && res.data?.token) {
+        startSession(res.data);
         return { ok: true };
       }
       if (res.status === 429) {
@@ -219,7 +367,7 @@ AgriPricePH.PublicAuth = (function () {
       }
       const migrated = await migrateLegacyAccount(email, password);
       if (migrated) {
-        setSession(migrated);
+        startSession(migrated);
         return { ok: true };
       }
       return { ok: false, message: res.data?.error || 'Email or password is incorrect.' };
@@ -354,6 +502,24 @@ AgriPricePH.PublicAuth = (function () {
     const signupBtn = document.getElementById('public-btn-signup');
     // Logout lives only in Settings → Account (no nav logout button by design).
 
+    const profileBtn = document.getElementById('public-btn-profile');
+    if (profileBtn) {
+      if (!profileBtn.dataset.icon) profileBtn.dataset.icon = profileBtn.innerHTML;
+      const photo = loggedIn && session?.avatar;
+      if (photo) {
+        profileBtn.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = session.avatar;
+        img.alt = '';
+        img.style.cssText = 'width:100%;height:100%;border-radius:50%;object-fit:cover;display:block';
+        profileBtn.appendChild(img);
+        profileBtn.style.overflow = 'hidden';
+        profileBtn.style.padding = '0';
+      } else if (profileBtn.innerHTML !== profileBtn.dataset.icon) {
+        profileBtn.innerHTML = profileBtn.dataset.icon;
+      }
+    }
+
     if (loggedIn && session) {
       if (avatar) {
         avatar.textContent = initials(session.name);
@@ -385,12 +551,16 @@ AgriPricePH.PublicAuth = (function () {
 
   document.addEventListener('DOMContentLoaded', () => {
     requestAnimationFrame(() => updateTopbarUser());
+    verifySession();
   });
 
   return {
     getUsers,
     getSession,
+    clearSession,
     isLoggedIn,
+    safeNextPage,
+    nextPageFromUrl,
     requireLogin,
     verifyAdminPassword,
     signup,
@@ -400,6 +570,8 @@ AgriPricePH.PublicAuth = (function () {
     updateTopbarUser,
     passwordStrength,
     updateProfile,
+    getProfile,
+    getActivity,
     changeUserPassword,
     requestPasswordReset,
     verifyResetCode,

@@ -72,7 +72,8 @@ AgriPricePH.PublicSettings = (function () {
     const blob = new Blob([JSON.stringify(dump, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `agriprice-preferences-${new Date().toISOString().slice(0, 10)}.json`;
+    const d = new Date();
+    a.href = url; a.download = `agriprice-preferences-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.json`;
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
     showSavedToast('Preferences exported.');
@@ -91,9 +92,11 @@ AgriPricePH.PublicSettings = (function () {
 
   function clearData() {
     if (!confirm('Remove saved accounts and log out on this device? Your preferences (theme, etc.) stay.')) return;
+    const token = AgriPricePH.PublicAuth?.getSession?.()?.token;
+    if (token) AgriPricePH.API?.authLogout?.(token).catch(() => {});
+    AgriPricePH.PublicAuth?.clearSession?.();
     try {
       localStorage.removeItem(USERS_KEY);
-      sessionStorage.removeItem('agriprice_public_session');
       sessionStorage.removeItem('agriprice_admin_session');
     } catch { /* ignore */ }
     window.location.replace('landpage.html');
@@ -131,14 +134,15 @@ AgriPricePH.PublicSettings = (function () {
     document.getElementById('set-clear-data')?.addEventListener('click', clearData);
   }
 
+  /* Settings save on every change, so the confirmation is a toast that fades on its own. The
+     shared alert is a modal with an OK button, which made each toggle stop and wait for a click. */
   function showSavedToast(msg) {
     const text = msg || 'Saved';
-    if (AgriPricePH.PublicAlert?.success) {
-      AgriPricePH.PublicAlert.success(text);
+    const el = document.getElementById('settings-toast');
+    if (!el) {
+      AgriPricePH.PublicAlert?.success?.(text, { autoCloseMs: 1500 });
       return;
     }
-    const el = document.getElementById('settings-toast');
-    if (!el) return;
     el.textContent = text;
     el.classList.add('visible');
     clearTimeout(showSavedToast._t);

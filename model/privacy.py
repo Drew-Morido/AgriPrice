@@ -68,6 +68,18 @@ def harden_file_permissions(paths: list[str] | None = None) -> dict:
     return result
 
 
+# Tables holding rows that belong to one account (user_store.py): removed with the account, so
+# erasure or expiry leaves no orphaned sign-in history or live sessions behind.
+_LINKED_TABLES = ("user_sessions", "user_activity")
+
+
+def _delete_linked(conn: sqlite3.Connection, where: str, args: tuple) -> None:
+    present = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    for table in _LINKED_TABLES:
+        if table in present:
+            conn.execute(f"DELETE FROM {table} WHERE user_id IN (SELECT id FROM users WHERE {where})", args)
+
+
 def purge_expired_accounts(db_path: str = USER_DB, days: int | None = None) -> int:
     """Delete accounts untouched for longer than the retention window. Returns rows removed."""
     if not os.path.exists(db_path):
@@ -80,6 +92,7 @@ def purge_expired_accounts(db_path: str = USER_DB, days: int | None = None) -> i
             "created_at" if "created_at" in cols else None)
         if stamp is None:
             return 0
+        _delete_linked(conn, f"{stamp} IS NOT NULL AND {stamp} < ?", (cutoff,))
         cur = conn.execute(f"DELETE FROM users WHERE {stamp} IS NOT NULL AND {stamp} < ?", (cutoff,))
         conn.commit()
         return cur.rowcount or 0
@@ -93,6 +106,7 @@ def erase_data_subject(email: str, db_path: str = USER_DB) -> tuple[bool, str]:
         return False, "No such account."
     conn = sqlite3.connect(db_path)
     try:
+        _delete_linked(conn, "lower(email) = lower(?)", (email.strip(),))
         cur = conn.execute("DELETE FROM users WHERE lower(email) = lower(?)", (email.strip(),))
         conn.commit()
         if cur.rowcount:
@@ -130,7 +144,10 @@ def privacy_status() -> dict:
         else:
             perms = oct(stat.S_IMODE(os.stat(USER_DB).st_mode))
     return {
-        "personal_data_stored": ["name", "email", "password_hash", "role"],
+        "personal_data_stored": ["name", "email", "password_hash", "role",
+                                 "profile title, phone, bio, photo, additional info (optional, user-entered)",
+                                 "account activity: time and event only, no IP address (last 100 per account)",
+                                 "login sessions: hashed token and expiry"],
         "credential_hashing": "werkzeug scrypt (salted)",
         "plaintext_passwords_stored": False,
         "user_db_permissions": perms,

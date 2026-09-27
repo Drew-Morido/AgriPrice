@@ -340,9 +340,10 @@
       border-radius: 99px;
     }
 
+    /* Buyer's convention, as on Price History / Charts & Stats: pricier = red, cheaper = green. */
     .hsc-badge.up {
-      background: rgba(120, 202, 151, 0.15);
-      color: var(--green-300);
+      background: rgba(248, 113, 113, 0.15);
+      color: #f87171;
     }
 
     .hsc-badge.flat {
@@ -351,8 +352,8 @@
     }
 
     .hsc-badge.down {
-      background: rgba(248, 113, 113, 0.15);
-      color: #f87171;
+      background: rgba(120, 202, 151, 0.15);
+      color: var(--green-300);
     }
 
     .hsc-sub {
@@ -413,8 +414,9 @@
 
     .ticker-name { color: rgba(255,255,255,0.5); font-weight: 500; }
     .ticker-price { color: #fff; font-family: var(--font-mono); font-size: 13px; }
-    .ticker-up { color: var(--green-300); }
-    .ticker-down { color: #f87171; }
+    .ticker-up { color: #f87171; }
+    .ticker-down { color: var(--green-300); }
+    .ticker-flat { color: rgba(255,255,255,0.4); }
 
     .ticker-tag { color: rgba(255,255,255,0.32); font-size: 10.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
     .ticker-item.is-variety .ticker-name { color: #fff; font-weight: 700; }
@@ -456,6 +458,16 @@
     .pop-go svg { transition: transform .15s; }
     .pop-card:hover .pop-go svg { transform: translateX(3px); }
     .popular-note { margin-top: 22px; font-size: 13px; line-height: 1.6; color: var(--text-muted); max-width: 720px; }
+    /* Dark mode: --green-50 has no dark value, so the band stayed pale mint while the heading
+       (--text-primary) turned near-white and all but vanished; the dark-green prices and links
+       were equally faint on the now-dark cards. */
+    html.theme-dark .popular-bg { background: #13251b; }
+    html.theme-dark .popular-link { color: var(--green-300); }
+    html.theme-dark .popular-link:hover { background: rgba(120, 202, 151, 0.12); }
+    html.theme-dark .pop-ico { background: rgba(120, 202, 151, 0.12); color: var(--green-300); }
+    html.theme-dark .pop-price { color: var(--green-300); }
+    html.theme-dark .pop-grade { background: rgba(120, 202, 151, 0.14); color: var(--green-200); }
+    html.theme-dark .pop-go { color: var(--green-300); }
     @media (max-width: 1000px) { .popular-grid { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 560px) { .popular-grid { grid-template-columns: 1fr; } .popular-bg { padding-top: 52px; padding-bottom: 52px; } }
     @media (prefers-reduced-motion: reduce) { .pop-card { animation: none; } }
@@ -693,8 +705,8 @@
       border-radius: 99px;
     }
 
-    .pc-change.up   { background: rgba(120,202,151,0.14); color: var(--green-300); }
-    .pc-change.down { background: rgba(248,113,113,0.14); color: #f87171; }
+    .pc-change.up   { background: rgba(248,113,113,0.14); color: #f87171; }
+    .pc-change.down { background: rgba(120,202,151,0.14); color: var(--green-300); }
     .pc-change.flat { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.4); }
 
     /* Each grade card now reads top to bottom as: today's DA price (+ real change vs yesterday) →
@@ -740,10 +752,13 @@
     .prices-legend .lg-range  { background: var(--green-200); }
     .prices-legend .lg-brands { background: var(--sand-300); }
     .prices-legend b { color: rgba(255,255,255,0.75); font-weight: 600; }
-    .prices-offline {
-      display: inline-flex; align-items: center; gap: 8px; margin-top: 6px;
-      font-size: 13px; font-weight: 600; color: #f7c873;
-      background: rgba(247,200,115,0.1); border: 1px solid rgba(247,200,115,0.25); border-radius: 99px; padding: 5px 12px;
+    /* Shown instead of prices when the API cannot be reached (no sample figures). */
+    .hero-offline,
+    .prices-offline-box {
+      grid-column: 1 / -1;
+      font-size: 14px; font-weight: 600; line-height: 1.5; color: #f7c873; text-align: center;
+      background: rgba(247,200,115,0.08); border: 1px solid rgba(247,200,115,0.25);
+      border-radius: var(--radius-lg); padding: 28px 24px;
     }
 
     /* (i) info icon + tooltip for details kept off the page (e.g. how shop prices were collected). */
@@ -1670,7 +1685,7 @@
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--green-600)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 16 4-4 4 4 4-5"/></svg>
           </div>
           <h3>3-Day Forecast</h3>
-          <p>Our LSTM-based forecasting model predicts prices for tomorrow and the day after. Great for retailers setting selling prices, or families planning their grocery budget.</p>
+          <p>Expected prices for each of the next three days, from a forecast that blends an LSTM-based model with two statistical models and leans on whichever has been most accurate lately. Great for retailers setting selling prices, or families planning their grocery budget.</p>
           <a href="current-prices.html" class="feat-link">See forecast <span>→</span></a>
         </article>
 
@@ -1961,7 +1976,7 @@
           <div class="stat-label">Rice varieties<br>tracked daily</div>
         </div>
         <div class="stat-block">
-          <div class="stat-big">2</div>
+          <div class="stat-big">3</div>
           <div class="stat-label">Days ahead<br>forecast window</div>
         </div>
         <div class="stat-block">
@@ -2002,7 +2017,7 @@
           </details>
           <details class="faq-item">
             <summary>How far ahead is the forecast?</summary>
-            <p>The LSTM-based model estimates the next two days. Treat it as a planning aid, not a guarantee.</p>
+            <p>Three days: the day after the latest DA price bulletin and the two days after that. The forecast blends an LSTM-based model with two statistical models (ARIMA and a Kalman filter), giving more weight to whichever has been most accurate over the past month. Treat it as a planning aid, not a guarantee.</p>
           </details>
           <details class="faq-item">
             <summary>Who should I contact about official rice policy?</summary>

@@ -45,23 +45,75 @@ html.theme-dark{
   --card:#152820;--bg:#0f1a14;--bd:rgba(76,175,110,0.16);
 }
 body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink)}
-#public-app .page-content{max-width:100%!important;padding:0!important;margin:0!important}
+#public-app .page-content{max-width:100%!important;padding:0!important;margin:0!important;overflow:visible!important}
 .topbar{display:none}
 .live-chip{display:inline-flex;align-items:center;gap:8px;background:rgba(114,201,141,.14);border:1px solid rgba(38,84,56,.2);border-radius:99px;padding:6px 14px;font-size:11px;font-weight:700;color:var(--g600)}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--good);animation:blink 2.3s ease infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 
-/* Sidebar is a normal column in the flow — it scrolls together with the page, same as the main
-   content beside it. Plain two-column flex layout, no fixed/sticky positioning. */
-.main{max-width:1300px;margin:0 auto;padding:32px 34px 56px;display:flex;align-items:flex-start;gap:28px}
+/* Two columns. On large screens the page may use up to 1680px, and the sidebar grows with it
+   (22% of the row, 264–380px), so the cards fill what used to be empty margin instead of sitting
+   in a narrow strip beside it.
+   The sidebar is pinned under the site nav while the page scrolls: it used to scroll away with
+   the content and leave a tall blank column on the left. If the window is too short for all four
+   cards, the sidebar scrolls within itself. (Global .page-content has overflow:hidden, which stops
+   position:sticky from working; it is lifted above.) Below 860px the sidebar sits above the
+   content and is not pinned. */
+.main{--fc-pad-b:56px;max-width:1680px;margin:0 auto;padding:32px 34px var(--fc-pad-b);display:flex;align-items:flex-start;gap:28px}
 .fc-content{display:flex;flex-direction:column;gap:24px;min-width:0;flex:1}
 
 .side-panel{
-  width:264px;
+  width:clamp(264px, 22%, 380px);
   flex-shrink:0;
   display:flex;
   flex-direction:column;
   gap:10px;
+  position:sticky;
+  top:calc(var(--lp-nav-height, 64px) + 20px);
+  max-height:calc(100vh - var(--lp-nav-height, 64px) - 40px);
+  max-height:calc(100dvh - var(--lp-nav-height, 64px) - 40px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+  scrollbar-color:var(--bd) transparent;
+  /* room for the cards' shadows, which overflow-y:auto would otherwise clip */
+  padding:2px 4px 6px;
+  margin:-2px -4px -6px;
+}
+
+/* Desktop: the pinned sidebar runs the full height from under the nav to the page's bottom gap,
+   so its last card (Last updated / System status) ends flush with the Price Summary card once the
+   page is scrolled to the end — no blank strip under it. The extra height goes to the Rice type
+   and Typical price cards (more room around their labels and between the rice types), so it
+   fills any window height, not just one. The status card uses the same 22px bottom padding as
+   the Price Summary footnote, so their last lines of text sit level too. If the window is too
+   short for everything, the sidebar scrolls within itself as before. Phones are unchanged (the
+   sidebar is not pinned there). */
+@media (min-width:861px){
+  .side-panel{
+    /* 6px = the shadow padding at the bottom of the sidebar box (see above) */
+    height:calc(100vh - var(--lp-nav-height, 64px) - 20px - var(--fc-pad-b) + 6px);
+    height:calc(100dvh - var(--lp-nav-height, 64px) - 20px - var(--fc-pad-b) + 6px);
+    max-height:none;
+  }
+  .side-card{flex:none}
+  .side-card--types{flex:3 1 auto;gap:12px;padding-top:16px;padding-bottom:16px}
+  .side-card--types .grade-board-label{padding:2px 0 4px}
+  /* rows grow into taller buttons first (up to 58px); only what is left becomes space between them */
+  .side-card--types .type-nav{flex:1;justify-content:space-between;gap:6px}
+  .side-card--types .type-nav-item{flex:1 1 0;min-height:34px;max-height:58px}
+  .side-card--typical{flex:1 1 auto;gap:10px;padding-top:16px;padding-bottom:16px}
+  .side-card--typical .grade-board-label{padding:2px 0 4px}
+  .side-card--typical .typical-price-body{flex:1;display:flex;flex-direction:column;justify-content:center;gap:6px}
+  .side-card.status-mini{padding:16px 14px 22px}
+  /* Past ~400px the rice-type list would only gain wider gaps, so on tall windows the Typical
+     price card takes the rest instead, with its figure set larger. */
+  .side-card--types{max-height:400px}
+}
+@media (min-width:861px) and (min-height:1000px){
+  .side-card--typical .typical-price-title{font-size:14px}
+  .side-card--typical .typical-price-val{font-size:30px}
+  .side-card--typical .typical-price-val span{font-size:13px}
 }
 .side-card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:12px 14px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px}
 
@@ -94,6 +146,7 @@ body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);c
 .hero-sub{margin-top:16px;font-size:14px;line-height:1.65;color:rgba(255,255,255,.6);max-width:500px}
 .brand-clear-btn{margin-top:14px;display:inline-flex;align-items:center;gap:6px;font-family:inherit;font-size:12px;font-weight:600;color:var(--g300);background:rgba(114,201,141,.12);border:1px solid rgba(114,201,141,.3);border-radius:99px;padding:7px 14px;cursor:pointer;}
 .brand-clear-btn:hover{background:rgba(114,201,141,.2);}
+.brand-clear-btn[hidden]{display:none}
 
 .hero-right{display:grid;grid-template-columns:1fr 1fr;background:rgba(0,0,0,.14); border-left: 1px solid rgba(255,255,255,.08);}
 .kpi-q{padding:30px 24px;border-bottom:1px solid rgba(255,255,255,.08);position:relative}
@@ -106,8 +159,10 @@ body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);c
 .kpi-q-val--range{font-size:19px;line-height:1.15;white-space:nowrap}
 .fp{white-space:nowrap}
 .kpi-q-sub{font-size:12px;color:rgba(255,255,255,.5);margin-top:8px}
-.kpi-q-trend{position:absolute;top:30px;right:24px;font-size:11px;font-weight:700;color:var(--g300);display:inline-flex;gap:4px;align-items:center}
-.kpi-q-trend.flat{color:rgba(255,255,255,.4)}
+.kpi-q-trend{position:absolute;top:30px;right:24px;font-size:11px;font-weight:700;color:var(--g300);display:inline-flex;gap:4px;align-items:center;white-space:nowrap}
+.kpi-q-trend.up{color:#ff9f8f}
+.kpi-q-trend.flat{color:rgba(255,255,255,.55)}
+.kpi-q-trend[hidden]{display:none}
 
 .grade-board-label{
   font-size:11px;
@@ -165,6 +220,7 @@ html.theme-dark .type-nav-item:hover{background:rgba(76,175,110,.10)}
 .type-nav-item .tn-price{font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:600;opacity:.8}
 
 /* Sidebar typical-price card */
+.typical-price-body{display:flex;flex-direction:column;gap:8px}
 .typical-price-title{font-size:12.5px;font-weight:700;color:var(--ink2);line-height:1.3}
 .typical-price-val{font-family:'JetBrains Mono',monospace;font-size:21px;font-weight:700;color:var(--g700)}
 html.theme-dark .typical-price-val{color:var(--g300)}
@@ -175,11 +231,37 @@ html.theme-dark .typical-price-val{color:var(--g300)}
    never invented, never called an AI prediction. Rows are informational only (no drill-in
    click), since a single canvassed weight isn't a full per-brand day-by-day forecast. */
 .brand-compare{background:var(--card);border:1px solid var(--bd);border-radius:24px;overflow:hidden;box-shadow:var(--shadow)}
-.brand-compare-head{padding:22px 28px 14px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:end}
+.brand-compare-head{padding:22px 30px 16px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center}
 .brand-compare-head h2{font-family:'Fraunces',serif;font-size:22px;color:var(--ink2);font-weight:400}
 .brand-compare-head h2 em{color:var(--g500);font-style:italic}
 html.theme-dark .brand-compare-head h2 em{color:var(--g300)}
-.brand-compare-head p{font-size:12.5px;color:var(--ink3);max-width:440px;line-height:1.5}
+/* Right side of the header: the row hint (same size, colour and alignment as the Price Summary
+   header's "Well-Milled · per kilo") and an (i) button holding the longer description. */
+.bc-head-right{display:flex;align-items:center;gap:10px;margin-left:auto}
+.bc-hint{font-size:12px;color:var(--ink3);text-align:right}
+.bc-info{position:relative;display:inline-flex}
+.bc-info-btn{
+  width:30px;height:30px;border-radius:50%;flex-shrink:0;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:17px;color:var(--ink3);background:transparent;border:1px solid var(--bd);
+  transition:color .15s,background .15s,border-color .15s,transform .15s;
+}
+.bc-info-btn:hover,.bc-info.is-open .bc-info-btn{color:var(--g600);background:#ecf8f1;border-color:rgba(38,84,56,.25)}
+html.theme-dark .bc-info-btn:hover,html.theme-dark .bc-info.is-open .bc-info-btn{color:var(--g300);background:rgba(76,175,110,.14)}
+.bc-info-btn:active{transform:scale(.92)}
+.bc-info-btn:focus-visible{outline:2px solid var(--g500);outline-offset:2px}
+.bc-info-pop{
+  position:absolute;top:calc(100% + 10px);right:-6px;z-index:30;
+  width:max-content;max-width:min(320px, calc(100vw - 40px));
+  font-size:12.5px;line-height:1.55;color:#fff;background:#13241a;
+  border-radius:10px;padding:10px 13px;box-shadow:0 12px 30px rgba(8,20,14,.3);
+  opacity:0;visibility:hidden;transform:translateY(-4px);
+  transition:opacity .15s ease,transform .15s ease,visibility .15s;
+}
+.bc-info-pop::before{content:'';position:absolute;bottom:100%;right:15px;border:6px solid transparent;border-bottom-color:#13241a}
+html.theme-dark .bc-info-pop{color:#0f1e14;background:#e8f0eb}
+html.theme-dark .bc-info-pop::before{border-bottom-color:#e8f0eb}
+.bc-info:hover .bc-info-pop,.bc-info:focus-within .bc-info-pop,.bc-info.is-open .bc-info-pop{opacity:1;visibility:visible;transform:none}
 .bc-table{width:100%;border-collapse:collapse}
 .bc-table th{
   text-align:left;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--ink4);
@@ -199,9 +281,13 @@ html.theme-dark .bc-table tbody tr:hover{background:rgba(76,175,110,.10)}
 .bc-est-note{font-size:10.5px;font-weight:500;color:var(--ink3);margin-top:2px}
 .bc-peso{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px}
 .bc-pack{font-size:12px;color:var(--ink3)}
-.bc-up{color:var(--good);font-weight:700;font-size:12px}
-.bc-down{color:var(--bad);font-weight:700;font-size:12px}
+.bc-up{color:var(--bad);font-weight:700;font-size:12px}
+.bc-down{color:var(--good);font-weight:700;font-size:12px}
+/* Package / variety line, shown only when a brand name repeats within the grade. */
+.bc-variant{font-size:11.5px;font-weight:500;color:var(--ink3);margin-top:2px}
+.bc-table tbody tr.bc-selected .bc-variant{color:rgba(255,255,255,.72)}
 .bc-flat{color:var(--ink3);font-weight:700;font-size:12px}
+.bc-up,.bc-down,.bc-flat{white-space:nowrap}
 .bc-empty{padding:26px 16px;text-align:center;color:var(--ink3);font-size:13px}
 .bc-range{white-space:nowrap;font-size:13px}
 /* Tip row sits under the selected brand. Pastel green so it reads as attached to the highlighted
@@ -246,7 +332,9 @@ html.theme-dark .chart-title em{color:var(--g300)}
 .leg-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink3)}
 .leg-line{width:22px;height:3px;border-radius:2px}.leg-line.actual{background:var(--g600)}.leg-line.pred{background:var(--blue)}
 .leg-swatch{width:14px;height:10px;border-radius:4px;background:rgba(76,175,110,.18);border:1px solid rgba(38,84,56,.2)}
-.chart-body{padding:16px 30px 0;height:280px}
+.chart-body{padding:16px 30px 0;height:280px;position:relative}
+.chart-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 24px;font-size:13px;color:var(--ink3)}
+.chart-empty[hidden]{display:none}
 canvas{width:100%!important;height:100%!important}
 .chart-bottom{display:grid;grid-template-columns:1fr 1px 1fr 1px 1fr;border-top:1px solid var(--bd);margin-top:20px}
 .divider-v{background:var(--bd)}
@@ -255,8 +343,13 @@ canvas{width:100%!important;height:100%!important}
 .cb-main{display:flex;align-items:baseline;gap:10px}
 .cb-price{font-family:'JetBrains Mono',monospace;font-size:19px;color:var(--g700);font-weight:700;white-space:nowrap}
 html.theme-dark .cb-price{color:var(--g300)}
-.cb-change{font-size:12px;font-weight:700;background:#ecf8f1;color:var(--g600);border:1px solid rgba(38,84,56,.16);border-radius:99px;padding:4px 10px;display:inline-flex;gap:4px;align-items:center}
+.cb-change{font-size:12px;font-weight:700;background:#ecf8f1;color:var(--g600);border:1px solid rgba(38,84,56,.16);border-radius:99px;padding:4px 10px;display:inline-flex;gap:4px;align-items:center;white-space:nowrap}
 html.theme-dark .cb-change{background:rgba(76,175,110,.14);color:var(--g300);border-color:rgba(76,175,110,.22)}
+.cb-change.up{background:#fdf0ee;color:var(--bad);border-color:rgba(192,57,43,.2)}
+html.theme-dark .cb-change.up{background:rgba(239,68,68,.16);color:#ff8a7a;border-color:rgba(239,68,68,.25)}
+.cb-change.flat{background:#f1f4f2;color:var(--ink3);border-color:var(--bd)}
+html.theme-dark .cb-change.flat{background:rgba(255,255,255,.06);color:var(--ink3)}
+.cb-change[hidden]{display:none}
 .cb-sub{font-size:12px;color:var(--ink3);margin-top:8px}
 .cb-timeline{display:flex;flex-direction:column;gap:10px}
 .cb-trow{display:flex;align-items:center;gap:10px}.cb-tlbl{font-size:11px;min-width:50px;color:var(--ink3);font-weight:600}
@@ -280,12 +373,14 @@ html.theme-dark .table-title em{color:var(--g300)}
 .hdr{min-height:44px;background:#f7fbf8;font-size:11px;color:var(--ink4);font-weight:700;text-transform:uppercase;letter-spacing:.8px}
 html.theme-dark .hdr{background:rgba(76,175,110,.06)}
 .date-main{font-size:14px;font-weight:700;color:var(--ink2)}.date-sub{font-size:12px;color:var(--ink3);margin-top:2px}
-.dir{font-size:13px;font-weight:700;color:var(--good);display:inline-flex;gap:6px;align-items:center}.dir.down{color:var(--bad)}
+.dir{font-size:13px;font-weight:700;color:var(--ink3);display:inline-flex;gap:6px;align-items:center}.dir.up{color:var(--bad)}.dir.down{color:var(--good)}
 .fp{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:var(--ink2)}
 .cbadge{font-size:12px;font-weight:700;padding:5px 10px;border-radius:8px;background:#ecf8f1;color:var(--g600);display:inline-block}
 html.theme-dark .cbadge{background:rgba(76,175,110,.14);color:var(--g300)}
-.cbadge.down{background:#fdf0ee;color:var(--bad)}
-html.theme-dark .cbadge.down{background:rgba(239,68,68,.16);color:#ff8a7a}
+.cbadge.up{background:#fdf0ee;color:var(--bad)}
+html.theme-dark .cbadge.up{background:rgba(239,68,68,.16);color:#ff8a7a}
+.cbadge.flat{background:#f1f4f2;color:var(--ink3)}
+html.theme-dark .cbadge.flat{background:rgba(255,255,255,.06);color:var(--ink3)}
 .conf-bar-cell{display:flex;align-items:center;gap:8px}
 .conf-bar-track{flex:1;height:6px;background:#edf4ef;border:1px solid var(--bd);border-radius:99px;overflow:hidden}
 html.theme-dark .conf-bar-track{background:rgba(76,175,110,.06)}
@@ -316,7 +411,7 @@ html.public-compact .brand-compare-head{padding:16px 20px 10px}
   /* Stretch, not flex-start: in a column layout flex-start makes each child shrink-wrap to its
      widest content (the hero/table), which left .fc-content ~640px wide on a 375px phone. */
   .main{flex-direction:column;align-items:stretch}
-  .side-panel{width:auto}
+  .side-panel{width:auto;position:static;max-height:none;overflow:visible;padding:0;margin:0}
   .fc-content{width:100%}
 }
 @media(max-width:900px){
@@ -342,6 +437,15 @@ html.public-compact .brand-compare-head{padding:16px 20px 10px}
   .hero-head{gap:8px}
   .hero-head .live-chip{padding-left:0}
   .hero-head .live-chip::before{display:none}
+  .brand-compare > div{overflow-x:visible}
+  .bc-table{min-width:0}
+  .bc-table th{padding:10px 8px;letter-spacing:.4px}
+  .bc-table td{padding:12px 8px;font-size:12.5px}
+  .bc-table th:first-child,.bc-table td:first-child{padding-left:16px}
+  .bc-table th:last-child,.bc-table tr:not(.bc-tip-row) td:last-child{padding-right:16px;text-align:right}
+  .bc-peso{font-size:12.5px}
+  .bc-range{white-space:normal;font-size:12px}
+  .brand-compare-head{padding:18px 16px 12px}
 }
 </style>
 </head>
@@ -360,15 +464,17 @@ html.public-compact .brand-compare-head{padding:16px 20px 10px}
       </div>
     </div>
 
-    <div class="side-card">
+    <div class="side-card side-card--types">
       <span class="grade-board-label">Rice type</span>
       <div class="type-nav" id="type-nav"></div>
     </div>
 
-    <div class="side-card">
+    <div class="side-card side-card--typical">
       <span class="grade-board-label">Typical price</span>
-      <div class="typical-price-title" id="typical-price-title">Local Well-Milled</div>
-      <div class="typical-price-val" id="typical-price-val">₱52.40<span>/kg</span></div>
+      <div class="typical-price-body">
+        <div class="typical-price-title" id="typical-price-title">Local Well-Milled</div>
+        <div class="typical-price-val" id="typical-price-val">&mdash;</div>
+      </div>
     </div>
 
     <div class="side-card status-mini">
@@ -399,14 +505,14 @@ html.public-compact .brand-compare-head{padding:16px 20px 10px}
           <div class="live-chip"><span class="dot"></span> UPDATED EVERY MORNING</div>
         </div>
         <div class="hero-title" id="hero-title">Well-Milled<br><em>price outlook</em></div>
-        <div class="hero-sub" id="hero-sub">Local · per kilo · built from historical price patterns and live data from the backend.</div>
+        <div class="hero-sub" id="hero-sub">Loading live prices&hellip;</div>
         <button type="button" id="brand-clear-btn" class="brand-clear-btn" hidden>&larr; Back to category view</button>
       </div>
       <div class="hero-right">
-        <div class="kpi-q"><div class="kpi-q-lbl">Today</div><div class="kpi-q-val" id="kpi-today">₱52.40</div><div class="kpi-q-sub" id="kpi-today-sub">Actual price · per kilo</div></div>
-        <div class="kpi-q"><div class="kpi-q-lbl">Tomorrow</div><div class="kpi-q-val" id="kpi-tomorrow">₱52.80</div><div class="kpi-q-sub" id="kpi-tomorrow-sub">May 28</div><div class="kpi-q-trend" id="kpi-tomorrow-trend"><i class="ti ti-arrow-up" style="font-size:11px"></i><span id="kpi-tomorrow-trend-val">+₱0.40</span></div></div>
-        <div class="kpi-q"><div class="kpi-q-lbl">Day after</div><div class="kpi-q-val" id="kpi-day2">₱53.10</div><div class="kpi-q-sub" id="kpi-day2-sub">May 29 · +₱0.30 more</div></div>
-        <div class="kpi-q"><div class="kpi-q-lbl">Day after that</div><div class="kpi-q-val" id="kpi-day3">₱53.35</div><div class="kpi-q-sub" id="kpi-day3-sub">May 30 · +₱0.25 more</div></div>
+        <div class="kpi-q"><div class="kpi-q-lbl">Today</div><div class="kpi-q-val" id="kpi-today">&mdash;</div><div class="kpi-q-sub" id="kpi-today-sub">DA market price · per kilo</div></div>
+        <div class="kpi-q"><div class="kpi-q-lbl">Tomorrow</div><div class="kpi-q-val" id="kpi-tomorrow">&mdash;</div><div class="kpi-q-sub" id="kpi-tomorrow-sub"></div><div class="kpi-q-trend" id="kpi-tomorrow-trend" hidden><i class="ti ti-minus" style="font-size:11px"></i><span id="kpi-tomorrow-trend-val"></span></div></div>
+        <div class="kpi-q"><div class="kpi-q-lbl">Day after</div><div class="kpi-q-val" id="kpi-day2">&mdash;</div><div class="kpi-q-sub" id="kpi-day2-sub"></div></div>
+        <div class="kpi-q"><div class="kpi-q-lbl">Day after that</div><div class="kpi-q-val" id="kpi-day3">&mdash;</div><div class="kpi-q-sub" id="kpi-day3-sub"></div></div>
       </div>
     </div>
 
@@ -414,7 +520,14 @@ html.public-compact .brand-compare-head{padding:16px 20px 10px}
     <div class="brand-compare">
       <div class="brand-compare-head">
         <h2>Prices by <em>brand</em></h2>
-        <p id="brand-compare-note">Verified brands for this origin, cheapest to priciest.</p>
+        <div class="bc-head-right">
+          <span class="bc-hint">Click a row to follow that brand above.</span>
+          <span class="bc-info" id="bc-info">
+            <button type="button" class="bc-info-btn" id="bc-info-btn" aria-label="About these brand prices"
+              aria-describedby="brand-compare-note" aria-expanded="false"><i class="ti ti-info-circle" aria-hidden="true"></i></button>
+            <span class="bc-info-pop" id="brand-compare-note" role="tooltip">Verified brands for this origin, cheapest to priciest.</span>
+          </span>
+        </div>
       </div>
       <div style="overflow-x:auto">
         <table class="bc-table">
@@ -445,31 +558,31 @@ html.public-compact .brand-compare-head{padding:16px 20px 10px}
         </div>
         <div class="legend"><div class="leg-item"><div class="leg-line actual"></div> Real price</div><div class="leg-item"><div class="leg-line pred"></div> Expected price</div><div class="leg-item"><div class="leg-swatch"></div> Price range estimate</div></div>
       </div>
-      <div class="chart-body"><canvas id="fc"></canvas></div>
+      <div class="chart-body"><canvas id="fc"></canvas><div class="chart-empty" id="fc-empty" hidden></div></div>
       <div class="chart-bottom">
         <div class="cb-cell">
           <div class="cb-lbl">Expected price tomorrow</div>
-          <div class="cb-main"><span class="cb-price" id="cb-tomorrow">₱52.80</span><span class="cb-change" id="cb-change"><i class="ti ti-arrow-up" style="font-size:11px"></i> <span id="cb-change-val">+₱0.40</span></span></div>
-          <div class="cb-sub" id="cb-sub">Well-Milled · per kilo · May 28, 2026</div>
+          <div class="cb-main"><span class="cb-price" id="cb-tomorrow">&mdash;</span><span class="cb-change" id="cb-change" hidden><i class="ti ti-minus" style="font-size:11px"></i> <span id="cb-change-val"></span></span></div>
+          <div class="cb-sub" id="cb-sub"></div>
         </div>
         <div class="divider-v"></div>
         <div class="cb-cell">
           <div class="cb-lbl">Price over the next 3 days</div>
           <div class="cb-timeline" id="cb-timeline">
-            <div class="cb-trow"><span class="cb-tlbl">Today</span><div class="cb-ttrack"><div class="cb-tbar" style="width:82%" id="bar-today"><span class="cb-tval">₱52.40</span></div></div></div>
-            <div class="cb-trow"><span class="cb-tlbl">Tomorrow</span><div class="cb-ttrack"><div class="cb-tbar" style="width:84%" id="bar-tomorrow"><span class="cb-tval">₱52.80</span></div></div></div>
-            <div class="cb-trow"><span class="cb-tlbl">Day after</span><div class="cb-ttrack"><div class="cb-tbar" style="width:85%" id="bar-dayafter"><span class="cb-tval">₱53.10</span></div></div></div>
-            <div class="cb-trow"><span class="cb-tlbl">In 3 days</span><div class="cb-ttrack"><div class="cb-tbar" style="width:86%" id="bar-day3"><span class="cb-tval">₱53.35</span></div></div></div>
+            <div class="cb-trow"><span class="cb-tlbl">Today</span><div class="cb-ttrack"><div class="cb-tbar" style="width:0%" id="bar-today"><span class="cb-tval"></span></div></div></div>
+            <div class="cb-trow"><span class="cb-tlbl">Tomorrow</span><div class="cb-ttrack"><div class="cb-tbar" style="width:0%" id="bar-tomorrow"><span class="cb-tval"></span></div></div></div>
+            <div class="cb-trow"><span class="cb-tlbl">Day after</span><div class="cb-ttrack"><div class="cb-tbar" style="width:0%" id="bar-dayafter"><span class="cb-tval"></span></div></div></div>
+            <div class="cb-trow"><span class="cb-tlbl">In 3 days</span><div class="cb-ttrack"><div class="cb-tbar" style="width:0%" id="bar-day3"><span class="cb-tval"></span></div></div></div>
           </div>
         </div>
         <div class="divider-v"></div>
         <div class="cb-cell">
-          <div class="cb-lbl">How sure are we</div>
+          <div class="cb-lbl">How close past forecasts landed</div>
           <div class="conf-rows">
-            <div class="conf-row-item"><span class="conf-day">Tomorrow</span><div class="conf-track"><div class="conf-fill" id="conf1" style="width:87%"></div></div><span class="conf-pct" id="conf1-pct">87%</span></div>
-            <div class="conf-row-item"><span class="conf-day">Day after</span><div class="conf-track"><div class="conf-fill" id="conf2" style="width:74%"></div></div><span class="conf-pct" id="conf2-pct">74%</span></div>
-            <div class="conf-row-item"><span class="conf-day">In 3 days</span><div class="conf-track"><div class="conf-fill" id="conf3" style="width:66%"></div></div><span class="conf-pct" id="conf3-pct">66%</span></div>
-            <div class="cb-sub" style="margin-top:6px;">Tomorrow — very likely. Later days — less certain.</div>
+            <div class="conf-row-item"><span class="conf-day">Tomorrow</span><div class="conf-track"><div class="conf-fill" id="conf1" style="width:0%"></div></div><span class="conf-pct" id="conf1-pct">&mdash;</span></div>
+            <div class="conf-row-item"><span class="conf-day">Day after</span><div class="conf-track"><div class="conf-fill" id="conf2" style="width:0%"></div></div><span class="conf-pct" id="conf2-pct">&mdash;</span></div>
+            <div class="conf-row-item"><span class="conf-day">In 3 days</span><div class="conf-track"><div class="conf-fill" id="conf3" style="width:0%"></div></div><span class="conf-pct" id="conf3-pct">&mdash;</span></div>
+            <div class="cb-sub" id="conf-note" style="margin-top:6px;">Share of past forecasts that landed within ₱0.50 of the real DA price, checked on days the model never saw.</div>
           </div>
         </div>
       </div>
@@ -478,33 +591,33 @@ html.public-compact .brand-compare-head{padding:16px 20px 10px}
     <!-- PRICE SUMMARY -->
     <div class="table-card">
       <div class="table-header"><div class="table-title">Price <em>Summary</em></div><div id="table-sub" style="font-size:12px;color:var(--ink3);">Well-Milled · per kilo</div></div>
-      <div class="trow hdr"><span>Day</span><span>Direction</span><span>Expected price</span><span>Change</span><span>How sure</span></div>
+      <div class="trow hdr"><span>Day</span><span>Direction</span><span>Expected price</span><span>Vs day before</span><span>Within ₱0.50</span></div>
 
       <div class="trow" id="row1">
-        <div><div class="date-main">Tomorrow</div><div class="date-sub">May 28, 2026</div></div>
-        <span class="dir"><i class="ti ti-arrow-up" style="font-size:14px"></i> Up</span>
-        <span class="fp" id="row1-price">₱52.80</span>
-        <span class="cbadge" id="row1-change">+₱0.40</span>
-        <div class="conf-bar-cell"><div class="conf-bar-track"><div class="conf-bar-fill" id="row1-conf-bar" style="width:87%"></div></div><span class="conf-bar-pct" id="row1-conf-pct">87%</span></div>
+        <div><div class="date-main">Tomorrow</div><div class="date-sub"></div></div>
+        <span class="dir"></span>
+        <span class="fp" id="row1-price">&mdash;</span>
+        <span class="cbadge flat" id="row1-change">&mdash;</span>
+        <div class="conf-bar-cell"><div class="conf-bar-track"><div class="conf-bar-fill" id="row1-conf-bar" style="width:0%"></div></div><span class="conf-bar-pct" id="row1-conf-pct">&mdash;</span></div>
       </div>
 
       <div class="trow" id="row2">
-        <div><div class="date-main">Day after</div><div class="date-sub">May 29, 2026</div></div>
-        <span class="dir"><i class="ti ti-arrow-up" style="font-size:14px"></i> Up</span>
-        <span class="fp" id="row2-price">₱53.10</span>
-        <span class="cbadge" id="row2-change">+₱0.30</span>
-        <div class="conf-bar-cell"><div class="conf-bar-track"><div class="conf-bar-fill" id="row2-conf-bar" style="width:74%"></div></div><span class="conf-bar-pct" id="row2-conf-pct">74%</span></div>
+        <div><div class="date-main">Day after</div><div class="date-sub"></div></div>
+        <span class="dir"></span>
+        <span class="fp" id="row2-price">&mdash;</span>
+        <span class="cbadge flat" id="row2-change">&mdash;</span>
+        <div class="conf-bar-cell"><div class="conf-bar-track"><div class="conf-bar-fill" id="row2-conf-bar" style="width:0%"></div></div><span class="conf-bar-pct" id="row2-conf-pct">&mdash;</span></div>
       </div>
 
       <div class="trow" id="row3">
-        <div><div class="date-main">In 3 days</div><div class="date-sub">May 30, 2026</div></div>
-        <span class="dir"><i class="ti ti-arrow-up" style="font-size:14px"></i> Up</span>
-        <span class="fp" id="row3-price">₱53.35</span>
-        <span class="cbadge" id="row3-change">+₱0.25</span>
-        <div class="conf-bar-cell"><div class="conf-bar-track"><div class="conf-bar-fill" id="row3-conf-bar" style="width:66%"></div></div><span class="conf-bar-pct" id="row3-conf-pct">66%</span></div>
+        <div><div class="date-main">In 3 days</div><div class="date-sub"></div></div>
+        <span class="dir"></span>
+        <span class="fp" id="row3-price">&mdash;</span>
+        <span class="cbadge flat" id="row3-change">&mdash;</span>
+        <div class="conf-bar-cell"><div class="conf-bar-track"><div class="conf-bar-fill" id="row3-conf-bar" style="width:0%"></div></div><span class="conf-bar-pct" id="row3-conf-pct">&mdash;</span></div>
       </div>
 
-      <div class="table-footnote" id="table-footnote">Based on 9+ years of daily prices (2015–now) · Typically accurate within ₱0.45</div>
+      <div class="table-footnote" id="table-footnote"></div>
     </div>
 
   </div>
@@ -525,15 +638,18 @@ html.public-compact .brand-compare-head{padding:16px 20px 10px}
 <script src="js/public-pages.js"></script>
 
 <script>
-const FALLBACK_DATA = {
-  'well-milled':    { name:'Well-Milled', today:52.40, d1:52.80, d2:53.10, d3:53.35, conf1:87, conf2:74, conf3:66, base:50.2, trend:0.15 },
-  'regular-milled': { name:'Regular Milled', today:48.20, d1:48.55, d2:48.85, d3:49.05, conf1:85, conf2:71, conf3:63, base:46.0, trend:0.12 },
-  'special':        { name:'Special', today:58.00, d1:58.50, d2:59.00, d3:59.35, conf1:82, conf2:68, conf3:60, base:55.5, trend:0.17 },
-  'premium':        { name:'Premium', today:63.50, d1:64.10, d2:64.60, d3:65.00, conf1:80, conf2:65, conf3:57, base:60.8, trend:0.19 },
-  'imported-well-milled':    { name:'Imported Well-Milled', today:55.00, d1:55.40, d2:55.75, d3:56.05, conf1:83, conf2:70, conf3:62, base:52.5, trend:0.13 },
-  'imported-regular-milled': { name:'Imported Regular Milled', today:57.50, d1:57.90, d2:58.25, d3:58.55, conf1:81, conf2:67, conf3:59, base:55.0, trend:0.11 },
-  'imported-special':        { name:'Imported Special', today:60.00, d1:60.60, d2:61.10, d3:61.55, conf1:78, conf2:63, conf3:55, base:57.2, trend:0.20 },
-  'imported-premium':        { name:'Imported Premium', today:65.00, d1:65.60, d2:66.10, d3:66.55, conf1:76, conf2:60, conf3:52, base:62.0, trend:0.21 },
+// Display names for the 8 grades. Every price on this page comes from the API. There used to be
+// a table of sample prices here that the page fell back to when the backend was unreachable,
+// shown as "Actual price" under real dates; now the page says the service is unreachable instead.
+const TYPE_NAMES = {
+  'well-milled': 'Well-Milled',
+  'regular-milled': 'Regular Milled',
+  'special': 'Special',
+  'premium': 'Premium',
+  'imported-well-milled': 'Imported Well-Milled',
+  'imported-regular-milled': 'Imported Regular Milled',
+  'imported-special': 'Imported Special',
+  'imported-premium': 'Imported Premium',
 };
 const TAB_TO_API_KEY = {
   'well-milled': 'locWellMilled',
@@ -560,6 +676,12 @@ const ORIGIN_GROUPS = {
     { key: 'imported-premium',        label: 'Premium' },
   ],
 };
+// A forecast move under 10 centavos is shown as 'steady', not as a rise or fall: the model cannot
+// call direction that small better than a coin flip (PAPER_CORRECTIONS.md, 'Up/down reliability').
+const STEADY_PESO = 0.10;
+// "How close past forecasts landed" reports the measured share of hold-out forecasts within this
+// many pesos of the real DA price (meta.json hit_rate_pct), per rice type and forecast day.
+const HIT_BAND = '0.50';
 
 let myChart;
 let activeOrigin = 'local';
@@ -571,11 +693,8 @@ let apiPredictions = null;
 let apiHistorical = null;
 let brandPricesData = null;
 let maePeso = 0.45;
-
-// Tip dismiss persistence: stays dismissed across re-renders/tab switches within the same
-// The tip is no longer dismissible: it now renders inside the brand table, attached to the
-// selected row, so there is nothing to get in the way and nothing to hide. The dismissal
-// storage/reappear-timer machinery that supported the old floating banner is gone with it.
+let liveState = 'loading';   // 'loading' until the first request settles, then 'ready' | 'offline'
+let deepLinkApplied = false;
 
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, c =>
@@ -594,10 +713,13 @@ function formatDateLabel(input) {
 }
 function toPeso(n) { return `₱${Number(n).toFixed(2)}`; }
 function plusPeso(n) { return `${n >= 0 ? '+' : '-'}₱${Math.abs(Number(n)).toFixed(2)}`; }
-function clampConf(v) { return Math.max(0, Math.min(100, Number(v))); }
-function isoPlusDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
+// Local calendar date: toISOString() is UTC, still "yesterday" in the Philippines until 8 AM.
+function localISO(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function num(v) { return v == null || !Number.isFinite(Number(v)) ? null : Number(v); }
 
-function getHistorySeries(apiKey, fallback) {
+function getHistorySeries(apiKey) {
   if (apiPredictions?.ready && apiKey === 'locWellMilled' && Array.isArray(apiPredictions.history?.values)) {
     const vals = apiPredictions.history.values.slice(-14).map(Number);
     const labels = (apiPredictions.history.labels || []).slice(-vals.length).map(formatDateLabel);
@@ -608,25 +730,61 @@ function getHistorySeries(apiKey, fallback) {
     const labels = (apiHistorical.labels || []).slice(-vals.length).map(formatDateLabel);
     return { values: vals.slice(-14), labels: labels.slice(-14) };
   }
-  const base = fallback.base;
-  const t = fallback.trend;
-  const values = [base, base+t*1, base+t*5, base+t*3, base+t*7, base+t*10, base+t*8, base+t*13, base+t*15, base+t*14, base+t*16, base+t*18, base+t*19, fallback.today];
-  const labels = ['May 14','May 15','May 16','May 17','May 18','May 19','May 20','May 21','May 22','May 23','May 24','May 25','May 26','Today'];
-  return { values, labels };
+  return { values: [], labels: [] };
 }
 
-function num(v) { return v == null || !Number.isFinite(Number(v)) ? null : Number(v); }
+/* up = pricier, down = cheaper, flat = under 10 centavos. Colours follow the buyer's view, as on
+   Price History and Charts & Stats: cheaper is green, pricier is red. */
+function trendClass(change) {
+  return Math.abs(change) < STEADY_PESO ? 'flat' : change > 0 ? 'up' : 'down';
+}
+const TREND_ICON = { up: 'ti-arrow-up', down: 'ti-arrow-down', flat: 'ti-minus' };
 
 function setDirection(rowId, change) {
   const el = document.querySelector(`#${rowId} .dir`);
   if (!el) return;
-  const up = change > 0;
-  // A forecast move under 10 centavos is shown as 'steady', not as a rise or fall: the model cannot call direction that small better than a coin flip (PAPER_CORRECTIONS.md, 'Up/down reliability').
-  const flat = Math.abs(change) < 0.10;
-  el.classList.toggle('down', !up && !flat);
-  const icon = flat ? 'ti-minus' : up ? 'ti-arrow-up' : 'ti-arrow-down';
-  const word = flat ? 'Steady' : up ? 'Up' : 'Down';
-  el.innerHTML = `<i class="ti ${icon}" style="font-size:14px"></i> ${word}`;
+  if (change == null) { el.className = 'dir'; el.innerHTML = ''; return; }
+  const cls = trendClass(change);
+  el.className = `dir ${cls}`;
+  const word = { up: 'Up', down: 'Down', flat: 'Steady' }[cls];
+  el.innerHTML = `<i class="ti ${TREND_ICON[cls]}" style="font-size:14px"></i> ${word}`;
+}
+
+/** Tomorrow's move badge (hero corner, chart footer). The arrow used to be fixed markup, so it
+ *  pointed up even beside a drop. Now it follows the change, and a sub-10-centavo move reads
+ *  "Steady" rather than an arrow next to a tiny signed number. */
+function setTrendBadge(wrapId, valId, change) {
+  const wrap = document.getElementById(wrapId);
+  if (!wrap) return;
+  if (change == null) { wrap.hidden = true; return; }
+  const cls = trendClass(change);
+  wrap.hidden = false;
+  wrap.classList.remove('up', 'down', 'flat');
+  wrap.classList.add(cls);
+  const icon = wrap.querySelector('i');
+  if (icon) icon.className = `ti ${TREND_ICON[cls]}`;
+  const val = document.getElementById(valId);
+  if (val) val.textContent = cls === 'flat' ? 'Steady' : plusPeso(change);
+  wrap.title = `${plusPeso(change)} compared with today`;
+}
+
+function setChangeBadge(id, change) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (change == null) { el.className = 'cbadge flat'; el.textContent = '—'; return; }
+  el.className = `cbadge ${trendClass(change)}`;
+  el.textContent = plusPeso(change);
+}
+
+/** "₱0.26 above Sep 28" / "same as Sep 28": a forecast day against the day before it. */
+function vsDay(change, prevLabel) {
+  if (Math.abs(change) < 0.005) return `same as ${prevLabel}`;
+  return `${toPeso(Math.abs(change))} ${change > 0 ? 'above' : 'below'} ${prevLabel}`;
+}
+
+/** Brand name, plus the package when the same name has several products in this grade. */
+function brandLabel(b) {
+  return b.variant ? `${b.brand_name} (${b.variant})` : b.brand_name;
 }
 
 /**
@@ -637,28 +795,30 @@ function setDirection(rowId, change) {
  * gone even after the reader picked a different brand — the advice most worth reading. Attaching
  * it to the selected row makes the subject unambiguous and removes the need to dismiss anything.
  */
-function brandTipRow(b, chg) {
-  // Under 10 centavos over three days is "about the same": no reason to rush or to wait.
-  if (Math.abs(chg) < 0.10) {
-    return `<tr class="bc-tip-row"><td colspan="4">
+function brandTipRow(b) {
+  const name = esc(brandLabel(b));
+  const wrap = (text) => `<tr class="bc-tip-row"><td colspan="4">
     <div class="bc-tip">
       <i class="ti ti-bulb" aria-hidden="true"></i>
-      <span><strong>Tip:</strong> ${esc(b.brand_name)} is expected to stay about the same over the next three days,
-      so there is no need to rush or to wait.</span>
+      <span><strong>Tip:</strong> ${text}</span>
     </div>
   </td></tr>`;
+  if (b.fixed_price) {
+    return wrap(`${name} sells at a fixed government price of ${toPeso(b.todayPrice)}, so it does not follow the market forecast.`);
   }
-  const up = chg >= 0;
+  // The advice speaks about the next three days, so it compares today with day 3 (it used to use
+  // tomorrow's change alone).
+  const chg = b.day3Price - b.todayPrice;
+  // Under 10 centavos over three days is "about the same": no reason to rush or to wait.
+  if (Math.abs(chg) < STEADY_PESO) {
+    return wrap(`${name} is expected to stay about the same over the next three days,
+      so there is no need to rush or to wait.`);
+  }
+  const up = chg > 0;
   const action = up
     ? `buying today at ${toPeso(b.todayPrice)} may cost less than waiting`
     : 'waiting may be cheaper — the price is expected to ease';
-  return `<tr class="bc-tip-row"><td colspan="4">
-    <div class="bc-tip">
-      <i class="ti ti-bulb" aria-hidden="true"></i>
-      <span><strong>Tip:</strong> ${esc(b.brand_name)} is expected to
-      ${up ? 'go up' : 'go down'} over the next three days, so ${action}.</span>
-    </div>
-  </td></tr>`;
+  return wrap(`${name} is expected to ${up ? 'go up' : 'go down'} over the next three days, so ${action}.`);
 }
 
 /**
@@ -690,61 +850,70 @@ function toRange(lo, hi, fallbackPrice, factor = 1) {
   return `${toPeso(lo * factor)} – ${toPeso(hi * factor)}`;
 }
 
-function getForecastDays(tabKey, fallback) {
+/** Measured share of past forecasts within ₱0.50, per forecast day, for this rice type. */
+function hitRates(apiKey) {
+  const m = apiPredictions?.metrics;
+  const hr = m?.by_target?.[apiKey]?.hit_rate_pct?.[HIT_BAND] || m?.hit_rate_pct?.[HIT_BAND];
+  return Array.isArray(hr) ? [num(hr[0]), num(hr[1]), num(hr[2])] : [null, null, null];
+}
+
+function getForecastDays(tabKey) {
   const apiKey = TAB_TO_API_KEY[tabKey];
-  const rows = apiPredictions?.forecasts_by_key?.[apiKey];
-  if (Array.isArray(rows) && rows.length) {
-    const d1 = rows[0];
-    const d2 = rows[1] || rows[0];
-    const d3 = rows[2] || d2;
-    return {
-      d1: Number(d1.price),
-      d2: Number(d2.price),
-      d3: Number(d3.price),
-      // Calibrated 90% band from the API (model/predict.py). Undefined on the mock fallback,
-      // in which case every range helper falls back to showing the single price.
-      lo1: num(d1.low), hi1: num(d1.high),
-      lo2: num(d2.low), hi2: num(d2.high),
-      lo3: num(d3.low), hi3: num(d3.high),
-      bandPct: d1.interval_pct || 90,
-      conf1: clampConf(Number(d1.confidence ?? 0.85) * 100),
-      conf2: clampConf(Number(d2.confidence ?? 0.75) * 100),
-      conf3: clampConf(Number(d3.confidence ?? 0.65) * 100),
-      date1: d1.date || formatDateLabel(d1.date_iso || isoPlusDays(1)),
-      date2: d2.date || formatDateLabel(d2.date_iso || isoPlusDays(2)),
-      date3: d3.date || formatDateLabel(d3.date_iso || isoPlusDays(3)),
-    };
-  }
+  const rows = apiPredictions?.ready ? apiPredictions.forecasts_by_key?.[apiKey] : null;
+  if (!Array.isArray(rows) || !rows.length) return null;
+  const d1 = rows[0];
+  const d2 = rows[1] || rows[0];
+  const d3 = rows[2] || d2;
+  const hit = hitRates(apiKey);
   return {
-    d1: fallback.d1,
-    d2: fallback.d2,
-    d3: fallback.d3,
-    conf1: fallback.conf1,
-    conf2: fallback.conf2,
-    conf3: fallback.conf3,
-    date1: formatDateLabel(isoPlusDays(1)),
-    date2: formatDateLabel(isoPlusDays(2)),
-    date3: formatDateLabel(isoPlusDays(3)),
+    d1: Number(d1.price),
+    d2: Number(d2.price),
+    d3: Number(d3.price),
+    // Calibrated band from the API (model/predict.py).
+    lo1: num(d1.low), hi1: num(d1.high),
+    lo2: num(d2.low), hi2: num(d2.high),
+    lo3: num(d3.low), hi3: num(d3.high),
+    bandPct: d1.interval_pct || 90,
+    hit1: hit[0], hit2: hit[1], hit3: hit[2],
+    date1: d1.date || formatDateLabel(d1.date_iso),
+    date2: d2.date || formatDateLabel(d2.date_iso),
+    date3: d3.date || formatDateLabel(d3.date_iso),
   };
 }
 
-function getTodayPrice(tabKey, fallback) {
-  const apiKey = TAB_TO_API_KEY[tabKey];
-  const p = apiPredictions?.current_prices?.[apiKey];
-  if (p != null && Number(p) > 0) return Number(p);
-  return fallback.today;
+function getTodayPrice(tabKey) {
+  const p = apiPredictions?.ready ? apiPredictions.current_prices?.[TAB_TO_API_KEY[tabKey]] : null;
+  return p != null && Number(p) > 0 ? Number(p) : null;
 }
 
-function initChart(tabKey, data) {
+/** The chart, or a message in its place when there is nothing real to plot. */
+function initChart(data, emptyMessage) {
   const canvas = document.getElementById('fc');
+  const empty = document.getElementById('fc-empty');
+  if (myChart) { myChart.destroy(); myChart = null; }
+  if (!data) {
+    if (empty) { empty.textContent = emptyMessage || ''; empty.hidden = !emptyMessage; }
+    return;
+  }
+  if (empty) empty.hidden = true;
   if (!canvas || typeof Chart === 'undefined') return;
-  if (myChart) myChart.destroy();
 
-  const labels = [...data.history.labels, 'Tomorrow', 'Day 2', 'Day 3'];
-  const actual = [...data.history.values, null, null, null];
-  const predicted = [...Array(Math.max(data.history.values.length - 1, 0)).fill(null), data.today, data.d1, data.d2, data.d3];
-  const upper = predicted.map((v) => (v == null ? null : v + maePeso));
-  const lower = predicted.map((v) => (v == null ? null : Math.max(0, v - maePeso)));
+  const history = data.history.values.length ? data.history : { values: [data.today], labels: ['Today'] };
+  const n = history.values.length;
+  // Forecast days are labelled with their dates, like the history, not "Day 2" / "Day 3".
+  const labels = [...history.labels, data.date1, data.date2, data.date3];
+  const actual = [...history.values, null, null, null];
+  const pad = Array(Math.max(n - 1, 0)).fill(null);
+  const predicted = [...pad, data.today, data.d1, data.d2, data.d3];
+  // The shaded range is the same calibrated band the figures above quote, so the chart and the
+  // "expected range" agree. ±MAE is only a fallback for an API response without a band.
+  const hasBand = data.lo1 != null && data.hi1 != null;
+  const upper = hasBand
+    ? [...pad, data.today, data.hi1, data.hi2, data.hi3]
+    : predicted.map((v) => (v == null ? null : v + maePeso));
+  const lower = hasBand
+    ? [...pad, data.today, data.lo1, data.lo2, data.lo3]
+    : predicted.map((v) => (v == null ? null : Math.max(0, v - maePeso)));
 
   myChart = new Chart(canvas,{
     type:'line',
@@ -754,7 +923,8 @@ function initChart(tabKey, data) {
       {label:'Actual',data:actual,borderColor:'#2d6a4f',borderWidth:2.5,pointRadius:3.5,pointBackgroundColor:'#2d6a4f',pointBorderColor:'#fff',pointBorderWidth:1.5,fill:false,tension:0.4,spanGaps:false},
       {label:'Predicted',data:predicted,borderColor:'#1d4ed8',borderWidth:2.5,borderDash:[5,4],pointRadius:5,pointBackgroundColor:'#1d4ed8',pointBorderColor:'#fff',pointBorderWidth:2,fill:false,tension:0.4,spanGaps:false}
     ]},
-    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{backgroundColor:'#fff',borderColor:'#e4e1d9',borderWidth:1,titleColor:'#1c1c18',bodyColor:'#3d3d35',padding:10,callbacks:{label:c=>c.dataset.label==='Band high'||c.dataset.label==='Band low'?null:'  '+(c.dataset.label==='Actual'?'Real price':'Expected price')+': ₱'+c.parsed.y?.toFixed(2)}}},scales:{x:{ticks:{font:{size:10,family:"'Plus Jakarta Sans',sans-serif"},color:'#8a8a7e',maxRotation:30},grid:{display:false},border:{display:false}},y:{ticks:{font:{size:10,family:"'Plus Jakarta Sans',sans-serif"},color:'#8a8a7e',callback:v=>'₱'+v},grid:{color:'rgba(0,0,0,0.04)'},border:{display:false}}}}
+    // y ticks are formatted to centavos: a bare '₱'+v printed float noise such as ₱49.000000000000001.
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{backgroundColor:'#fff',borderColor:'#e4e1d9',borderWidth:1,titleColor:'#1c1c18',bodyColor:'#3d3d35',padding:10,callbacks:{label:c=>c.dataset.label==='Band high'||c.dataset.label==='Band low'?null:'  '+(c.dataset.label==='Actual'?'Real price':'Expected price')+': ₱'+c.parsed.y?.toFixed(2)}}},scales:{x:{ticks:{font:{size:10,family:"'Plus Jakarta Sans',sans-serif"},color:'#8a8a7e',maxRotation:30},grid:{display:false},border:{display:false}},y:{ticks:{font:{size:10,family:"'Plus Jakarta Sans',sans-serif"},color:'#8a8a7e',callback:v=>'₱'+Number(v).toFixed(2)},grid:{color:'rgba(0,0,0,0.04)'},border:{display:false}}}}
   });
 }
 
@@ -764,19 +934,19 @@ function renderTypeNav() {
   if (!host) return;
   const items = ORIGIN_GROUPS[activeOrigin] || [];
   host.innerHTML = items.map((it) => {
-    const price = getTodayPrice(it.key, FALLBACK_DATA[it.key]);
+    const price = getTodayPrice(it.key);
     return `<button type="button" class="type-nav-item${it.key === activeKey ? ' active' : ''}" data-rice="${it.key}">
       <span>${esc(it.label)}</span>
-      <span class="tn-price">${toPeso(price)}</span>
+      <span class="tn-price">${price == null ? '—' : toPeso(price)}</span>
     </button>`;
   }).join('');
 }
 
-function renderTypicalPrice(d, label) {
+function renderTypicalPrice(price, label) {
   const title = document.getElementById('typical-price-title');
   const val = document.getElementById('typical-price-val');
   if (title) title.textContent = (activeOrigin === 'local' ? 'Local' : 'Imported') + ' ' + label;
-  if (val) val.innerHTML = `${toPeso(d.today)}<span>/kg</span>`;
+  if (val) val.innerHTML = price == null ? '—' : `${toPeso(price)}<span>/kg</span>`;
 }
 
 /* ================= Prices by brand — real GET /api/brand-prices data ================= */
@@ -789,11 +959,14 @@ function renderTypicalPrice(d, label) {
 // picking a brand is a one-click affair instead of hunting across all 4 grades.
 function brandRowsForType(tabKey) {
   const apiKey = TAB_TO_API_KEY[tabKey];
-  const fallback = FALLBACK_DATA[tabKey];
-  const today = getTodayPrice(tabKey, fallback);
-  const fc = getForecastDays(tabKey, fallback);
+  const today = getTodayPrice(tabKey);
+  const fc = getForecastDays(tabKey);
+  if (today == null || !fc) return [];
   const cat = (brandPricesData?.categories || []).find((c) => c.canonical_key === apiKey);
-  const rows = (cat?.brands || []).map((b) => {
+  const brands = cat?.brands || [];
+  const nameCount = {};
+  brands.forEach((b) => { nameCount[b.brand_name] = (nameCount[b.brand_name] || 0) + 1; });
+  const rows = brands.map((b) => {
     // Government-set brands (e.g. NFA) hold a fixed price — never scaled by the category band.
     const fixed = !!b.fixed_price && b.price != null;
     const hasWeight = !fixed && b.estimated && b.weight_pct != null;
@@ -806,7 +979,11 @@ function brandRowsForType(tabKey) {
     // DA price, this equals 1 + weight_pct/100 exactly.
     const scale = fixed ? 1 : (today > 0 ? todayPrice / today : 1);
     const tomorrowPrice = fixed ? todayPrice : fc.d1 * scale;
-    return { ...b, gradeKey: tabKey, todayPrice, tomorrowPrice, scale, estimated: !!hasWeight, fixed_price: fixed };
+    const day3Price = fixed ? todayPrice : fc.d3 * scale;
+    // One brand name can carry several products in a grade (Doña Maria Jasponica Brown / White,
+    // Harvester's Dinorado / Thai Jasmine …). Their package tells the rows apart.
+    const variant = nameCount[b.brand_name] > 1 && b.package ? b.package : '';
+    return { ...b, gradeKey: tabKey, todayPrice, tomorrowPrice, day3Price, scale, variant, estimated: !!hasWeight, fixed_price: fixed };
   });
   return rows.sort((a, b) => a.todayPrice - b.todayPrice);
 }
@@ -839,21 +1016,19 @@ function renderBrandCompare() {
   const originLabel = activeOrigin === 'local' ? 'Local' : 'Imported';
   const typeLabel = group ? `${originLabel} ${group.label}` : originLabel;
   if (note) {
-    note.textContent = `${typeLabel} brands, cheapest to priciest — click a row to see that brand in the snapshot, chart, and summary above.`;
+    note.textContent = `${typeLabel} brands, cheapest to priciest. Shop prices are estimates: the grade's DA price adjusted by how each brand usually sells against it.`;
   }
   if (!tbody) return;
-  if (!brandPricesData) {
-    tbody.innerHTML = `<tr><td colspan="4" class="bc-empty">Loading…</td></tr>`;
+  const message = (text) => {
+    tbody.innerHTML = `<tr><td colspan="4" class="bc-empty">${text}</td></tr>`;
     renderPagination(0, 0);
-    return;
-  }
+  };
+  if (liveState === 'loading') { message('Loading…'); return; }
+  if (!apiPredictions?.ready) { message('Cannot reach the price service right now.'); return; }
+  if (!brandPricesData) { message('Brand prices cannot be loaded right now.'); return; }
 
   const rows = brandRowsForType(activeKey);
-  if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="4" class="bc-empty">No verified brands for ${esc(typeLabel)} yet.</td></tr>`;
-    renderPagination(0, 0);
-    return;
-  }
+  if (!rows.length) { message(`No verified brands for ${esc(typeLabel)} yet.`); return; }
 
   const totalPages = Math.max(1, Math.ceil(rows.length / BC_PAGE_SIZE));
   if (bcPage >= totalPages) bcPage = totalPages - 1;
@@ -861,29 +1036,74 @@ function renderBrandCompare() {
   const pageRows = rows.slice(bcPage * BC_PAGE_SIZE, bcPage * BC_PAGE_SIZE + BC_PAGE_SIZE);
 
   // Band for this category, scaled per brand by the same factor used for its price.
-  const catFc = getForecastDays(activeKey, FALLBACK_DATA[activeKey] || {});
+  const catFc = getForecastDays(activeKey);
   tbody.innerHTML = pageRows.map((b) => {
     const chg = b.tomorrowPrice - b.todayPrice;
     const selected = b.id === activeBrandId;
-    // Today is a measured/surveyed price and stays exact; Tomorrow is a forecast and shows its
-    // calibrated range. The "Estimated · surveyed …" sub-line was removed from every row — it
-    // repeated on nearly all of them and said nothing that distinguished one brand from another.
+    // Today is a surveyed/estimated shop price and stays exact; Tomorrow is a forecast and shows
+    // its calibrated range.
     const tomorrow = b.fixed_price
       ? `${toPeso(b.todayPrice)} (fixed)`
       : toRange(catFc.lo1, catFc.hi1, b.tomorrowPrice / (b.scale || 1), b.scale);
-    // Under 10 centavos is shown as steady (same rule as the forecast table above).
-    const chgCls = Math.abs(chg) < 0.10 ? 'bc-flat' : chg > 0 ? 'bc-up' : 'bc-down';
     const row = `<tr class="${selected ? 'bc-selected' : ''}" data-brand-id="${b.id}">
-      <td><div class="bc-brand">${esc(b.brand_name)}</div></td>
+      <td><div class="bc-brand">${esc(b.brand_name)}</div>${b.variant ? `<div class="bc-variant">${esc(b.variant)}</div>` : ''}</td>
       <td class="bc-peso">${toPeso(b.todayPrice)}</td>
       <td class="bc-peso bc-range">${tomorrow}</td>
-      <td class="${chgCls}">${plusPeso(chg)}</td>
+      <td class="bc-${trendClass(chg)}">${plusPeso(chg)}</td>
     </tr>`;
     // The tip belongs to whichever brand is selected, so it is rendered as the very next row.
-    return selected ? row + brandTipRow(b, chg) : row;
+    return selected ? row + brandTipRow(b) : row;
   }).join('');
 
   renderPagination(totalPages, bcPage);
+}
+
+function setHit(n, pct) {
+  const w = pct == null ? '0%' : `${Math.round(pct)}%`;
+  const t = pct == null ? '—' : `${Math.round(pct)}%`;
+  document.getElementById(`conf${n}`).style.width = w;
+  document.getElementById(`conf${n}-pct`).textContent = t;
+  document.getElementById(`row${n}-conf-bar`).style.width = w;
+  document.getElementById(`row${n}-conf-pct`).textContent = t;
+}
+
+/** Everything blank, with the reason, when there is no live forecast for this rice type. */
+function renderUnavailable(key, group) {
+  const originLabel = activeOrigin === 'local' ? 'Local' : 'Imported';
+  const msg = liveState === 'loading'
+    ? 'Loading live prices…'
+    : apiPredictions?.ready
+      ? `No forecast is available for ${originLabel} ${group.label} right now.`
+      : 'Live prices can’t be reached right now. This page will update by itself once the price service is back.';
+  document.getElementById('hero-title').innerHTML = `${esc(TYPE_NAMES[key])}<br><em>price outlook</em>`;
+  document.getElementById('hero-sub').textContent = msg;
+  const clearBtn = document.getElementById('brand-clear-btn');
+  if (clearBtn) clearBtn.hidden = true;
+  ['kpi-today', 'kpi-tomorrow', 'kpi-day2', 'kpi-day3'].forEach((id) => setKpi(id, '—', false));
+  document.getElementById('kpi-today-sub').textContent = 'DA market price · per kilo';
+  ['kpi-tomorrow-sub', 'kpi-day2-sub', 'kpi-day3-sub', 'cb-sub'].forEach((id) => {
+    document.getElementById(id).textContent = '';
+  });
+  setTrendBadge('kpi-tomorrow-trend', 'kpi-tomorrow-trend-val', null);
+  setTrendBadge('cb-change', 'cb-change-val', null);
+  document.getElementById('chart-eyebrow').textContent = `How the price is moving · ${TYPE_NAMES[key]}`;
+  document.getElementById('cb-tomorrow').textContent = '—';
+  ['bar-today', 'bar-tomorrow', 'bar-dayafter', 'bar-day3'].forEach((id) => {
+    const bar = document.getElementById(id);
+    bar.style.width = '0%';
+    bar.querySelector('.cb-tval').textContent = '';
+  });
+  [1, 2, 3].forEach((n) => {
+    setHit(n, null);
+    document.getElementById(`row${n}-price`).textContent = '—';
+    setChangeBadge(`row${n}-change`, null);
+    setDirection(`row${n}`, null);
+    document.querySelector(`#row${n} .date-sub`).textContent = '';
+  });
+  document.getElementById('table-sub').textContent = `${TYPE_NAMES[key]} · per kilo`;
+  renderTypicalPrice(null, group.label);
+  renderBrandCompare();
+  initChart(null, liveState === 'loading' ? '' : msg);
 }
 
 /* ================= Main render ================= */
@@ -893,13 +1113,18 @@ function renderBrandCompare() {
 // base_price × (1 + weight_pct/100) formula used everywhere else in the app; never a separate
 // invented forecast. The sidebar (rice-type nav + Typical price) stays category-level always.
 function updateUI(key) {
-  const fallback = FALLBACK_DATA[key];
-  if (!fallback) return;
-  const today = getTodayPrice(key, fallback);
-  const fc = getForecastDays(key, fallback);
-  const catD = { ...fallback, today, ...fc };
-  const catHistory = getHistorySeries(TAB_TO_API_KEY[key], fallback);
-  const group = (ORIGIN_GROUPS[activeOrigin] || []).find((g) => g.key === key) || { label: catD.name };
+  const name = TYPE_NAMES[key];
+  if (!name) return;
+  const group = (ORIGIN_GROUPS[activeOrigin] || []).find((g) => g.key === key) || { label: name };
+  renderTypeNav();
+  const today = getTodayPrice(key);
+  const fc = getForecastDays(key);
+  if (today == null || !fc) {
+    renderUnavailable(key, group);
+    return;
+  }
+  const catD = { name, today, ...fc };
+  const catHistory = getHistorySeries(TAB_TO_API_KEY[key]);
 
   const brandRow = getSelectedBrandRow();
   const factor = brandRow ? (brandRow.scale || 1) : 1;   // brand today / category today (see brandRowsForType)
@@ -912,10 +1137,11 @@ function updateUI(key) {
   const band = fixedRow
     ? () => toPeso(brandRow.todayPrice)
     : (lo, hi, price) => toRange(catD[lo], catD[hi], catD[price], factor);
+  const scaledBand = (k) => (fixedRow ? brandRow.todayPrice : catD[k] == null ? null : catD[k] * factor);
   const history = fixedRow
     ? { values: catHistory.values.map(() => brandRow.todayPrice), labels: catHistory.labels }
     : brandRow ? { values: catHistory.values.map((v) => v * factor), labels: catHistory.labels } : catHistory;
-  const displayName = brandRow ? brandRow.brand_name : catD.name;
+  const displayName = brandRow ? brandLabel(brandRow) : catD.name;
 
   const chg1 = d.d1 - d.today;
   const chg2 = d.d2 - d.d1;
@@ -924,80 +1150,75 @@ function updateUI(key) {
   const originLabel = activeOrigin === 'local' ? 'Local' : 'Imported';
 
   // Hero: Today / Tomorrow / Day after / Day after that
-  document.getElementById('hero-title').innerHTML = `${esc(displayName)}<br><em>price outlook</em>`;
+  document.getElementById('hero-title').innerHTML = `${esc(brandRow ? brandRow.brand_name : catD.name)}<br><em>price outlook</em>`;
   document.getElementById('hero-sub').textContent = brandRow
-    ? `${originLabel} ${group.label} · ${brandRow.brand_name} · per kilo`
+    ? `${originLabel} ${group.label} · ${brandLabel(brandRow)} · per kilo`
     : `${originLabel} ${group.label} · per kilo`;
   const clearBtn = document.getElementById('brand-clear-btn');
   if (clearBtn) clearBtn.hidden = !brandRow;
   // Today is a measured price, so it stays a single figure. The three forecast days show the
-  // calibrated range instead — see toRange().
+  // calibrated range instead — see toRange(). A brand's "today" is an estimate from the grade
+  // price (or a fixed government price), so it is labelled as such, not as an actual price.
   document.getElementById('kpi-today').textContent = toPeso(d.today);
-  document.getElementById('kpi-today-sub').textContent = 'Actual price · per kilo';
+  document.getElementById('kpi-today-sub').textContent = !brandRow
+    ? 'DA market price · per kilo'
+    : fixedRow ? 'Fixed government price · per kilo' : 'Estimated shop price · per kilo';
   const hasBand = catD.lo1 != null && !fixedRow;
   const bandNote = hasBand ? ` · expected range (${catD.bandPct || 90}% of the time)` : '';
   setKpi('kpi-tomorrow', band('lo1', 'hi1', 'd1'), hasBand);
   document.getElementById('kpi-tomorrow-sub').textContent = d.date1 + bandNote;
-  document.getElementById('kpi-tomorrow-trend-val').textContent = plusPeso(chg1);
+  setTrendBadge('kpi-tomorrow-trend', 'kpi-tomorrow-trend-val', chg1);
   setKpi('kpi-day2', band('lo2', 'hi2', 'd2'), hasBand);
-  document.getElementById('kpi-day2-sub').textContent = `${d.date2} · ${plusPeso(chg2)} more`;
+  document.getElementById('kpi-day2-sub').textContent = `${d.date2} · ${vsDay(chg2, d.date1)}`;
   setKpi('kpi-day3', band('lo3', 'hi3', 'd3'), hasBand);
-  document.getElementById('kpi-day3-sub').textContent = `${d.date3} · ${plusPeso(chg3)} more`;
+  document.getElementById('kpi-day3-sub').textContent = `${d.date3} · ${vsDay(chg3, d.date2)}`;
 
   document.getElementById('chart-eyebrow').textContent = `How the price is moving · ${displayName}`;
   document.getElementById('cb-tomorrow').textContent = band('lo1', 'hi1', 'd1');
-  document.getElementById('cb-change-val').textContent = plusPeso(chg1);
+  setTrendBadge('cb-change', 'cb-change-val', chg1);
   document.getElementById('cb-sub').textContent = `${displayName} · per kilo · ${d.date1}`;
 
   const maxP = Math.max(d.today, d.d1, d.d2, d.d3) * 1.02;
-  const pToday = Math.round((d.today/maxP)*100);
-  const pD1 = Math.round((d.d1/maxP)*100);
-  const pD2 = Math.round((d.d2/maxP)*100);
-  const pD3 = Math.round((d.d3/maxP)*100);
-  document.getElementById('bar-today').style.width = pToday+'%';
-  document.getElementById('bar-today').querySelector('.cb-tval').textContent = toPeso(d.today);
-  document.getElementById('bar-tomorrow').style.width = pD1+'%';
-  document.getElementById('bar-tomorrow').querySelector('.cb-tval').textContent = toPeso(d.d1);
-  document.getElementById('bar-dayafter').style.width = pD2+'%';
-  document.getElementById('bar-dayafter').querySelector('.cb-tval').textContent = toPeso(d.d2);
-  document.getElementById('bar-day3').style.width = pD3+'%';
-  document.getElementById('bar-day3').querySelector('.cb-tval').textContent = toPeso(d.d3);
+  [['bar-today', d.today], ['bar-tomorrow', d.d1], ['bar-dayafter', d.d2], ['bar-day3', d.d3]].forEach(([id, v]) => {
+    const bar = document.getElementById(id);
+    bar.style.width = `${Math.round((v / maxP) * 100)}%`;
+    bar.querySelector('.cb-tval').textContent = toPeso(v);
+  });
 
-  document.getElementById('conf1').style.width = `${Math.round(d.conf1)}%`;
-  document.getElementById('conf1-pct').textContent = `${Math.round(d.conf1)}%`;
-  document.getElementById('conf2').style.width = `${Math.round(d.conf2)}%`;
-  document.getElementById('conf2-pct').textContent = `${Math.round(d.conf2)}%`;
-  document.getElementById('conf3').style.width = `${Math.round(d.conf3)}%`;
-  document.getElementById('conf3-pct').textContent = `${Math.round(d.conf3)}%`;
+  // Hit rates are the grade's; a brand is priced from its grade's forecast, so they apply to it too.
+  setHit(1, d.hit1);
+  setHit(2, d.hit2);
+  setHit(3, d.hit3);
+  const confNote = document.getElementById('conf-note');
+  if (confNote) {
+    confNote.textContent = `Share of past ${originLabel} ${group.label} forecasts that landed within ₱0.50 of the real DA price, checked on days the model never saw.`;
+  }
 
   document.getElementById('table-sub').textContent = `${displayName} · per kilo`;
   document.getElementById('row1-price').textContent = band('lo1', 'hi1', 'd1');
-  document.getElementById('row1-change').textContent = plusPeso(chg1);
+  setChangeBadge('row1-change', chg1);
   document.getElementById('row2-price').textContent = band('lo2', 'hi2', 'd2');
-  document.getElementById('row2-change').textContent = plusPeso(chg2);
+  setChangeBadge('row2-change', chg2);
   document.getElementById('row3-price').textContent = band('lo3', 'hi3', 'd3');
-  document.getElementById('row3-change').textContent = plusPeso(chg3);
-  // The Direction cells were hardcoded "↑ Up" in the markup and never updated, so a row could
-  // read "Up" beside a change of -P7.80. They now follow the actual change.
+  setChangeBadge('row3-change', chg3);
   setDirection('row1', chg1);
   setDirection('row2', chg2);
   setDirection('row3', chg3);
-  document.getElementById('row1-conf-bar').style.width = `${Math.round(d.conf1)}%`;
-  document.getElementById('row1-conf-pct').textContent = `${Math.round(d.conf1)}%`;
-  document.getElementById('row2-conf-bar').style.width = `${Math.round(d.conf2)}%`;
-  document.getElementById('row2-conf-pct').textContent = `${Math.round(d.conf2)}%`;
-  document.getElementById('row3-conf-bar').style.width = `${Math.round(d.conf3)}%`;
-  document.getElementById('row3-conf-pct').textContent = `${Math.round(d.conf3)}%`;
   document.querySelector('#row1 .date-sub').textContent = d.date1;
   document.querySelector('#row2 .date-sub').textContent = d.date2;
   document.querySelector('#row3 .date-sub').textContent = d.date3;
 
   // The buying tip is rendered by renderBrandCompare() as a row beneath the selected brand.
 
-  renderTypeNav();
-  renderTypicalPrice(catD, group.label);
+  renderTypicalPrice(catD.today, group.label);
   renderBrandCompare();
-  initChart(key, { history, today: d.today, d1: d.d1, d2: d.d2, d3: d.d3 });
+  initChart({
+    history, today: d.today, d1: d.d1, d2: d.d2, d3: d.d3,
+    lo1: scaledBand('lo1'), hi1: scaledBand('hi1'),
+    lo2: scaledBand('lo2'), hi2: scaledBand('hi2'),
+    lo3: scaledBand('lo3'), hi3: scaledBand('hi3'),
+    date1: d.date1, date2: d.date2, date3: d.date3,
+  });
 }
 
 function selectOrigin(origin) {
@@ -1058,12 +1279,12 @@ document.addEventListener('click', (e) => {
 
 // "Data as of {date}" for a category that had real data today shows "Today" (matches the
 // original static copy's intent) — otherwise the real latest date, honestly, rather than always
-// claiming "Today" regardless of how stale the underlying data actually is.
+// claiming "Today" regardless of how stale the underlying data actually is. Compared with the
+// visitor's local date, not UTC.
 function describeLastUpdated(pred) {
   const iso = pred?.last_data_date || pred?.as_of_date;
   if (!iso) return null;
-  const today = new Date().toISOString().slice(0, 10);
-  return iso === today ? 'Today' : formatDateLabel(iso);
+  return iso === localISO(new Date()) ? 'Today' : formatDateLabel(iso);
 }
 
 function renderSystemStatus(systemOk) {
@@ -1100,61 +1321,81 @@ function applyDeepLink() {
 
 async function loadLiveData() {
   let pred = null;
+  let hist = null;
+  let bp = null;
   try {
-    const [p, hist, bp] = await Promise.all([
+    [pred, hist, bp] = await Promise.all([
       AgriPricePH.API?.predictions?.(),
       AgriPricePH.API?.historical?.().catch(() => null),
       AgriPricePH.API?.brandPrices?.().catch(() => null),
     ]);
-    pred = p;
-    if (pred?.ready) {
-      apiPredictions = pred;
-      maePeso = Number(pred.metrics?.mae_peso ?? 0.45);
-    }
-    if (hist?.historical) apiHistorical = hist;
-    if (bp?.ready) brandPricesData = bp;
   } catch {
-    // keep fallback sample data
+    // price service unreachable: the page shows that state (see renderUnavailable)
   }
+  if (pred?.ready) {
+    apiPredictions = pred;
+    maePeso = Number(pred.metrics?.mae_peso ?? 0.45);
+  }
+  if (hist?.historical) apiHistorical = hist;
+  if (bp?.ready) brandPricesData = bp;
+  liveState = apiPredictions?.ready ? 'ready' : 'offline';
 
   const footnote = document.getElementById('table-footnote');
   if (footnote) {
     // Prefer the measured next-day hit rate over an MAE adjective: "92 of 100 forecasts landed
     // within ₱1.00" is checkable, whereas an average error invites "accurate compared to what?".
-    const hr = pred?.metrics?.hit_rate_pct?.['1.00'];
+    const hr = apiPredictions?.metrics?.hit_rate_pct?.['1.00'];
     const hit1 = Array.isArray(hr) ? Number(hr[0]) : Number(hr);
-    footnote.textContent = Number.isFinite(hit1)
-      ? `Based on 9+ years of daily prices (2015–now) · ${Math.round(hit1)} of 100 next-day forecasts landed within ₱1.00 on unseen data`
-      : `Based on 9+ years of daily prices (2015–now) · Typically within ${toPeso(maePeso)} per kilo`;
+    footnote.textContent = !apiPredictions?.ready
+      ? ''
+      : Number.isFinite(hit1)
+        ? `Based on 9+ years of daily prices (2015–now) · ${Math.round(hit1)} of 100 next-day forecasts landed within ₱1.00 on unseen data`
+        : `Based on 9+ years of daily prices (2015–now) · Typically within ${toPeso(maePeso)} per kilo`;
   }
 
   const lastUpdatedEl = document.getElementById('last-updated-val');
-  const lastUpdated = describeLastUpdated(pred);
-  if (lastUpdatedEl) lastUpdatedEl.textContent = lastUpdated || 'Unavailable';
+  if (lastUpdatedEl) lastUpdatedEl.textContent = describeLastUpdated(pred) || 'Unavailable';
   renderSystemStatus(!!pred?.ready);
 
-  applyDeepLink();
+  if (!deepLinkApplied) {
+    applyDeepLink();
+    deepLinkApplied = true;
+  }
   updateUI(activeKey);
 }
 
-// Re-check reachability every 2 minutes so "System status"/"Last updated" reflect reality even
-// on a tab left open for a while, without needing a full page reload.
+// Re-check every 2 minutes. If the service was unreachable and is back, or a newer DA bulletin
+// has landed, reload the data and redraw; otherwise just refresh the status lines.
 setInterval(async () => {
+  let pred = null;
   try {
-    const pred = await AgriPricePH.API?.predictions?.();
-    if (pred?.ready) {
-      apiPredictions = pred;
-      maePeso = Number(pred.metrics?.mae_peso ?? maePeso);
-    }
-    const lastUpdatedEl = document.getElementById('last-updated-val');
-    if (lastUpdatedEl) lastUpdatedEl.textContent = describeLastUpdated(pred) || 'Unavailable';
-    renderSystemStatus(!!pred?.ready);
+    pred = await AgriPricePH.API?.predictions?.();
   } catch {
-    renderSystemStatus(false);
+    pred = null;
   }
+  if (pred?.ready && (!apiPredictions?.ready || pred.last_data_date !== apiPredictions.last_data_date)) {
+    await loadLiveData();
+    return;
+  }
+  const lastUpdatedEl = document.getElementById('last-updated-val');
+  if (lastUpdatedEl) lastUpdatedEl.textContent = describeLastUpdated(pred) || 'Unavailable';
+  renderSystemStatus(!!pred?.ready);
 }, 120000);
 
+updateUI(activeKey);   // "Loading…" state until the first response
 loadLiveData();
+
+// Prices by brand (i): hover or keyboard focus shows the description (CSS); a click or tap keeps
+// it open until Esc or a click anywhere else.
+(function bindBrandInfo() {
+  const wrap = document.getElementById('bc-info');
+  const btn = document.getElementById('bc-info-btn');
+  if (!wrap || !btn) return;
+  const set = (open) => { wrap.classList.toggle('is-open', open); btn.setAttribute('aria-expanded', open ? 'true' : 'false'); };
+  btn.addEventListener('click', (e) => { e.stopPropagation(); set(!wrap.classList.contains('is-open')); });
+  document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) set(false); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && wrap.classList.contains('is-open')) { set(false); btn.focus(); } });
+})();
 
 // Back to top: show once the visitor has scrolled down a bit
 document.addEventListener('DOMContentLoaded', () => {

@@ -2208,6 +2208,40 @@ matching the forecast table. Verified live: Planters −₱0.02 (range ₱49.79�
 **Not changed:** the brand *Today* for those three grades is still priced off the Aug 1 bracket; whether the catalog
 should use the latest DA price or DTI/DA brackets is the open [DTI] item below.
 
+### Round — Public site brought in line with the paper; account security (2026-09-27)
+**Forecast horizon and model wording (home page).** The landing page said "2 days ahead", "the next two days" (FAQ) and
+"tomorrow and the day after" under a "3-Day Forecast" heading, and credited "Our LSTM-based forecasting model". The
+model forecasts 3 days (`HORIZON=3`, the paper's 48–72 h) and the published forecast is the adaptive ensemble, so the
+copy now says three days and describes the ensemble (an LSTM-based model blended with ARIMA and a Kalman filter,
+weighted by recent accuracy). No paper change needed; the site had drifted from it.
+**Forecast confidence (Price Forecast page).** "How sure are we 93% / 92% / 92%" was `_confidence_ratio`, a linear
+rescaling of MAE onto 55–95%, not a probability, shown beside the calibrated "90% of the time" range. It is replaced by
+the paper's own measure: the share of hold-out forecasts within PHP 0.50, per rice type and forecast day
+(`metrics.by_target[*].hit_rate_pct["0.50"]`; pooled 87.0 / 84.0 / 81.9% as in Ch. 4). The chart's shaded band now
+draws the same conformal low/high the figures quote instead of ±MAE. The API's `confidence` field is unchanged.
+**No invented prices.** When the API was unreachable, Price Forecast and the home page hero showed `data.js` sample
+prices labelled "Actual price" / "today". Both now say live prices cannot be reached.
+**Retailer accounts.** `PUT /api/auth/profile` and `POST /api/auth/change-password` trusted the email in the request
+body, so anyone could re-email any account and then take it over via "Forgot password". Login/signup now issue a
+server-side session token (SHA-256-hashed in `agriprice_users.db` → `user_sessions`, 24 h, or 30 days with "Remember
+me"), and both endpoints act only on the session's account. Change-password has its own lockout; password changes and
+resets sign out other sessions. If the paper describes account security, it should say this.
+
+### Round — Retailer profile works like the admin profile; new stored personal data (2026-09-28)
+`public/profile.html` now behaves like Admin → Account Profile: profile photo (resized to ≤240px in the browser),
+editable display name, role/title, email (still the login), phone and bio, Additional Information label/value rows, and
+Recent Activity. **New personal data kept per retailer account** (`model/agriprice_users.db`): `title`, `phone`, `bio`,
+`avatar` (small JPEG data URL), `extra_info` (JSON rows) — all optional and user-entered — and a `user_activity` table of
+the account's own sign-in/security events (account created, signed in/out, failed sign-in, lockout, password
+change/reset, login-email change, admin password reset/(de)activation), **time + event only, no IP address**, newest 100
+per account. `privacy.erase_data_subject` and `purge_expired_accounts` now also remove the account's sessions and
+activity; `/api/privacy-status` lists the new fields. The paper's Data Privacy paragraph ("the public-facing system does
+not log end-user IP addresses") still holds; if the paper lists what personal data is stored, add these fields.
+**[VERIFY] pre-existing, not changed here:** `POST /api/auth/forgot-password` writes the retailer's email and client IP
+into the admin System Logs (`_add_log(... from {client_key})`), which contradicts that same paragraph's "contain no
+evaluator or end-user personal data" / "does not log end-user IP addresses". Either redact it (`privacy.redact_email`,
+drop the IP) or change the paper.
+
 ---
 
 ## Still [VERIFY] / [ACTION]

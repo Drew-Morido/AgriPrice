@@ -56,7 +56,9 @@
         repeating-linear-gradient(115deg, rgba(255,255,255,.035) 0px, rgba(255,255,255,.035) 1px, transparent 1px, transparent 22px),
         radial-gradient(ellipse 480px 360px at 94% -14%, rgba(82,176,122,.4), transparent 60%),
         radial-gradient(ellipse 440px 420px at -12% 118%, rgba(53,115,80,.55), transparent 62%),
-        linear-gradient(135deg, var(--lp-green-900, #162e20) 0%, #0d2117 52%, #1c3d28 100%);
+        /* A literal, not var(--lp-green-900): dark mode repurposes that var as a near-white text
+           colour, which turned the banner's left side pale behind its white heading. */
+        linear-gradient(135deg, #162e20 0%, #0d2117 52%, #1c3d28 100%);
       border-radius: 24px;
       padding: 40px 40px 34px;
       box-shadow: 0 12px 36px rgba(8,34,18,.14), 0 4px 12px rgba(8,34,18,.08);
@@ -175,7 +177,9 @@
     html.theme-dark .rc-note,
     html.theme-dark .rc-empty,
     html.theme-dark .rc-sib { background: #16261d; }
-    html.theme-dark .rc-modal::-webkit-scrollbar-thumb { border-color: #16261d; }
+    html.theme-dark .rc-modal::-webkit-scrollbar-thumb,
+    html.theme-dark .rc-modal-body::-webkit-scrollbar-thumb { border-color: #16261d; }
+    html.theme-dark .rc-modal-media { background: #1b3326; }
     html.theme-dark .rc-card-price,
     html.theme-dark .rc-card-variety,
     html.theme-dark .rc-card-more,
@@ -342,26 +346,30 @@
       opacity: 0; pointer-events: none; transition: opacity .18s ease;
     }
     .rc-modal-overlay.is-open { opacity: 1; pointer-events: auto; }
+    /* Two columns: the photo on the left, the details on the right. Only the details column
+       scrolls, so the photo stays in view while reading instead of competing with the text for
+       the same vertical space. Stacks into one column on narrow screens (see the media query). */
     .rc-modal {
       position: relative;
-      background: #fff; border-radius: 20px; width: 100%; max-width: 520px; max-height: 86vh; overflow-y: auto;
+      display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+      background: #fff; border-radius: 20px; width: 100%; max-width: 960px; height: min(640px, 88vh); overflow: hidden;
       box-shadow: 0 30px 70px rgba(8,20,14,.35);
       transform: scale(.93) translateY(14px); opacity: 0;
       transition: transform .22s cubic-bezier(.22,.9,.32,1.1), opacity .18s ease;
-      /* No track fill and no arrow buttons, so the scrollbar reads as part of the rounded edge
-         itself rather than a separate strip bolted onto it — just a slim, muted thumb, still
-         visible enough to signal "this scrolls." */
-      scrollbar-width: thin; scrollbar-color: rgba(53,115,80,.35) transparent;
     }
     .rc-modal-overlay.is-open .rc-modal { transform: scale(1) translateY(0); opacity: 1; }
-    .rc-modal::-webkit-scrollbar { width: 7px; }
-    .rc-modal::-webkit-scrollbar-track { background: transparent; }
-    .rc-modal::-webkit-scrollbar-thumb {
+    /* No track fill and no arrow buttons, so the scrollbar reads as part of the rounded edge
+       itself rather than a separate strip bolted onto it — just a slim, muted thumb, still
+       visible enough to signal "this scrolls." */
+    .rc-modal-body, .rc-modal { scrollbar-width: thin; scrollbar-color: rgba(53,115,80,.35) transparent; }
+    .rc-modal-body::-webkit-scrollbar, .rc-modal::-webkit-scrollbar { width: 7px; }
+    .rc-modal-body::-webkit-scrollbar-track, .rc-modal::-webkit-scrollbar-track { background: transparent; }
+    .rc-modal-body::-webkit-scrollbar-thumb, .rc-modal::-webkit-scrollbar-thumb {
       background: rgba(53,115,80,.35); border-radius: 99px;
       border: 2px solid #fff; background-clip: padding-box;
     }
-    .rc-modal::-webkit-scrollbar-thumb:hover { background: rgba(53,115,80,.6); background-clip: padding-box; }
-    .rc-modal::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+    .rc-modal-body::-webkit-scrollbar-thumb:hover, .rc-modal::-webkit-scrollbar-thumb:hover { background: rgba(53,115,80,.6); background-clip: padding-box; }
+    .rc-modal-body::-webkit-scrollbar-button, .rc-modal::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
     .rc-modal-close {
       position: absolute; top: 12px; right: 12px; z-index: 2;
       width: 32px; height: 32px; border-radius: 50%; border: none; cursor: pointer;
@@ -370,11 +378,97 @@
     }
     .rc-modal-close svg { width: 16px; height: 16px; }
     .rc-modal-close:hover { background: rgba(8,20,14,.75); }
-    .rc-modal-media { width: 100%; aspect-ratio: 16 / 9; background: var(--lp-green-50, #edf8f3); overflow: hidden; }
-    .rc-modal-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .rc-modal-media { position: relative; height: 100%; min-height: 0; background: var(--lp-green-50, #edf8f3); overflow: hidden; }
+    .rc-modal-media img { width: 100%; height: 100%; object-fit: cover; display: block; cursor: zoom-in; }
     .rc-modal-media .rc-card-placeholder svg { width: 46px; height: 46px; }
-    .rc-modal-body { padding: 22px 24px 26px; }
+    .rc-modal-body { padding: 28px 30px 30px; overflow-y: auto; min-height: 0; }
+
+    /* "Representative photo" tag (cards + modal) for products without their own photo. */
+    .rc-photo-tag {
+      position: absolute; top: 8px; left: 8px; z-index: 1;
+      font-size: 9.5px; font-weight: 700; letter-spacing: .02em; line-height: 1;
+      color: #fff; background: rgba(8,20,14,.62); backdrop-filter: blur(4px);
+      border-radius: 99px; padding: 5px 8px; pointer-events: none;
+    }
+    .rc-modal-media .rc-photo-tag { top: 14px; left: 14px; font-size: 11px; padding: 6px 10px; }
+    /* Zoom button: bottom-right of the modal photo. */
+    .rc-zoom-btn {
+      position: absolute; right: 14px; bottom: 14px; z-index: 2;
+      display: inline-flex; align-items: center; gap: 6px;
+      font: inherit; font-size: 12.5px; font-weight: 700; color: #0f1e14;
+      background: rgba(255,255,255,.92); border: none; border-radius: 99px; padding: 8px 13px 8px 10px;
+      box-shadow: 0 6px 18px rgba(8,20,14,.25); cursor: pointer;
+      transition: transform .15s ease, background .15s ease, box-shadow .15s ease;
+    }
+    .rc-zoom-btn svg { width: 17px; height: 17px; }
+    .rc-zoom-btn:hover { background: #fff; transform: translateY(-1px); box-shadow: 0 10px 24px rgba(8,20,14,.3); }
+    .rc-zoom-btn:active { transform: scale(.94); }
+    .rc-zoom-btn:focus-visible { outline: 2px solid var(--lp-green-400, #52b07a); outline-offset: 2px; }
+    /* Credit for a representative photo, over a gradient at the foot of the photo. The zoom
+       button sits on the right, so the text keeps clear of it. */
+    .rc-photo-credit {
+      position: absolute; left: 0; right: 0; bottom: 0; z-index: 1;
+      padding: 44px 118px 14px 16px; margin: 0;
+      font-size: 10.5px; line-height: 1.5; color: rgba(255,255,255,.82);
+      background: linear-gradient(to top, rgba(8,20,14,.82), rgba(8,20,14,.5) 60%, rgba(8,20,14,0));
+    }
+    .rc-photo-credit span { display: block; font-weight: 700; color: #fff; }
+    .rc-photo-credit a { color: #bfe8cf; text-decoration: underline; }
+
+    /* ---- Full-size photo viewer (js/image-zoom.js) ---- */
+    .rc-lightbox { position: fixed; inset: 0; z-index: 400; background: rgba(6,14,10,0); transition: background .28s ease; }
+    .rc-lightbox[hidden] { display: none; }
+    .rc-lightbox.is-open { background: rgba(6,14,10,.93); }
+    .rc-lb-stage { position: absolute; inset: 56px 0 72px; overflow: hidden; touch-action: none; z-index: 0; }
+    .rc-lb-img {
+      position: absolute; max-width: none; transform-origin: center center; will-change: transform;
+      user-select: none; -webkit-user-drag: none; cursor: zoom-in;
+      border-radius: 4px; box-shadow: 0 20px 60px rgba(0,0,0,.45);
+    }
+    .rc-lb-img.is-animating { transition: transform .32s cubic-bezier(.2,.8,.2,1), opacity .32s ease; }
+    .rc-lightbox.is-zoomed .rc-lb-img { cursor: grab; }
+    .rc-lightbox.is-zoomed.is-dragging .rc-lb-img { cursor: grabbing; }
+    .rc-lb-caption {
+      position: absolute; top: 0; left: 0; right: 64px; z-index: 2; margin: 0;
+      padding: 18px 20px; font-size: 12.5px; line-height: 1.45; color: rgba(255,255,255,.78);
+      opacity: 0; transition: opacity .25s ease .1s;
+    }
+    .rc-lb-caption strong { color: #fff; }
+    .rc-lb-caption a { color: #a3d9b8; text-decoration: underline; }
+    .rc-lb-bar {
+      position: absolute; left: 50%; bottom: 16px; z-index: 2; transform: translate(-50%, 12px);
+      display: flex; align-items: center; gap: 4px; padding: 5px;
+      background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16); border-radius: 99px;
+      backdrop-filter: blur(10px); opacity: 0; transition: opacity .25s ease .1s, transform .25s ease .1s;
+    }
+    .rc-lb-close {
+      position: absolute; top: 12px; right: 12px; z-index: 2;
+      width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; background: rgba(255,255,255,.12); opacity: 0; transition: opacity .25s ease .1s, background .15s ease;
+    }
+    .rc-lightbox.is-open .rc-lb-caption,
+    .rc-lightbox.is-open .rc-lb-close { opacity: 1; }
+    .rc-lightbox.is-open .rc-lb-bar { opacity: 1; transform: translate(-50%, 0); }
+    .rc-lb-close:hover { background: rgba(255,255,255,.22); }
+    .rc-lb-close svg { width: 20px; height: 20px; }
+    .rc-lb-btn {
+      width: 38px; height: 38px; border-radius: 50%; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; background: transparent; font: inherit; font-size: 12.5px; font-weight: 700;
+      transition: background .15s ease, transform .1s ease;
+    }
+    .rc-lb-btn svg { width: 18px; height: 18px; }
+    .rc-lb-btn:hover { background: rgba(255,255,255,.16); }
+    .rc-lb-btn:active { transform: scale(.9); }
+    .rc-lb-btn--text { width: auto; padding: 0 11px; border-radius: 99px; }
+    .rc-lb-btn:focus-visible, .rc-lb-close:focus-visible { outline: 2px solid #a3d9b8; outline-offset: 2px; }
+    .rc-lb-pct { min-width: 50px; text-align: center; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+    .rc-lightbox.has-error .rc-lb-bar { display: none; }
     .rc-modal-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    /* In the two-column layout the close button sits over the details column; keep the badge clear of it. */
+    @media (min-width: 761px) { .rc-modal-top { padding-right: 34px; } }
+    html.theme-dark .rc-modal-badge--field { color: #8fd8ab; border-color: rgba(143,216,171,.55); }
     .rc-modal-title { font-family: var(--lp-font-display, 'DM Serif Display', serif); font-weight: 400; font-size: 22px; color: var(--lp-text-primary, #0f1e14); }
     .rc-modal-type { font-size: 12.5px; color: var(--lp-text-secondary, #3a5045); margin-top: 2px; }
     .rc-modal-price { margin-top: 16px; font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 600; color: var(--lp-green-700, #2a5c3f); }
@@ -409,6 +503,11 @@
     .rc-modal-badge--field { background: var(--lp-green-50, #edf8f3); color: var(--lp-green-700, #2a5c3f); border: 1px solid var(--lp-green-600, #357350); }
     .rc-modal-badge--plain { background: transparent; color: var(--lp-text-secondary, #3a5045); border: 1px dashed var(--lp-border-md, #cfe0d4); }
 
+    @media (max-width: 760px) {
+      .rc-modal { display: block; height: auto; max-height: 90vh; max-width: 560px; overflow-y: auto; }
+      .rc-modal-media { height: auto; aspect-ratio: 4 / 3; }
+      .rc-modal-body { overflow: visible; }
+    }
     @media (max-width: 640px) {
       .rc-hero { padding: 30px 22px 26px; border-radius: 18px; }
       .rc-heading { font-size: 29px; }
@@ -419,6 +518,9 @@
       .rc-cards { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
       .rc-modal-overlay { padding: 0; align-items: flex-end; }
       .rc-modal { max-width: 100%; max-height: 92vh; border-radius: 20px 20px 0 0; }
+      .rc-modal-body { padding: 20px 20px 26px; }
+      .rc-lb-stage { inset: 64px 0 76px; }
+      .rc-lb-caption { font-size: 11.5px; padding: 14px 16px; }
       .rc-scroll-top { right: 16px; bottom: 16px; width: 42px; height: 42px; }
     }
   </style>
@@ -516,6 +618,8 @@
 <script src="js/public-shell.js"></script>
 <script src="js/public-pages.js"></script>
 <script src="js/public-varieties.js?v=6"></script>
-<script src="js/public-catalog.js?v=25"></script>
+<script src="js/rice-photos.js?v=1"></script>
+<script src="js/image-zoom.js?v=1"></script>
+<script src="js/public-catalog.js?v=26"></script>
 </body>
 </html>

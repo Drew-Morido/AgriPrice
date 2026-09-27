@@ -56,6 +56,15 @@
       --shadow: 0 1px 2px rgba(33,29,19,0.06);
       --card:   #ffffff;
 
+      /* Today's verdict colours (entry 01): cheaper / about usual / pricier. --verdict-mid is a
+         neutral grey dark enough to stay readable at the big price size. The -on-pin shades sit on
+         the dark "Today ₱…" bubble above the bar, so they are lighter. */
+      --verdict-mid:      #7a7464;
+      --verdict-mid-soft: rgba(122,116,100,0.16);
+      --pin-low:  #8fd8ab;
+      --pin-mid:  #d6d0c0;
+      --pin-high: #ffa393;
+
       --f-display: 'DM Serif Display', Georgia, serif;
       --f-body:    'Plus Jakarta Sans', system-ui, sans-serif;
       --f-mono:    'JetBrains Mono', monospace;
@@ -86,6 +95,13 @@
 
       --shadow: 0 1px 3px rgba(0,0,0,0.35);
       --card:   #231d16;
+
+      --verdict-mid:      #a39a86;
+      --verdict-mid-soft: rgba(163,154,134,0.18);
+      /* the bubble is light (--ink) in dark mode, so its verdict text goes darker */
+      --pin-low:  #2a5c3f;
+      --pin-mid:  #5c5646;
+      --pin-high: #a3362a;
     }
 
     *, *::before, *::after { box-sizing: border-box; }
@@ -124,8 +140,12 @@
        divider starts) and vertically centered within THAT, so however it's sized it can never
        reach down into the toolbar row where "Show prices per" lives, regardless of viewport
        width — a stronger guarantee than just leaving it a lot of horizontal clearance. */
+    /* Clipped sideways only (overflow-x: clip keeps the full-bleed strip and its watermark from
+       spilling out horizontally). It used to be overflow: hidden, which also cut off anything that
+       extends below the banner: the "Show prices per" tooltip was sliced off at the wavy bottom
+       edge, and the variety list could not open past it. */
     .ledger-masthead {
-      position: relative; overflow: hidden;
+      position: relative; overflow-x: clip; overflow-y: visible;
       width: 100vw; margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw);
       background: linear-gradient(180deg, var(--ledger-deep) 0%, var(--ledger) 100%);
     }
@@ -192,6 +212,78 @@
       background-repeat: no-repeat; background-position: right 2px center; background-size: 12px;
     }
     .ph-select:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+    .ph-select[hidden] { display: none; }
+
+    /* Variety dropdown (public-history.js buildRiceDropdown). The native <select> above is kept,
+       hidden, as the value holder; its open list was drawn by the OS — a plain white system menu
+       with none of the ledger's paper, ink or type. The trigger matches the Kilo / 25kg sack pill
+       beside it; the list is a ledger card: mono group headers, hairline rules, green for the
+       current choice, each variety's latest recorded price on the right. */
+    .ph-dd { position: relative; min-width: 250px; }
+    .ph-dd-btn {
+      width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 14px;
+      font-family: var(--f-body); font-size: 16px; font-weight: 700; color: #fff; text-align: left;
+      background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.24); border-radius: 99px;
+      padding: 5px 6px 5px 18px; cursor: pointer;
+      transition: background .18s ease, border-color .18s ease, box-shadow .18s ease, transform .15s ease;
+    }
+    .ph-dd-btn:hover {
+      background: rgba(255,255,255,.2); border-color: rgba(255,255,255,.45);
+      box-shadow: 0 8px 20px -6px rgba(8,20,14,.45); transform: translateY(-1px);
+    }
+    .ph-dd-btn:active { transform: translateY(0) scale(.97); box-shadow: none; }
+    .ph-dd-btn:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+    .ph-dd.is-open .ph-dd-btn { background: rgba(255,255,255,.22); border-color: rgba(255,255,255,.55); }
+    .ph-dd-value { display: inline-block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ph-dd-value.is-swapping { animation: ph-dd-swap .3s cubic-bezier(.2,.8,.2,1); }
+    @keyframes ph-dd-swap { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+    .ph-dd-chev {
+      width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+      display: grid; place-items: center; background: #fff; color: var(--ledger-deep); font-size: 16px;
+      transition: transform .28s cubic-bezier(.2,.8,.2,1);
+    }
+    .ph-dd-btn:hover .ph-dd-chev { transform: translateY(2px); }
+    .ph-dd.is-open .ph-dd-chev { transform: rotate(180deg); }
+    .ph-dd-panel {
+      position: absolute; top: calc(100% + 10px); left: 0; z-index: 70;
+      min-width: 100%; width: max-content; max-width: min(380px, calc(100vw - 32px));
+      max-height: min(520px, calc(100vh - 150px)); max-height: min(520px, calc(100dvh - 150px));
+      overflow-y: auto; overscroll-behavior: contain;
+      background: var(--card); color: var(--ink);
+      border: 1px solid var(--line); border-radius: 16px; padding: 6px;
+      box-shadow: 0 22px 48px -14px rgba(33,29,19,.5), 0 2px 6px rgba(33,29,19,.08);
+      transform-origin: 24px 0; opacity: 0; transform: translateY(-8px) scale(.97);
+      transition: opacity .16s ease, transform .2s cubic-bezier(.2,.8,.2,1);
+      scrollbar-width: thin; scrollbar-color: var(--line) transparent;
+    }
+    .ph-dd-panel[hidden] { display: none; }
+    .ph-dd-panel:focus { outline: none; }
+    .ph-dd.is-open .ph-dd-panel { opacity: 1; transform: none; }
+    .ph-dd-glabel {
+      display: flex; align-items: center; gap: 8px;
+      font-family: var(--f-mono); font-size: 11px; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--ink-3); padding: 10px 12px 6px;
+    }
+    .ph-dd-glabel::before { content: '§'; font-size: 12px; }
+    .ph-dd-group + .ph-dd-group { border-top: 1px solid var(--line-soft); margin-top: 4px; }
+    .ph-dd-opt {
+      display: grid; grid-template-columns: 16px 1fr auto; align-items: center; gap: 12px;
+      padding: 10px 12px; border-radius: 10px; cursor: pointer;
+      font-size: 15px; font-weight: 600; color: var(--ink-2);
+      transition: background .14s ease, color .14s ease, transform .16s cubic-bezier(.2,.8,.2,1);
+    }
+    .ph-dd-opt.is-active { background: var(--ledger-soft); color: var(--ink); transform: translateX(3px); }
+    .ph-dd-opt[aria-selected="true"] { color: var(--ledger); }
+    html.theme-dark .ph-dd-opt[aria-selected="true"] { color: var(--credit); }
+    .ph-dd-check { font-size: 15px; opacity: 0; transform: scale(.5); transition: opacity .18s ease, transform .22s cubic-bezier(.2,.8,.2,1); }
+    .ph-dd-opt[aria-selected="true"] .ph-dd-check { opacity: 1; transform: none; }
+    .ph-dd-price { font-family: var(--f-mono); font-size: 13px; font-weight: 600; color: var(--ink-3); padding-left: 16px; }
+    .ph-dd-opt.is-picked { animation: ph-dd-pick .26s ease; }
+    @keyframes ph-dd-pick { 45% { transform: translateX(3px) scale(.97); background: var(--ledger-tint); } }
+    .ph-dd-foot {
+      margin-top: 4px; padding: 9px 12px 6px; border-top: 1px solid var(--line-soft);
+      font-size: 12px; color: var(--ink-3);
+    }
     /* The dropdown's OWN closed-state text needs to be white against the dark banner, but the
        popup list is rendered by the browser on its own (near-)white surface — without this,
        options (and the "Local"/"Imported" optgroup headers) inherit that white text and stay
@@ -281,11 +373,36 @@
     .ph-tab-text { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
     .ph-tab-name { font-size: 15.5px; font-weight: 700; white-space: nowrap; }
     .ph-tab-sub { font-size: 12.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    /* Today's verdict at a glance, before the tab is even opened — set by renderVerdict(). */
-    .ph-tab-dot { width: 10px; height: 10px; border-radius: 50%; margin-left: auto; flex-shrink: 0; background: transparent; }
-    .ph-tab-dot[data-state="low"]  { background: var(--credit); box-shadow: 0 0 0 4px var(--credit-soft); }
-    .ph-tab-dot[data-state="mid"]  { background: var(--ink-3); box-shadow: 0 0 0 4px var(--line-soft); }
-    .ph-tab-dot[data-state="high"] { background: var(--debit); box-shadow: 0 0 0 4px var(--debit-soft); }
+    /* Active-section marker. Every tab has one: an empty grey ring, filled green on the tab whose
+       entry is on screen. Switching tabs fades the old one back to grey while the new one pops in
+       with a short ring pulse. (It used to be a price-level dot on tab 01 only — grey meant "about
+       the usual price", which read as a dead control; that verdict is shown in entry 01 itself.) */
+    .ph-tab-dot {
+      --dot: var(--credit); --dot-soft: var(--credit-soft);
+      width: 10px; height: 10px; border-radius: 50%; margin-left: auto; flex-shrink: 0;
+      background: transparent; border: 1.5px solid var(--line); box-shadow: 0 0 0 0 transparent;
+      transition: background .25s ease, border-color .25s ease, box-shadow .3s ease, transform .3s cubic-bezier(.2,.8,.2,1);
+    }
+    .ph-tab:hover .ph-tab-dot { border-color: var(--ink-3); }
+    .ph-tab[aria-selected="true"] .ph-tab-dot {
+      background: var(--dot); border-color: var(--dot);
+      box-shadow: 0 0 0 4px var(--dot-soft);
+      animation: ph-dot-on .5s cubic-bezier(.2,.8,.2,1);
+    }
+    @keyframes ph-dot-on {
+      0%   { transform: scale(.35); box-shadow: 0 0 0 0 var(--dot-soft); }
+      55%  { transform: scale(1.3);  box-shadow: 0 0 0 8px var(--dot-soft); }
+      100% { transform: scale(1);    box-shadow: 0 0 0 4px var(--dot-soft); }
+    }
+    /* Entry 01's dot carries today's verdict (renderVerdict sets data-verdict on the tab): green =
+       cheaper than usual, grey = about usual, red = pricier. Open, it is the full marker above; with
+       another entry open it stays filled in the verdict colour, just smaller and without the halo,
+       as a passive hint of today's price level. */
+    #tab-today[data-verdict="low"]  .ph-tab-dot { --dot: var(--credit);      --dot-soft: var(--credit-soft); }
+    #tab-today[data-verdict="mid"]  .ph-tab-dot { --dot: var(--verdict-mid); --dot-soft: var(--verdict-mid-soft); }
+    #tab-today[data-verdict="high"] .ph-tab-dot { --dot: var(--debit);       --dot-soft: var(--debit-soft); }
+    #tab-today[data-verdict][aria-selected="false"] .ph-tab-dot { background: var(--dot); border-color: var(--dot); transform: scale(.8); }
+    .ph-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
     /* ══════════ THE CARD — identical frame for every tab ══════════
        Same width, same padding, same minimum height and the same header/foot on all five tabs, so
@@ -396,7 +513,13 @@
     .ph-v-price {
       font-family: var(--f-mono); font-size: 64px; font-weight: 600;
       color: var(--ink); letter-spacing: -2px; line-height: 1;
+      transition: color .45s ease;
     }
+    /* In step with entry 01's tab dot: the price takes today's verdict colour while the entry is
+       in view, and goes back to plain ink when it is not (the dot keeps the colour). */
+    #ph-verdict.is-live[data-verdict="low"]  .ph-v-price { color: var(--credit); }
+    #ph-verdict.is-live[data-verdict="mid"]  .ph-v-price { color: var(--verdict-mid); }
+    #ph-verdict.is-live[data-verdict="high"] .ph-v-price { color: var(--debit); }
     .ph-v-price span { font-size: 16px; font-weight: 500; color: var(--ink-3); letter-spacing: 0; margin-left: 6px; }
     .ph-v-badge {
       display: inline-flex; align-items: center; gap: 8px; margin-top: 16px;
@@ -440,7 +563,11 @@
       position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
       background: var(--ink); color: var(--card); white-space: nowrap;
       font-family: var(--f-mono); font-size: 13.5px; font-weight: 600; padding: 5px 10px; border-radius: 8px;
+      transition: color .45s ease;
     }
+    #ph-verdict.is-live[data-verdict="low"]  .ph-gauge-pin b { color: var(--pin-low); }
+    #ph-verdict.is-live[data-verdict="mid"]  .ph-gauge-pin b { color: var(--pin-mid); }
+    #ph-verdict.is-live[data-verdict="high"] .ph-gauge-pin b { color: var(--pin-high); }
     .ph-gauge-pin b::after {
       content: ''; position: absolute; top: 100%; left: 50%; margin-left: -5px;
       border: 5px solid transparent; border-top-color: var(--ink);
@@ -592,6 +719,8 @@
     @media (prefers-reduced-motion: reduce) {
       .ph-tabpanel.is-entering .ph-card, .ph-gauge-pin, .ph-tn-bar, .ph-se-bar, .ph-mv, .ph-mv-spark path { animation: none !important; }
       .ph-tab::after { transition: none; }
+      .ph-tab-dot, .ph-dd-btn, .ph-dd-chev, .ph-dd-panel, .ph-dd-opt, .ph-dd-check, .ph-v-price, .ph-gauge-pin b { transition: none; }
+      .ph-tab[aria-selected="true"] .ph-tab-dot, .ph-dd-value.is-swapping, .ph-dd-opt.is-picked { animation: none; }
     }
 
     /* Compact density (Settings → Density: Compact), same convention as public.css's
@@ -616,6 +745,10 @@
       .ledger-title { font-size: 34px; }
       .ledger-toolbar { margin-top: 20px; padding: 16px 0 18px; }
       .ph-select { min-width: 0; width: 100%; }
+      .ledger-toolbar > .ledger-field:first-child { width: 100%; }
+      .ph-seg { align-self: flex-start; }
+      .ph-dd { min-width: 0; width: 100%; }
+      .ph-dd-panel { width: 100%; max-width: none; }
       .ph-tab { padding: 12px 10px 13px; gap: 9px; }
       .ph-tab-num { width: 28px; height: 28px; font-size: 11.5px; }
       .ph-tab-name { font-size: 15px; }
@@ -666,7 +799,7 @@
       <!-- one variety + unit choice drives every entry below and the chart -->
       <div class="ledger-toolbar">
         <div class="ledger-field">
-          <label class="ledger-field-label" for="ph-rice">Rice variety<i class="ti ti-info-circle ph-info" tabindex="0" role="img" data-tip="Every tab below follows the variety you pick here."></i></label>
+          <label class="ledger-field-label" id="ph-rice-label" for="ph-rice">Rice variety<i class="ti ti-info-circle ph-info" tabindex="0" role="img" data-tip="Every tab below follows the variety you pick here."></i></label>
           <select id="ph-rice" class="ph-select"></select>
         </div>
         <div class="ledger-field">
@@ -692,23 +825,28 @@
       <button type="button" class="ph-tab" role="tab" id="tab-today" data-tab="today" aria-controls="panel-today" aria-selected="true">
         <span class="ph-tab-num">01</span>
         <span class="ph-tab-text"><span class="ph-tab-name">Today</span><span class="ph-tab-sub">Is it expensive?</span></span>
+        <span class="ph-sr" id="tab-today-verdict"></span>
         <span class="ph-tab-dot" aria-hidden="true"></span>
       </button>
       <button type="button" class="ph-tab" role="tab" id="tab-chart" data-tab="chart" aria-controls="panel-chart" aria-selected="false" tabindex="-1">
         <span class="ph-tab-num">02</span>
         <span class="ph-tab-text"><span class="ph-tab-name">Price chart</span><span class="ph-tab-sub">How it moved</span></span>
+        <span class="ph-tab-dot" aria-hidden="true"></span>
       </button>
       <button type="button" class="ph-tab" role="tab" id="tab-years" data-tab="years" aria-controls="panel-years" aria-selected="false" tabindex="-1">
         <span class="ph-tab-num">03</span>
         <span class="ph-tab-text"><span class="ph-tab-name">Past years</span><span class="ph-tab-sub">Then vs now</span></span>
+        <span class="ph-tab-dot" aria-hidden="true"></span>
       </button>
       <button type="button" class="ph-tab" role="tab" id="tab-season" data-tab="season" aria-controls="panel-season" aria-selected="false" tabindex="-1">
         <span class="ph-tab-num">04</span>
         <span class="ph-tab-text"><span class="ph-tab-name">Best month</span><span class="ph-tab-sub">When to buy</span></span>
+        <span class="ph-tab-dot" aria-hidden="true"></span>
       </button>
       <button type="button" class="ph-tab" role="tab" id="tab-swings" data-tab="swings" aria-controls="panel-swings" aria-selected="false" tabindex="-1">
         <span class="ph-tab-num">05</span>
         <span class="ph-tab-text"><span class="ph-tab-name">Big swings</span><span class="ph-tab-sub">How fast it jumps</span></span>
+        <span class="ph-tab-dot" aria-hidden="true"></span>
       </button>
     </nav>
 
@@ -861,7 +999,7 @@
 <script src="js/public-auth-modal.js"></script>
 <script src="js/public-shell.js"></script>
 <script src="js/public-data.js"></script>
-<script src="js/public-history.js?v=7"></script>
+<script src="js/public-history.js?v=9"></script>
 <script src="js/public-pages.js"></script>
 
 </body>

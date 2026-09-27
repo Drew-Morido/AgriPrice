@@ -122,6 +122,21 @@ AgriPricePH.API = (function () {
     }
   }
 
+  /* Retailer-account calls carry the retailer's own session token (issued at login/signup). It
+     is set explicitly so it always wins over an admin token that may share the tab. */
+  async function userCall(method, path, body, token) {
+    const res = await fetchWithTimeout(`${BASE}${path}`, {
+      method,
+      cache: 'no-store',
+      headers: {
+        ...(body ? { 'Content-Type': 'application/json' } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+  }
+
   function setBase(url) {
     try {
       localStorage.setItem(STORAGE_KEY, url.replace(/\/$/, ''));
@@ -256,16 +271,21 @@ AgriPricePH.API = (function () {
         headers: { Authorization: `Bearer ${token}` },
       }).then((r) => r.json()),
     // Server-side public/vendor accounts (see model/user_auth.py).
-    authSignup: (name, email, password) => post('/api/auth/signup', { name, email, password }),
-    authLogin: (email, password) => post('/api/auth/login', { email, password }),
+    authSignup: (name, email, password) => userCall('POST', '/api/auth/signup', { name, email, password }),
+    authLogin: (email, password, remember) =>
+      userCall('POST', '/api/auth/login', { email, password, remember: !!remember }),
+    authSession: (token) => userCall('GET', '/api/auth/session', null, token),
+    authLogout: (token) => userCall('POST', '/api/auth/logout', null, token),
     forgotPassword: (email) => post('/api/auth/forgot-password', { email }),
     verifyResetCode: (email, code) => post('/api/auth/verify-reset-code', { email, code }),
     resetPassword: (email, ticket, newPassword) =>
       post('/api/auth/reset-password', { email, ticket, new_password: newPassword }),
-    authUpdateProfile: (email, name, newEmail) =>
-      put('/api/auth/profile', { email, name, new_email: newEmail }),
-    authChangePassword: (email, current, next) =>
-      post('/api/auth/change-password', { email, current, new: next }),
+    // Partial update: only the fields in `patch` change (name, email, title, phone, bio, avatar, extra_info).
+    authUpdateProfile: (token, patch) => userCall('PUT', '/api/auth/profile', patch, token),
+    authProfile: (token) => userCall('GET', '/api/auth/profile', null, token),
+    authActivity: (token, limit = 6) => userCall('GET', `/api/auth/activity?limit=${encodeURIComponent(limit)}`, null, token),
+    authChangePassword: (token, current, next) =>
+      userCall('POST', '/api/auth/change-password', { current, new: next }, token),
     reportsHistory: () => getLenient('/api/reports/history', { noCache: true }),
     reportsGenerate: (type) => post('/api/reports/generate', { type }),
     reportsDelete: (filename) => del(`/api/reports/file/${encodeURIComponent(filename)}`),

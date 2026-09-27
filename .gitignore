@@ -17,9 +17,14 @@ model/_backup_*/
 # Public/vendor user accounts (real emails + password hashes from actual use —
 # unlike the committed market-data DB in datasets/, this is runtime-generated PII)
 model/agriprice_users.db
+# ...and any backup copy of it (same password hashes and emails)
+model/agriprice_users.db.*
 
 # Secrets (Gmail SMTP app password, etc.) — see .env.example
 .env
+# A dot-less copy is not read by the app, but would otherwise be committed (`env/` above only
+# matches a folder).
+/env
 
 # Logs
 *.log

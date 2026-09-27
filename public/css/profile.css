@@ -1,12 +1,9 @@
 /* AgriPricePH — public User Profile page (public/profile.html, public/js/public-profile.js).
-   Ported from the admin Account Profile module (admin/pages/account.html, admin/css/account.css)
-   for visual/layout parity — same cover-banner + overlapping-avatar header card, the same
-   .card/.card-header/.card-title/.card-body grid pattern, and the same plain hidden-attribute
-   modal dialogs, all built on the SAME shared design tokens from css/global.css (--color-accent,
-   --bg-card, --text-primary, etc.) that the admin module already uses — so this is a literal reuse
-   of that visual language, not a re-derivation of it. Trimmed to what a public account actually
-   has (name, email, password) — no avatar upload, bio, phone, or admin-only activity log, since
-   none of that exists in the public user data model. */
+   The admin Account Profile's styles (admin/css/account.css), on the same shared design tokens
+   from css/global.css — the two profiles look and behave the same: cover banner with the
+   overlapping photo and its camera button, About / Contact / Recent Activity cards, Additional
+   Information rows with edit and delete buttons. Plus the dialog frame the admin gets from its
+   own shell, and the retailer-only Sign-in & Security card. */
 
 .account-page {
   display: flex;
@@ -42,28 +39,180 @@
   letter-spacing: 0.5px;
 }
 
+.account-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.account-avatar-edit {
+  position: absolute; right: -2px; bottom: -2px;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  border: 3px solid var(--bg-card);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.account-avatar-edit:hover { background: var(--color-accent-hover); }
+.account-avatar-edit svg { width: 15px; height: 15px; }
+
 .account-header-info { flex: 1; min-width: 180px; }
 .account-header-info h2 { font-size: 20px; font-weight: 700; color: var(--text-primary); }
-.account-header-info .pill { margin-top: 4px; }
-.account-username { display: block; font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+.account-role { display: block; font-size: 13px; color: var(--color-accent); font-weight: 600; margin-top: 2px; }
+.account-username { display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 
 .account-edit-btn { flex-shrink: 0; }
 .account-edit-btn svg { width: 14px; height: 14px; }
+/* the "+" on Add Info (no stylesheet on this page sizes it otherwise, so it rendered at 0px) */
+.card-header .btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+.account-activity-card { display: flex; flex-direction: column; }
+
+.account-activity-card .card-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  max-height: 220px;
+}
+
+.account-activity-list { display: flex; flex-direction: column; }
+
+.account-activity-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.account-activity-row:last-child { border-bottom: none; }
+
+.account-activity-icon {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.account-activity-icon svg { width: 12px; height: 12px; }
+
+.account-activity-icon.info    { background: var(--color-info-bg);    color: var(--color-info); }
+.account-activity-icon.success { background: var(--color-success-bg); color: var(--color-success); }
+.account-activity-icon.warning { background: rgba(245, 158, 11, 0.14); color: var(--color-warning); }
+.account-activity-icon.danger  { background: var(--color-danger-bg);  color: var(--color-danger); }
+
+.account-activity-main { flex: 1; min-width: 0; }
+.account-activity-msg { font-size: 12px; color: var(--text-primary); line-height: 1.4; word-break: break-word; }
+.account-activity-time { font-size: 10.5px; color: var(--text-muted); margin-top: 2px; }
+
+.account-activity-empty {
+  font-size: 12px; color: var(--text-muted);
+  text-align: center; padding: 10px 0 2px;
+}
+.account-activity-empty[hidden], .account-extra-empty[hidden] { display: none; }
 
 .account-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 18px;
   align-items: stretch;
 }
 
+/* Force every card in the row to the row's full height so a shorter card (e.g. About) can never
+   leave a gap below it next to a taller one. */
 .account-grid > .card { height: 100%; }
 
+.account-card-wide { grid-column: 1 / -1; }
+
+.account-bio-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.account-contact-list { display: flex; flex-direction: column; gap: 14px; }
+
+.account-contact-row { display: flex; align-items: center; gap: 12px; }
+
+.account-contact-icon {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--bg-input);
+  color: var(--color-accent);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.account-contact-icon svg { width: 16px; height: 16px; }
+
+.account-contact-label {
+  font-size: 11px; color: var(--text-muted); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.4px;
+}
+
+.account-contact-value {
+  font-size: 13px; color: var(--text-primary); font-weight: 500;
+  margin-top: 1px; word-break: break-word;
+}
+
+.account-extra-list { display: flex; flex-direction: column; }
+
+.account-extra-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.account-extra-row:last-child { border-bottom: none; }
+
+.account-extra-main { flex: 1; min-width: 0; }
+
+.account-extra-label {
+  font-size: 11px; color: var(--text-muted); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.4px;
+}
+
+.account-extra-value {
+  font-size: 13px; color: var(--text-primary); font-weight: 500;
+  margin-top: 1px; word-break: break-word;
+}
+
+.account-extra-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+.account-extra-empty {
+  font-size: 12px; color: var(--text-muted);
+  text-align: center; padding: 10px 0 2px;
+}
+
+.icon-btn-sm {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.icon-btn-sm:hover { background: var(--bg-input); color: var(--text-primary); }
+.icon-btn-sm.danger:hover { background: var(--color-danger-bg); color: var(--color-danger); }
+.icon-btn-sm svg { width: 14px; height: 14px; }
+
+/* Retailer-only: password and sign-out. */
 .account-card-body-text {
   font-size: 13px;
   color: var(--text-secondary);
   line-height: 1.6;
-  margin-bottom: 14px;
+}
+.account-security { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.account-security-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+@media (max-width: 980px) {
+  .account-grid { grid-template-columns: 1fr 1fr; }
+  .account-activity-card { grid-column: 1 / -1; }
 }
 
 @media (max-width: 720px) {
@@ -71,17 +220,17 @@
   .account-header { flex-direction: column; align-items: flex-start; }
 }
 
-/* ── Edit Profile / Change Password dialogs — same plain hidden-attribute pattern as admin ── */
+/* ── Edit Profile / Additional Info / Change Password dialogs ── */
 .alert-modal-overlay {
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 20, 0.45);
   display: flex;
-  align-items: center;
   justify-content: center;
   z-index: 9000;
   padding: 20px;
   overflow-y: auto;
+  align-items: flex-start;
 }
 
 .alert-modal-overlay[hidden] { display: none !important; }
@@ -90,6 +239,7 @@
   width: 100%;
   max-width: 420px;
   margin: auto;
+  max-height: none;
   box-shadow: var(--shadow-md);
 }
 
@@ -113,9 +263,12 @@
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius-sm);
   font-size: 13px;
+  font-family: inherit;
   background: var(--bg-input);
   color: var(--text-primary);
 }
+
+textarea.alert-form-input { resize: vertical; min-height: 72px; }
 
 .alert-form-hint { font-size: 11px; color: var(--text-muted); }
 

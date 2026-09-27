@@ -34,11 +34,15 @@ AgriPricePH.Landpage = (function () {
     return origin === 'local' ? `Local ${suffix}` : `Imported ${suffix}`;
   }
 
+  // price/change/pct are null when unknown: no live data, or no history to compare against.
   function getEntry(label) {
-    return _pricesByLabel[label] || { price: 0, change: 0, pct: 0 };
+    return _pricesByLabel[label] || { price: null, change: null, pct: null };
   }
 
+  const OFFLINE_TEXT = 'Live prices can&rsquo;t be reached right now. Please check back shortly.';
+
   function formatPctBadge(pct) {
+    if (pct == null) return null;
     const n = Number(pct);
     if (n > 0.05) return { cls: 'up', text: `▲ ${Math.abs(n).toFixed(1)}%` };
     if (n < -0.05) return { cls: 'down', text: `▼ ${Math.abs(n).toFixed(1)}%` };
@@ -46,10 +50,11 @@ AgriPricePH.Landpage = (function () {
   }
 
   function formatTickerChange(pct) {
+    if (pct == null) return '';
     const n = Number(pct);
     if (n > 0.05) return `<span class="ticker-up">▲ ${Math.abs(n).toFixed(1)}%</span>`;
     if (n < -0.05) return `<span class="ticker-down">▼ ${Math.abs(n).toFixed(1)}%</span>`;
-    return `<span class="ticker-up">—</span>`;
+    return `<span class="ticker-flat">—</span>`;
   }
 
   function splitPrice(price) {
@@ -73,15 +78,15 @@ AgriPricePH.Landpage = (function () {
     for (let i = n - 1; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
-      labels.push(d.toISOString().slice(0, 10));
+      labels.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
     }
     return labels;
   }
 
   async function loadPrices() {
-    _pricesByLabel = { ...(AgriPricePH.Data?.currentPrices || {}) };
-    _histSeries = { ...(AgriPricePH.Data?.historical || {}) };
-    _histLabels = AgriPricePH.Data?.historicalLabels || buildHistLabels(90);
+    _pricesByLabel = {};
+    _histSeries = {};
+    _histLabels = buildHistLabels(90);
 
     try {
       const data = await AgriPricePH.API.predictions();
@@ -95,12 +100,9 @@ AgriPricePH.Landpage = (function () {
         RICE().forEach(({ key, label }) => {
           const raw = data.current_prices[key];
           if (raw == null || Number(raw) <= 0) return;
-          const mock = AgriPricePH.Data?.currentPrices?.[label];
-          _pricesByLabel[label] = {
-            price: Number(raw),
-            change: mock?.change ?? 0,
-            pct: mock?.pct ?? 0,
-          };
+          // The change vs yesterday comes from the history below; until then it is unknown
+          // (it used to borrow data.js's sample change, beside a real price).
+          _pricesByLabel[label] = { price: Number(raw), change: null, pct: null };
         });
       }
       if (data?.forecasts_by_key) {
@@ -124,11 +126,8 @@ AgriPricePH.Landpage = (function () {
           const change = +(last - prev).toFixed(2);
           const pct = +((change / prev) * 100).toFixed(2);
           const cur = _pricesByLabel[label];
-          _pricesByLabel[label] = {
-            price: cur?.price > 0 ? cur.price : last,
-            change,
-            pct,
-          };
+          if (!(cur?.price > 0)) return;   // no live price for this grade: nothing to annotate
+          _pricesByLabel[label] = { price: cur.price, change, pct };
         });
       }
     } catch { /* keep mock */ }
@@ -173,10 +172,17 @@ AgriPricePH.Landpage = (function () {
     ).join('');
     const gradeItems = RICE().map(({ label }) => {
       const d = getEntry(label);
+      if (d.price == null) return '';
       const short = label.replace(/^Imported /, 'Imp. ').replace(/^Local /, '');
       return `<div class="ticker-item"><span class="ticker-name">${short}</span><span class="ticker-price">₱${Number(d.price).toFixed(2)}/kg</span>${formatTickerChange(d.pct)}</div>`;
     }).join('');
     const items = varietyItems + gradeItems;
+    if (!items) {
+      inner.innerHTML = `<div class="ticker-item"><span class="ticker-name">${OFFLINE_TEXT}</span></div>`;
+      inner.style.animation = 'none';
+      return;
+    }
+    inner.style.animation = '';
 
     inner.innerHTML = items + items;
     // Keep the scroll speed the same as when the belt held only the 8 grades (30s for 8 items).
@@ -264,9 +270,22 @@ AgriPricePH.Landpage = (function () {
     }
     if (note) note.hidden = true;
 
+    if (!_live) {
+      wrap.innerHTML = `<div class="hero-offline">${OFFLINE_TEXT}</div>`;
+      return;
+    }
+
     wrap.innerHTML = HERO_GRADES.map(({ short, suffix }) => {
       const full = labelFor(_origin, suffix);
       const d = getEntry(full);
+      if (d.price == null) {
+        return `
+        <div class="hero-stat-card">
+          <div class="hsc-label">${short}</div>
+          <div class="hsc-value">—</div>
+          <div class="hsc-sub">no DA price today</div>
+        </div>`;
+      }
       const { whole, frac } = splitPrice(d.price);
       const badge = formatPctBadge(d.pct);
       return `
@@ -277,7 +296,7 @@ AgriPricePH.Landpage = (function () {
               <div class="hsc-value">₱${whole}<span>.${frac}</span></div>
               <div class="hsc-sub">per kilogram · today</div>
             </div>
-            <div class="hsc-badge ${badge.cls}">${badge.text}</div>
+            ${badge ? `<div class="hsc-badge ${badge.cls}">${badge.text}</div>` : ''}
           </div>
         </div>`;
     }).join('');
@@ -299,6 +318,7 @@ AgriPricePH.Landpage = (function () {
     const changeText = Number(d.change) === 0
       ? '— No change'
       : `${Number(d.change) > 0 ? '▲' : '▼'} ₱${Math.abs(Number(d.change)).toFixed(2)} vs yesterday`;
+    const changePill = d.change == null ? '' : `<div><span class="pc-change ${changeCls}">${changeText}</span></div>`;
 
     // Tomorrow: the model's calibrated band — the same range the Price Forecast page shows.
     const f = (_forecastByKey[key] || [])[0];
@@ -329,8 +349,8 @@ AgriPricePH.Landpage = (function () {
     return `
       <div class="price-card${featured ? ' featured' : ''}">
         <div class="pc-head"><div class="pc-type">${suffix}</div>${_live ? '<span class="pc-today">Today</span>' : ''}</div>
-        <div class="pc-price">${peso(d.price)}<span>/kg</span></div>
-        <div><span class="pc-change ${changeCls}">${changeText}</span></div>
+        <div class="pc-price">${d.price == null ? '—' : peso(d.price)}<span>/kg</span></div>
+        ${changePill}
         ${range}
         ${brands}
       </div>`;
@@ -339,6 +359,15 @@ AgriPricePH.Landpage = (function () {
   function renderPricesGrid() {
     const grid = $('#home-prices-grid');
     if (!grid) return;
+
+    if (!_live) {
+      grid.innerHTML = `<div class="prices-offline-box">${OFFLINE_TEXT}</div>`;
+      const desc = $('#home-prices-desc');
+      if (desc) desc.innerHTML = 'Today&rsquo;s price for every grade, tomorrow&rsquo;s expected range, and the brands you&rsquo;ll find on the shelf.';
+      const legend = $('#home-prices-legend');
+      if (legend) legend.innerHTML = '';
+      return;
+    }
 
     grid.innerHTML = PRICE_ROWS.map(({ origin, title }) => `
       <div class="prices-row">
@@ -351,14 +380,10 @@ AgriPricePH.Landpage = (function () {
       </div>
     `).join('');
 
-    // Header + legend say exactly where each number comes from. The old "Sample data for
-    // illustration" line was always shown, even over live data; now a notice appears only when
-    // the API really could not be reached.
+    // Header + legend say exactly where each number comes from.
     const desc = $('#home-prices-desc');
     if (desc) {
-      desc.innerHTML = _live
-        ? `Today&rsquo;s Department of Agriculture price for every grade${_asOf ? ` (as of ${esc(_asOf)})` : ''}, tomorrow&rsquo;s expected range, and the brands you&rsquo;ll find on the shelf.`
-        : `Today&rsquo;s price for every grade, tomorrow&rsquo;s expected range, and the brands you&rsquo;ll find on the shelf.<br><span class="prices-offline">Live prices can&rsquo;t be reached right now — showing sample figures.</span>`;
+      desc.innerHTML = `Today&rsquo;s Department of Agriculture price for every grade${_asOf ? ` (as of ${esc(_asOf)})` : ''}, tomorrow&rsquo;s expected range, and the brands you&rsquo;ll find on the shelf.`;
     }
     const legend = $('#home-prices-legend');
     if (legend) {
@@ -400,7 +425,7 @@ AgriPricePH.Landpage = (function () {
       rows.push(`
         <tr class="forecast-row">
           <td>${f.date}</td>
-          <td>AI forecast<span class="tag-forecast">LSTM</span></td>
+          <td>Forecast<span class="tag-forecast">Ensemble</span></td>
           <td>₱${Number(f.price).toFixed(2)}</td>
         </tr>`);
     });
@@ -498,7 +523,7 @@ AgriPricePH.Landpage = (function () {
             ticks: {
               color: 'rgba(255,255,255,0.45)',
               font: { size: 10 },
-              callback: (v) => `₱${v}`,
+              callback: (v) => `₱${Number(v).toFixed(2)}`,
             },
           },
         },

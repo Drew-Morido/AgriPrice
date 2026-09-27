@@ -11,8 +11,13 @@ the committed market-data DB in datasets/.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
+import re
+import secrets
 import sqlite3
+import time
 from contextlib import contextmanager
 from datetime import datetime
 from typing import Any, Iterator
@@ -69,6 +74,26 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE users ADD COLUMN last_login_at TEXT")
     if "deactivated_at" not in cols:
         conn.execute("ALTER TABLE users ADD COLUMN deactivated_at TEXT")
+    # Profile fields, the same set the admin Account Profile has (title, phone, bio, photo,
+    # additional label/value rows). extra_info is a JSON list; avatar a small image data URL.
+    for col in ("title", "phone", "bio", "avatar", "extra_info"):
+        if col not in cols:
+            conn.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT")
+    # The account's own sign-in and account activity, for its Profile page's Recent Activity.
+    # Time, level and a message only: no IP addresses (the paper states the public site does not
+    # log end-user IPs). Trimmed to the newest ACTIVITY_KEEP rows per user.
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS user_activity (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          at TEXT NOT NULL,
+          level TEXT NOT NULL,
+          msg TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_user_activity_user ON user_activity (user_id, id)")
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS admin_accounts (
@@ -92,6 +117,19 @@ def _migrate(conn: sqlite3.Connection) -> None:
     # Kept in this .db rather than system_settings.json on purpose: dev file-watchers (Live/Five
     # Server) ignore *.db but reload the page on any .json write, which interrupted the login flow.
     conn.execute("CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT)")
+    # Signed-in retailer sessions. Only a SHA-256 of each token is stored, so a copy of this file
+    # does not hand out live logins. Keyed by user id (not email) so changing the email keeps the
+    # session; persisted (unlike admin sessions) so "Remember me" survives a server restart.
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS user_sessions (
+          token_hash TEXT PRIMARY KEY,
+          user_id INTEGER NOT NULL,
+          created_at REAL NOT NULL,
+          expires_at REAL NOT NULL
+        )
+        """
+    )
 
 
 def get_meta(key: str) -> str | None:
@@ -113,7 +151,17 @@ def _now() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
 
+def _extra_rows(raw: Any) -> list[dict[str, str]]:
+    try:
+        rows = json.loads(raw) if raw else []
+    except (TypeError, ValueError):
+        return []
+    return [r for r in rows if isinstance(r, dict)] if isinstance(rows, list) else []
+
+
 def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    keys = row.keys()
+    opt = lambda k: row[k] if k in keys else None  # noqa: E731 — columns added by _migrate
     return {
         "id": row["id"],
         "name": row["name"],
@@ -125,6 +173,11 @@ def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         "updated_at": row["updated_at"],
         "last_login_at": row["last_login_at"],
         "deactivated_at": row["deactivated_at"],
+        "title": opt("title") or "",
+        "phone": opt("phone") or "",
+        "bio": opt("bio") or "",
+        "avatar": opt("avatar") or "",
+        "extra_info": _extra_rows(opt("extra_info")),
     }
 
 
@@ -161,24 +214,159 @@ def update_password_hash(email: str, new_hash: str) -> bool:
     return rowcount > 0
 
 
-def update_profile(email: str, new_name: str, new_email: str) -> tuple[bool, str]:
-    email = (email or "").strip().lower()
-    new_name = (new_name or "").strip()
-    new_email = (new_email or "").strip().lower()
-    if not new_name or not new_email:
-        return False, "Name and email are required."
-    if new_email != email and get_user_by_email(new_email):
-        return False, "That email is already used by another account."
-    now = datetime.now().isoformat(timespec="seconds")
+# Same fields and limits as the admin Account Profile's edit dialog (admin/pages/account.html).
+PROFILE_LIMITS = {"name": 80, "title": 60, "phone": 30, "bio": 280}
+EXTRA_MAX_ROWS = 20
+EXTRA_LABEL_MAX = 40
+EXTRA_VALUE_MAX = 120
+AVATAR_MAX_CHARS = 400_000   # the page sends a ≤240px JPEG, ~20–40 KB; this is generous headroom
+_AVATAR_RE = re.compile(r"^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$")
+_EXTRA_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
+
+
+def update_profile(user_id: int, patch: dict[str, Any]) -> tuple[bool, str]:
+    """Update the account behind a verified session. Only the fields present in `patch` change
+    (name, email, title, phone, bio, avatar, extra_info) — the same partial-save behaviour as
+    the admin profile, where the photo and the additional-info rows save on their own. The
+    account is the session's user id, never an email from the request body."""
+    sets: dict[str, Any] = {}
+    if "name" in patch:
+        name = str(patch.get("name") or "").strip()
+        if not name:
+            return False, "Please enter a display name."
+        if len(name) > PROFILE_LIMITS["name"]:
+            return False, f"Display name must be {PROFILE_LIMITS['name']} characters or fewer."
+        sets["name"] = name
+    if "email" in patch:
+        email = str(patch.get("email") or "").strip().lower()
+        if not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", email) or len(email) > 120:
+            return False, "Please enter a valid email address."
+        other = get_user_by_email(email)
+        if other and other["id"] != user_id:
+            return False, "That email is already used by another account."
+        sets["email"] = email
+    for key in ("title", "phone", "bio"):
+        if key in patch:
+            val = str(patch.get(key) or "").strip()
+            if len(val) > PROFILE_LIMITS[key]:
+                return False, f"{key.capitalize()} must be {PROFILE_LIMITS[key]} characters or fewer."
+            sets[key] = val
+    if "avatar" in patch:
+        avatar = str(patch.get("avatar") or "")
+        if avatar and (len(avatar) > AVATAR_MAX_CHARS or not _AVATAR_RE.match(avatar)):
+            return False, "That photo could not be saved. Please choose a PNG, JPG, or WEBP image."
+        sets["avatar"] = avatar
+    if "extra_info" in patch:
+        rows = patch.get("extra_info")
+        if not isinstance(rows, list) or len(rows) > EXTRA_MAX_ROWS:
+            return False, f"Additional information can have up to {EXTRA_MAX_ROWS} rows."
+        clean = []
+        for r in rows:
+            if not isinstance(r, dict):
+                return False, "Additional information is not in the expected format."
+            rid = str(r.get("id") or "")
+            label = str(r.get("label") or "").strip()
+            value = str(r.get("value") or "").strip()
+            if not _EXTRA_ID_RE.match(rid) or not label or not value:
+                return False, "Each additional info row needs a label and a value."
+            if len(label) > EXTRA_LABEL_MAX or len(value) > EXTRA_VALUE_MAX:
+                return False, f"Labels are limited to {EXTRA_LABEL_MAX} characters and values to {EXTRA_VALUE_MAX}."
+            clean.append({"id": rid, "label": label, "value": value})
+        sets["extra_info"] = json.dumps(clean, ensure_ascii=False)
+    if not sets:
+        return False, "Nothing to update."
+    sets["updated_at"] = _now()
+    cols = ", ".join(f"{k} = ?" for k in sets)
     with _connect() as conn:
-        cur = conn.execute(
-            "UPDATE users SET name = ?, email = ?, updated_at = ? WHERE email = ?",
-            (new_name, new_email, now, email),
-        )
+        cur = conn.execute(f"UPDATE users SET {cols} WHERE id = ?", (*sets.values(), user_id))
         rowcount = cur.rowcount
     if rowcount == 0:
         return False, "Account not found."
     return True, "Profile updated."
+
+
+# ─── Account activity (the Profile page's Recent Activity) ───
+
+ACTIVITY_KEEP = 100
+
+
+def add_activity(user_id: int | None, level: str, msg: str) -> None:
+    """Record one event on an account's own history. level: INFO | WARN | ERROR."""
+    if not user_id:
+        return
+    with _connect() as conn:
+        conn.execute(
+            "INSERT INTO user_activity (user_id, at, level, msg) VALUES (?, ?, ?, ?)",
+            (user_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), level, msg[:200]),
+        )
+        conn.execute(
+            "DELETE FROM user_activity WHERE user_id = ? AND id NOT IN "
+            "(SELECT id FROM user_activity WHERE user_id = ? ORDER BY id DESC LIMIT ?)",
+            (user_id, user_id, ACTIVITY_KEEP),
+        )
+
+
+def list_activity(user_id: int, limit: int = 6) -> list[dict[str, str]]:
+    """Newest first, in the same {time, level, msg} shape as the admin System Logs rows."""
+    limit = max(1, min(50, int(limit or 6)))
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT at, level, msg FROM user_activity WHERE user_id = ? ORDER BY id DESC LIMIT ?",
+            (user_id, limit),
+        ).fetchall()
+    return [{"time": r["at"], "level": r["level"], "msg": r["msg"]} for r in rows]
+
+
+# ─── Retailer sessions ───
+
+def _token_hash(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def create_user_session(user_id: int, ttl_seconds: int) -> str:
+    token = secrets.token_urlsafe(48)
+    now = time.time()
+    with _connect() as conn:
+        conn.execute("DELETE FROM user_sessions WHERE expires_at < ?", (now,))
+        conn.execute(
+            "INSERT INTO user_sessions (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+            (_token_hash(token), user_id, now, now + ttl_seconds),
+        )
+    return token
+
+
+def get_session_user(token: str | None) -> dict[str, Any] | None:
+    """The active account a session token belongs to, or None (unknown, expired, or the account
+    was deactivated since — deactivation signs the retailer out everywhere at once)."""
+    if not token or not isinstance(token, str):
+        return None
+    th = _token_hash(token.strip())
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT u.*, s.expires_at AS s_expires FROM user_sessions s "
+            "JOIN users u ON u.id = s.user_id WHERE s.token_hash = ?",
+            (th,),
+        ).fetchone()
+        if not row:
+            return None
+        if row["s_expires"] < time.time() or (row["status"] or "active") != "active":
+            conn.execute("DELETE FROM user_sessions WHERE token_hash = ?", (th,))
+            return None
+    return _row_to_dict(row)
+
+
+def revoke_user_session(token: str | None) -> None:
+    if token:
+        with _connect() as conn:
+            conn.execute("DELETE FROM user_sessions WHERE token_hash = ?", (_token_hash(token.strip()),))
+
+
+def revoke_user_sessions(user_id: int, keep_token: str | None = None) -> None:
+    """Sign a retailer out everywhere — after a password change/reset — optionally keeping the
+    session that made the change."""
+    keep = _token_hash(keep_token.strip()) if keep_token else ""
+    with _connect() as conn:
+        conn.execute("DELETE FROM user_sessions WHERE user_id = ? AND token_hash != ?", (user_id, keep))
 
 
 # ─── User Management (admin side) — public/retailer accounts ───

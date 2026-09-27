@@ -99,6 +99,40 @@ def test_protected_endpoints_reject_anonymous(ep):
     assert code in (401, 403), f"{ep} allowed an unauthenticated request ({code})"
 
 
+def _send(method: str, path: str, body: dict | None = None, token: str | None = None, timeout: int = 30):
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(BASE + path, data=data, method=method)
+    if data is not None:
+        req.add_header("Content-Type", "application/json")
+    if token:
+        req.add_header("Authorization", f"Bearer {token}")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.status, json.loads(r.read() or b"{}")
+    except urllib.error.HTTPError as e:
+        try:
+            return e.code, json.loads(e.read() or b"{}")
+        except Exception:
+            return e.code, {}
+    except Exception:
+        pytest.skip("API not running on :5000")
+
+
+# Retailer account changes used to trust whichever email the request named, so anyone could
+# rename/re-email any account (and then take it over through "forgot password").
+@pytest.mark.parametrize("method,ep,body", [
+    ("PUT", "/api/auth/profile", {"email": "someone@example.com", "name": "x", "new_email": "x@example.com"}),
+    ("POST", "/api/auth/change-password", {"email": "someone@example.com", "current": "a", "new": "Abcdefg1"}),
+    ("GET", "/api/auth/profile", None),
+    ("GET", "/api/auth/activity", None),
+])
+def test_account_changes_require_a_session(method, ep, body):
+    code, _ = _send(method, ep, body)
+    assert code == 401, f"{ep} accepted a request with no session ({code})"
+    code, _ = _send(method, ep, body, token="not-a-real-token")
+    assert code == 401, f"{ep} accepted a forged session ({code})"
+
+
 # ── data-protection posture ───────────────────────────────────────────────────
 def test_privacy_status_declares_no_plaintext_passwords():
     code, body = _get("/api/privacy-status")

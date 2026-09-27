@@ -117,7 +117,7 @@ AgriPricePH.PublicData = (function () {
     for (let i = n - 1; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
-      labels.push(d.toISOString().slice(0, 10));
+      labels.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
     }
     const historical = { fuel: mock?.fuel || [], exchange: mock?.exchange || [] };
     RICE.forEach(({ key }) => {

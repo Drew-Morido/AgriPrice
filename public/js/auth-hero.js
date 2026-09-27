@@ -92,12 +92,12 @@ window.AgriPricePH = window.AgriPricePH || {};
       }
 
       if (id.includes('@')) {
-        const userResult = await Auth().login({ email: id, password });
+        const remember = !!document.getElementById('login-remember')?.checked;
+        const userResult = await Auth().login({ email: id, password, remember });
         if (userResult.ok) {
           Alert()?.success?.('Welcome back! You are now logged in.', {
             onConfirm: () => {
-              const next = new URLSearchParams(window.location.search).get('next');
-              window.location.href = next || Auth().defaultLandingPage();
+              window.location.href = Auth().nextPageFromUrl() || Auth().defaultLandingPage();
             },
           });
           return;
@@ -436,7 +436,7 @@ window.AgriPricePH = window.AgriPricePH || {};
         return;
       }
       Alert()?.success?.('Your account was created successfully.', {
-        onConfirm: () => { window.location.href = Auth().defaultLandingPage(); },
+        onConfirm: () => { window.location.href = Auth().nextPageFromUrl() || Auth().defaultLandingPage(); },
       });
     });
   }
