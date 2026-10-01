@@ -113,6 +113,21 @@ def _migrate(conn: sqlite3.Connection) -> None:
         )
         """
     )
+    admin_cols = {r[1] for r in conn.execute("PRAGMA table_info(admin_accounts)").fetchall()}
+    if "avatar" not in admin_cols:
+        conn.execute("ALTER TABLE admin_accounts ADD COLUMN avatar TEXT")
+    # One-time welcome popup on an account's first sign-in. Accounts that already existed when the
+    # column was added count as welcomed (created_at), so only accounts made from now on see it.
+    if "welcome_seen_at" not in admin_cols:
+        conn.execute("ALTER TABLE admin_accounts ADD COLUMN welcome_seen_at TEXT")
+        conn.execute("UPDATE admin_accounts SET welcome_seen_at = created_at")
+    # "Continue with Google": the Google account id (the token's `sub`) linked to this account.
+    if "google_sub" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN google_sub TEXT")
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_sub ON users (google_sub) WHERE google_sub IS NOT NULL")
+    if "welcome_seen_at" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN welcome_seen_at TEXT")
+        conn.execute("UPDATE users SET welcome_seen_at = created_at")
     # Small key/value store for sign-in bookkeeping (e.g. the built-in admin's last sign-in).
     # Kept in this .db rather than system_settings.json on purpose: dev file-watchers (Live/Five
     # Server) ignore *.db but reload the page on any .json write, which interrupted the login flow.
@@ -178,6 +193,8 @@ def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         "bio": opt("bio") or "",
         "avatar": opt("avatar") or "",
         "extra_info": _extra_rows(opt("extra_info")),
+        "welcome_seen_at": opt("welcome_seen_at"),
+        "google_linked": bool(opt("google_sub")),
     }
 
 
@@ -224,6 +241,15 @@ _AVATAR_RE = re.compile(r"^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$")
 _EXTRA_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
 
 
+def check_avatar(avatar: Any) -> tuple[bool, str]:
+    """A profile photo is "" (none) or a small PNG/JPG/WEBP data URL — shared by public users and
+    admin accounts, so both are held to the same format and size limit."""
+    avatar = str(avatar or "")
+    if avatar and (len(avatar) > AVATAR_MAX_CHARS or not _AVATAR_RE.match(avatar)):
+        return False, "That photo could not be saved. Please choose a PNG, JPG, or WEBP image."
+    return True, avatar
+
+
 def update_profile(user_id: int, patch: dict[str, Any]) -> tuple[bool, str]:
     """Update the account behind a verified session. Only the fields present in `patch` change
     (name, email, title, phone, bio, avatar, extra_info) — the same partial-save behaviour as
@@ -252,9 +278,9 @@ def update_profile(user_id: int, patch: dict[str, Any]) -> tuple[bool, str]:
                 return False, f"{key.capitalize()} must be {PROFILE_LIMITS[key]} characters or fewer."
             sets[key] = val
     if "avatar" in patch:
-        avatar = str(patch.get("avatar") or "")
-        if avatar and (len(avatar) > AVATAR_MAX_CHARS or not _AVATAR_RE.match(avatar)):
-            return False, "That photo could not be saved. Please choose a PNG, JPG, or WEBP image."
+        ok, avatar = check_avatar(patch.get("avatar"))
+        if not ok:
+            return False, avatar
         sets["avatar"] = avatar
     if "extra_info" in patch:
         rows = patch.get("extra_info")
@@ -454,7 +480,7 @@ def create_admin_account(username: str, name: str, email: str, role: str,
 
 
 def update_admin_account(admin_id: int, fields: dict[str, Any]) -> bool:
-    allowed = {"name", "email", "role", "password_hash", "access_code_hash"}
+    allowed = {"name", "email", "role", "password_hash", "access_code_hash", "avatar"}
     fields = {k: v for k, v in fields.items() if k in allowed}
     if not fields:
         return False
@@ -472,6 +498,34 @@ def set_admin_account_status(admin_id: int, status: str) -> bool:
             "UPDATE admin_accounts SET status = ?, deactivated_at = ?, updated_at = ? WHERE id = ?",
             (status, now if status == "deactivated" else None, now, admin_id),
         )
+        return cur.rowcount > 0
+
+
+def get_user_by_google_sub(sub: str) -> dict[str, Any] | None:
+    if not sub:
+        return None
+    with _connect() as conn:
+        row = conn.execute("SELECT * FROM users WHERE google_sub = ?", (str(sub),)).fetchone()
+    return _row_to_dict(row) if row else None
+
+
+def set_google_sub(user_id: int, sub: str) -> None:
+    with _connect() as conn:
+        conn.execute("UPDATE users SET google_sub = ?, updated_at = ? WHERE id = ?", (str(sub), _now(), user_id))
+
+
+def mark_user_welcomed(user_id: int) -> bool:
+    """Record that a public user has seen the one-time welcome. True only the first time."""
+    with _connect() as conn:
+        cur = conn.execute("UPDATE users SET welcome_seen_at = ? WHERE id = ? AND welcome_seen_at IS NULL",
+                           (_now(), user_id))
+        return cur.rowcount > 0
+
+
+def mark_admin_welcomed(admin_id: int) -> bool:
+    with _connect() as conn:
+        cur = conn.execute("UPDATE admin_accounts SET welcome_seen_at = ? WHERE id = ? AND welcome_seen_at IS NULL",
+                           (_now(), admin_id))
         return cur.rowcount > 0
 
 

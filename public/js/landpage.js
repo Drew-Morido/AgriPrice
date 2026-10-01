@@ -26,7 +26,8 @@ AgriPricePH.Landpage = (function () {
   let _live = false;       // true once the API answered with real DA prices
   let _asOf = '';          // DA data date, e.g. "September 25, 2026"
   let _brandsByGrade = {}; // canonical key -> { brands, names, min, max, asOf } (public-varieties.js)
-  let _varieties = [];   // top varieties for the Popular rice strip + ticker (public-varieties.js)
+  let _varieties = [];   // top varieties for the Popular rice strip (public-varieties.js)
+  let _brands = [];      // every brand product with a price today, for the ticker
 
   function $(sel) { return document.querySelector(sel); }
 
@@ -49,12 +50,16 @@ AgriPricePH.Landpage = (function () {
     return { cls: 'flat', text: '— 0.0%' };
   }
 
+  const ARROW_UP = '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8H1z" fill="currentColor"/></svg>';
+  const ARROW_DOWN = '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M5 8.5 1 2h8z" fill="currentColor"/></svg>';
+
+  /** Red ▲ when the price went up since the previous DA day, green ▼ when it went down. */
   function formatTickerChange(pct) {
     if (pct == null) return '';
     const n = Number(pct);
-    if (n > 0.05) return `<span class="ticker-up">▲ ${Math.abs(n).toFixed(1)}%</span>`;
-    if (n < -0.05) return `<span class="ticker-down">▼ ${Math.abs(n).toFixed(1)}%</span>`;
-    return `<span class="ticker-flat">—</span>`;
+    if (n > 0.05) return `<span class="ticker-move up" title="Up ${Math.abs(n).toFixed(1)}% since the previous day">${ARROW_UP}${Math.abs(n).toFixed(1)}%</span>`;
+    if (n < -0.05) return `<span class="ticker-move down" title="Down ${Math.abs(n).toFixed(1)}% since the previous day">${ARROW_DOWN}${Math.abs(n).toFixed(1)}%</span>`;
+    return '<span class="ticker-move flat" title="No change since the previous day">0.0%</span>';
   }
 
   function splitPrice(price) {
@@ -160,23 +165,30 @@ AgriPricePH.Landpage = (function () {
     }));
   }
 
+  /**
+   * The moving belt: brands only. Each brand product's price today is the catalog price (its DA
+   * grade's price adjusted by that brand's usual premium or discount), so it moves by the same
+   * percentage as its grade did since the previous DA day — the same rule the Price Forecast's
+   * "Prices by brand" table uses. That move is what the red ▲ / green ▼ shows.
+   */
   function renderTicker() {
     const inner = $('#home-ticker');
     if (!inner) return;
+    const label = $('#home-ticker-label');
+    if (label) {
+      // A hover note rather than an ⓘ bubble: the belt clips anything that pops out of it.
+      const why = "Each brand's price today is its catalog price: its DA rice grade's price adjusted by the brand's usual difference from that grade. The arrow is that grade's move since the previous day: red ▲ up, green ▼ down.";
+      label.title = why;
+      label.setAttribute('aria-label', `Brand prices today. ${why}`);
+    }
 
-    // Well-known variety names lead — they are what most Filipinos look for first. They carry no
-    // up/down arrow: a variety has a shop-price range from one survey, not a daily movement, so an
-    // arrow would be invented. The grade prices that follow keep their real day-on-day change.
-    const varietyItems = _varieties.map((v) =>
-      `<div class="ticker-item is-variety"><span class="ticker-name">${esc(v.name)}</span><span class="ticker-price">${priceRange(v, true)}/kg</span><span class="ticker-tag">shop prices</span></div>`
-    ).join('');
-    const gradeItems = RICE().map(({ label }) => {
-      const d = getEntry(label);
-      if (d.price == null) return '';
-      const short = label.replace(/^Imported /, 'Imp. ').replace(/^Local /, '');
-      return `<div class="ticker-item"><span class="ticker-name">${short}</span><span class="ticker-price">₱${Number(d.price).toFixed(2)}/kg</span>${formatTickerChange(d.pct)}</div>`;
+    const items = _brands.map((b) => {
+      const gradeLabel = (RICE().find((r) => r.key === b.grade) || {}).label;
+      const d = gradeLabel ? getEntry(gradeLabel) : { pct: null };
+      return `<div class="ticker-item is-brand"><span class="ticker-name">${esc(b.name)}</span>`
+        + (b.sub ? `<span class="ticker-sub">${esc(b.sub)}</span>` : '')
+        + `<span class="ticker-price">₱${Number(b.price).toFixed(2)}/kg</span>${formatTickerChange(d.pct)}</div>`;
     }).join('');
-    const items = varietyItems + gradeItems;
     if (!items) {
       inner.innerHTML = `<div class="ticker-item"><span class="ticker-name">${OFFLINE_TEXT}</span></div>`;
       inner.style.animation = 'none';
@@ -185,8 +197,29 @@ AgriPricePH.Landpage = (function () {
     inner.style.animation = '';
 
     inner.innerHTML = items + items;
-    // Keep the scroll speed the same as when the belt held only the 8 grades (30s for 8 items).
-    inner.style.animationDuration = `${Math.round(30 * ((_varieties.length + RICE().length) / Math.max(RICE().length, 1)))}s`;
+    // About 3.75 s per brand, the same pace the belt had when it carried the 8 grades (30 s).
+    inner.style.animationDuration = `${Math.max(30, Math.round(_brands.length * 3.75))}s`;
+  }
+
+  /** One ticker row per brand product that has a price today (NFA's government price excluded). */
+  function brandsForTicker(bp) {
+    const out = [];
+    const seen = new Set();
+    (bp?.categories || []).forEach((cat) => {
+      (cat.brands || []).forEach((b) => {
+        if (b.price == null || b.fixed_price || /^nfa\b/i.test(String(b.brand_name || '').trim())) return;
+        // Only a real rice name as the small label (Dinorado, Sinandomeng, Jasmine…), never a pack
+        // description such as "Inbred Modern Variety" or "Regular Milled".
+        const named = AgriPricePH.Varieties.varietiesOf(b).filter((n) =>
+          !/%|\bbroken\b|grain|\bwhite rice\b|\bsoft rice\b|variety|inbred|milled|\bfancy\b|\bregular\b|\bpremium\b|commercial/i.test(n));
+        const sub = named[0] || '';
+        const key = `${String(b.brand_name).toLowerCase()}|${sub.toLowerCase()}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push({ name: b.brand_name, sub, price: Number(b.price), grade: cat.canonical_key });
+      });
+    });
+    return out.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   function esc(s) {
@@ -213,6 +246,17 @@ AgriPricePH.Landpage = (function () {
 
   const GRAIN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18a9 9 0 0 1-18 0z"/><path d="M12 12V4"/><path d="M9 7c0-1.5 1-3 3-3s3 1.5 3 3"/></svg>';
 
+  /** A photo for a variety: a brand's own uploaded photo, else the catalog's representative photo. */
+  function varietyPhoto(v) {
+    if (v.image) return { src: v.image, own: true };
+    const pick = AgriPricePH.RicePhotos?.forBrand?.({ package: v.name, variety_names: v.name }, (v.grades || [])[0]);
+    if (!pick) return null;
+    return {
+      src: pick.card, own: false,
+      credit: `Representative photo: ${pick.caption || 'rice'}. ${pick.author ? `Photo: ${pick.author}` : ''}${pick.license ? ` (${pick.license})` : ''}${pick.site ? `, ${pick.site}` : ''}`,
+    };
+  }
+
   /** "Popular rice": the most-listed varieties, each linking to the catalog already searched. */
   function renderPopular() {
     const sec = $('#popular');
@@ -223,6 +267,7 @@ AgriPricePH.Landpage = (function () {
     grid.innerHTML = _varieties.map((v, i) => `
       <a class="pop-card" style="--i:${i}" href="rice-catalog.html?variety=${encodeURIComponent(v.name)}"
          aria-label="${esc(v.name)}: shop prices ${priceRange(v)} per kilo. See these in the Rice Catalog">
+        ${(() => { const ph = varietyPhoto(v); return ph ? `<div class="pop-photo"><img src="${esc(ph.src)}" alt="" loading="lazy" ${ph.credit ? `title="${esc(ph.credit)}"` : ''}>${ph.own ? '' : '<span class="pop-photo-tag">Representative photo</span>'}</div>` : ''; })()}
         <div class="pop-top"><span class="pop-ico">${GRAIN_ICON}</span><span class="pop-name">${esc(v.name)}</span></div>
         <div class="pop-price">${priceRange(v)}<span> /kg</span></div>
         <div class="pop-meta"><b>${v.brands} brand${v.brands === 1 ? '' : 's'}</b> sell it
@@ -241,8 +286,10 @@ AgriPricePH.Landpage = (function () {
       const bp = await AgriPricePH.API.brandPrices();
       _varieties = AgriPricePH.Varieties.summarize(bp).slice(0, POPULAR_COUNT);
       _brandsByGrade = AgriPricePH.Varieties.byGrade(bp);
+      _brands = brandsForTicker(bp);
     } catch {
       _varieties = [];
+      _brands = [];
       _brandsByGrade = {};          // backend unreachable: the strip stays hidden, the ticker shows grades only
     }
   }
@@ -257,7 +304,7 @@ AgriPricePH.Landpage = (function () {
       wrap.innerHTML = _varieties.map((v) => `
         <a class="hero-stat-card" href="rice-catalog.html?variety=${encodeURIComponent(v.name)}"
            aria-label="${esc(v.name)}: shop prices ${priceRange(v)} per kilo from ${v.brands} brands. See them in the Rice Catalog">
-          <div class="hsc-name">${esc(v.name)}<span class="hsc-badge brands">${v.brands} brand${v.brands === 1 ? '' : 's'}</span></div>
+          <div class="hsc-name">${(() => { const ph = varietyPhoto(v); return ph ? `<img class="hsc-thumb" src="${esc(ph.src)}" alt="" loading="lazy">` : ''; })()}<span class="hsc-name-text">${esc(v.name)}</span><span class="hsc-badge brands">${v.brands} brand${v.brands === 1 ? '' : 's'}</span></div>
           <div class="hsc-value hsc-value--range">${priceRange(v)}</div>
           <div class="hsc-sub">per kilogram · ${esc(v.gradeLabels.join(', '))}</div>
         </a>`).join('');

@@ -40,6 +40,7 @@ AgriPricePH.API = (function () {
      slow cold start), the promise stays pending forever and pages sit on "Loading…" with no error.
      With a timeout the call rejects and each page shows its normal "cannot reach" message instead.
      /api/predictions gets longer because its first call after a restart loads 8 Keras models. */
+  let _historicalCache = null;   // { t: fetched at (ms), p: Promise } — see historical() below
   const READ_TIMEOUT_MS = 20000;
   const SLOW_TIMEOUT_MS = 90000;
 
@@ -153,9 +154,18 @@ AgriPricePH.API = (function () {
     health,
     setBase,
     dataSources: () => get('/api/data-sources', { noCache: true }),
+    dataReadiness: () => get('/api/data-readiness', { noCache: true }),
     scrapeStatus: () => get('/api/scrape-status', { noCache: true }),
     runScraper: (source) => post('/api/run-scraper', source ? { source } : {}),
-    historical: () => get('/api/historical-data'),
+    // Shared by Dashboard, Price History, Market Drivers, Model Dashboard and Price Forecast: one request
+    // serves every page for 60 s, so moving between them shows the data at once instead of re-fetching.
+    historical: () => {
+      const now = Date.now();
+      if (_historicalCache && now - _historicalCache.t < 60000) return _historicalCache.p;
+      const p = get('/api/historical-data').catch((e) => { _historicalCache = null; throw e; });
+      _historicalCache = { t: now, p };
+      return p;
+    },
     predictions: () => getLenient('/api/predictions', { noCache: true, timeoutMs: SLOW_TIMEOUT_MS }),
     modelStatus: () => get('/api/model-status'),
     catalog: (includeInactive) => getLenient(
@@ -276,6 +286,9 @@ AgriPricePH.API = (function () {
       userCall('POST', '/api/auth/login', { email, password, remember: !!remember }),
     authSession: (token) => userCall('GET', '/api/auth/session', null, token),
     authLogout: (token) => userCall('POST', '/api/auth/logout', null, token),
+    authWelcomeSeen: (token) => userCall('POST', '/api/auth/welcome-seen', null, token),
+    authConfig: () => userCall('GET', '/api/auth/config'),
+    authGoogle: (credential, remember) => userCall('POST', '/api/auth/google', { credential, remember: !!remember }),
     forgotPassword: (email) => post('/api/auth/forgot-password', { email }),
     verifyResetCode: (email, code) => post('/api/auth/verify-reset-code', { email, code }),
     resetPassword: (email, ticket, newPassword) =>

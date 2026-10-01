@@ -6,6 +6,7 @@ AgriPricePH.AccountProfile = (function () {
   let _mounted = false;
   let _profile = null; // current "security" section of /api/settings
   let _editingInfoId = null; // null = adding, otherwise editing that extra-info row
+  let _managed = null; // an admin account created in User Management (its own photo only)
 
   function init() {
     if (_mounted) {
@@ -73,9 +74,11 @@ AgriPricePH.AccountProfile = (function () {
     // lives in /api/settings — show their own account, read-only, instead of someone else's.
     const me = await AgriPricePH.API.get('/api/admin/me', { noCache: true }).then((r) => r.admin).catch(() => null);
     if (me && me.kind === 'account') {
+      _managed = me;
       renderManagedAccount(me);
       return;
     }
+    _managed = null;
     try {
       const data = await AgriPricePH.API.get('/api/settings');
       if (!data.ready) throw new Error(data.error || 'Settings unavailable');
@@ -110,8 +113,12 @@ AgriPricePH.AccountProfile = (function () {
     try {
       const data = await AgriPricePH.API.get('/api/logs?limit=50');
       if (!data.ready) throw new Error(data.error || 'Logs unavailable');
+      // Only this admin's own sign-in events (log lines name the account as '<username>').
+      const me = AgriPricePH.AdminRole?.identity?.();
+      const tag = me?.username ? `'${me.username}'` : '';
       const rows = (data.logs || [])
         .filter((l) => (l.source || '').toUpperCase() === 'AUTH')
+        .filter((l) => !tag || String(l.msg || '').includes(tag))
         .slice(0, 6);
       renderActivity(rows);
     } catch (e) {
@@ -169,12 +176,12 @@ AgriPricePH.AccountProfile = (function () {
     setText('account-name', me.name);
     setText('account-role', me.role === 'super_admin' ? 'Super Admin' : 'Admin');
     setText('account-username', `@${me.username}`);
-    setText('account-bio', 'This admin account is managed from User Management. Ask a Super Admin to change your name, email, role, password, or access code.');
+    setText('account-bio', 'This admin account is managed from User Management. You can change your own profile photo here; ask a Super Admin to change your name, email, role, password, or access code.');
     setText('account-email', 'Managed in User Management');
     setText('account-phone', 'Not set');
-    renderAvatar(me.name, null);
+    renderAvatar(me.name, me.avatar || null);
     renderExtraInfo([]);
-    ['account-edit-profile-btn', 'account-avatar-edit-btn', 'account-add-info-btn'].forEach((id) => {
+    ['account-edit-profile-btn', 'account-add-info-btn'].forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'none'; // .btn sets display, which would override [hidden]
     });
@@ -360,6 +367,17 @@ AgriPricePH.AccountProfile = (function () {
     AgriPricePH.Modals.loading('Uploading photo…');
     try {
       const dataUrl = await resizeImageFile(file);
+      if (_managed) {
+        // Admin accounts made in User Management save their own photo on their own account.
+        const r = await AgriPricePH.API.put('/api/admin/me/avatar', { avatar: dataUrl });
+        if (!r.ok || !r.data?.success) throw new Error(r.data?.error || 'Upload failed.');
+        _managed = { ..._managed, avatar: r.data.avatar };
+        AgriPricePH.Modals.hideLoading();
+        renderAvatar(_managed.name, _managed.avatar);
+        AgriPricePH.Topbar?.refreshUserBadge?.();
+        await AgriPricePH.Modals.alert({ title: 'Photo saved', text: 'Your new profile photo is saved to your account.', type: 'success' });
+        return;
+      }
       const res = await AgriPricePH.API.put('/api/settings', { security: { admin_avatar: dataUrl } });
       if (!res.ok) throw new Error(res.data?.error || 'Upload failed.');
       _profile = res.data?.settings?.security || { ..._profile, admin_avatar: dataUrl };

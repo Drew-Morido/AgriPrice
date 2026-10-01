@@ -11,9 +11,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300;1,9..144,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/global.css" />
-  <link rel="stylesheet" href="css/public.css" />
-  <link rel="stylesheet" href="css/public-alert.css" />
-  <link rel="stylesheet" href="css/auth-hero.css" />
+  <link rel="stylesheet" href="css/public.css?v=20261001" />
+  <link rel="stylesheet" href="css/public-alert.css?v=20261001c" />
+  <link rel="stylesheet" href="css/auth-hero.css?v=20261001b" />
 </head>
 <body data-page="signup">
 
@@ -103,7 +103,15 @@
       </a>
       <div class="ah-card-body">
         <h2>Create your account</h2>
-        <p class="ah-sub">Free forever — track price history and charts &amp; stats across all 8 rice types. Your password is never stored in plain text.</p>
+        <p class="ah-sub">Free forever. Unlock price history and charts for all 8 rice types.</p>
+
+        <!-- Google first, then the email form — the usual order on a sign-up page. Hidden until the
+             server reports a Google client ID (auth-hero.js wireGoogleSignIn). -->
+        <div class="ah-social ah-social--top" id="ah-google-wrap" hidden>
+          <div class="ah-google-btn" id="ah-google-btn" aria-label="Sign up with Google"></div>
+          <p class="ah-google-note" id="ah-google-note"></p>
+          <div class="ah-or"><span>or sign up with email</span></div>
+        </div>
 
         <form id="form-signup" autocomplete="on" novalidate>
           <div class="ah-field-row">
@@ -163,7 +171,7 @@
 
           <label class="ah-terms">
             <input type="checkbox" id="signup-terms" />
-            <span>I agree to the <button type="button" class="ah-terms-link" id="ah-terms-link">Terms &amp; Conditions</button> and Privacy notice for this demo (your password is hashed and never stored in plain text).</span>
+            <span>I agree to the <button type="button" class="ah-terms-link" id="ah-terms-link">Terms &amp; Conditions</button> and Privacy notice.</span>
           </label>
           <p class="ah-field-error ah-terms-error" id="signup-terms-error" hidden></p>
 
@@ -172,8 +180,9 @@
 
         <div class="ah-divider"></div>
 
-        <div class="ah-foot">
+        <div class="ah-foot ah-foot--inline">
           Already registered? <a href="login.html">Log in</a>
+          <span class="ah-foot-sep" aria-hidden="true">·</span>
           <a href="landpage.html" class="ah-foot-back">← Back to home</a>
         </div>
       </div>
@@ -207,10 +216,10 @@
 </div>
 
 <script src="../js/data.js"></script>
-<script src="../js/api.js"></script>
-<script src="js/public-alert.js"></script>
-<script src="js/public-auth.js"></script>
+<script src="../js/api.js?v=20261001b"></script>
+<script src="js/public-alert.js?v=20261001c"></script>
+<script src="js/public-auth.js?v=20261001b"></script>
 <script src="js/public-pages.js"></script>
-<script src="js/auth-hero.js"></script>
+<script src="js/auth-hero.js?v=20261001j"></script>
 </body>
 </html>

@@ -22,7 +22,9 @@
     </div>
     <div class="stat-value" id="stat-diesel-value">—</div>
     <div class="stat-label">Diesel Price
-      <i class="ti ti-info-circle stat-info-icon tooltip-wide" tabindex="0" role="img" data-tooltip="Current pump price per liter (Zigwheels). Diesel moves transport and farm costs, which feed into rice prices."></i>
+      <i class="ti ti-info-circle stat-info-icon tooltip-wide" tabindex="0" role="img" data-tooltip="NCR diesel common pump price per liter, from the latest weekly DOE bulletin. The arrow compares with the previous weekly bulletin.
+Fallback: GasWatch PH (gaswatchph.com) when DOE is unavailable or leaves a price blank.
+Diesel moves transport and farm costs, which feed into rice prices."></i>
     </div>
     <div class="stat-change text-muted" id="stat-diesel-change">Loading…</div>
   </div>
@@ -36,7 +38,7 @@
     </div>
     <div class="stat-value">—</div>
     <div class="stat-label">Average Forecast Error (MAE)
-      <i class="ti ti-info-circle stat-info-icon tooltip-wide" tabindex="0" role="img" data-tooltip="On average, a forecast is about this many pesos off from the real price (MAE). Lower is better."></i>
+      <i class="ti ti-info-circle stat-info-icon tooltip-wide" tabindex="0" role="img" data-tooltip="On average, a forecast is about this many pesos off from the real price (MAE), averaged over all 8 rice types on held-out test data. Lower is better."></i>
     </div>
     <div class="stat-change text-muted" id="stat-mae-change">Loading from training history…</div>
   </div>
@@ -50,7 +52,7 @@
     </div>
     <div class="stat-value">—</div>
     <div class="stat-label" id="stat-accuracy-label">Forecasts within ₱1.00
-      <i class="ti ti-info-circle stat-info-icon tooltip-wide" tabindex="0" role="img" data-tooltip="Share of next-day forecasts that landed within ₱1.00 of the real price. Higher is better."></i>
+      <i class="ti ti-info-circle stat-info-icon tooltip-wide" tabindex="0" role="img" data-tooltip="Share of next-day forecasts that landed within ₱1.00 of the real price, averaged over all 8 rice types on held-out test data. The arrow compares with the previous training run, in percentage points. Higher is better."></i>
     </div>
     <div class="stat-change text-muted" id="stat-accuracy-change">Loading from training history…</div>
   </div>
@@ -74,7 +76,7 @@
      they used to be hardcoded `active`, so they read green even with the scraper down. -->
 <div class="source-strip" id="dash-source-strip">
   <div class="source-pill" data-source-id="da"><span class="dot"></span>DA Rice Prices</div>
-  <div class="source-pill" data-source-id="doe"><span class="dot"></span>Zigwheels Fuel</div>
+  <div class="source-pill" data-source-id="doe"><span class="dot"></span>DOE Fuel</div>
   <div class="source-pill" data-source-id="api"><span class="dot"></span>USD/PHP API</div>
 </div>
 
@@ -102,8 +104,8 @@
         <span>Forecast Price</span>
         <span>Change</span>
         <span class="dash-pred-acc-head-cell">
-          <span id="dash-pred-acc-head">Accuracy</span>
-          <i class="ti ti-info-circle stat-info-icon tooltip-wide tooltip-left" id="dash-pred-acc-info" tabindex="0" role="img" data-tooltip="How many forecasts landed within ₱1.00 of the real price, measured on data the model never saw during training. Higher is better."></i>
+          <span id="dash-pred-acc-head">Within ₱0.50</span>
+          <i class="ti ti-info-circle stat-info-icon tooltip-wide tooltip-left" id="dash-pred-acc-info" tabindex="0" role="img" data-tooltip="How many of the selected day's forecasts landed within ₱0.50 of the real price, measured on data the model never saw during training — the same figure the public Price Forecast page shows. Higher is better."></i>
         </span>
         <span>Model</span>
       </div>

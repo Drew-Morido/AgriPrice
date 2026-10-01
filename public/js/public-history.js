@@ -1032,6 +1032,7 @@ AgriPricePH.History = (function () {
         panel.classList.toggle('is-entering', on && animate);
       }
     });
+    fitCardToScreen();
     try { history.replaceState(null, '', `#${name}`); } catch { /* file:// or sandboxed */ }
     // Synchronous on purpose: reading the box's size forces layout, so it is already correct here,
     // and a requestAnimationFrame never fires while the browser tab is in the background.
@@ -1069,12 +1070,102 @@ AgriPricePH.History = (function () {
     });
     showTab((location.hash || '').slice(1), { animate: false });
     trackStickyTop();
+    watchFit();
     bindTipEdges();
     watchVerdictInView();
   }
 
+  /* ── Fit to one screen (laptop / desktop) ──
+     Matches the CSS block "FIT TO ONE SCREEN" in historical.html. The open card gets exactly the
+     height left below the banner and tabs, so the module needs no scrolling. Measured from the
+     panel (not the card, which slides in with a transform), and set before the chart is drawn so
+     the canvas is sized against the final box. */
+  const FIT_QUERY = '(min-width: 900px) and (min-height: 500px)';
+  const fitsScreen = () => typeof window.matchMedia === 'function' && window.matchMedia(FIT_QUERY).matches;
+
+  function fitCardToScreen() {
+    const root = document.documentElement;
+    if (!fitsScreen()) { root.style.removeProperty('--ph-card-h'); return; }
+    const panel = document.querySelector('.ph-tabpanel:not([hidden])');
+    if (!panel) return;
+    const scroller = document.scrollingElement || root;
+    const cs = getComputedStyle(panel);
+    const top = panel.getBoundingClientRect().top + scroller.scrollTop + (parseFloat(cs.paddingTop) || 0);
+    const room = window.innerHeight - top - (parseFloat(cs.paddingBottom) || 0);
+    // Capped on tall screens: past ~720px the card only adds empty space around its content.
+    root.style.setProperty('--ph-card-h', `${Math.max(300, Math.min(720, Math.floor(room)))}px`);
+    fitBody();
+  }
+
+  /**
+   * Make the open card's content fit its box with no scrollbar. When the window is too short for
+   * the content at full size, the whole content block is scaled down as one piece (text, gauges,
+   * bars keep their proportions), never cropped or scrolled. The chart tab is left alone: its plot
+   * already stretches or shrinks with the box. Undone on phones, where the page scrolls normally.
+   */
+  function fitBody() {
+    const body = document.querySelector('.ph-tabpanel:not([hidden]) .ph-card-body');
+    if (!body || body.querySelector('#chart-historical')) return;
+    let wrap = body.querySelector(':scope > .ph-fit');
+    if (!wrap) {
+      wrap = document.createElement('div');
+      wrap.className = 'ph-fit';
+      while (body.firstChild) wrap.appendChild(body.firstChild);
+      body.appendChild(wrap);
+    }
+    wrap.style.transform = '';
+    wrap.style.marginBottom = '';
+    if (!fitsScreen()) return;
+    const room = body.clientHeight;
+    const need = wrap.offsetHeight;
+    if (!room || need <= room) return;
+    const scale = Math.max(0.55, room / need);
+    wrap.style.transform = `scale(${scale.toFixed(4)})`;
+    // A transform does not change the space the element takes, so give the difference back.
+    wrap.style.marginBottom = `${-(need * (1 - scale)).toFixed(1)}px`;
+  }
+
+  /** On a fitted screen each card's "How to read this" note is shown as an ⓘ tip in its header. */
+  function syncHowtoTips() {
+    document.querySelectorAll('.ph-card').forEach((card) => {
+      const note = card.querySelector('.ph-howto > span');
+      const h2 = card.querySelector('.ph-tp-head h2');
+      if (!note || !h2) return;
+      const extra = [...note.querySelectorAll('[data-tip]')].map((el) => el.dataset.tip).join(' ');
+      const text = `${note.textContent} ${extra}`.replace(/\s+/g, ' ').trim();
+      let tip = h2.querySelector('.ph-howto-tip');
+      if (!tip) {
+        tip = document.createElement('i');
+        tip.className = 'ti ti-bulb ph-info ph-howto-tip';
+        tip.tabIndex = 0;
+        tip.setAttribute('role', 'img');
+        h2.appendChild(tip);
+      }
+      tip.dataset.tip = text;
+      tip.setAttribute('aria-label', text);
+    });
+  }
+
+  function watchFit() {
+    let raf = 0;
+    const refit = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(fitCardToScreen);
+    };
+    window.addEventListener('resize', refit, { passive: true });
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(fitCardToScreen);
+      ['.ledger-masthead', '#ph-coverage', '.ph-tabs', '#public-navbar-host'].forEach((sel) => {
+        const el = document.querySelector(sel);
+        if (el) ro.observe(el);
+      });
+    }
+    document.fonts?.ready?.then(fitCardToScreen);
+  }
+
   /** Scroll so the tab bar sits in its pinned spot, if the page is already scrolled past it. */
   function toCardTop() {
+    if (fitsScreen()) return;   // the whole module is on screen — nothing to scroll to
     const list = document.querySelector('.ph-tabs');
     const scroller = document.scrollingElement || document.documentElement;
     if (!list) return;
@@ -1194,6 +1285,8 @@ AgriPricePH.History = (function () {
     // measured 382px inside what became a 245px slot.
     renderChartNote();
     renderChart();
+    syncHowtoTips();
+    fitCardToScreen();   // the coverage note may have changed the room; the content its size
   }
 
   async function init() {
@@ -1211,6 +1304,10 @@ AgriPricePH.History = (function () {
     renderControls();
     bindChartControls();
     renderAll();
+    syncHowtoTips();
+    fitCardToScreen();
+    // Once more after fonts and late-wrapping text settle.
+    setTimeout(fitCardToScreen, 350);
     // One correction pass once fonts and wrapped text have settled. On a narrow screen the note
     // and legend take an extra line each, which shrinks the plot's box after the canvas has been
     // sized — a redraw here lands on the final measurement.

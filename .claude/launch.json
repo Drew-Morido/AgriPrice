@@ -3,9 +3,23 @@
   "configurations": [
     {
       "name": "agriprice-backend",
-      "runtimeExecutable": "cmd",
-      "runtimeArgs": ["/c", "cd /d \"D:\\MY FILES\\website-workplace\\AgriPrice-feature-newFixes\\AgriPrice\\api\" && py -3.13 app.py"],
+      "runtimeExecutable": "py",
+      "runtimeArgs": [
+        "-3.13",
+        "-c",
+        "import os, runpy, sys; os.chdir('D:/MY FILES/website-workplace/AgriPrice-feature-newFixes/AgriPrice/api'); sys.path.insert(0, '.'); sys.argv = ['app.py']; runpy.run_path('app.py', run_name='__main__')"
+      ],
       "port": 5000
+    },
+    {
+      "name": "agriprice-backend-5055",
+      "runtimeExecutable": "py",
+      "runtimeArgs": [
+        "-3.13",
+        "-c",
+        "import os, runpy, sys; os.chdir('D:/MY FILES/website-workplace/AgriPrice-feature-newFixes/AgriPrice/api'); sys.path.insert(0, '.'); sys.argv = ['app.py', '--serve', '--port', '5055']; runpy.run_path('app.py', run_name='__main__')"
+      ],
+      "port": 5055
     }
   ]
 }

@@ -62,7 +62,19 @@ AgriPricePH.HistoricalData = (function () {
     if (currentMode === 'stats') renderStats();
   }
 
+  // The record count shows instantly: the last known text is kept in localStorage and replaced as soon as
+  // the fresh data arrives (usually well under a second), instead of a "Loading records…" placeholder.
+  const COUNT_KEY = 'agriprice_hist_count';
+  function showCachedCount() {
+    const el = document.getElementById('hist-record-count');
+    if (!el) return;
+    let cached = null;
+    try { cached = localStorage.getItem(COUNT_KEY); } catch { /* storage blocked */ }
+    el.textContent = cached || 'Counting records…';
+  }
+
   async function fetchAndRenderData() {
+    showCachedCount();
     try {
       const realData = await AgriPricePH.API.historical();
       if (realData.error) throw new Error(realData.error);
@@ -88,6 +100,7 @@ AgriPricePH.HistoricalData = (function () {
         countEl.textContent = n > 0
           ? `${first} – ${last} · ${n.toLocaleString()} records`
           : 'No records loaded';
+        if (n > 0) { try { localStorage.setItem(COUNT_KEY, countEl.textContent); } catch { /* ignore */ } }
       }
 
       updateChartForPeriod(currentPeriod, false);
@@ -558,43 +571,224 @@ AgriPricePH.HistoricalData = (function () {
     return local.concat(imported); // 'all'
   }
 
+  // ================= Main chart (Chart.js — same look and behaviour as Market Drivers) =================
+  let histChart = null;
+  const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  // What the y-axis measures for each category — also used in the tooltip and the summary strip.
+  function chartUnit(category) {
+    if (category === 'gas') return { axis: 'Diesel price (₱ per liter)', suffix: '/L', what: 'DOE diesel price' };
+    if (category === 'currency') return { axis: 'Exchange rate (₱ per US$1)', suffix: '', what: 'USD/PHP exchange rate' };
+    const who = category === 'local' ? 'Local rice' : category === 'imported' ? 'Imported rice' : 'Local & imported rice';
+    return { axis: 'Retail price (₱ per kg)', suffix: '/kg', what: `${who}, DA daily retail price` };
+  }
+
+  function parseLabel(label) {
+    const d = new Date(label);
+    return isNaN(d) ? null : d;
+  }
+
+  function cssVar(name, fallback) {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+  }
+
+  function periodText() {
+    const tab = document.querySelector('#hist-view-chart .period-tab.active');
+    const map = { '7D': 'last 7 days', '1M': 'last month', '3M': 'last 3 months', '6M': 'last 6 months', '1Y': 'last year', 'ALL': 'all records' };
+    return tab ? (map[tab.textContent.trim().toUpperCase()] || tab.textContent.trim()) : 'selected period';
+  }
+
+  /** One short line under the chart title: what is plotted, in which unit, over which dates. */
+  function renderChartDesc(category, labels) {
+    const el = document.getElementById('hist-chart-desc');
+    if (!el) return;
+    const u = chartUnit(category);
+    const first = labels.length ? parseLabel(labels[0]) : null;
+    const last = labels.length ? parseLabel(labels[labels.length - 1]) : null;
+    const fmt = (d) => d ? `${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}` : '—';
+    el.textContent = `${u.what} · ${periodText()} (${fmt(first)} – ${fmt(last)}).`;
+  }
+
+  /** Latest value and change over the selected period for each visible line (up to 4, then "+N more"). */
+  function renderChartSummary(datasets, suffix) {
+    const el = document.getElementById('hist-chart-summary');
+    if (!el) return;
+    const rows = datasets.map(ds => {
+      const vals = (ds.data || []).filter(v => v != null && !isNaN(v));
+      if (vals.length < 2) return null;
+      const first = vals[0], last = vals[vals.length - 1];
+      const diff = last - first;
+      return { ds, last, diff, pct: first ? (diff / first) * 100 : 0 };
+    }).filter(Boolean);
+    if (!rows.length) { el.innerHTML = ''; return; }
+    const shown = rows.slice(0, 4);
+    el.innerHTML = shown.map(r => {
+      const dir = Math.abs(r.diff) < 0.005 ? 'flat' : (r.diff > 0 ? 'up' : 'down');
+      const arrow = dir === 'up' ? '▲' : dir === 'down' ? '▼' : '→';
+      const sign = r.diff > 0 ? '+' : r.diff < 0 ? '−' : '';
+      return `<div class="hist-sum-item" title="${esc(r.ds.label)}: latest ₱${r.last.toFixed(2)}${suffix}; change over the ${esc(periodText())}">
+        <span class="hist-sum-dot" style="background:${r.ds.color}"></span>
+        <span class="hist-sum-name">${esc(r.ds.label)}</span>
+        <span class="hist-sum-val">₱${r.last.toFixed(2)}</span>
+        <span class="hist-sum-chg ${dir}">${arrow} ${sign}₱${Math.abs(r.diff).toFixed(2)} (${sign}${Math.abs(r.pct).toFixed(1)}%)</span>
+      </div>`;
+    }).join('') + (rows.length > 4 ? `<div class="hist-sum-more">+${rows.length - 4} more — hover the chart</div>` : '')
+      + `<div class="hist-sum-note">change over the ${esc(periodText())}</div>`;
+  }
+
+  // Vertical guide line under the cursor, so every line's value on the same day is easy to line up.
+  const crosshairPlugin = {
+    id: 'histCrosshair',
+    afterDatasetsDraw(chart) {
+      const active = chart.tooltip && chart.tooltip.getActiveElements();
+      if (!active || !active.length) return;
+      const x = active[0].element.x;
+      const { top, bottom } = chart.chartArea;
+      const ctx = chart.ctx;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(114,201,141,0.55)';
+      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke();
+      ctx.restore();
+    },
+  };
+
   function renderHistChart(animate) {
     const canvas = document.getElementById('hist-main-chart');
-    if (!canvas) return;
+    if (!canvas || typeof Chart === 'undefined') return;
 
     const category = document.getElementById('rice-category') ? document.getElementById('rice-category').value : 'all';
     const baseDatasets = seriesForCategory(category);
+    const labels = AgriPricePH.Data.historicalLabels || [];
+    const unit = chartUnit(category);
 
-    let legendHTML = '';
-    baseDatasets.forEach(ds => {
-        const isHidden = hiddenSeries.has(ds.id);
-        const opacity = isHidden ? '0.3' : '1';
-        legendHTML += `<div class="legend-item interactive-legend" data-id="${ds.id}" style="opacity: ${opacity}; cursor:pointer; transition: 0.2s; user-select:none;">
-          <span class="legend-dot" style="background:${ds.color}"></span>${ds.label}
-        </div>`;
-    });
-
+    // Interactive legend (click to hide/show a line) — unchanged behaviour, now animated by Chart.js.
     const legendContainer = document.getElementById('dynamic-chart-legend');
     if (legendContainer) {
-        legendContainer.innerHTML = legendHTML;
-        legendContainer.querySelectorAll('.interactive-legend').forEach(item => {
-            item.addEventListener('click', (e) => {
-                const id = e.currentTarget.getAttribute('data-id');
-                if (hiddenSeries.has(id)) hiddenSeries.delete(id);
-                else hiddenSeries.add(id);
-                renderHistChart(false);
-            });
+      legendContainer.innerHTML = baseDatasets.map(ds => {
+        const isHidden = hiddenSeries.has(ds.id);
+        return `<button type="button" class="legend-item interactive-legend${isHidden ? ' is-off' : ''}" data-id="${ds.id}" aria-pressed="${!isHidden}" title="Click to ${isHidden ? 'show' : 'hide'} this line">
+          <span class="legend-dot" style="background:${ds.color}"></span>${esc(ds.label)}
+        </button>`;
+      }).join('');
+      legendContainer.querySelectorAll('.interactive-legend').forEach(item => {
+        item.addEventListener('click', (e) => {
+          const id = e.currentTarget.getAttribute('data-id');
+          if (hiddenSeries.has(id)) hiddenSeries.delete(id); else hiddenSeries.add(id);
+          renderHistChart(false);
         });
+      });
     }
 
-    const activeDatasets = baseDatasets.filter(ds => !hiddenSeries.has(ds.id));
-    lastChartDatasets = activeDatasets;
-    AgriPricePH.Charts.lineChart(canvas, activeDatasets, {
-      labels: AgriPricePH.Data.historicalLabels,
-      padding: { top: 20, right: 20, bottom: 36, left: 54 },
-      animate: !!animate,
-      onPointClick: handleChartPointClick,
-    });
+    const visible = baseDatasets.filter(ds => !hiddenSeries.has(ds.id));
+    lastChartDatasets = visible;
+    renderChartDesc(category, labels);
+    renderChartSummary(visible, unit.suffix);
+
+    const n = labels.length;
+    const long = n > 400;
+    const single = visible.length === 1;
+    const ctx = canvas.getContext('2d');
+    const gradientFor = (color) => {
+      const g = ctx.createLinearGradient(0, 0, 0, canvas.clientHeight || 320);
+      g.addColorStop(0, color + '40');
+      g.addColorStop(1, color + '00');
+      return g;
+    };
+    const datasets = baseDatasets.map(ds => ({
+      label: ds.label,
+      data: ds.data,
+      hidden: hiddenSeries.has(ds.id),
+      borderColor: ds.color,
+      backgroundColor: single ? gradientFor(ds.color) : ds.color,
+      fill: single ? 'origin' : false,
+      borderWidth: n > 200 ? 1.6 : 2,
+      tension: 0.25,
+      pointRadius: n <= 45 ? 2.5 : 0,
+      pointHoverRadius: 5,
+      pointHitRadius: 6,
+      spanGaps: true,
+    }));
+
+    const tickColor = cssVar('--text-muted', '#8aaa97');
+    const tickLabel = (value) => {
+      const d = parseLabel(labels[value]);
+      if (!d) return labels[value];
+      return long ? `${MONTHS_SHORT[d.getMonth()]} ’${String(d.getFullYear()).slice(2)}` : `${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}`;
+    };
+
+    // First draw: the lines sweep in left to right. Later changes (period, category, legend) morph smoothly.
+    const firstDraw = !histChart || histChart.canvas !== canvas;
+    const sweep = {
+      x: { type: 'number', easing: 'linear', duration: 0, from: NaN,
+           delay: (c) => (c.type === 'data' && !c.xStarted ? (c.xStarted = true, (c.dataIndex / Math.max(n, 1)) * 900) : 0) },
+      y: { type: 'number', easing: 'linear', duration: 0, from: (c) => c.chart.scales.y.getPixelForValue(c.chart.scales.y.min),
+           delay: (c) => (c.type === 'data' && !c.yStarted ? (c.yStarted = true, (c.dataIndex / Math.max(n, 1)) * 900) : 0) },
+    };
+
+    if (histChart && histChart.canvas !== canvas) { histChart.destroy(); histChart = null; }
+    const options = {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      animation: firstDraw ? sweep : { duration: animate ? 600 : 350, easing: 'easeOutQuart' },
+      // Chart.js passes the points under the cursor (index mode: one per visible line, same day).
+      onClick: (evt, elements, chart) => {
+        const pts = elements && elements.length ? elements
+          : chart.getElementsAtEventForMode(evt.native || evt, 'index', { intersect: false }, true);
+        if (pts.length) handleChartPointClick(pts[0].index, chart.data.labels[pts[0].index]);
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0b1d14', titleColor: '#a8e2bc', bodyColor: '#fff', footerColor: '#8aaa97',
+          borderColor: 'rgba(114,201,141,0.35)', borderWidth: 1, padding: 12, cornerRadius: 10,
+          titleFont: { family: "'Plus Jakarta Sans'", weight: '700', size: 12 },
+          bodyFont: { family: "'JetBrains Mono'", size: 12 },
+          footerFont: { family: "'Plus Jakarta Sans'", size: 11, weight: '400' },
+          boxPadding: 5, usePointStyle: true,
+          itemSort: (a, b) => (b.raw ?? -Infinity) - (a.raw ?? -Infinity),
+          callbacks: {
+            title: (items) => {
+              const d = parseLabel(labels[items[0].dataIndex]);
+              return d ? d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : items[0].label;
+            },
+            label: (item) => {
+              if (item.raw == null) return `${item.dataset.label}: —`;
+              const prev = item.dataIndex > 0 ? item.dataset.data[item.dataIndex - 1] : null;
+              const diff = prev != null ? item.raw - prev : null;
+              const chg = diff == null || Math.abs(diff) < 0.005 ? '' : `  (${diff > 0 ? '▲ +' : '▼ −'}₱${Math.abs(diff).toFixed(2)})`;
+              return `${item.dataset.label}: ₱${Number(item.raw).toFixed(2)}${unit.suffix}${chg}`;
+            },
+            footer: () => 'Change vs. the day before · click to pin',
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          title: { display: true, text: 'Date', color: tickColor, font: { size: 11, weight: '600' } },
+          ticks: { color: tickColor, font: { size: 10.5 }, autoSkip: true, maxTicksLimit: 8, maxRotation: 0, callback: tickLabel },
+        },
+        y: {
+          grid: { color: 'rgba(38,84,56,0.08)' },
+          title: { display: true, text: unit.axis, color: tickColor, font: { size: 11, weight: '600' } },
+          ticks: { color: tickColor, font: { size: 10.5 }, callback: (v) => `₱${Number(v).toFixed(v % 1 ? 1 : 0)}` },
+          grace: '5%',
+        },
+      },
+    };
+
+    if (firstDraw) {
+      histChart = new Chart(ctx, { type: 'line', data: { labels, datasets }, options, plugins: [crosshairPlugin] });
+    } else {
+      histChart.data.labels = labels;
+      histChart.data.datasets = datasets;
+      histChart.options = options;
+      histChart.update();
+    }
   }
 
   // ================= Click-to-compare summary below the chart =================

@@ -21,12 +21,32 @@ AgriPricePH.Settings = (function () {
       switchTab(_activeTab);
       populateForm();
       refreshLiveStatus();
+      applyRoleView();
       return;
     }
     _mounted = true;
     bindTabs();
     bindActions();
     loadSettings();
+    applyRoleView();
+  }
+
+  // Settings are Super-Admin-only to change (PUT /api/settings refuses a plain Admin). An Admin still
+  // sees the configuration, can test the API connection, run the data import and switch dark mode
+  // (a per-browser preference); the Security tab, Save and Reset are hidden.
+  const ADMIN_ALLOWED = ['set-dark-mode', 'set-test-api-btn', 'set-import-2026-btn',
+    'set-goto-sources', 'set-goto-training', 'set-goto-alerts'];
+
+  async function applyRoleView() {
+    const role = AgriPricePH.AdminRole;
+    if (!role) return;
+    await role.ready();
+    if (role.isSuper() || !document.getElementById('settings-nav')) return;
+    if (_activeTab === 'security') switchTab('general');
+    const note = document.getElementById('settings-role-note');
+    if (note) note.innerHTML = role.viewOnlyNotice('You can review the system configuration and switch dark mode.');
+    document.querySelectorAll('#settings-panels input, #settings-panels select, #settings-panels textarea, #settings-panels button')
+      .forEach((el) => { if (!ADMIN_ALLOWED.includes(el.id)) el.disabled = true; });
   }
 
   function destroy() {
@@ -129,6 +149,7 @@ AgriPricePH.Settings = (function () {
         da_enabled: true,
         fuel_enabled: true,
         exchange_enabled: true,
+        psa_enabled: true,
       },
       model: {
         forecast_horizon: 2,
@@ -189,6 +210,7 @@ AgriPricePH.Settings = (function () {
     setChecked('set-da-enabled', d.da_enabled);
     setChecked('set-fuel-enabled', d.fuel_enabled);
     setChecked('set-exchange-enabled', d.exchange_enabled);
+    setChecked('set-psa-enabled', d.psa_enabled !== false);
 
     setVal('set-forecast-horizon', m.forecast_horizon ?? rt.horizon ?? 2);
     setVal('set-sliding-window', m.sliding_window ?? rt.seq_len ?? 30);
@@ -251,6 +273,7 @@ AgriPricePH.Settings = (function () {
         da_enabled: getChecked('set-da-enabled'),
         fuel_enabled: getChecked('set-fuel-enabled'),
         exchange_enabled: getChecked('set-exchange-enabled'),
+        psa_enabled: getChecked('set-psa-enabled'),
       },
       model: {
         forecast_horizon: parseInt(getVal('set-forecast-horizon'), 10) || 2,
@@ -360,6 +383,9 @@ AgriPricePH.Settings = (function () {
   }
 
   function applyAdminDisplay(name) {
+    // The settings file holds the built-in admin's name; other admin accounts keep their own.
+    const me = AgriPricePH.AdminRole?.identity?.();
+    if (me && me.kind !== 'primary') return;
     const h4 = document.querySelector('.topbar-user-info h4');
     if (h4 && name) h4.textContent = name;
   }

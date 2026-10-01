@@ -1,6 +1,7 @@
 # model/predict.py — 2-day LSTM inference for all rice types (cached models)
 import json
 import copy
+import hashlib
 import os
 import threading
 import time
@@ -11,7 +12,9 @@ import numpy as np
 import pandas as pd
 
 from data_pipeline import (
+    FEATURE_COLUMNS,
     HORIZON,
+    LAST_READINESS,
     RICE_COLUMNS,
     SEQ_LEN,
     TARGET_COLUMN,
@@ -44,6 +47,15 @@ _DF_CACHE_SEC = 90
 # 480 model inferences per request, measured at 2.4-3.8 s — for output that cannot change until
 # either new data arrives or the model is retrained. Keyed on exactly those two things.
 _PAYLOAD_CACHE: dict = {"key": None, "payload": None}
+# The last finished payload is also kept on disk. Since the adaptive ensemble, a rebuild costs ~80 s
+# (ARIMA walk-forward + Kalman fits for 8 types) plus ~26 s of Keras model loading after a restart, and
+# every visitor used to wait for it behind _BUILD_LOCK. Now a visitor always gets the last finished
+# forecast at once — marked "refreshing": true while a newer one is being built in the background.
+# Only the very first build ever (no file yet) is served synchronously.
+PAYLOAD_DISK_PATH = os.path.join(MODEL_DIR, "forecast_cache.json")
+_REFRESH_GUARD = threading.Lock()
+_REFRESH_STATE: dict = {"thread": None, "failed_at": 0.0}
+_REFRESH_RETRY_SEC = 300   # after a failed background rebuild, keep serving the last payload this long before retrying
 # Forecast moves smaller than this (PHP/kg) are published as direction "steady".
 # A forecast move under 10 centavos is shown as 'steady', not as a rise or fall: the model cannot call direction that small better than a coin flip (PAPER_CORRECTIONS.md, 'Up/down reliability').
 STEADY_PESO = float(os.environ.get("AGRIPRICE_STEADY_PESO", "0.10"))
@@ -132,15 +144,33 @@ def _targets_meta(meta: dict) -> dict:
     return {TARGET_COLUMN: meta}
 
 
+_META_STAMP: dict = {"stamp": None}
+
+
+def _meta_stamp():
+    try:
+        st = os.stat(META_PATH)
+        return (int(st.st_mtime), int(st.st_size))
+    except OSError:
+        return None
+
+
 def _load_meta() -> dict:
     global _META_CACHE
-    if _META_CACHE is not None:
+    # A retrain from the command line (`cd model && py -3.13 train.py`) rewrites meta.json and the weights
+    # but never reaches the web app's invalidate_caches(). Without this check a running server kept serving
+    # the old metrics and the old cached Keras models until it was restarted.
+    stamp = _meta_stamp()
+    if _META_CACHE is not None and stamp == _META_STAMP["stamp"]:
         return _META_CACHE
+    if _META_CACHE is not None:
+        invalidate_caches()
     meta = {}
     if os.path.exists(META_PATH):
         with open(META_PATH, encoding="utf-8") as f:
             meta = json.load(f)
     _META_CACHE = meta
+    _META_STAMP["stamp"] = stamp
     return meta
 
 
@@ -164,8 +194,9 @@ def invalidate_caches() -> None:
         _META_CACHE = None
         _DF_CACHE["df"] = None
         _DF_CACHE["ts"] = 0.0
+        # Mark the payload stale but keep it: visitors keep seeing the previous forecast while the
+        # new weights' forecast builds in the background, instead of waiting ~100 s for it.
         _PAYLOAD_CACHE["key"] = None
-        _PAYLOAD_CACHE["payload"] = None
 
 
 def _model_paths(target: str) -> tuple[str, str, str]:
@@ -260,8 +291,7 @@ def warm_payload() -> bool:
     rebuilds it as before.
     """
     try:
-        predict()
-        return True
+        return bool(_build_now().get("ready"))
     except Exception:
         return False
 
@@ -836,6 +866,18 @@ def _build_backtests_by_key(df: pd.DataFrame, meta: dict, n_days: int = 30) -> d
     return out
 
 
+def _readiness_snapshot() -> dict:
+    """Compact data-readiness summary for the payload (full detail: GET /api/data-readiness)."""
+    r = LAST_READINESS or {}
+    return {
+        "ready_through": r.get("ready_through"),
+        "newest_day": r.get("newest_day"),
+        "held": [{"date": h["date"], "missing": [c["label"] + " — " + c["detail"]
+                                                for c in h["checks"] if c["blocking"] and not c["ok"]]}
+                 for h in r.get("held", [])],
+    }
+
+
 def _payload_cache_key(meta: dict) -> tuple:
     """Identity of the inputs a forecast depends on.
 
@@ -850,25 +892,100 @@ def _payload_cache_key(meta: dict) -> tuple:
     # The latest DATA day, not meta.json's last_date (that is the training data's end and only changes on a
     # retrain). Keying on it alone froze the published forecast at whatever data existed when the server
     # started: a new DA bulletin never reached the site until a restart. The merged frame is cached 90 s.
+    # Plus a fingerprint of the last week's inputs, so a correction to an already-present day (a DA bulletin
+    # re-issued, a DOE fuel week re-uploaded) also rebuilds the forecast instead of only a new date doing so.
     try:
-        data_last = str(pd.to_datetime(_get_merged_frame()["Date"].iloc[-1]).date())
+        frame = _get_merged_frame()
+        data_last = str(pd.to_datetime(frame["Date"].iloc[-1]).date())
+        cols = [c for c in RICE_PRICE_COLUMNS + list(FEATURE_COLUMNS) if c in frame.columns]
+        tail = frame[cols].tail(7).round(2).to_numpy().tobytes()
+        fingerprint = hashlib.sha1(tail).hexdigest()[:12]
     except Exception:
-        data_last = None
-    return (data_last, meta.get("last_date"), meta_stamp, formula_mode_enabled())
+        data_last, fingerprint = None, None
+    return (data_last, fingerprint, meta.get("last_date"), meta_stamp, formula_mode_enabled())
+
+
+def _same_key(a, b) -> bool:
+    # Keys read back from disk are JSON lists, in-memory ones are tuples; compare their JSON form.
+    return a is not None and json.dumps(a) == json.dumps(b)
 
 
 def _cached_payload(cache_key):
     cached = _PAYLOAD_CACHE.get("payload")
-    if cached is not None and _PAYLOAD_CACHE.get("key") == cache_key:
+    if cached is not None and _same_key(_PAYLOAD_CACHE.get("key"), cache_key):
         return copy.deepcopy(cached)
     return None
 
 
+def _json_default(o):
+    return o.item() if hasattr(o, "item") else str(o)
+
+
+def _save_payload_to_disk(cache_key, payload) -> None:
+    try:
+        tmp = PAYLOAD_DISK_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"key": cache_key, "payload": payload}, f, default=_json_default)
+        os.replace(tmp, PAYLOAD_DISK_PATH)
+    except Exception as exc:
+        print(f"[predict] could not save forecast cache ({exc})")
+
+
+def _load_payload_from_disk() -> None:
+    """Seed the in-memory cache from the last saved payload (e.g. right after a server restart)."""
+    try:
+        with open(PAYLOAD_DISK_PATH, encoding="utf-8") as f:
+            saved = json.load(f)
+        if isinstance(saved, dict) and (saved.get("payload") or {}).get("ready"):
+            _PAYLOAD_CACHE["key"] = saved.get("key")
+            _PAYLOAD_CACHE["payload"] = saved["payload"]
+    except (OSError, ValueError):
+        pass
+
+
+def _refresh_in_background() -> None:
+    """Start one background rebuild, unless one is already running or the last one failed recently."""
+    with _REFRESH_GUARD:
+        t = _REFRESH_STATE["thread"]
+        if t is not None and t.is_alive():
+            return
+        if time.time() - _REFRESH_STATE["failed_at"] < _REFRESH_RETRY_SEC:
+            return
+
+        def _run():
+            try:
+                ok = bool(_build_now().get("ready"))
+            except Exception as exc:
+                print(f"[predict] background forecast rebuild failed ({exc})")
+                ok = False
+            _REFRESH_STATE["failed_at"] = 0.0 if ok else time.time()
+
+        t = threading.Thread(target=_run, name="forecast-refresh", daemon=True)
+        _REFRESH_STATE["thread"] = t
+        t.start()
+
+
 def predict():
     meta = _load_meta()
-    cached = _cached_payload(_payload_cache_key(meta))
+    cache_key = _payload_cache_key(meta)
+    if _PAYLOAD_CACHE.get("payload") is None:
+        _load_payload_from_disk()
+    cached = _cached_payload(cache_key)
     if cached is not None:
         return cached
+    # Out of date (new DA data, a retrain, or a restart): answer now with the last finished forecast and
+    # rebuild behind it. It carries its own last_data_date, so it never claims to be newer than it is.
+    stale = _PAYLOAD_CACHE.get("payload")
+    if stale is not None:
+        _refresh_in_background()
+        out = copy.deepcopy(stale)
+        out["refreshing"] = True
+        return out
+    return _build_now()
+
+
+def _build_now():
+    """Build the payload in this thread (waiting for any build already in progress)."""
     with _BUILD_LOCK:
         # Another thread may have finished building while this one waited for the lock.
         meta = _load_meta()
@@ -1015,6 +1132,8 @@ def _build_payload(meta, cache_key):
         # `_backtest_recent_days` for exactly what "predicted" means here (frozen model/scaler,
         # rolling-refit reversion, never the future). Absent/empty for a type with no LSTM model.
         "history_backtest": backtests_by_key,
+        # Which days the forecast was built from, and which newer days are waiting for verified data.
+        "data_readiness": _readiness_snapshot(),
     }
 
     # Forward evaluation: write down today's forecasts before their prices exist (model/forecast_log.py).
@@ -1027,6 +1146,7 @@ def _build_payload(meta, cache_key):
 
     _PAYLOAD_CACHE["key"] = cache_key
     _PAYLOAD_CACHE["payload"] = copy.deepcopy(payload)
+    _save_payload_to_disk(cache_key, payload)
     return payload
 
 

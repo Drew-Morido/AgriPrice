@@ -420,3 +420,45 @@ body[data-page="login"] .ah-card { min-height: min(560px, calc(100svh - 100px));
   .ah-card-body { overflow-y: visible; padding: 0; }
   .ah-card h2 { font-size: 22px; }
 }
+
+
+/* ---- Continue with Google (auth-hero.js wireGoogleSignIn) ---- */
+.ah-social { margin-top: 14px; }
+.ah-or {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;
+  color: var(--text-muted, #849C8E);
+}
+.ah-or::before, .ah-or::after { content: ''; flex: 1; height: 1px; background: var(--border-color, #E2EAE4); }
+.ah-google-btn { display: flex; justify-content: center; min-height: 44px; }
+.ah-google-note { margin: 8px 0 0; font-size: 11.5px; line-height: 1.5; text-align: center; color: var(--text-muted, #849C8E); }
+.ah-google-note:empty { display: none; }
+.ah-inline-link {
+  border: none; background: none; padding: 0; cursor: pointer;
+  font: inherit; font-weight: 700; color: var(--color-accent-hover, #3D9E5F); text-decoration: underline;
+}
+
+
+/* ---- Sign-up: fits the window with no scrollbar ----
+   The form is compacted (logo row, field spacing, one-line footer), Google sits above the email
+   form, and when a window is still too short the whole card is scaled down as one piece by
+   auth-hero.js fitAuthCard() — never cut off and never scrolled inside. */
+body[data-page="signup"] .ah-card { max-height: none; }
+body[data-page="signup"] .ah-card-body { overflow: visible; padding: 10px 36px 14px; }
+body[data-page="signup"] .ah-card-logo { padding: 18px 36px 0; margin-bottom: 0; gap: 12px; }
+body[data-page="signup"] .ah-card-logo .ah-logo-tile { width: 40px; height: 40px; }
+body[data-page="signup"] .ah-card-logo .ah-brand-name { font-size: 19px; }
+body[data-page="signup"] .ah-card h2 { font-size: 22px; }
+body[data-page="signup"] .ah-card .ah-sub { margin-bottom: 10px; font-size: 13px; }
+body[data-page="signup"] #form-signup { margin-top: 0; }
+body[data-page="signup"] .ah-field { margin-bottom: 7px; }
+body[data-page="signup"] .ah-field label { margin-bottom: 4px; }
+body[data-page="signup"] .ah-terms { margin: 4px 0 10px; line-height: 1.45; }
+body[data-page="signup"] .ah-divider { margin: 12px 0 8px; }
+.ah-social--top { margin: 0 0 4px; }
+.ah-social--top .ah-or { margin: 10px 0 8px; text-transform: none; letter-spacing: 0; font-weight: 500; }
+.ah-social--top .ah-google-note { margin-top: 5px; }
+.ah-foot--inline { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+.ah-foot--inline .ah-foot-back { display: inline; margin: 0; }
+.ah-foot-sep { color: var(--text-muted, #849C8E); }
+.ah-card.is-fitted { transform-origin: 50% 0; }   /* origin for the `scale` property too */

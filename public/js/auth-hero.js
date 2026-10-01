@@ -9,6 +9,13 @@ window.AgriPricePH = window.AgriPricePH || {};
   function Auth() { return AgriPricePH.PublicAuth; }
   function Alert() { return AgriPricePH.PublicAlert; }
 
+  /* The animated "signed in" card; falls back to the plain success box if it is missing. */
+  function celebrate(opts, fallbackText) {
+    if (Alert()?.celebrate) Alert().celebrate(opts);
+    else Alert()?.success?.(fallbackText, { onConfirm: opts.onContinue });
+  }
+  function roleLabel(role) { return role === 'super_admin' ? 'Super Admin' : role ? 'Admin' : ''; }
+
   function $(sel, root) { return (root || document).querySelector(sel); }
   function $all(sel, root) { return Array.from((root || document).querySelectorAll(sel)); }
 
@@ -95,11 +102,11 @@ window.AgriPricePH = window.AgriPricePH || {};
         const remember = !!document.getElementById('login-remember')?.checked;
         const userResult = await Auth().login({ email: id, password, remember });
         if (userResult.ok) {
-          Alert()?.success?.('Welcome back! You are now logged in.', {
-            onConfirm: () => {
-              window.location.href = Auth().nextPageFromUrl() || Auth().defaultLandingPage();
-            },
-          });
+          const dest = Auth().nextPageFromUrl() || Auth().defaultLandingPage();
+          celebrate({
+            variant: 'login', name: userResult.user?.name, avatar: userResult.user?.avatar, dest,
+            onContinue: () => { window.location.href = dest; },
+          }, 'Welcome back! You are now logged in.');
           return;
         }
         if (userResult.deactivated) {
@@ -146,7 +153,15 @@ window.AgriPricePH = window.AgriPricePH || {};
 
     boxes.forEach((box, i) => {
       box.addEventListener('input', () => {
-        box.value = box.value.replace(/\D/g, '').slice(-1);
+        const digits = box.value.replace(/\D/g, '');
+        // A whole code typed fast, autofilled (one-time-code) or inserted at once lands in one box:
+        // spread it across the boxes instead of keeping only one digit.
+        if (digits.length > 1) {
+          digits.slice(0, boxes.length - i).split('').forEach((d, offset) => { boxes[i + offset].value = d; });
+          focusBox(Math.min(i + digits.length, boxes.length - 1));
+          return;
+        }
+        box.value = digits;
         if (box.value && i < boxes.length - 1) focusBox(i + 1);
       });
       box.addEventListener('keydown', (e) => {
@@ -209,9 +224,14 @@ window.AgriPricePH = window.AgriPricePH || {};
         pin?.focusFirstEmpty();
         return;
       }
-      Alert()?.success?.('Admin sign-in successful.', {
-        onConfirm: () => { window.location.href = '../admin/index.html'; },
-      });
+      celebrate({
+        variant: 'admin',
+        name: result.admin?.name || pendingAdmin?.username,
+        avatar: result.admin?.avatar,
+        roleLabel: roleLabel(result.admin?.role),
+        sub: result.admin?.must_change_credentials ? 'First, set your own password and PIN to replace the defaults.' : undefined,
+        onContinue: () => { window.location.href = '../admin/index.html'; },
+      }, 'Admin sign-in successful.');
     });
   }
 
@@ -435,10 +455,125 @@ window.AgriPricePH = window.AgriPricePH || {};
         Alert()?.authFailure?.(result.message);
         return;
       }
-      Alert()?.success?.('Your account was created successfully.', {
-        onConfirm: () => { window.location.href = Auth().nextPageFromUrl() || Auth().defaultLandingPage(); },
-      });
+      const dest = Auth().nextPageFromUrl() || Auth().defaultLandingPage();
+      celebrate({
+        variant: 'signup', name, dest, autoMs: 3000,
+        onContinue: () => { window.location.href = dest; },
+      }, 'Your account was created successfully.');
     });
+  }
+
+  /* ---------------- Continue with Google (public accounts only) ----------------
+     Google Identity Services shows Google's own button and popup and hands back a signed ID token;
+     the server checks it (model/google_signin.py) and signs in, links, or creates the account.
+     The button only appears when the server has a Google client ID configured. */
+  function loadGoogleScript() {
+    return new Promise((resolve, reject) => {
+      if (window.google?.accounts?.id) { resolve(); return; }
+      const tag = document.createElement('script');
+      tag.src = 'https://accounts.google.com/gsi/client?hl=en';
+      tag.async = true;
+      tag.onload = () => resolve();
+      tag.onerror = () => reject(new Error('Google sign-in could not load.'));
+      document.head.appendChild(tag);
+    });
+  }
+
+  async function onGoogleCredential(response) {
+    const remember = !!document.getElementById('login-remember')?.checked;
+    const result = await Auth().googleSignIn(response?.credential, remember);
+    if (!result.ok) {
+      Alert()?.authFailure?.(result.message);
+      return;
+    }
+    const dest = Auth().nextPageFromUrl() || Auth().defaultLandingPage();
+    celebrate({
+      variant: result.created ? 'signup' : 'login',
+      name: result.user?.name, avatar: result.user?.avatar, dest,
+      autoMs: result.created ? 3000 : undefined,
+      onContinue: () => { window.location.href = dest; },
+    }, 'Signed in with Google.');
+  }
+
+  async function wireGoogleSignIn() {
+    const wrap = document.getElementById('ah-google-wrap');
+    const host = document.getElementById('ah-google-btn');
+    if (!wrap || !host || !AgriPricePH.API?.authConfig) return;
+    let clientId = '';
+    try {
+      const res = await AgriPricePH.API.authConfig();
+      clientId = res.data?.google_client_id || '';
+    } catch { /* backend offline: no Google button */ }
+    if (!clientId) return;
+    try { await loadGoogleScript(); } catch { return; }
+
+    const isSignup = !!document.getElementById('form-signup');
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback: onGoogleCredential,
+      ux_mode: 'popup',
+      auto_select: false,
+      context: isSignup ? 'signup' : 'signin',
+    });
+    wrap.hidden = false;
+    const width = Math.max(220, Math.min(400, Math.round(host.getBoundingClientRect().width || 320)));
+    window.google.accounts.id.renderButton(host, {
+      type: 'standard',
+      theme: document.documentElement.classList.contains('theme-dark') ? 'filled_black' : 'outline',
+      size: 'large',
+      shape: 'pill',
+      text: isSignup ? 'signup_with' : 'continue_with',
+      logo_alignment: 'center',
+      locale: 'en',
+      width,
+    });
+    // The button (and its note) make the card taller: fit it again now, and once Google's button
+    // frame has finished loading.
+    fitAuthCard();
+    setTimeout(fitAuthCard, 700);
+    const note = document.getElementById('ah-google-note');
+    if (note && isSignup) {
+      note.innerHTML = 'By continuing with Google you agree to the <button type="button" class="ah-inline-link" id="ah-google-terms">Terms &amp; Conditions</button>.';
+      document.getElementById('ah-google-terms')?.addEventListener('click', () => document.getElementById('ah-terms-link')?.click());
+    }
+  }
+
+  /* ---------------- sign-up card: fit the window, no scrollbar ----------------
+     The card's natural height is measured unscaled; when it is taller than the room between the
+     top of the card and the bottom of the window (less the © line), the card is scaled down as one
+     piece and the space it no longer uses is handed back, so the page itself never scrolls. */
+  function fitAuthCard() {
+    if (document.body?.dataset?.page !== 'signup') return;
+    const card = document.querySelector('.ah-card');
+    if (!card) return;
+    card.style.scale = '';
+    card.style.marginBottom = '';
+    card.classList.remove('is-fitted');
+    if (window.innerWidth < 900) return;            // phones/tablets: the page scrolls normally
+    const footer = document.querySelector('.ah-footer');
+    const top = card.getBoundingClientRect().top + (document.scrollingElement?.scrollTop || 0);
+    const below = (footer ? footer.offsetHeight + 18 : 0) + 16;
+    const room = window.innerHeight - top - below;
+    const need = card.offsetHeight;
+    if (room <= 0 || need <= room) return;
+    const scale = Math.max(0.7, room / need);
+    card.classList.add('is-fitted');
+    // `scale`, not `transform`: the card's entrance animation owns `transform` and would win.
+    card.style.scale = scale.toFixed(4);
+    card.style.marginBottom = `${-(need * (1 - scale)).toFixed(1)}px`;
+  }
+
+  function watchAuthFit() {
+    if (document.body?.dataset?.page !== 'signup') return;
+    // A short timer rather than requestAnimationFrame, which never fires in a background tab.
+    let timer = 0;
+    const refit = () => { clearTimeout(timer); timer = setTimeout(fitAuthCard, 30); };
+    window.addEventListener('resize', refit, { passive: true });
+    const body = document.querySelector('.ah-card-body');
+    // Error messages, the Google button arriving, and the strength hint change the card's height.
+    if (body && typeof ResizeObserver !== 'undefined') new ResizeObserver(refit).observe(body);
+    document.fonts?.ready?.then(refit);
+    fitAuthCard();
   }
 
   /* ---------------- Terms & Conditions modal ---------------- */
@@ -601,6 +736,8 @@ window.AgriPricePH = window.AgriPricePH || {};
     wireResetPasswordForm();
     wireSignupForm();
     wireTermsModal();
+    wireGoogleSignIn();
+    watchAuthFit();
     wireSlideshow();
     loadStatRow();
   });

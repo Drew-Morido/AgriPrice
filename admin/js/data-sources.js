@@ -21,9 +21,9 @@ AgriPricePH.DataSources = (function () {
     { id: 'da', key: 'rice', preview: 'preview_rice', name: 'DA – Dept. of Agriculture',
       type: 'Web Scraper (BeautifulSoup + PDF)', dataType: 'Daily Rice Prices (8 types)',
       url: 'https://www.da.gov.ph/price-monitoring/', color: '#4CAF6E', bgColor: 'rgba(76,175,110,0.12)' },
-    { id: 'doe', key: 'fuel', preview: 'preview_fuel', name: 'Zigwheels (Fuel)',
-      type: 'Web Scraper (BeautifulSoup)', dataType: 'Diesel & Fuel Prices (Weekly)',
-      url: 'https://www.zigwheels.ph/fuel-price', color: '#F59E0B', bgColor: 'rgba(245,158,11,0.12)' },
+    { id: 'doe', key: 'fuel', preview: 'preview_fuel', name: 'DOE – NCR Pump Prices (Fuel)',
+      type: 'Web Scraper (weekly DOE PDF)', dataType: 'RON95 & Diesel common price, NCR (Weekly)',
+      url: 'https://doe.gov.ph/data-and-prices/liquid-fuels/retail-pump-prices/ncr-pump-prices', color: '#F59E0B', bgColor: 'rgba(245,158,11,0.12)' },
     { id: 'api', key: 'rates', preview: 'preview_rates', name: 'ExchangeRate API',
       type: 'REST API (JSON)', dataType: 'USD/PHP, THB/PHP, VND/PHP',
       url: 'https://open.er-api.com/v6/latest/USD', color: '#3B82F6', bgColor: 'rgba(59,130,246,0.12)' },
@@ -42,15 +42,25 @@ AgriPricePH.DataSources = (function () {
   const SOURCE_FACTS = {
     da:  { short: 'Rice prices', cadence: 'Daily price bulletin (business days)',
            usedBy: 'Forecast targets — all 8 rice types', unit: '/kg', route: 'predictions', routeLabel: 'Price Forecast' },
-    doe: { short: 'Fuel prices', cadence: 'Weekly pump-price adjustments',
-           usedBy: 'Forecast inputs — RON 95 & diesel', unit: '/L', route: 'correlation', routeLabel: 'Market Drivers' },
+    doe: { short: 'Fuel prices', cadence: 'Weekly DOE bulletin (NCR common price)',
+           usedBy: 'Forecast inputs — RON 95 & diesel', unit: '/L', route: 'correlation', routeLabel: 'Market Drivers',
+           // Shown behind the (i) icon next to the source name.
+           info: 'Main source: DOE’s weekly “Price Monitoring of Liquid Fuels — NCR” PDF (the price most NCR stations charge).\n'
+             + 'Fallback: GasWatch PH (gaswatchph.com), which republishes DOE advisories with station reports. It is used when DOE can’t be reached or has no new bulletin for 14 days, and to fill a price DOE leaves blank (#N/A) for the same week — those values are marked “Filled from GasWatch PH”.' },
     api: { short: 'Exchange rates', cadence: 'Daily reference rates',
            usedBy: 'Forecast input — USD/PHP rate', unit: '', route: 'correlation', routeLabel: 'Market Drivers' },
+    psa: { short: 'Stocks & farmgate', cadence: 'Monthly (PSA publishes about the 7th–15th of the next month)',
+           usedBy: 'Forecast inputs — rice stock & palay farmgate', unit: '', route: 'correlation', routeLabel: 'Market Drivers',
+           info: 'Philippine Statistics Authority, OpenSTAT (the source PhilRice Ricelytics cites).\n'
+             + 'Rice stocks: “Monthly Total Stocks Inventory by Sector” (household, commercial, NFA; metric tons). '
+             + 'Farmgate: “Cereals: Farmgate Prices”, palay other variety and fancy, Philippines.\n'
+             + 'The whole 2015-onward series is refreshed each sync because PSA revises past months. A month’s figure '
+             + 'is used by the model from the 15th of the following month — when PSA has actually published it.' },
     tc:  { short: 'Rice import tariff', cadence: 'Quarterly rate (checked daily)',
            usedBy: 'Imported-rice consumer prices, after admin approval', unit: '', route: 'taxes', routeLabel: 'Taxes & Import Charges' },
   };
 
-  const LIVE_IDS = ['da', 'doe', 'api', 'tc'];
+  const LIVE_IDS = ['da', 'doe', 'api', 'tc', 'psa'];
   const RICE_FIELDS = [
     'Local Special', 'Local Premium', 'Local Well Milled', 'Local Regular Milled',
     'Imported Special', 'Imported Premium', 'Imported Well Milled', 'Imported Regular Milled',
@@ -109,7 +119,7 @@ AgriPricePH.DataSources = (function () {
     return summary.filter((r) => RICE_FIELDS.includes(r.label)).length;
   }
 
-  /** Fix DA + drop PSA/PAGASA — works even if the API returns an old payload */
+  /** Fix DA + keep only implemented sources (PSA OpenSTAT is real now: rice stocks + farmgate) */
   function _normalizeSources(list) {
     return list
       .filter((s) => LIVE_IDS.includes(s.id))
@@ -167,6 +177,7 @@ AgriPricePH.DataSources = (function () {
   function destroy() {
     clearTimeout(_pollTimer);
     _mounted = false;
+    document.getElementById('ds-ready-overlay')?.remove();   // the popup lives on <body>, not in the page
   }
 
   function _poll() {
@@ -177,8 +188,99 @@ AgriPricePH.DataSources = (function () {
     });
   }
 
+  // ── model input checklist ────────────────────────────────────────────────
+  let _readiness = null;
+
+  async function _fetchReadiness() {
+    try {
+      _readiness = await AgriPricePH.API.dataReadiness();
+    } catch {
+      _readiness = { ready: false };
+    }
+    _renderKpis();          // the "Fresh today" card shows which day the model uses
+    _renderReadiness();     // refresh the popup if it is open
+  }
+
+  /** Opens the Model input checklist as a popup (from the "Fresh today" card). */
+  function _openReadiness() {
+    if (document.getElementById('ds-ready-overlay')) return;
+    const overlay = document.createElement('div');
+    overlay.className = 'ds-modal-overlay';
+    overlay.id = 'ds-ready-overlay';
+    overlay.innerHTML = `
+      <div class="ds-modal-box ds-ready-modal" role="dialog" aria-modal="true" aria-labelledby="ds-ready-heading">
+        <button type="button" class="ds-ready-close" aria-label="Close">×</button>
+        <div id="ds-ready" aria-live="polite"></div>
+      </div>`;
+    document.body.appendChild(overlay);
+    _renderReadiness();
+    requestAnimationFrame(() => overlay.classList.add('visible'));
+    const close = () => {
+      document.removeEventListener('keydown', onKey);
+      overlay.classList.remove('visible');
+      setTimeout(() => overlay.remove(), 200);
+      document.querySelector('#ds-kpis [data-action="readiness"]')?.focus();
+    };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay || e.target.closest('.ds-ready-close')) close(); });
+    overlay.querySelector('.ds-ready-close').focus();
+  }
+
+  function _fmtDay(iso) {
+    if (!iso) return '—';
+    const d = new Date(`${iso}T00:00:00`);
+    return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  /** Which days the forecast is built from, and what each newer day is still missing. */
+  function _renderReadiness() {
+    const el = document.getElementById('ds-ready');
+    if (!el) return;
+    const r = _readiness;
+    if (!r || !r.ready) {
+      el.innerHTML = `<div class="ds-ready-empty">${r ? 'Could not check the model inputs — is the backend running?' : 'Checking which days the model can use…'}</div>`;
+      return;
+    }
+    const mark = (c) => `<span class="ds-ready-mark ${c.ok ? 'ok' : (c.blocking ? 'bad' : 'warn')}" aria-hidden="true">${c.ok ? '✓' : '✕'}</span>`;
+    const row = (c) => `
+      <li class="ds-ready-item">
+        ${mark(c)}
+        <span class="ds-ready-label">${_esc(c.label)}${c.blocking ? '' : ' <em>(info only)</em>'}</span>
+        <span class="ds-ready-detail">${_esc(c.detail)}</span>
+      </li>`;
+    const held = (r.held || []);
+    const waiting = held.length
+      ? `<div class="ds-ready-sub">Waiting — not given to the model yet</div>
+         ${held.map(h => `
+           <div class="ds-ready-day is-held">
+             <div class="ds-ready-date">${_esc(_fmtDay(h.date))}</div>
+             <ul class="ds-ready-list">${h.checks.filter(c => c.blocking).map(row).join('')}</ul>
+           </div>`).join('')}`
+      : '';
+    el.innerHTML = `
+      <div class="ds-ready-head">
+        <div>
+          <div class="ds-ready-title" id="ds-ready-heading">Model input checklist
+            <i class="ti ti-info-circle stat-info-icon tooltip-wide" tabindex="0" role="img"
+               aria-label="A day is given to the forecasting model only when its DA rice bulletin is verified (never a temporary estimate) and the fuel and exchange-rate inputs are current. Newer days wait here until every check passes, then enter automatically."
+               data-tooltip="A day is given to the forecasting model only when its DA rice bulletin is verified (never a temporary estimate) and the fuel and exchange-rate inputs are current.
+Newer days wait here until every check passes, then enter automatically."></i>
+          </div>
+          <div class="ds-ready-caption">The forecast is built from verified data only.</div>
+        </div>
+        <span class="ds-ready-chip ${held.length ? 'warn' : 'ok'}">Model uses data through <b>${_esc(_fmtDay(r.ready_through))}</b></span>
+      </div>
+      <div class="ds-ready-day">
+        <div class="ds-ready-date">${_esc(_fmtDay(r.ready_through))} <span class="ds-ready-pass">all checks passed</span></div>
+        <ul class="ds-ready-list">${(r.ready_checks || []).map(row).join('')}</ul>
+      </div>
+      ${waiting}`;
+  }
+
   async function _fetch() {
     if (!AgriPricePH.API) return;
+    _fetchReadiness();
     try {
       const data = await AgriPricePH.API.dataSources();
       if (data.sources && data.sources.length) {
@@ -226,6 +328,26 @@ AgriPricePH.DataSources = (function () {
         : { tone: 'ok', badge: 'Current', title: `In effect: ${rate || '—'}${q ? ` (${q})` : ''}`, text: 'The confirmed quarterly rate is in the database. New quarters are detected automatically and staged for approval.' };
     }
     const asOf = (s.dataSummary || []).find(r => r.label === 'Date')?.value;
+    if (s.id === 'psa') {
+      // Monthly source: current when PSA's latest month is last month or the one before (it publishes ~2 weeks after).
+      return s.hasDataToday
+        ? { tone: 'ok', badge: 'Up to date', title: `Latest PSA month: ${asOf || '—'}`, text: 'New months and revisions are picked up automatically.' }
+        : { tone: 'warn', badge: 'Behind', title: `Latest PSA month: ${asOf || '—'}`, text: 'PSA has not published a newer month yet, or the last refresh failed — see the Web Scraper log.' };
+    }
+    if (s.id === 'doe') {
+      // Weekly source: "up to date" means this week's bulletin, not a row dated today.
+      const src = String((s.dataSummary || []).find(r => r.label === 'Source')?.value || '');
+      const age = asOf ? (Date.now() - new Date(asOf).getTime()) / 86400000 : null;
+      if (/gaswatch/i.test(src)) {
+        return { tone: 'warn', badge: 'Fallback', title: `Using GasWatch PH — week of ${asOf || '—'}`, text: 'DOE could not be read or has no new bulletin, so this week comes from gaswatchph.com. The next DOE bulletin replaces it automatically.' };
+      }
+      if (age != null && age <= 14) {
+        return { tone: 'ok', badge: 'Up to date', title: `DOE bulletin — week of ${asOf}`, text: 'DOE publishes NCR pump prices once a week; the next bulletin is picked up automatically.' };
+      }
+      if (_isActive(s)) {
+        return { tone: 'warn', badge: 'Behind', title: `Latest DOE week: ${asOf || '—'}`, text: 'No bulletin for the last two weeks. The next check tries DOE, then GasWatch PH.' };
+      }
+    }
     if (s.id === 'da' && s.isEstimated) {
       return { tone: 'warn', badge: 'Estimated', title: `Estimated for ${asOf || 'today'}`, text: 'DA hasn’t published today’s bulletin yet. This temporary estimate is replaced automatically when it is.' };
     }
@@ -277,19 +399,20 @@ AgriPricePH.DataSources = (function () {
     }
     const total = _sources.length;
     const active = _sources.filter(_isActive).length;
-    const daily = _sources.filter(s => s.id !== 'tc');
+    const daily = _sources.filter(s => s.id !== 'tc' && s.id !== 'psa');   // monthly/quarterly sources aren't "today" feeds
     const fresh = daily.filter(s => s.hasDataToday && !(s.id === 'da' && s.isEstimated)).length;
     const estimated = daily.filter(s => s.id === 'da' && s.isEstimated).length;
     const records = _sources.reduce((n, s) => n + (Number(s.totalRecords) || 0), 0);
-    const kpi = (icon, tone, label, value, sub) => `
-      <div class="ds-kpi">
+    const kpi = (icon, tone, label, value, sub, action) => `
+      <${action ? `button type="button" class="ds-kpi is-clickable" data-action="${action}" aria-haspopup="dialog"` : 'div class="ds-kpi"'}>
         <span class="ds-kpi-icon ${tone}">${icon}</span>
         <div class="ds-kpi-body">
-          <div class="ds-kpi-label">${label}</div>
+          <div class="ds-kpi-label">${label}${action ? ' <span class="ds-kpi-more" aria-hidden="true">›</span>' : ''}</div>
           <div class="ds-kpi-value">${value}</div>
           <div class="ds-kpi-sub">${sub}</div>
         </div>
-      </div>`;
+      </${action ? 'button' : 'div'}>`;
+    const r = _readiness && _readiness.ready ? _readiness : null;
     const I = {
       plug: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></svg>',
       check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>',
@@ -300,14 +423,16 @@ AgriPricePH.DataSources = (function () {
       kpi(I.plug, active === total ? 'ok' : 'warn', 'Connected sources', `${active}<small>/${total}</small>`,
         active === total ? 'All sources responding' : `${total - active} not responding`) +
       kpi(I.check, fresh === daily.length ? 'ok' : 'warn', 'Fresh today', `${fresh}<small>/${daily.length}</small>`,
-        estimated ? `${estimated} estimated, awaiting DA` : (fresh === daily.length ? 'Rice, fuel & exchange feeds' : 'Some feeds not updated yet')) +
+        r ? `Model uses data through ${_esc(_fmtDay(r.ready_through))}`
+          : (estimated ? `${estimated} estimated, awaiting DA` : (fresh === daily.length ? 'Rice, fuel & exchange feeds' : 'Some feeds not updated yet')),
+        'readiness') +
       kpi(I.db, 'info', 'Records in database', _formatCount(records), 'Across all sources') +
       kpi(I.clock, _scraperRunning ? 'info' : 'neutral', 'Last sync', _esc((_summary && _summary.last_updated) || '—'),
         _scraperRunning ? 'Scraper running now' : 'Auto-sync every 24 hours');
   }
 
   function _icon(id) {
-    const map = { da: svgLeaf, doe: svgFuel, api: svgGlobe, tc: svgPercent };
+    const map = { da: svgLeaf, doe: svgFuel, api: svgGlobe, tc: svgPercent, psa: svgChart };
     return (map[id] || svgGlobe)();
   }
 
@@ -337,7 +462,11 @@ AgriPricePH.DataSources = (function () {
     }).join('');
   }
 
+  // DOE reports RON 97 and RON 100 as one grade ("Gasoline (RON97/100)"), stored as RON_97.
+  const FUEL_LABELS = { RON_97: 'RON 97/100', RON_95: 'RON 95', RON_91: 'RON 91', Diesel_Plus: 'Diesel Plus' };
+
   function _prettyLabel(label) {
+    if (FUEL_LABELS[label]) return FUEL_LABELS[label];
     return String(label)
       .replace(/_to_/g, ' → ')
       .replace(/^RON_/, 'RON ')
@@ -378,7 +507,7 @@ AgriPricePH.DataSources = (function () {
     }
     return `
       <div class="ds-section-head"><span>Latest values</span>${metaLine}</div>
-      <div class="ds-values ${vals.length > 4 ? 'is-grid' : ''}">
+      <div class="ds-values ${s.id === 'psa' ? 'is-six' : (vals.length > 4 ? 'is-grid' : '')}">
         ${vals.map(r => `
           <div class="ds-value">
             <span class="ds-value-label" title="${_esc(_prettyLabel(r.label))}">${_esc(_prettyLabel(r.label))}</span>
@@ -401,7 +530,9 @@ AgriPricePH.DataSources = (function () {
     const hist = s.historicalRecords != null ? _formatCount(s.historicalRecords) : null;
     const scraped = s.scrapedRecords != null ? _formatCount(s.scrapedRecords) : null;
     const breakdown = hist != null
-      ? (s.id === 'tc' ? `${hist} confirmed · ${scraped} detected` : `${hist} historical · ${scraped} scraped`) : 'Total stored';
+      ? (s.id === 'tc' ? `${hist} confirmed · ${scraped} detected`
+        : s.id === 'psa' ? `${hist} stock months · ${scraped} farmgate months`
+        : `${hist} historical · ${scraped} scraped`) : 'Total stored';
     // `note` is secondary detail (exact timestamp, record breakdown): it's also the tooltip, so
     // the CSS can hide the visible line on tight screens without losing it.
     const fact = (label, value, sub, note) => `
@@ -427,7 +558,7 @@ AgriPricePH.DataSources = (function () {
       <div class="ds-detail-head">
         <span class="ds-detail-icon" style="background:${s.bgColor};color:${s.color}">${_icon(s.id)}</span>
         <div class="ds-detail-title">
-          <h3>${_esc(s.name)}</h3>
+          <div class="ds-detail-name"><h3>${_esc(s.name)}</h3>${facts.info ? `<i class="ti ti-info-circle stat-info-icon tooltip-wide tooltip-right" tabindex="0" role="img" aria-label="${_esc(facts.info)}" data-tooltip="${_esc(facts.info)}"></i>` : ''}</div>
           <div class="ds-detail-sub">${_esc(s.type)} · <a href="${_esc(s.url)}" target="_blank" rel="noopener noreferrer">${_esc(host)}</a></div>
         </div>
         <div class="ds-detail-actions">
@@ -446,7 +577,7 @@ AgriPricePH.DataSources = (function () {
         ${fact('Provides', _esc(s.dataType))}
         ${fact('Update cadence', _esc(facts.cadence || '—'))}
         ${fact('Last fetched', _esc(_displayLastFetch(s)), '', _esc(lastAbs))}
-        ${fact(s.id === 'tc' ? 'Quarters tracked' : 'Records in database', _formatCount(s.totalRecords), '', _esc(breakdown))}
+        ${fact(s.id === 'tc' ? 'Quarters tracked' : s.id === 'psa' ? 'Months stored' : 'Records in database', _formatCount(s.totalRecords), '', _esc(breakdown))}
         ${fact('Used by', _esc(facts.usedBy || '—'), facts.route ? `<button type="button" class="ds-link" data-goto="${facts.route}">Open ${_esc(facts.routeLabel)} →</button>` : '')}
       </div>
 
@@ -469,6 +600,7 @@ AgriPricePH.DataSources = (function () {
         if (window.innerWidth <= 860) document.getElementById('ds-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         return;
       }
+      if (e.target.closest('#ds-kpis [data-action="readiness"]')) { _openReadiness(); return; }
       const fetchBtn = e.target.closest('#ds-detail [data-action="fetch-now"]');
       if (fetchBtn) { _handleFetchNow(fetchBtn.dataset.sourceId); return; }
       const go = e.target.closest('#ds-detail [data-goto]');

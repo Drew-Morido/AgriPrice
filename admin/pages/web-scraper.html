@@ -9,7 +9,7 @@
 <div class="section-header" style="margin-bottom:20px;">
   <div>
     <div class="section-title">Web Scraper Monitor</div>
-    <div class="section-subtitle">Automated data collection — DA Rice, Fuel Prices, Exchange Rates</div>
+    <div class="section-subtitle">Automated data collection — DA rice, DOE fuel, exchange rates, rice tariff, PSA stocks &amp; farmgate</div>
   </div>
   <button class="btn btn-primary" id="scraper-run-btn" type="button">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -30,8 +30,8 @@
   </div>
 
   <div class="scraper-status-item">
-    <div class="stat-label">Fuel Records Today</div>
-    <div class="stat-value" id="stat-fuel">0/8</div>
+    <div class="stat-label">DOE Fuel (Weekly Bulletin)</div>
+    <div class="stat-value" id="stat-fuel">0/6</div>
     <div class="stat-subtext" id="missing-fuel">Loading...</div>
   </div>
 
@@ -86,31 +86,38 @@
         </div>
 
         <div class="schedule-item" style="display:grid;grid-template-columns:1fr 110px 160px 90px;gap:8px;align-items:center;padding:11px 12px;border-bottom:1px solid rgba(76,175,110,0.08);">
-          <span class="schedule-name">DA Rice Prices</span>
-          <span class="schedule-time" style="font-size:12px;">Every 4h</span>
+          <span class="schedule-name">DA Rice Prices <i class="ti ti-info-circle stat-info-icon tooltip-wide" tabindex="0" role="img" data-tooltip="Fetched in every full sync. While today's DA bulletin is still missing, DA alone is retried every 2 hours between 7:00 AM and 9:00 PM until it arrives."></i></span>
+          <span class="schedule-time" id="int-rice" style="font-size:12px;">Daily</span>
           <span class="schedule-next" id="next-rice" style="font-size:12px;">Next: —</span>
           <span id="pill-rice" class="pill pill-green" style="text-align:center;justify-self:center;">Active</span>
         </div>
 
         <div class="schedule-item" style="display:grid;grid-template-columns:1fr 110px 160px 90px;gap:8px;align-items:center;padding:11px 12px;border-bottom:1px solid rgba(76,175,110,0.08);">
-          <span class="schedule-name">Zigwheels Fuel</span>
-          <span class="schedule-time" style="font-size:12px;">Weekly Mon</span>
+          <span class="schedule-name">DOE Fuel (NCR weekly) <i class="ti ti-info-circle stat-info-icon tooltip-wide" tabindex="0" role="img" data-tooltip="Main: DOE weekly NCR pump-price bulletin. Fallback: GasWatch PH (gaswatchph.com) when DOE is unavailable or leaves a price blank."></i></span>
+          <span class="schedule-time" id="int-fuel" style="font-size:12px;">Daily</span>
           <span class="schedule-next" id="next-fuel" style="font-size:12px;">Next: —</span>
           <span id="pill-fuel" class="pill pill-green" style="text-align:center;justify-self:center;">Active</span>
         </div>
 
         <div class="schedule-item" style="display:grid;grid-template-columns:1fr 110px 160px 90px;gap:8px;align-items:center;padding:11px 12px;border-bottom:1px solid rgba(76,175,110,0.08);">
           <span class="schedule-name">USD/PHP Rate</span>
-          <span class="schedule-time" style="font-size:12px;">Every 1h</span>
+          <span class="schedule-time" id="int-rate" style="font-size:12px;">Daily</span>
           <span class="schedule-next" id="next-rate" style="font-size:12px;">Next: —</span>
           <span id="pill-rate" class="pill pill-green" style="text-align:center;justify-self:center;">Active</span>
         </div>
 
         <div class="schedule-item" style="display:grid;grid-template-columns:1fr 110px 160px 90px;gap:8px;align-items:center;padding:11px 12px;">
           <span class="schedule-name">Tariff Commission (Rice Tariff)</span>
-          <span class="schedule-time" style="font-size:12px;">Daily check</span>
+          <span class="schedule-time" id="int-tariff" style="font-size:12px;">Daily</span>
           <span class="schedule-next" id="next-tariff" style="font-size:12px;">Next: —</span>
           <span id="pill-tariff" class="pill pill-green" style="text-align:center;justify-self:center;">Active</span>
+        </div>
+
+        <div class="schedule-item" style="display:grid;grid-template-columns:1fr 110px 160px 90px;gap:8px;align-items:center;padding:11px 12px;border-top:1px solid rgba(76,175,110,0.08);">
+          <span class="schedule-name">PSA Stocks &amp; Farmgate <i class="ti ti-info-circle stat-info-icon tooltip-wide" tabindex="0" role="img" data-tooltip="PSA OpenSTAT: monthly rice stocks inventory and palay farmgate price. The whole 2015-onward series is refreshed each sync (PSA revises past months); a refresh that looks incomplete is refused and the stored copy kept."></i></span>
+          <span class="schedule-time" id="int-psa" style="font-size:12px;">Daily</span>
+          <span class="schedule-next" id="next-psa" style="font-size:12px;">Next: —</span>
+          <span id="pill-psa" class="pill pill-green" style="text-align:center;justify-self:center;">Active</span>
         </div>
 
       </div>

@@ -3,11 +3,11 @@
   <div class="section-header um-header">
     <div>
       <div class="section-title">User Management</div>
-      <div class="section-subtitle">Create, update, and deactivate retailer and administrator accounts</div>
+      <div class="section-subtitle">Create, update, and deactivate public user and administrator accounts</div>
     </div>
     <button type="button" class="btn btn-primary" id="um-add-btn">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      <span id="um-add-label">Add Retailer</span>
+      <span id="um-add-label">Add Public User</span>
     </button>
   </div>
 
@@ -28,7 +28,7 @@
       </span>
       <div>
         <div class="um-stat-value" id="um-stat-users">—</div>
-        <div class="um-stat-label">Active Retailers</div>
+        <div class="um-stat-label">Active Public Users</div>
       </div>
     </div>
     <div class="um-stat">
@@ -56,7 +56,7 @@
     <div class="card-header um-card-header">
       <div class="um-tabs" role="tablist" aria-label="Account type">
         <button type="button" class="um-tab active" role="tab" data-tab="users" aria-selected="true">
-          Retailers <span class="um-tab-count" id="um-count-users">0</span>
+          Public Users <span class="um-tab-count" id="um-count-users">0</span>
         </button>
         <button type="button" class="um-tab" role="tab" data-tab="admins" aria-selected="false">
           Administrators <span class="um-tab-count" id="um-count-admins">0</span>
@@ -71,9 +71,12 @@
       <div class="um-toolbar">
         <div class="um-search">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="text" id="um-search" class="form-input" placeholder="Search name, email, or username…" autocomplete="off" />
+          <!-- read-only until focused + type=search + its own name: keeps the browser from autofilling a
+               saved login into it, which silently filtered the table down to nothing. -->
+          <input type="search" id="um-search" name="um-account-search" class="form-input" placeholder="Search name or email…"
+                 autocomplete="off" readonly data-lpignore="true" data-1p-ignore />
         </div>
-        <select id="um-status-filter" class="form-input um-filter" aria-label="Filter by status">
+        <select id="um-status-filter" class="form-input um-filter" aria-label="Filter by status" autocomplete="off">
           <option value="all">All statuses</option>
           <option value="active">Active</option>
           <option value="deactivated">Deactivated</option>
@@ -94,14 +97,221 @@
 
 </div>
 
-<!-- ===== Create / Edit dialog (moved to <body> by users.js) ===== -->
+<!-- ===== Add Admin — 3-step wizard + review (moved to <body> by users.js) ===== -->
+<div class="alert-modal-overlay" id="um-wiz-overlay" hidden>
+  <div class="alert-modal card um-modal um-wiz" role="dialog" aria-modal="true" aria-labelledby="um-wiz-title">
+    <div class="card-header">
+      <div class="um-modal-heading">
+        <span class="um-modal-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="9" x2="12" y2="15"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
+        </span>
+        <div>
+          <span class="card-title" id="um-wiz-title">Add Admin</span>
+          <p class="um-modal-sub" id="um-wiz-sub">Step 1 of 3 · Who is this admin?</p>
+        </div>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" id="um-wiz-close" aria-label="Close">✕</button>
+    </div>
+
+    <ol class="um-steps" id="um-wiz-steps" aria-label="Progress">
+      <li class="um-step" data-step="1"><span class="um-step-dot"><b>1</b></span><span class="um-step-label">Basic info</span></li>
+      <li class="um-step" data-step="2"><span class="um-step-dot"><b>2</b></span><span class="um-step-label">Role</span></li>
+      <li class="um-step" data-step="3"><span class="um-step-dot"><b>3</b></span><span class="um-step-label">Password</span></li>
+      <li class="um-step" data-step="4"><span class="um-step-dot"><b>4</b></span><span class="um-step-label">PIN</span></li>
+      <li class="um-step" data-step="5"><span class="um-step-dot"><b>5</b></span><span class="um-step-label">Review</span></li>
+    </ol>
+
+    <div class="card-body">
+      <form class="um-form" id="um-wiz-form" novalidate autocomplete="off">
+
+        <!-- Step 1 — Basic info -->
+        <section class="um-wiz-panel" data-panel="1">
+          <div class="um-photo-pick" id="uw-photo">
+            <span class="um-photo-preview um-avatar admin" id="uw-photo-preview" aria-hidden="true">?</span>
+            <div class="um-photo-text">
+              <div class="um-photo-title">Profile photo <span class="um-optional">(optional)</span></div>
+              <div class="um-photo-sub">PNG, JPG or WEBP. They can change it later themselves.</div>
+              <div class="um-photo-actions">
+                <button type="button" class="btn btn-outline btn-sm" data-photo-pick="uw">Upload photo</button>
+                <button type="button" class="btn btn-ghost btn-sm um-photo-remove" data-photo-remove="uw" hidden>Remove</button>
+              </div>
+            </div>
+            <input type="file" accept="image/png,image/jpeg,image/webp" data-photo-input="uw" hidden />
+          </div>
+          <div class="um-field" data-field="uw-username">
+            <label for="uw-username">Username <span class="um-req" aria-hidden="true">*</span></label>
+            <div class="um-input-wrap has-prefix">
+              <span class="um-input-prefix" aria-hidden="true">@</span>
+              <input type="text" class="form-input" id="uw-username" maxlength="32" placeholder="jdelacruz" autocomplete="off" spellcheck="false" autocapitalize="none" aria-describedby="uw-username-msg" />
+              <span class="um-state" aria-hidden="true"></span>
+            </div>
+            <small class="um-msg" id="uw-username-msg" data-hint="Used to sign in. 3–32 characters: letters, numbers, dot, dash, underscore. Can't be changed later."></small>
+          </div>
+          <div class="um-field" data-field="uw-name">
+            <label for="uw-name">Full name <span class="um-req" aria-hidden="true">*</span></label>
+            <div class="um-input-wrap">
+              <input type="text" class="form-input" id="uw-name" maxlength="60" placeholder="Juan Dela Cruz" autocomplete="off" aria-describedby="uw-name-msg" />
+              <span class="um-state" aria-hidden="true"></span>
+            </div>
+            <small class="um-msg" id="uw-name-msg" data-hint="First and last name, as other admins will see it."></small>
+          </div>
+          <div class="um-field" data-field="uw-email">
+            <label for="uw-email">Email <span class="um-req" aria-hidden="true">*</span></label>
+            <div class="um-input-wrap">
+              <input type="email" class="form-input" id="uw-email" maxlength="120" placeholder="name@example.com" autocomplete="off" spellcheck="false" autocapitalize="none" aria-describedby="uw-email-msg" />
+              <span class="um-state" aria-hidden="true"></span>
+            </div>
+            <small class="um-msg" id="uw-email-msg" data-hint="A working address for this admin. We'll flag common typos."></small>
+          </div>
+        </section>
+
+        <!-- Step 2 — Role -->
+        <section class="um-wiz-panel" data-panel="2" hidden>
+          <div class="um-role-cards" role="radiogroup" aria-label="Role">
+            <label class="um-role-card">
+              <input type="radio" name="uw-role" value="admin" checked />
+              <span class="um-role-head">
+                <span class="um-role-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
+                <span class="um-role-name"><b>Admin</b><small>Day-to-day operator</small></span>
+                <span class="um-role-radio" aria-hidden="true"></span>
+              </span>
+              <ul class="um-role-list">
+                <li class="yes">Dashboard, forecasts, price history, market drivers</li>
+                <li class="yes">Run the web scraper and data import</li>
+                <li class="yes">Price alerts, rice brands, taxes, reports</li>
+                <li class="no">User Management (hidden)</li>
+                <li class="no">Change settings, start or cancel training (view only)</li>
+                <li class="no">Clear logs or delete report files</li>
+              </ul>
+            </label>
+            <label class="um-role-card is-super">
+              <input type="radio" name="uw-role" value="super_admin" />
+              <span class="um-role-head">
+                <span class="um-role-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18h20l-2-11-5 4-3-7-3 7-5-4z"/></svg></span>
+                <span class="um-role-name"><b>Super Admin</b><small>Full access</small></span>
+                <span class="um-role-radio" aria-hidden="true"></span>
+              </span>
+              <ul class="um-role-list">
+                <li class="yes">Everything an Admin can do</li>
+                <li class="yes">User Management: public users and admins</li>
+                <li class="yes">System Settings and security</li>
+                <li class="yes">Start or cancel model training</li>
+                <li class="yes">Clear logs and delete report files</li>
+              </ul>
+            </label>
+          </div>
+          <p class="um-role-tip">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <span>Most staff only need <b>Admin</b>. Give <b>Super Admin</b> to the people responsible for the system.</span>
+          </p>
+        </section>
+
+        <!-- Step 3 — Password (typed twice, the standard way) -->
+        <section class="um-wiz-panel" data-panel="3" hidden>
+          <div class="um-step-intro">
+            <span class="um-step-intro-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></span>
+            <div>
+              <div class="um-step-intro-title">Set a sign-in password</div>
+              <div class="um-step-intro-sub">Used with the username to sign in. Share it with the person privately.</div>
+            </div>
+          </div>
+          <div class="um-field" data-field="uw-password">
+            <div class="um-label-row">
+              <label for="uw-password">Password <span class="um-req" aria-hidden="true">*</span></label>
+              <button type="button" class="um-link" id="uw-generate">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                Generate strong password
+              </button>
+            </div>
+            <div class="um-input-wrap um-pass-wrap">
+              <input type="password" class="form-input" id="uw-password" maxlength="128" autocomplete="new-password" aria-describedby="uw-password-msg" />
+              <button type="button" class="um-pass-toggle" data-toggle="uw-password,uw-password2" aria-label="Show password" title="Show password"></button>
+            </div>
+            <div class="um-meter" id="uw-meter" aria-hidden="true"><span></span><span></span><span></span><span></span><em></em></div>
+            <ul class="um-checklist" id="uw-pw-rules" aria-label="Password requirements">
+              <li data-rule="len">8+ characters</li>
+              <li data-rule="upper">Uppercase letter</li>
+              <li data-rule="lower">Lowercase letter</li>
+              <li data-rule="digit">Number</li>
+              <li data-rule="user">Doesn't contain the username</li>
+            </ul>
+            <small class="um-msg" id="uw-password-msg"></small>
+          </div>
+          <div class="um-field" data-field="uw-password2">
+            <label for="uw-password2">Confirm password <span class="um-req" aria-hidden="true">*</span></label>
+            <div class="um-input-wrap">
+              <input type="password" class="form-input" id="uw-password2" maxlength="128" autocomplete="new-password" aria-describedby="uw-password2-msg" />
+              <span class="um-state" aria-hidden="true"></span>
+            </div>
+            <small class="um-msg" id="uw-password2-msg" data-hint="Type the same password again."></small>
+          </div>
+        </section>
+
+        <!-- Step 4 — 6-digit PIN: enter it, then re-enter it on its own screen (like setting a phone PIN) -->
+        <section class="um-wiz-panel" data-panel="4" hidden>
+          <div class="um-pinset" id="uw-pinset" data-phase="create">
+            <div class="um-pinset-lock" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path class="um-pinset-shackle" d="M8 11V7.5a4 4 0 0 1 8 0V11"/><circle cx="12" cy="16" r="1.4" fill="currentColor" stroke="none"/></svg>
+            </div>
+            <div class="um-pinset-title" id="uw-pin-title">Create a 6-digit PIN</div>
+            <div class="um-pinset-sub" id="uw-pin-sub">Asked after the password at every sign-in. Numbers only.</div>
+            <div class="um-pinset-dots" aria-hidden="true"><span></span><span></span></div>
+            <div class="um-field um-pinset-field" data-field="uw-pin">
+              <div class="um-pin" id="uw-pin" role="group" aria-labelledby="uw-pin-title"></div>
+              <small class="um-msg" id="uw-pin-msg" aria-live="polite"></small>
+            </div>
+            <div class="um-pinset-actions" id="uw-pin-actions"></div>
+          </div>
+        </section>
+
+        <!-- Step 5 — Review, then create -->
+        <section class="um-wiz-panel" data-panel="5" hidden>
+          <div class="um-review-card">
+            <span class="um-avatar admin" id="uw-r-avatar" aria-hidden="true">?</span>
+            <div class="um-review-who">
+              <div class="um-review-name" id="uw-r-name"></div>
+              <div class="um-account-sub" id="uw-r-sub"></div>
+            </div>
+            <span id="uw-r-pill"></span>
+          </div>
+          <dl class="um-review-list">
+            <div><dt>Username</dt><dd id="uw-r-username"></dd><button type="button" class="um-link" data-goto="1">Edit</button></div>
+            <div><dt>Full name</dt><dd id="uw-r-fullname"></dd><button type="button" class="um-link" data-goto="1">Edit</button></div>
+            <div><dt>Email</dt><dd id="uw-r-email"></dd><button type="button" class="um-link" data-goto="1">Edit</button></div>
+            <div><dt>Photo</dt><dd id="uw-r-photo"></dd><button type="button" class="um-link" data-goto="1">Change</button></div>
+            <div><dt>Role</dt><dd id="uw-r-role"></dd><button type="button" class="um-link" data-goto="2">Change</button></div>
+            <div><dt>Password</dt><dd id="uw-r-password"></dd><button type="button" class="um-link" data-goto="3">Change</button></div>
+            <div><dt>PIN</dt><dd>•••••• <span class="um-ok-text">confirmed</span></dd><button type="button" class="um-link" data-goto="4">Change</button></div>
+          </dl>
+          <p class="um-review-note">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <span><b id="uw-r-handle"></b> can sign in as soon as you create the account. They'll see a short welcome the first time.</span>
+          </p>
+        </section>
+
+        <p class="um-form-error" id="um-wiz-error" role="alert" hidden></p>
+        <div class="um-wiz-actions">
+          <button type="button" class="btn btn-ghost" id="um-wiz-back">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+            Back
+          </button>
+          <span class="um-wiz-spacer"></span>
+          <button type="button" class="btn btn-outline" id="um-wiz-cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="um-wiz-next">Next</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Add / edit public user, edit admin (moved to <body> by users.js) ===== -->
 <div class="alert-modal-overlay" id="um-form-overlay" hidden>
   <div class="alert-modal card um-modal" role="dialog" aria-modal="true" aria-labelledby="um-form-title">
     <div class="card-header">
       <div class="um-modal-heading">
         <span class="um-modal-icon" id="um-form-icon" aria-hidden="true"></span>
         <div>
-          <span class="card-title" id="um-form-title">Add Retailer</span>
+          <span class="card-title" id="um-form-title">Add Public User</span>
           <p class="um-modal-sub" id="um-form-sub">Creates a public-site account that can sign in right away.</p>
         </div>
       </div>
@@ -109,48 +319,194 @@
     </div>
     <div class="card-body">
       <form class="um-form" id="um-form" novalidate autocomplete="off">
-        <div class="um-field" data-for="admin">
+        <div class="um-photo-pick">
+          <span class="um-photo-preview um-avatar admin" id="uf-photo-preview" aria-hidden="true">?</span>
+          <div class="um-photo-text">
+            <div class="um-photo-title">Profile photo <span class="um-optional" id="uf-photo-opt">(optional)</span></div>
+            <div class="um-photo-sub" id="uf-photo-sub">PNG, JPG or WEBP. Saved with the other changes.</div>
+            <div class="um-photo-actions">
+              <button type="button" class="btn btn-outline btn-sm" data-photo-pick="uf">Change photo</button>
+              <button type="button" class="btn btn-ghost btn-sm um-photo-remove" data-photo-remove="uf" hidden>Remove</button>
+            </div>
+          </div>
+          <input type="file" accept="image/png,image/jpeg,image/webp" data-photo-input="uf" hidden />
+        </div>
+        <div class="um-field" data-for="admin" data-field="um-f-username">
           <label for="um-f-username">Username</label>
-          <input type="text" class="form-input" id="um-f-username" maxlength="32" placeholder="e.g. jdelacruz" autocomplete="off" />
-          <small class="um-hint" id="um-f-username-hint">3–32 characters: letters, numbers, dot, dash, underscore. Can't be changed later.</small>
+          <div class="um-input-wrap has-prefix">
+            <span class="um-input-prefix" aria-hidden="true">@</span>
+            <input type="text" class="form-input" id="um-f-username" readonly />
+          </div>
+          <small class="um-msg" data-hint="Usernames can't be changed."></small>
         </div>
-        <div class="um-field">
-          <label for="um-f-name">Full name</label>
-          <input type="text" class="form-input" id="um-f-name" maxlength="60" placeholder="e.g. Juan Dela Cruz" />
+        <div class="um-field" data-field="um-f-name">
+          <label for="um-f-name">Full name <span class="um-req" aria-hidden="true">*</span></label>
+          <div class="um-input-wrap">
+            <input type="text" class="form-input" id="um-f-name" maxlength="60" placeholder="Juan Dela Cruz" />
+            <span class="um-state" aria-hidden="true"></span>
+          </div>
+          <small class="um-msg" id="um-f-name-msg"></small>
         </div>
-        <div class="um-field">
-          <label for="um-f-email">Email <span class="um-optional" data-for="admin">(optional)</span></label>
-          <input type="email" class="form-input" id="um-f-email" maxlength="120" placeholder="name@example.com" />
+        <div class="um-field" data-field="um-f-email">
+          <label for="um-f-email">Email <span class="um-req" id="um-f-email-req" aria-hidden="true">*</span></label>
+          <div class="um-input-wrap">
+            <input type="email" class="form-input" id="um-f-email" maxlength="120" placeholder="name@example.com" spellcheck="false" autocapitalize="none" />
+            <span class="um-state" aria-hidden="true"></span>
+          </div>
+          <small class="um-msg" id="um-f-email-msg"></small>
         </div>
-        <div class="um-field" data-for="admin">
+        <div class="um-sec-group" data-for="user">
+          <div class="um-sec-title">Profile details <span class="um-sec-sub">optional, shown on their profile</span></div>
+          <div class="um-field-row">
+            <div class="um-field" data-field="um-f-title">
+              <label for="um-f-title">Title</label>
+              <div class="um-input-wrap">
+                <input type="text" class="form-input" id="um-f-title" maxlength="60" placeholder="e.g. Rice retailer" />
+                <span class="um-state" aria-hidden="true"></span>
+              </div>
+              <small class="um-msg" id="um-f-title-msg"></small>
+            </div>
+            <div class="um-field" data-field="um-f-phone">
+              <label for="um-f-phone">Phone</label>
+              <div class="um-input-wrap">
+                <input type="tel" class="form-input" id="um-f-phone" maxlength="30" placeholder="0917 555 0101" inputmode="tel" />
+                <span class="um-state" aria-hidden="true"></span>
+              </div>
+              <small class="um-msg" id="um-f-phone-msg"></small>
+            </div>
+          </div>
+          <div class="um-field" data-field="um-f-bio">
+            <div class="um-label-row">
+              <label for="um-f-bio">Bio</label>
+              <span class="um-count" id="um-f-bio-count">0 / 280</span>
+            </div>
+            <textarea class="form-input um-textarea" id="um-f-bio" maxlength="280" rows="3" placeholder="A short note about this person"></textarea>
+            <small class="um-msg" id="um-f-bio-msg"></small>
+          </div>
+        </div>
+
+        <div class="um-field" data-for="admin" data-field="um-f-role">
           <label for="um-f-role">Role</label>
           <select class="form-input" id="um-f-role">
-            <option value="admin">Admin — manages retailer accounts and system data</option>
-            <option value="super_admin">Super Admin — can also manage admin accounts</option>
+            <option value="admin">Admin — day-to-day operator (no User Management, Settings or Training changes)</option>
+            <option value="super_admin">Super Admin — full access</option>
           </select>
+          <small class="um-msg" id="um-f-role-msg"></small>
         </div>
-        <div class="um-field">
-          <label for="um-f-password">Password <span class="um-optional" id="um-f-password-opt">(leave blank to keep current)</span></label>
-          <div class="um-pass-wrap">
-            <input type="password" class="form-input" id="um-f-password" maxlength="128" autocomplete="new-password" />
-            <button type="button" class="um-pass-toggle" id="um-f-password-toggle" aria-label="Show password" title="Show password">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            </button>
+
+        <div class="um-sec-group">
+          <div class="um-sec-title" id="um-f-pw-title">Password</div>
+          <div class="um-field" data-field="um-f-password">
+            <label for="um-f-password"><span id="um-f-password-label">Password</span> <span class="um-optional" id="um-f-password-opt">(leave blank to keep current)</span></label>
+            <div class="um-input-wrap um-pass-wrap">
+              <input type="password" class="form-input" id="um-f-password" maxlength="128" autocomplete="new-password" />
+              <button type="button" class="um-pass-toggle" data-toggle="um-f-password,um-f-password2" aria-label="Show password" title="Show password"></button>
+            </div>
+            <div class="um-meter" id="um-f-meter" aria-hidden="true"><span></span><span></span><span></span><span></span><em></em></div>
+            <ul class="um-checklist" id="um-f-pw-rules" aria-label="Password requirements">
+              <li data-rule="len">8+ characters</li>
+              <li data-rule="upper">Uppercase letter</li>
+              <li data-rule="lower">Lowercase letter</li>
+              <li data-rule="digit">Number</li>
+              <li data-rule="user" data-for="admin">Doesn't contain the username</li>
+            </ul>
+            <small class="um-msg" id="um-f-password-msg"></small>
           </div>
-          <div class="um-strength" id="um-strength" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
-          <small class="um-hint">At least 8 characters with an uppercase letter, a lowercase letter, and a number.</small>
+          <div class="um-field" data-field="um-f-password2">
+            <label for="um-f-password2">Confirm password</label>
+            <div class="um-input-wrap">
+              <input type="password" class="form-input" id="um-f-password2" maxlength="128" autocomplete="new-password" />
+              <span class="um-state" aria-hidden="true"></span>
+            </div>
+            <small class="um-msg" id="um-f-password2-msg"></small>
+          </div>
         </div>
-        <div class="um-field" data-for="admin">
-          <label for="um-f-code">6-digit access code <span class="um-optional" id="um-f-code-opt">(leave blank to keep current)</span></label>
-          <input type="text" class="form-input um-code-input" id="um-f-code" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="off" />
-          <small class="um-hint">Asked after the password at sign-in, same as the built-in admin.</small>
+
+        <div class="um-sec-group" data-for="admin">
+          <div class="um-sec-title">6-digit PIN <span class="um-optional">(leave blank to keep current)</span></div>
+          <div class="um-field" data-field="um-f-code">
+            <label for="um-f-code">New PIN</label>
+            <div class="um-input-wrap">
+              <input type="password" class="form-input um-code-input" id="um-f-code" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="off" />
+              <span class="um-state" aria-hidden="true"></span>
+            </div>
+            <small class="um-msg" id="um-f-code-msg"></small>
+          </div>
+          <div class="um-field" data-field="um-f-code2">
+            <label for="um-f-code2">Confirm PIN</label>
+            <div class="um-input-wrap">
+              <input type="password" class="form-input um-code-input" id="um-f-code2" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="off" />
+              <span class="um-state" aria-hidden="true"></span>
+            </div>
+            <small class="um-msg" id="um-f-code2-msg"></small>
+          </div>
         </div>
+
         <p class="um-form-error" id="um-form-error" role="alert" hidden></p>
         <div class="alert-form-actions">
           <button type="button" class="btn btn-outline" id="um-form-cancel">Cancel</button>
           <button type="submit" class="btn btn-primary" id="um-form-save">Create Account</button>
         </div>
       </form>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Profile summary — opens when a table row is clicked (moved to <body> by users.js) ===== -->
+<div class="alert-modal-overlay" id="um-profile-overlay" hidden>
+  <div class="alert-modal card um-modal um-profile" role="dialog" aria-modal="true" aria-labelledby="um-p-name">
+    <div class="um-profile-cover">
+      <button type="button" class="um-profile-close" id="um-profile-close" aria-label="Close">✕</button>
+    </div>
+    <div class="um-profile-head">
+      <span class="um-avatar um-profile-avatar" id="um-p-avatar" aria-hidden="true">?</span>
+      <div class="um-profile-id">
+        <div class="um-profile-name" id="um-p-name"></div>
+        <div class="um-profile-handle" id="um-p-handle"></div>
+        <div class="um-profile-pills" id="um-p-pills"></div>
+      </div>
+    </div>
+    <div class="card-body um-profile-body">
+      <p class="um-profile-bio" id="um-p-bio" hidden></p>
+      <dl class="um-profile-grid" id="um-p-grid"></dl>
+      <div class="um-profile-activity" id="um-p-activity" hidden>
+        <div class="um-profile-section">Recent activity</div>
+        <ul id="um-p-activity-list"></ul>
+      </div>
+      <div class="um-profile-actions" id="um-p-actions"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Confirm an edit with the admin's own PIN (moved to <body> by users.js) ===== -->
+<div class="alert-modal-overlay" id="um-confirm-overlay" hidden>
+  <div class="alert-modal card um-modal um-confirm" role="dialog" aria-modal="true" aria-labelledby="um-c-title" aria-describedby="um-c-sub">
+    <div class="card-header">
+      <div class="um-modal-heading">
+        <span class="um-modal-icon um-confirm-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><rect x="9" y="11" width="6" height="5" rx="1"/><path d="M10 11V9.5a2 2 0 0 1 4 0V11"/></svg>
+        </span>
+        <div>
+          <span class="card-title" id="um-c-title">Confirm changes</span>
+          <p class="um-modal-sub" id="um-c-sub"></p>
+        </div>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" id="um-c-close" aria-label="Close">✕</button>
+    </div>
+    <div class="card-body">
+      <div class="um-confirm-section">You are about to change:</div>
+      <ul class="um-changes" id="um-c-changes"></ul>
+      <div class="um-confirm-pin">
+        <label id="uc-pin-label">Enter <b>your</b> 6-digit admin PIN to confirm</label>
+        <div class="um-field um-pinset-field" data-field="uc-pin">
+          <div class="um-pin" id="uc-pin" role="group" aria-labelledby="uc-pin-label"></div>
+          <small class="um-msg" id="uc-pin-msg" aria-live="polite"></small>
+        </div>
+      </div>
+      <div class="alert-form-actions">
+        <button type="button" class="btn btn-outline" id="um-c-cancel">Go back</button>
+        <button type="button" class="btn btn-primary" id="um-c-ok" disabled>Confirm &amp; save</button>
+      </div>
     </div>
   </div>
 </div>

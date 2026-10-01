@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300;1,9..144,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
   <link rel="stylesheet" href="../css/global.css" />
-  <link rel="stylesheet" href="css/modules.css" />
+  <link rel="stylesheet" href="css/modules.css?v=2" />
   <link rel="stylesheet" href="css/dashboard.css" />
   <link rel="stylesheet" href="css/predictions.css" />
   <link rel="stylesheet" href="css/data-sources.css?v=8" />
@@ -22,7 +22,7 @@
   <link rel="stylesheet" href="css/correlation.css" />
   <link rel="stylesheet" href="css/ui-modals.css" />
   <link rel="stylesheet" href="css/account.css" />
-  <link rel="stylesheet" href="css/users.css" />
+  <link rel="stylesheet" href="css/users.css?v=7" />
 
   <style>
     .page-transitioning { opacity: 0; transition: opacity 0.1s; }
@@ -170,7 +170,7 @@
         </span>
         Reports &amp; Export
       </a>
-      <a class="nav-item" data-route="users">
+      <a class="nav-item super-only" data-route="users">
         <span class="nav-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
@@ -273,27 +273,30 @@
 <script src="../js/dates.js"></script>
 
 <script src="js/modules.js"></script>
-<script src="js/router.js"></script>
+<script src="js/router.js?v=2"></script>
 <script src="js/ui-modals.js"></script>
 
 <script src="js/dashboard.js?v=20260927"></script>
 <script src="js/data-sources.js?v=8"></script>
 <script src="js/historical.js?v=3"></script>
-<script src="js/web-scraper.js?v=20260523b"></script>
-<script src="js/training.js?v=11"></script>
+<script src="js/web-scraper.js?v=20261001"></script>
+<script src="js/training.js?v=12"></script>
 <script src="js/predictions.js?v=20260927"></script>
 <script src="js/alerts.js"></script>
-<script src="js/reports.js?v=1"></script>
+<script src="js/reports.js?v=2"></script>
 <script src="js/taxes.js?v=1"></script>
 <script src="js/rice-brands.js?v=2"></script>
 <script src="js/model-dashboard.js?v=20260927"></script>
 <script src="js/correlation.js"></script>
-<script src="js/account.js"></script>
-<script src="js/users.js"></script>
-<script src="js/topbar.js"></script>
-<script src="js/settings.js"></script>
+<script src="js/account.js?v=3"></script>
+<script src="js/users.js?v=7"></script>
+<script src="js/topbar.js?v=3"></script>
+<script src="js/settings.js?v=3"></script>
 
-<script src="js/admin-auth.js"></script>
+<script src="js/admin-auth.js?v=2"></script>
+<script src="../js/welcome-modal.js?v=1"></script>
+<script src="js/admin-welcome.js?v=1"></script>
+<script src="js/admin-credentials.js?v=1"></script>
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     AgriPricePH.Settings.applySavedTheme();

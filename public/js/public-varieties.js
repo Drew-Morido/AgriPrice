@@ -92,6 +92,8 @@ AgriPricePH.Varieties = (function () {
           v.max = Math.max(v.max, shop.max);
           v.grades.add(cat.canonical_key);
           if (b.sample_date && (!v.asOf || b.sample_date > v.asOf)) v.asOf = b.sample_date;
+          if (!v.image && b.image_path) v.image = b.image_path;   // a brand's own uploaded photo
+          if (!v.sample) v.sample = b;                             // for a representative rice photo
         });
       });
     });

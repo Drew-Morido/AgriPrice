@@ -128,5 +128,95 @@ AgriPricePH.PublicAlert = (function () {
     else error(message, options);
   }
 
-  return { show, success, invalid, error, warning, authFailure, close, confirm };
+  /* ---------------- sign-in / sign-up success ----------------
+     A dedicated, animated card instead of the generic "Success" box: the person's photo (or
+     initials) inside a ring that draws itself, a check, a small burst of rice grains, and a bar
+     that continues on its own (or press Continue). */
+  const PAGE_LABELS = {
+    'current-prices.html': 'Price Forecast',
+    'rice-catalog.html': 'Rice Catalog',
+    'historical.html': 'Price History',
+    'statistics.html': 'Charts & Stats',
+    'profile.html': 'your profile',
+    'settings.html': 'Settings',
+  };
+
+  function escHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function initialsOf(name) {
+    const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '✓';
+    return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+  }
+
+  /**
+   * celebrate({ variant: 'login' | 'signup' | 'admin', name, avatar, roleLabel, dest, onContinue, autoMs })
+   */
+  function celebrate(opts = {}) {
+    const variant = opts.variant || 'login';
+    const first = String(opts.name || '').trim().split(/\s+/)[0] || '';
+    const page = String(opts.dest || '').split(/[?#]/)[0];
+    const where = PAGE_LABELS[page] ? `Taking you to ${PAGE_LABELS[page]}…` : 'Taking you in…';
+    const copy = {
+      login: { eyebrow: 'Signed in', title: first ? `Welcome back, ${first}!` : 'Welcome back!', sub: where },
+      signup: { eyebrow: 'Account created', title: first ? `You’re all set, ${first}!` : 'You’re all set!', sub: `Your free account is ready. ${where}` },
+      admin: { eyebrow: 'Admin sign-in', title: first ? `Welcome back, ${first}!` : 'Welcome back!', sub: 'Opening the admin dashboard…' },
+    }[variant] || {};
+    if (opts.sub) copy.sub = opts.sub;
+    const autoMs = Number(opts.autoMs) > 0 ? Number(opts.autoMs) : 2600;
+
+    document.getElementById('public-hello-root')?.remove();
+    const root = document.createElement('div');
+    root.id = 'public-hello-root';
+    root.className = `hello-root hello-${variant}`;
+    const grains = Array.from({ length: 14 }, (_, i) =>
+      `<i style="--a:${Math.round(i * (360 / 14) + (i % 2 ? 9 : -6))}deg;--r:${74 + (i % 4) * 9}px;--c:${i % 3 ? '#E9C46A' : 'var(--color-accent, #4CAF6E)'}"></i>`).join('');
+    root.innerHTML = `
+      <div class="hello-backdrop" data-hello-go></div>
+      <div class="hello-card" role="alertdialog" aria-modal="true" aria-labelledby="hello-title" aria-describedby="hello-sub">
+        <div class="hello-stage" aria-hidden="true">
+          <span class="hello-glow"></span>
+          <span class="hello-burst">${grains}</span>
+          <svg class="hello-ring" viewBox="0 0 120 120"><circle class="hello-ring-track" cx="60" cy="60" r="54"/><circle class="hello-ring-fill" cx="60" cy="60" r="54"/></svg>
+          <span class="hello-avatar${opts.avatar ? ' has-photo' : ''}">${opts.avatar ? `<img src="${escHtml(opts.avatar)}" alt="" />` : escHtml(initialsOf(opts.name))}</span>
+          <span class="hello-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+        </div>
+        <span class="hello-eyebrow">${escHtml(copy.eyebrow)}</span>
+        <h2 class="hello-title" id="hello-title">${escHtml(copy.title)}</h2>
+        <p class="hello-sub" id="hello-sub">${escHtml(copy.sub)}</p>
+        ${opts.roleLabel ? `<span class="hello-role">${escHtml(opts.roleLabel)}</span>` : ''}
+        <button type="button" class="hello-btn" data-hello-go>Continue
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+        <div class="hello-progress" aria-hidden="true"><span style="animation-duration:${autoMs}ms"></span></div>
+      </div>`;
+    document.body.appendChild(root);
+    document.body.classList.add('public-alert-open');
+    requestAnimationFrame(() => root.classList.add('is-open'));
+    setTimeout(() => root.querySelector('.hello-btn')?.focus(), 450);
+
+    let done = false;
+    const go = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      document.removeEventListener('keydown', onKey);
+      root.classList.add('is-leaving');
+      setTimeout(() => {
+        document.body.classList.remove('public-alert-open');
+        if (typeof opts.onContinue === 'function') opts.onContinue();
+        root.remove();
+      }, 260);
+    };
+    const onKey = (e) => { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); go(); } };
+    // The bar starts after the entrance animation; when it fills, continue.
+    const timer = setTimeout(go, autoMs + 600);
+    document.addEventListener('keydown', onKey);
+    root.addEventListener('click', (e) => { if (e.target.closest('[data-hello-go]')) go(); });
+  }
+
+  return { show, success, invalid, error, warning, authFailure, close, confirm, celebrate };
 })();

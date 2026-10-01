@@ -83,6 +83,7 @@ AgriPricePH.Training = (function () {
     _syncTabPanels();
     _remountLiveView();
     _ensurePolling();
+    _renderSplit();
     Promise.all([
       _fetchStatusOnce().then(data => {
         if (data) _applyStatusData(data);
@@ -720,7 +721,11 @@ AgriPricePH.Training = (function () {
         _syncToolbarButtons();
         if (_mounted) _addLocalLog('WARN', 'Cancelling training…');
 
-        const res = await fetch(`${API}/api/cancel-training`, { method: 'POST' });
+        const token = _adminToken();
+        const res = await fetch(`${API}/api/cancel-training`, {
+          method: 'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         if (res.status === 409) {
           data = await _waitForTrainingStopped(15000).catch(() => null);
           if (data && !data.running) {
@@ -841,6 +846,10 @@ AgriPricePH.Training = (function () {
       });
       if (res.status === 401) {
         _addLocalLog('ERROR', 'Admin session required — please log out and log back in.');
+        return;
+      }
+      if (res.status === 403) {
+        _addLocalLog('WARN', 'Only a Super Admin can start training.');
         return;
       }
       if (res.status === 409) {
@@ -988,8 +997,10 @@ AgriPricePH.Training = (function () {
       const ep = run.epochs_completed ? `Level ${run.epochs_completed}` : '—';
       const vl = run.final_val_loss != null ? Number(run.final_val_loss).toFixed(4) : '—';
       const mae = run.mae_peso != null ? `₱${Number(run.mae_peso).toFixed(2)}` : '—';
-      const accVal = run.avg_accuracy_pct ?? run.accuracy_pct;
-      const acc = accVal != null ? `${Number(accVal).toFixed(1)}%` : '—';
+      // Measured day-1 hit rate within P1.00 (avg of all types). Runs saved before meta v4 only have
+      // the legacy accuracy_pct (98-99% for any model, naive included), so they show a dash.
+      const accVal = _hit1(run);
+      const acc = accVal != null ? `${accVal.toFixed(1)}%` : '—';
 
       return `<tr data-run-id="${_esc(run.id)}" title="View run details">
         <td><span class="font-mono text-sm">#${_historyRuns.length - idx}</span></td>
@@ -1022,7 +1033,8 @@ AgriPricePH.Training = (function () {
 
     const labels = completed.map((r, i) => `Run ${i + 1}`);
     const valLosses = completed.map(r => Number(r.final_val_loss));
-    const accuracies = completed.map(r => Number(r.accuracy_pct) || 0);
+    // Hit rate within P1.00 (day 1); null for pre-v4 runs, which never recorded it.
+    const accuracies = completed.map(r => _hit1(r));
 
     AgriPricePH.Charts.lineChart(pathCanvas, [
       { data: valLosses, color: '#3B82F6', fill: true, lineWidth: 2, label: 'Val Loss' },
@@ -1030,7 +1042,7 @@ AgriPricePH.Training = (function () {
 
     if (accCanvas) {
       AgriPricePH.Charts.lineChart(accCanvas, [
-        { data: accuracies, color: '#4CAF6E', fill: true, lineWidth: 2, label: 'Accuracy %' },
+        { data: accuracies, color: '#4CAF6E', fill: true, lineWidth: 2, label: 'Within ₱1.00 (day 1) %' },
       ], { minY: 0, maxY: 100, labels });
     }
   }
@@ -1062,8 +1074,8 @@ AgriPricePH.Training = (function () {
         <div class="training-modal-metric"><label>Final Val Loss</label><div class="val">${_fmtNum(run.final_val_loss, 4)}</div></div>
         <div class="training-modal-metric"><label>MAE (PHP/kg)</label><div class="val">${run.mae_peso != null ? '₱' + Number(run.mae_peso).toFixed(2) : '—'}</div></div>
         <div class="training-modal-metric"><label>RMSE (PHP/kg)</label><div class="val">${run.rmse_peso != null ? '₱' + Number(run.rmse_peso).toFixed(2) : '—'}</div></div>
-        <div class="training-modal-metric"><label>Accuracy (Avg, all trained types)</label><div class="val">${(run.avg_accuracy_pct ?? run.accuracy_pct) != null ? Number(run.avg_accuracy_pct ?? run.accuracy_pct).toFixed(1) + '%' : '—'}</div></div>
-        <div class="training-modal-metric"><label>Primary target accuracy</label><div class="val">${run.primary_accuracy_pct != null ? Number(run.primary_accuracy_pct).toFixed(1) + '%' : '—'}</div></div>
+        <div class="training-modal-metric"><label>Within ₱1.00, day 1 (avg, all types)</label><div class="val">${_hit1(run) != null ? _hit1(run).toFixed(1) + '%' : '—'}</div></div>
+        <div class="training-modal-metric"><label>Within ₱1.00, day 1 (${_esc(run.target || 'primary type')})</label><div class="val">${_hit1(run?.targets_meta?.[run.target]) != null ? _hit1(run.targets_meta[run.target]).toFixed(1) + '%' : '—'}</div></div>
         <div class="training-modal-metric"><label>Data Through</label><div class="val">${_esc(run.last_data_date || '—')}</div></div>
         <div class="training-modal-metric"><label>Train Samples</label><div class="val">${_esc(String(run.train_samples ?? '—'))}</div></div>
         <div class="training-modal-metric"><label>Test Samples</label><div class="val">${_esc(String(run.test_samples ?? '—'))}</div></div>
@@ -1230,6 +1242,59 @@ AgriPricePH.Training = (function () {
   function _esc(str) {
     return String(str ?? '')
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  /**
+   * Train / validation / test split of the model on disk, from meta.json (split_dates + sample counts).
+   * Validation and test both come from the daily-observation era (regime-aware split, model/train.py).
+   */
+  async function _renderSplit() {
+    const tbody = document.getElementById('split-tbody');
+    const bar = document.getElementById('split-bar');
+    if (!tbody) return;
+    let meta = null;
+    try { meta = (await AgriPricePH.API.modelStatus())?.meta || null; } catch { meta = null; }
+    const sd = meta?.split_dates;
+    if (!sd?.train || !sd?.val || !sd?.test) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-muted">No trained model yet — run Training first.</td></tr>';
+      if (bar) bar.innerHTML = '';
+      return;
+    }
+    const fmt = (iso) => {
+      const d = new Date(`${iso}T00:00:00`);
+      return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('en-PH', { month: 'short', year: 'numeric' });
+    };
+    const flat = meta.flat_pct_by_split || {};
+    const rows = [
+      { k: 'train', name: 'Training', pill: 'pill-success', color: '#4CAF6E', n: meta.train_samples,
+        purpose: 'Model learning (all history)' },
+      { k: 'val', name: 'Validation', pill: 'pill-info', color: '#3B82F6', n: meta.val_samples,
+        purpose: 'Early stopping and tuning (daily-price era)' },
+      { k: 'test', name: 'Test', pill: 'pill-warning', color: '#F59E0B', n: meta.test_samples,
+        purpose: 'Final evaluation — every reported hit rate and error' },
+    ];
+    const total = rows.reduce((a, r) => a + (Number(r.n) || 0), 0) || 1;
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td><span class="pill ${r.pill}">${r.name}</span></td>
+        <td>${_esc(fmt(sd[r.k][0]))} – ${_esc(fmt(sd[r.k][1]))}</td>
+        <td>${r.n != null ? Number(r.n).toLocaleString('en-PH') : '—'}${flat[r.k] != null ? ` <span class="text-muted text-xs">(${Number(flat[r.k]).toFixed(0)}% unchanged-price days)</span>` : ''}</td>
+        <td>${r.purpose}</td>
+      </tr>`).join('') + `
+      <tr>
+        <td><span class="pill pill-info">Live</span></td>
+        <td>After ${_esc(fmt(sd.test[1]))}</td><td>—</td><td>Inference (published forecast)</td>
+      </tr>`;
+    if (bar) {
+      bar.innerHTML = rows.map(r => `<div style="flex:${Math.max(Number(r.n) || 0, total * 0.12)};background:${r.color};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;">${r.name} (${Math.round((Number(r.n) || 0) / total * 100)}%)</div>`).join('');
+    }
+  }
+
+  /** Day-1 share of forecasts within P1.00 for a run or a per-type entry; null if not recorded. */
+  function _hit1(entry) {
+    const hr = entry?.hit_rate_pct?.['1.00'];
+    const v = Array.isArray(hr) ? Number(hr[0]) : NaN;
+    return Number.isFinite(v) ? v : null;
   }
 
   function _fmtNum(n, dec) {

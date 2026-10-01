@@ -115,8 +115,10 @@ AgriPricePH.ModelDashboard = (function () {
 
   /* ================= Top metric cards ================= */
   function fillMetricCards() {
-    const primaryKey = meta.target || 'locWellMilled';
-    const primary = targetFor(primaryKey) || meta; // meta.json also duplicates the primary target's fields at top level
+    // Per classification: the card numbers are one rice type's, so they follow the Classification
+    // picker and name it. They used to show the primary type (Local Well-Milled) unlabelled.
+    const primary = targetFor(selectedClass) || meta; // meta.json also duplicates the primary target's fields at top level
+    const who = RICE_LABELS[selectedClass] || 'Local Well-Milled';
 
     const mae = primary.mae_peso;
     const rmse = primary.rmse_peso;
@@ -134,13 +136,13 @@ AgriPricePH.ModelDashboard = (function () {
 
     set('mdl-mae', peso(mae));
     setDelta('mdl-mae-delta',
-      rolling ? `±${peso(rolling.std)} across ${rolling.k} rolling test blocks` : 'No trained model yet',
+      rolling ? `${who} · ±${peso(rolling.std)} across ${rolling.k} rolling test blocks` : 'No trained model yet',
       'flat');
 
     set('mdl-rmse', peso(rmse));
     const rmseRatio = (mae && rmse != null) ? rmse / mae : null;
     setDelta('mdl-rmse-delta',
-      rmseRatio == null ? '—' : (rmseRatio < 1.9 ? 'Tracks MAE closely' : 'Some outlier days push RMSE up'),
+      rmseRatio == null ? '—' : `${who} · ${rmseRatio < 1.9 ? 'tracks MAE closely' : 'some outlier days push RMSE up'}`,
       'flat');
 
     set('mdl-baseline', peso(baseline));
@@ -148,9 +150,9 @@ AgriPricePH.ModelDashboard = (function () {
     if (gapPct == null) {
       setDelta('mdl-baseline-delta', '—', 'flat');
     } else if (gapPct <= 0) {
-      setDelta('mdl-baseline-delta', `Beats the naive baseline by ${Math.abs(gapPct).toFixed(1)}%`, 'good');
+      setDelta('mdl-baseline-delta', `${who} beats the naive baseline by ${Math.abs(gapPct).toFixed(1)}%`, 'good');
     } else {
-      setDelta('mdl-baseline-delta', `Within ${gapPct.toFixed(1)}% of the naive baseline`, 'flat');
+      setDelta('mdl-baseline-delta', `${who} is within ${gapPct.toFixed(1)}% of the naive baseline`, 'flat');
     }
 
     if (adf == null) {
@@ -159,7 +161,7 @@ AgriPricePH.ModelDashboard = (function () {
     } else {
       set('mdl-adf', adf < 0.001 ? 'p < 0.001' : `p = ${Number(adf).toFixed(4)}`);
       setDelta('mdl-adf-delta',
-        adf < 0.05 ? 'Stable series' : 'Near-random-walk — forecasts inherently uncertain',
+        `${who} · ${adf < 0.05 ? 'stable series' : 'near-random-walk, forecasts inherently uncertain'}`,
         adf < 0.05 ? 'good' : 'flat');
     }
   }
@@ -171,7 +173,11 @@ AgriPricePH.ModelDashboard = (function () {
       if (!t) return null;
       return {
         key, name: RICE_LABELS[key],
-        err: t.mae_peso, bench: t.baseline_mae_peso, mape: t.mape_pct, acc: t.accuracy_pct,
+        // Measured next-day share within P0.50 (same figure as the public Price Forecast page). This
+        // column used to show the legacy accuracy_pct, which reads 98-99% for any model.
+        err: t.mae_peso, bench: t.baseline_mae_peso, mape: t.mape_pct,
+        acc: (t.hit_rate_pct && t.hit_rate_pct['0.50'] && t.hit_rate_pct['0.50'][0] != null)
+          ? Number(t.hit_rate_pct['0.50'][0]) : null,
         status: computeStatus(t),
       };
     }).filter(Boolean);
@@ -411,17 +417,6 @@ AgriPricePH.ModelDashboard = (function () {
     });
   }
 
-  // Standard normal CDF via the Abramowitz-Stegun erf approximation — used only to turn a
-  // known RMSE into an "estimated % of days within ±₱0.50" figure for the stat cell below.
-  function erf(x) {
-    const sign = x < 0 ? -1 : 1;
-    x = Math.abs(x);
-    const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741, a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
-    const t = 1 / (1 + p * x);
-    const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
-    return sign * y;
-  }
-
   function renderErrStats() {
     const el = document.getElementById('mdl-err-stats');
     if (!el) return;
@@ -429,14 +424,17 @@ AgriPricePH.ModelDashboard = (function () {
     if (!t) { el.innerHTML = ''; return; }
 
     const mae = t.mae_peso, rmse = t.rmse_peso || (mae ? mae * 1.6 : 0.4);
-    const withinPct = rmse ? Math.round(erf(0.5 / (rmse * Math.SQRT2)) * 100) : null;
+    // Measured on the held-out test window. This used to be estimated from RMSE with a normal
+    // approximation, which said 77% for Local Well-Milled against a measured 87.5%.
+    const hr50 = t.hit_rate_pct && t.hit_rate_pct['0.50'];
+    const withinPct = Array.isArray(hr50) && hr50[0] != null ? Number(hr50[0]).toFixed(1) : null;
 
     const statLbl = (text, tip) => `<div class="mdl-err-stat-lbl mdl-tooltip" tabindex="0">${esc(text)}<i class="ti ti-info-circle mdl-tooltip-icon"></i><span class="mdl-tooltip-text" style="text-transform:none;font-weight:400;letter-spacing:normal;">${tip}</span></div>`;
 
     el.innerHTML = `
       <div class="mdl-err-stat">${statLbl('Avg Error (MAE)', 'The mean absolute forecast error for this classification, in pesos per kg.')}<div class="mdl-err-stat-val">${peso(mae)}</div></div>
       <div class="mdl-err-stat">${statLbl('Error Spread (RMSE)', 'Root-mean-squared error — penalizes large outlier misses more heavily than MAE.')}<div class="mdl-err-stat-val">${peso(rmse)}</div></div>
-      <div class="mdl-err-stat">${statLbl('Est. within ±₱0.50', 'Estimated share of days the forecast would land within 50 centavos of the actual price, based on a normal-distribution approximation using this classification\'s RMSE.')}<div class="mdl-err-stat-val">${withinPct == null ? '—' : withinPct + '%'}</div></div>`;
+      <div class="mdl-err-stat">${statLbl('Within ₱0.50 (next day)', 'Share of next-day forecasts that landed within 50 centavos of the real price on the held-out test window — measured, and the same figure the public Price Forecast page shows.')}<div class="mdl-err-stat-val">${withinPct == null ? '—' : withinPct + '%'}</div></div>`;
   }
 
   function renderErrInsight() {
@@ -457,8 +455,12 @@ AgriPricePH.ModelDashboard = (function () {
     const beats = t.mae_peso != null && t.baseline_mae_peso && t.mae_peso < t.baseline_mae_peso;
     if (isHealthy && beats) {
       const arima = t.arima && t.arima.mae_peso;
-      const vsArima = arima ? (t.mae_peso < arima ? ` and the ${peso(arima)} ARIMA(1,1,1) baseline` : `, though not the ${peso(arima)} ARIMA(1,1,1) baseline`) : '';
-      el.innerHTML = `<i class="ti ti-circle-check"></i> <span><strong>On track</strong> — ${esc(RICE_LABELS[selectedClass])} MAE (${peso(t.mae_peso)}) is ${gapPct.toFixed(1)}% lower than the ${peso(t.baseline_mae_peso)} naive baseline${vsArima} on the held-out test window.</span>`;
+      // Two decimals printed "MAE (₱0.28) is lower than the ₱0.28 ARIMA baseline" for Local Well-Milled
+      // (0.2799 vs 0.2842); show a third decimal whenever the two would otherwise look identical.
+      const close = arima && peso(arima) === peso(t.mae_peso);
+      const fmt = (v) => close ? `₱${Number(v).toFixed(3)}` : peso(v);
+      const vsArima = arima ? (t.mae_peso < arima ? ` and the ${fmt(arima)} ARIMA(1,1,1) baseline` : `, though not the ${fmt(arima)} ARIMA(1,1,1) baseline`) : '';
+      el.innerHTML = `<i class="ti ti-circle-check"></i> <span><strong>On track</strong> — ${esc(RICE_LABELS[selectedClass])} MAE (${fmt(t.mae_peso)}) is ${gapPct.toFixed(1)}% lower than the ${peso(t.baseline_mae_peso)} naive baseline${vsArima} on the held-out test window.</span>`;
     } else if (isHealthy) {
       el.innerHTML = `<i class="ti ti-circle-check"></i> <span><strong>On track</strong> — ${esc(RICE_LABELS[selectedClass])} MAE (${peso(t.mae_peso)}) is within ${gapPct.toFixed(1)}% of the ${peso(t.baseline_mae_peso)} naive baseline, inside the normal tolerance band for this near-random-walk horizon.</span>`;
     } else {
@@ -473,6 +475,7 @@ AgriPricePH.ModelDashboard = (function () {
     sel.value = selectedClass;
     sel.addEventListener('change', (e) => {
       selectedClass = e.target.value;
+      fillMetricCards();
       renderAllCharts();
     });
   }

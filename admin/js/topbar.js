@@ -63,13 +63,13 @@ AgriPricePH.Topbar = (function () {
     { id: 'sources', group: 'Modules', label: 'Data Sources', route: 'data-sources',
       keywords: ['data sources', 'data source', 'da', 'department of agriculture'] },
     { id: 'scraper', group: 'Modules', label: 'Web Scraper', route: 'web-scraper',
-      keywords: ['scraper', 'web scraper', 'scrape', 'scraping', 'da price monitoring', 'zigwheels'] },
+      keywords: ['scraper', 'web scraper', 'scrape', 'scraping', 'da price monitoring', 'doe', 'fuel', 'gaswatch'] },
     { id: 'alerts', group: 'Modules', label: 'Price Alerts', route: 'alerts',
       keywords: ['alerts', 'price alert', 'alert rules', 'notification', 'notifications'] },
     { id: 'reports', group: 'Modules', label: 'Reports & Export', route: 'reports',
       keywords: ['reports', 'export', 'csv export', 'download'] },
-    { id: 'users', group: 'Modules', label: 'User Management', route: 'users',
-      keywords: ['users', 'user management', 'accounts', 'admin accounts', 'retailers', 'deactivate', 'manage users'] },
+    { id: 'users', group: 'Modules', label: 'User Management', route: 'users', superOnly: true,
+      keywords: ['users', 'user management', 'accounts', 'admin accounts', 'public users', 'superadmin', 'deactivate', 'manage users'] },
     { id: 'settings', group: 'Modules', label: 'System Settings', route: 'settings',
       keywords: ['settings', 'config', 'configuration', 'email alerts'] },
     { id: 'logs', group: 'Modules', label: 'System Logs', route: 'logs',
@@ -129,7 +129,7 @@ AgriPricePH.Topbar = (function () {
       // admin's profile lives in /api/settings.
       const me = await AgriPricePH.API.get('/api/admin/me', { noCache: true }).then((r) => r.admin).catch(() => null);
       if (me && me.kind === 'account') {
-        paintUserBadge(me.name, me.role === 'super_admin' ? 'Super Admin' : 'Admin', null);
+        paintUserBadge(me.name, me.role === 'super_admin' ? 'Super Admin' : 'Admin', me.avatar || null);
         return;
       }
       const data = await AgriPricePH.API.get('/api/settings');
@@ -187,6 +187,10 @@ AgriPricePH.Topbar = (function () {
       // trained before meta v4 — that formula rates the naive baseline above the model.
       const acc = m.hit_rate_pct?.['1.00']?.[0] ?? m.avg_accuracy_pct ?? m.accuracy_pct;
       set('nav-badge-accuracy', Number.isFinite(acc) ? `${Number(acc).toFixed(1)}%` : '—');
+      const badge = document.getElementById('nav-badge-accuracy');
+      if (badge) badge.title = m.hit_rate_pct?.['1.00']
+        ? 'Share of next-day forecasts within ₱1.00 of the real price (average of all rice types, held-out test data)'
+        : 'Legacy accuracy figure (model trained before hit rates were recorded)';
     } catch { set('nav-badge-accuracy', '—'); }
   }
 
@@ -217,7 +221,9 @@ AgriPricePH.Topbar = (function () {
 
   function search(query) {
     if (!query || query.length < 1) return [];
+    const isSuper = !AgriPricePH.AdminRole || AgriPricePH.AdminRole.isSuper();
     return SEARCH_INDEX
+      .filter(item => isSuper || !item.superOnly)
       .map(item => ({ item, score: scoreItem(item, query) }))
       .filter(x => x.score > 0)
       .sort((a, b) => b.score - a.score)

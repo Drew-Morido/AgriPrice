@@ -29,8 +29,8 @@ forecast horizon, train/val/test split, evaluation metrics and baselines, and th
   `model/meta.json`, `HORIZON`/split in `model/train.py`, sources in `tools/scrap.py`, live
   `/api/predictions` and Admin → Metrics). If wording drifts, update the `.docx` too.
 - Never let the paper claim something the app does not do. The honest evaluation result: the
-  **LSTM network alone** ≈ naive persistence (skill −1.29%, ablation p = 0.95); the **published
-  adaptive ensemble** beats naive (+10.06%) and ARIMA (8/8) on the test window. Always say which one.
+  **LSTM network alone** ≈ naive persistence (skill −1.29%, ablation p = 0.77); the **published
+  adaptive ensemble** beats naive (+10.17%) and ARIMA (8/8) on the test window. Always say which one.
 - The `.docx` was reconciled on 2026-09-27 (Ch. 1 limitations, Ch. 2 counter-evidence, Ch. 3 data
   span/split/baselines/ensemble, plus a draft Ch. 4–5 built from `meta.json`). Edit it by patching
   `word/document.xml` only: its four images are PNGs stored as `*.undefined`, which python-docx can
@@ -65,20 +65,20 @@ cd api && py -3.13 app.py --loop --interval 3600
 cd api && py -3.13 app.py --serve --port 8080 # custom port/host for the server itself
 ```
 
-Tests: `py -3.13 -m pytest tests -q` (74 tests: model/API contracts, the DA bulletin reader, the scraper guard, weekday reversion, the ensemble, the forecast log; API tests skip if :5000 is down). No linter or JS build step — frontend is plain HTML/CSS/JS served as static files, no bundler/npm project.
+Tests: `py -3.13 -m pytest tests -q` (175 tests: model/API contracts, admin roles, Google sign-in, security fixes, the DA bulletin reader, the scraper guard, the DOE fuel reader, weekday reversion, the ensemble, the forecast log; API tests skip if :5000 is down). No linter or JS build step — frontend is plain HTML/CSS/JS served as static files, no bundler/npm project.
 
 ### Opening the app
 
 - Same-origin (recommended, avoids CORS): `http://127.0.0.1:5000/` once `api/app.py` is running — Flask serves both the public site and the admin dashboard itself.
 - Via XAMPP/Live Server instead: `public/landpage.html` for both public and admin — there is no separate admin login page — with the Flask API still running separately on :5000.
-- Admin login: shares the public site's real login page (`public/login.html`, styled by `public/css/auth-hero.css` + `public/js/auth-hero.js` — enter the admin username instead of an email and it follows up with a 6-digit code prompt in the same card). Username `admin`, password `Admin@123`, 6-digit code `123456` (see README.txt for lockout/security behavior). `admin/js/admin-auth.js` redirects any unauthenticated visit to `admin/*` out to `public/login.html`. The site's shared "Log in"/"Sign up" nav buttons (`public/js/public-shell.js` + `public/js/public-auth-modal.js`) also go straight to `public/login.html` / `public/signup.html` now; the old unified login/signup **modal** in `public-auth-modal.js` still exists and still opens for the gated-content unlock prompts on `historical.html`/`statistics.html` and any `?auth=login`/`?auth=signup` deep link, but is no longer the primary login/signup entry point.
+- Admin login: shares the public site's real login page (`public/login.html`, styled by `public/css/auth-hero.css` + `public/js/auth-hero.js` — enter the admin username instead of an email and it follows up with a 6-digit code prompt in the same card). Username `admin`, password `Admin@123`, 6-digit code `123456` on a fresh install only: a session opened with either default can do nothing but replace them (`admin/js/admin-credentials.js` → `POST /api/admin/me/credentials`; server returns 403 `must_change_credentials` elsewhere). See README.txt for lockout/security behavior. `admin/js/admin-auth.js` redirects any unauthenticated visit to `admin/*` out to `public/login.html`. The site's shared "Log in"/"Sign up" nav buttons (`public/js/public-shell.js` + `public/js/public-auth-modal.js`) also go straight to `public/login.html` / `public/signup.html` now; the old unified login/signup **modal** in `public-auth-modal.js` still exists and still opens for the gated-content unlock prompts on `historical.html`/`statistics.html` and any `?auth=login`/`?auth=signup` deep link, but is no longer the primary login/signup entry point.
 
 ## Architecture
 
 ### Data flow (source → DB → model → API → UI)
 
 ```
-DA PDF/HTML, fuel site, USD API, 2026 XLSX
+DA PDF/HTML, DOE NCR fuel PDF (weekly), USD API, 2026 XLSX
         │  (tools/scrap.py, datasets/import_2026.py — auto-run on app.py startup)
         ▼
 datasets/agriprice_database.db  (SQLite)
@@ -141,7 +141,7 @@ the mean-reversion coefficient does not — a paired McNemar test on **genuine-s
 (last change non-zero and price actually moved), because on ~13% of moving-price forecasts the
 reversion term is structurally silent (`phi * 0 == 0`), `sign(0)` matches nothing, and counting those
 rows inflates the network's apparent directional contribution by ~9 points when it is in fact
-coin-flipping them at 50.7%. Current verdict (weekday retrain 2026-09-26): 149 fixes vs 151 breaks, **p = 0.95, not significant**.
+coin-flipping them at 50.7%. Current verdict (PSA retrain 2026-10-01): 142 fixes vs 148 breaks, **p = 0.77, not significant**.
 **Do not "improve" this by widening the subset or by scoring a window that overlaps training** — under
 the regime-aware split only ~342 rows per type are held out, and scoring the full active era instead
 credits the network for memorised rows (this produced a spurious p < 0.0001 in Round 19; see
@@ -162,11 +162,11 @@ serves the plain hybrid). Three forecasters are weighted each day by 1 / (their 
 forecasts), per rice type and forecast day (Bates & Granger): (1) the LSTM hybrid described below, (2) ARIMA(1,1,1),
 (3) a local-level Kalman filter with a noise variance per weekday (DA's Sunday bulletin is ~5x noisier). Past errors
 only; training scores it on the test window (`meta.json` `forecaster: adaptive_ensemble`; the hybrid's own numbers sit
-under each type's `hybrid`). Current: **skill +10.06%, beats ARIMA on 8/8, every type beats naive (worst impPremium
-+2.63%)**, price-range coverage 91.5% realised. Honest caveats, keep them in the paper: impRegular's day-1 direction fell
-to chance (45.7% on 210 moves, not significantly below 50%; the hybrid had 62%), impPremium to 50.3%, and the test
+under each type's `hybrid`). Current (PSA retrain 2026-10-01): **skill +10.17%, beats ARIMA on 8/8, every type beats naive (worst impPremium
++2.68%)**, price-range coverage 91.7% realised. Honest caveats, keep them in the paper: impRegular's day-1 direction fell
+to chance (46.2% on 208 moves, not significantly below 50%; the hybrid had 62%), impPremium to 50.0%, and the test
 window was reused across many experiments (a forward evaluation is the clean confirmation). The LSTM ablation still
-shows no significant network contribution (p = 0.95) — the gain is the ensemble's, never the network's. See
+shows no significant network contribution (p = 0.77) — the gain is the ensemble's, never the network's. See
 PAPER_CORRECTIONS.md "Adaptive ensemble deployed". Forward evaluation: every freshly built forecast is logged before its
 DA price exists (`model/forecast_log.py`, table `forecast_log`, `GET /api/forecast-check`), and forecast moves under
 ₱0.10 are published as direction "steady" (`predict.STEADY_PESO`). Forecast day *h* is dated **last DA data day + h**
@@ -180,7 +180,7 @@ first differences are strongly mean-reverting (lag-1 autocorrelation −0.17 to 
 p < 0.0001, t = −3.0 to −7.2), so one OLS coefficient per horizon — shrunk, clipped to [−1, 0],
 and deployed only when |t| ≥ 2 — recovers it. With that term (Round 13, before the weekday and
 rolling-window changes below) the model first beat naive persistence: skill +3.51%, 7/8 types,
-`movement_ratio` 0.24; the current hybrid is +7.80%, 8/8. Shrinkage is 0.6 and a second lag was tested and rejected (dominated end-to-end at every shrink level). See PAPER_CORRECTIONS.md Rounds 11, 13 and 15. The coefficient is re-fitted on a rolling 120-day window before each forecast (`mean_reversion.rolling_phi`) rather than frozen at training time — scoring and serving use the same path, so they cannot diverge.
+`movement_ratio` 0.24; the current hybrid is +7.99%, 8/8. Shrinkage is 0.6 and a second lag was tested and rejected (dominated end-to-end at every shrink level). See PAPER_CORRECTIONS.md Rounds 11, 13 and 15. The coefficient is re-fitted on a rolling 120-day window before each forecast (`mean_reversion.rolling_phi`) rather than frozen at training time — scoring and serving use the same path, so they cannot diverge.
 **The coefficient is weekday-aware** (`mean_reversion.WEEKDAY_MODE`, default on): the anchor day's weekday
 gets its own coefficient, because DA's Sunday bulletin (fewer markets) is ~5× noisier than weekdays and is
 reversed on Monday, while Thursday/Friday moves persist. Chosen on the validation window only
@@ -188,15 +188,15 @@ reversed on Monday, while Thursday/Friday moves persist. Chosen on the validatio
 `AGRIPRICE_REVERSION_WEEKDAY=0` restores the single global coefficient.
 
 State this precisely: the **combined** model beats persistence on all 8 types, but beats
-**ARIMA(1,1,1) on only 4 of 8** as a *hybrid* (locRegular by PHP 0.0002, a tie; on `locWellMilled` ARIMA is
-ahead, PHP 0.2842 vs 0.2877). The published *ensemble* beats ARIMA on 8/8 — say which one you mean. Do not write "beats ARIMA" without that qualifier; the panel can check
+**ARIMA(1,1,1) on only 3 of 8** as a *hybrid* (impWellMilled, impRegular, impPremium; locRegular, formerly a tie, now goes
+to ARIMA, PHP 0.2740 vs 0.2752; on `locWellMilled` ARIMA is ahead, PHP 0.2856 vs 0.2891). The published *ensemble* beats ARIMA on 8/8 — say which one you mean. Do not write "beats ARIMA" without that qualifier; the panel can check
 it in one command. The defensible framing is that the two are close, and that this system adds
 prediction intervals, 8 simultaneous targets, and a daily operational pipeline that a single-series
 ARIMA does not. The **LSTM alone does
 not**. Round 16 went further and measured the network's *marginal* contribution by ablation — it
 is **negative on all 8 rice types**, so its delta is down-weighted to `LSTM_DELTA_WEIGHT=0.25`
-(w=0 scores best; 0.25 keeps it in the path, disclosed). Current (weekday retrain 2026-09-26): **skill +7.80%, 8/8 types
-positive, worst +1.88 (impWellMilled), directional 45–66% per horizon**. The weekday gain is the
+(w=0 scores best; 0.25 keeps it in the path, disclosed). Current (PSA retrain 2026-10-01): **skill +7.99%, 8/8 types
+positive, worst +1.71 (impWellMilled), directional 45–66% per horizon**. The weekday gain is the
 reversion term's, not the network's (the ablation above is unchanged). Never attribute the gain to the network — the
 ablation table in Round 16 is the evidence and a panel will ask.
 
@@ -218,6 +218,21 @@ Model inference is cached/warmed in a background thread at startup (`predict.war
 
 Admin auth (`model/admin_auth.py`) issues a server-side session token (not a client-only flag),
 hashes the 6-digit security code server-side, and locks out after 5 failed attempts for 15 minutes.
+Two admin roles: **Super Admin** (the built-in `admin` plus any account given that role) can do everything; **Admin**
+is a day-to-day operator with no User Management, view-only Settings and Training, and no clearing logs or deleting
+report files. The server enforces it (`api/app.py::_require_super_admin`, `_um_guard`; `tests/test_user_roles.py`);
+the UI mirrors it through `<html data-admin-role>` (`admin/js/admin-auth.js` → `.super-only` / `.admin-only` CSS in
+`admin/css/modules.css`, and `superOnly` routes in `router.js`). Public-site accounts are labelled "Public User"
+(stored role value is still `retailer`). Add Admin is a wizard (basic info + optional photo → role → password →
+PIN entered then re-entered → review) with live validation; clicking a table row opens a profile summary. Admin
+accounts have their own photo (`admin_accounts.avatar`, changeable by the admin in Account Profile via
+`PUT /api/admin/me/avatar`). New accounts get a one-time welcome popup (`js/welcome-modal.js`), tracked server-side
+in `users.welcome_seen_at` / `admin_accounts.welcome_seen_at` (accounts that existed before were backfilled as seen).
+"Continue with Google" (public users only, never admins): Google Identity Services on `public/login.html` /
+`signup.html` → `POST /api/auth/google`, verified server-side with google-auth (`model/google_signin.py`: issuer,
+audience = `AGRIPRICE_GOOGLE_CLIENT_ID` from `.env`, verified email). Links by `users.google_sub`, else by the same
+email, else creates a password-less account (set one later via "Forgot password?"). Only the Client ID is used —
+never put the OAuth client secret in the project. The button hides itself when no Client ID is configured.
 
 ### Frontend — three JS layers, no framework/bundler
 
@@ -245,7 +260,19 @@ both are served by the same Flask instance and share `css/global.css` and `js/`.
 - `datasets/script.py` — one-time bulk import of historical (2015–2025) XLSX/CSV into SQLite.
 - `datasets/import_2026.py` — syncs current-year daily XLSX/CSV (rice, fuel, USD); also
   auto-runs on every `app.py` startup so the DB stays current without manual steps.
-- `tools/scrap.py` — live scraper (`fetch_rice_prices`, `fetch_fuel_prices`,
+- `tools/doe_fuel.py` — reads DOE's weekly "Price Monitoring of Liquid Fuels — NCR" PDFs (summary table, common
+  price per product; Dec 2024 onward) with GasWatch PH as fallback and as the same-week filler for a DOE "#N/A".
+  WS_fuel rows carry `Source` (`doe_ncr_weekly`/`gaswatchph`) and `Filled`; `datasets/import_doe_fuel.py` rebuilds them.
+  From the first DOE week on, `load_merged_frame` ignores `fuel_history` (the 2015–2025 dataset runs PHP 10–20 above
+  DOE in 2025) — see PAPER_CORRECTIONS.md "Fuel source replaced with DOE". The old Zigwheels source froze in May 2026.
+- `tools/psa_openstat.py` — PSA OpenSTAT (PXWeb API) monthly national rice stocks + palay farmgate, 2015 onward, into
+  `PSA_rice_stocks` / `PSA_farmgate` (`datasets/import_psa.py` for a manual load). The pipeline prefers these over the old
+  `rice_stock` / `farmgate_prices` tables and uses each month's figure from the 15th of the next month (`MONTHLY_RELEASE_LAG`).
+- Data readiness: `data_pipeline.evaluate_readiness` — the merged frame ends at the newest day whose DA bulletin (never an
+  `estimated` row), DOE fuel week (≤14 days) and USD/PHP rate (≤4 days) are all present (`GET /api/data-readiness`).
+- Auto-scraper (`api/app.py::_loop_scraper`): full sync every `scrape_interval_hours` (Admin → Settings), DA-only retries
+  every 2 h 7:00–21:00 until today's bulletin is in; `/api/scrape-status` → `stats.schedule`.
+- `tools/scrap.py` — live scraper (`fetch_rice_prices`, `fetch_fuel_prices`, `fetch_psa_monthly`,
   `fetch_exchange_rates`) writing into `WS_*` SQLite tables and CSV backups under
   `tools/scrapped */`; runs automatically every 24h from `app.py` and can be triggered manually
   via `/api/run-scraper`. `tools/pdfconvrt.py` parses DA price-bulletin PDFs for this.
@@ -258,3 +285,15 @@ When adding a new data source or feature column, it needs to be threaded through
 `model/data_pipeline.py`'s merge (`load_merged_frame`) and, if it should influence forecasts,
 added to `FEATURE_COLUMNS` — then the model must be retrained since `scaler.joblib` and
 `meta.json` are fit to the old feature set.
+
+## Security rules (2026-10-01 audit, `tests/test_security.py`)
+
+- Lockouts key on `request.remote_addr` (X-Forwarded-For only with `AGRIPRICE_TRUST_PROXY=1`) **and** on the
+  account (`_account_key`); only a full admin sign-in (password + PIN) clears the count. Reset codes die after 5 wrong tries.
+- `GET /api/settings` returns only display options to non-admins; never the file path. Credentials and the admin
+  username cannot be set through `PUT /api/settings`; Reset Defaults keeps the `security` section.
+- The admin token is read from `Authorization` / `X-Admin-Token` headers only, never `?token=`.
+- `after_request` adds CSP (script/style/font/connect hosts are listed in `_CSP` — add a host there before using a
+  new CDN), `X-Frame-Options`, `nosniff`, `Referrer-Policy`; account/admin API answers are `Cache-Control: no-store`.
+- Alerts, live training/scrape logs and the scrape review list are admin-only reads. Brand uploads are checked by
+  their first bytes. Never add an unauthenticated endpoint that writes files.

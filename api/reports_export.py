@@ -252,6 +252,14 @@ def generate_correlation_xlsx() -> dict:
     return _file_meta(path, fname, "Correlation Data")
 
 
+_RICE_NAMES = {
+    "locWellMilled": "Local Well-Milled", "locRegular": "Local Regular Milled",
+    "locPremium": "Local Premium", "locSpecial": "Local Special",
+    "impWellMilled": "Imported Well-Milled", "impRegular": "Imported Regular Milled",
+    "impPremium": "Imported Premium", "impSpecial": "Imported Special",
+}
+
+
 def generate_forecast_html() -> dict:
     ensure_reports_dir()
     if MODEL_DIR not in __import__("sys").path:
@@ -266,16 +274,33 @@ def generate_forecast_html() -> dict:
     rows = pred.get("forecast") or []
     metrics = pred.get("metrics") or {}
     as_of = pred.get("as_of_display") or date.today().strftime("%B %d, %Y")
-    rice = pred.get("rice_type", "Local Well-Milled")
+    # The rows are the primary type's forecast; pred["rice_type"] names the whole model ("All rice types").
+    target = pred.get("target") or "locWellMilled"
+    rice = _RICE_NAMES.get(target, target)
     last_p = pred.get("last_price", "—")
+    tm = (metrics.get("by_target") or {}).get(target) or {}
+    hit = tm.get("hit_rate_pct") or {}
 
+    def _pct(band, i):
+        vals = hit.get(band) or []
+        return f"{float(vals[i]):.1f}%" if i < len(vals) and vals[i] is not None else "—"
+
+    def _range(f):
+        if f.get("low") is not None and f.get("high") is not None:
+            return f"₱{float(f['low']):.2f} – ₱{float(f['high']):.2f}"
+        return f"₱{float(f.get('price', 0)):.2f}"
+
+    # "Within ₱0.50" is measured on held-out test data per forecast day (meta.json hit_rate_pct). This
+    # column used to print the forecast's "confidence", a fixed mapping from MAE, not a measured rate.
     table_rows = "".join(
         f"<tr><td>Day {f.get('day', '')}</td><td>{f.get('date', '')}</td>"
-        f"<td>₱{float(f.get('price', 0)):.2f}</td>"
+        f"<td>{_range(f)}</td>"
         f"<td>{float(f.get('change', 0)):+.2f}</td>"
-        f"<td>{float(f.get('confidence', 0)) * 100:.0f}%</td></tr>"
-        for f in rows
+        f"<td>{_pct('0.50', i)}</td></tr>"
+        for i, f in enumerate(rows)
     )
+    skill = tm.get("skill_vs_baseline_pct")
+    skill_txt = f" · {abs(float(skill)):.1f}% {'lower' if float(skill) > 0 else 'higher'} error than the naive forecast" if skill is not None else ""
 
     html = f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"/>
@@ -289,11 +314,11 @@ def generate_forecast_html() -> dict:
   th {{ background: #e8f5ec; }}
   @media print {{ body {{ margin: 16px; }} }}
 </style></head><body>
-<h1>AgriPricePH — 2-Day LSTM Forecast</h1>
+<h1>AgriPricePH — 3-Day Price Forecast (LSTM-based adaptive ensemble)</h1>
 <p class="meta">Rice type: <strong>{rice}</strong> · Last price: <strong>₱{last_p}</strong> · As of: {as_of}</p>
-<p class="meta">MAE: ₱{metrics.get('mae_peso', '—')} · RMSE: ₱{metrics.get('rmse_peso', '—')} · Accuracy: {metrics.get('accuracy_pct', '—')}%</p>
+<p class="meta">Held-out test results for {rice}: MAE ₱{tm.get('mae_peso', metrics.get('mae_peso', '—'))} · RMSE ₱{metrics.get('rmse_peso', '—')} · next-day forecasts within ₱1.00: {_pct('1.00', 0)}{skill_txt}</p>
 <table>
-  <thead><tr><th>Day</th><th>Date</th><th>Forecast (₱)</th><th>Change</th><th>Confidence</th></tr></thead>
+  <thead><tr><th>Day</th><th>Date</th><th>Expected range (90%)</th><th>Change</th><th>Past forecasts within ₱0.50</th></tr></thead>
   <tbody>{table_rows}</tbody>
 </table>
 <p class="meta" style="margin-top:24px;">Generated {datetime.now().strftime("%Y-%m-%d %H:%M")} — AgriPricePH</p>

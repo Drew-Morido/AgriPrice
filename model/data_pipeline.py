@@ -33,8 +33,26 @@ RICE_COLUMNS = [
     "impPremium",
     "impSpecial",
 ]
+# WS_rice_price (scraped DA bulletins) column -> internal key
+WS_RICE_COLUMNS = {
+    "Local Well Milled": "locWellMilled", "Local Premium": "locPremium",
+    "Local Special": "locSpecial", "Local Regular Milled": "locRegular",
+    "Imported Special": "impSpecial", "Imported Premium": "impPremium",
+    "Imported Well Milled": "impWellMilled", "Imported Regular Milled": "impRegular",
+}
 SEQ_LEN = 30
 HORIZON = 3
+
+# ── Data readiness checklist ─────────────────────────────────────────────────────────────────
+# A day enters the model only when every required source is verified for it; later days wait
+# (the merged frame ends at the last ready day). Checked by evaluate_readiness().
+READY_RICE_MIN_TYPES = 6        # DA official bulletin (never an estimate) with at least 6 of 8 types
+READY_FUEL_MAX_AGE_DAYS = 14    # a weekly DOE/GasWatch fuel row dated at most 14 days before the day
+READY_FX_MAX_AGE_DAYS = 4       # a USD/PHP rate at most 4 days old (weekends and holidays have none)
+# Rice stock and farmgate are monthly series carried forward: reported, not blocking.
+# A monthly figure (dated the 1st of its month) becomes usable on the 15th of the following month.
+MONTHLY_RELEASE_LAG = pd.DateOffset(months=1, days=14)
+LAST_READINESS: dict = {}
 
 # Engineered-feature configuration (shared by training and inference so they never drift)
 LAG_STEPS = (1, 7)          # target price lags (yesterday, one week back)
@@ -135,65 +153,50 @@ def _db_path() -> str:
     return DB_PATH
 
 
-# Plausible pump-price band for PH fuel, in PHP/litre. The historical DOE series
-# (`fuel_history`, 2015-2025) spans PHP 18.40-103.95 — the upper end being the real mid-2022 oil
-# spike — so this band is deliberately wide enough to keep every genuine observation.
+# Plausible pump-price band for PH fuel, in PHP/litre. DOE's own NCR bulletins reach PHP 153.70
+# (diesel, week of 2026-04-07), so the band must sit well above that. It used to be 15-110, set when the
+# March-May 2026 fuel spike was wrongly taken for a scraper mis-parse; the DOE weekly PDFs show those
+# prices were real (documents/PAPER_CORRECTIONS.md, "Fuel source replaced with DOE").
 FUEL_PLAUSIBLE_MIN = 15.0
-FUEL_PLAUSIBLE_MAX = 110.0
+FUEL_PLAUSIBLE_MAX = 250.0
+# WS_fuel rows carrying one of these sources were read from an official bulletin (or its documented
+# fallback) and are never second-guessed by the legacy scrub below.
+TRUSTED_FUEL_SOURCES = ("doe_ncr_weekly", "gaswatchph")
 
 
 def _scrub_degenerate_fuel(df: pd.DataFrame) -> pd.DataFrame:
-    """Blank scraped fuel values that came from a known-degenerate parse AND look wrong.
-
-    `tools/scrap.py` mis-read the Zigwheels page for every scrape between 2026-01-06 and
-    2026-05-27: it iterated a per-city table alongside the Manila summary and kept only a
-    partial row (RON_100 / RON_91 / Diesel_Plus all NULL, Gasoline == RON 95). The scraper is
-    fixed at source, but those rows are already stored.
-
-    Not all of them are wrong — the block spans Diesel PHP 51-154, so it mixes plausible
-    readings with roughly-double ones. Blanking the whole block would force a six-month
-    forward-fill from a stale 2025 value, which is worse. So: use the *trustworthy* scraped rows
-    (complete parses) to define an accepted range, widen it 20%, and blank only degenerate-row
-    values that fall outside it. Nothing is invented; the surviving merge-time ffill carries the
-    last good reading forward.
+    """Legacy guard for old Zigwheels rows (no Source label) left in a database that has not been
+    re-imported with datasets/import_doe_fuel.py. A partial parse (RON_100 / RON_91 / Diesel_Plus all
+    NULL) outside the range of trustworthy rows (+/-20%) is blanked, so the merge-time ffill carries
+    the last good reading instead. Rows from a trusted source are never touched.
     """
-    if df.empty or "fuel_diesel" not in df.columns:
-        return df
     complete = df.get("_parse_complete")
-    if complete is None:
-        return df
-    trust = df[complete.astype(bool)]
-    if len(trust) < 5:
-        return df
-    for col in ("fuel_ron95", "fuel_diesel"):
-        if col not in df.columns:
-            continue
-        vals = pd.to_numeric(df[col], errors="coerce")
-        good = pd.to_numeric(trust[col], errors="coerce").dropna()
-        if good.empty:
-            continue
-        lo, hi = good.min() * 0.8, good.max() * 1.2
-        suspect = (~complete.astype(bool)) & (~vals.between(lo, hi))
-        if suspect.any():
-            print(f"[data_pipeline] fuel: blanked {int(suspect.sum())} degenerate-parse "
-                  f"{col} value(s) outside PHP {lo:.2f}-{hi:.2f}")
-        df[col] = vals.where(~suspect)
+    if df.empty or "fuel_diesel" not in df.columns or complete is None:
+        return df.drop(columns=["_parse_complete"], errors="ignore")
+    complete = complete.astype(bool)
+    trust = df[complete]
+    if len(trust) >= 5:
+        for col in ("fuel_ron95", "fuel_diesel"):
+            if col not in df.columns:
+                continue
+            vals = pd.to_numeric(df[col], errors="coerce")
+            good = pd.to_numeric(trust[col], errors="coerce").dropna()
+            if good.empty:
+                continue
+            lo, hi = good.min() * 0.8, good.max() * 1.2
+            suspect = (~complete) & (~vals.between(lo, hi))
+            if suspect.any():
+                print(f"[data_pipeline] fuel: blanked {int(suspect.sum())} degenerate-parse "
+                      f"{col} value(s) outside PHP {lo:.2f}-{hi:.2f}")
+            df[col] = vals.where(~suspect)
     return df.drop(columns=["_parse_complete"])
 
 
 def _drop_implausible_fuel(df: pd.DataFrame) -> pd.DataFrame:
-    """Blank out scraped fuel prices that fall outside any realistic PH pump price.
+    """Blank fuel prices outside any realistic PH pump price (PHP 15-250), e.g. a unit or parse error.
 
-    `tools/scrap.py` mis-parsed the fuel source for a stretch of 2026 (2026-03-10 to 2026-05-27),
-    recording gasoline around PHP 94-96 and diesel around PHP 119-129 — roughly double the real
-    pump price, with normal PHP 55-60 readings immediately before and after. Left alone those rows
-    flow straight into `fuel_ron95`/`fuel_diesel` and become model features, and into the admin
-    "Market Drivers" 30-day averages.
-
-    Out-of-band values are set to NaN (not dropped as rows) so the existing merge-time
-    `ffill().bfill()` carries the last good reading forward instead of the series jumping. Nothing
-    is invented and the stored scraper rows are left untouched — this only guards what the model
-    and charts consume.
+    Out-of-band values are set to NaN (not dropped as rows) so the merge-time `ffill().bfill()` carries
+    the last good reading forward. Nothing is invented and stored rows are untouched.
     """
     for col in ("fuel_ron95", "fuel_diesel"):
         if col not in df.columns:
@@ -201,6 +204,74 @@ def _drop_implausible_fuel(df: pd.DataFrame) -> pd.DataFrame:
         vals = pd.to_numeric(df[col], errors="coerce")
         df[col] = vals.where(vals.between(FUEL_PLAUSIBLE_MIN, FUEL_PLAUSIBLE_MAX))
     return df
+
+
+def _latest_on_or_before(dates: pd.DatetimeIndex, day: pd.Timestamp):
+    i = dates.searchsorted(day, side="right")
+    return dates[i - 1] if i > 0 else None
+
+
+def evaluate_readiness(rice_counts: pd.Series, fuel_dates, fx_dates, estimated_dates=(),
+                       newest_day=None, stock_last=None, farmgate_last=None) -> dict:
+    """The data checklist: which is the newest day whose inputs are ALL verified?
+
+    rice_counts: official (non-estimated) DA rows per day -> number of rice types with a price.
+    fuel_dates / fx_dates: days that have a fuel / USD-PHP value. estimated_dates: days that only have a
+    temporary estimate. newest_day: the latest day any source reached (e.g. today's exchange rate).
+    Returns {'ready_through', 'newest_day', 'ready_checks', 'held', 'rules'} (dates as ISO strings).
+    """
+    fuel_dates = pd.DatetimeIndex(sorted(pd.to_datetime(list(fuel_dates))))
+    fx_dates = pd.DatetimeIndex(sorted(pd.to_datetime(list(fx_dates))))
+    est = {pd.Timestamp(d).normalize() for d in estimated_dates}
+    official = rice_counts.sort_index()
+    iso = lambda d: pd.Timestamp(d).strftime("%Y-%m-%d")
+
+    def checks(day):
+        n = int(official.get(day, 0) or 0)
+        f = _latest_on_or_before(fuel_dates, day)
+        x = _latest_on_or_before(fx_dates, day)
+        rice_detail = (f"{n} of 8 rice types from the DA bulletin" if n else
+                       "only a temporary estimate — DA has not published this day" if day in est else
+                       "no DA bulletin for this day")
+        items = [
+            {"id": "rice", "label": "DA rice bulletin (verified, not an estimate)", "blocking": True,
+             "ok": n >= READY_RICE_MIN_TYPES, "detail": rice_detail},
+            {"id": "fuel", "label": "Fuel prices (DOE weekly bulletin)", "blocking": True,
+             "ok": f is not None and (day - f).days <= READY_FUEL_MAX_AGE_DAYS,
+             "detail": f"week of {iso(f)} ({(day - f).days} days old)" if f is not None else "no fuel data"},
+            {"id": "fx", "label": "USD/PHP exchange rate", "blocking": True,
+             "ok": x is not None and (day - x).days <= READY_FX_MAX_AGE_DAYS,
+             "detail": f"rate from {iso(x)}" if x is not None else "no exchange rate"},
+        ]
+        for key, label, last in (("stock", "Rice stock inventory (PSA, monthly)", stock_last),
+                                 ("farmgate", "Palay farmgate price (PSA, monthly)", farmgate_last)):
+            items.append({"id": key, "label": label, "blocking": False, "ok": last is not None,
+                          "detail": (f"PSA {pd.Timestamp(last) - MONTHLY_RELEASE_LAG:%b %Y} figure, in use since {iso(last)}"
+                                     if last is not None else "no data")})
+        return items
+
+    newest = pd.Timestamp(newest_day) if newest_day is not None else (official.index.max() if len(official) else None)
+    held, ready = [], None
+    # Every calendar day from the newest backwards until one passes; days with no DA row are held too.
+    if newest is not None and len(official):
+        day = newest.normalize()
+        stop = official.index.min()
+        while day >= stop:
+            items = checks(day)
+            if all(i["ok"] for i in items if i["blocking"]):
+                ready = day
+                break
+            if len(held) < 14:
+                held.append({"date": iso(day), "checks": items})
+            day -= pd.Timedelta(days=1)
+    return {
+        "ready_through": iso(ready) if ready is not None else None,
+        "newest_day": iso(newest) if newest is not None else None,
+        "ready_checks": checks(ready) if ready is not None else [],
+        "held": held,
+        "rules": {"rice_min_types": READY_RICE_MIN_TYPES, "fuel_max_age_days": READY_FUEL_MAX_AGE_DAYS,
+                  "fx_max_age_days": READY_FX_MAX_AGE_DAYS},
+    }
 
 
 def load_merged_frame() -> pd.DataFrame:
@@ -212,6 +283,7 @@ def load_merged_frame() -> pd.DataFrame:
         )
 
     conn = sqlite3.connect(db)
+    estimated_dates: list = []
 
     df_rice = pd.read_sql(
         """
@@ -231,22 +303,16 @@ def load_merged_frame() -> pd.DataFrame:
     )
 
     try:
-        df_rice_ws = pd.read_sql(
-            """
-            SELECT Date,
-                "Local Well Milled"    AS locWellMilled,
-                "Local Premium"        AS locPremium,
-                "Local Special"        AS locSpecial,
-                "Local Regular Milled" AS locRegular,
-                "Imported Special"     AS impSpecial,
-                "Imported Premium"     AS impPremium,
-                "Imported Well Milled" AS impWellMilled,
-                "Imported Regular Milled" AS impRegular
-            FROM "WS_rice_price"
-            ORDER BY Date ASC
-            """,
-            conn,
-        )
+        df_rice_ws = pd.read_sql('SELECT * FROM "WS_rice_price" ORDER BY Date ASC', conn)
+        # A temporary estimate (tools/rice_estimate.py, written when DA has not published yet) is never
+        # model input: it used to enter here like a real bulletin — shown as "today's" price, used as the
+        # forecast's starting point, and even scored as an "actual" in the test window.
+        if "Source" in df_rice_ws.columns:
+            is_est = df_rice_ws["Source"].fillna("da_official").str.lower() == "estimated"
+            estimated_dates = _parse_date_column(df_rice_ws.loc[is_est, "Date"]).dropna().tolist()
+            df_rice_ws = df_rice_ws[~is_est]
+        df_rice_ws = df_rice_ws.rename(columns=WS_RICE_COLUMNS)
+        df_rice_ws = df_rice_ws[["Date"] + [c for c in RICE_COLUMNS if c in df_rice_ws.columns]]
         df_rice = pd.concat([df_rice, df_rice_ws], ignore_index=True)
     except Exception:
         pass
@@ -258,16 +324,27 @@ def load_merged_frame() -> pd.DataFrame:
     )
 
     try:
-        df_fuel_ws = pd.read_sql(
-            'SELECT Date, RON_95 AS fuel_ron95, Diesel AS fuel_diesel, '
-            'RON_100, RON_91, Diesel_Plus FROM "WS_fuel" ORDER BY Date ASC',
-            conn,
+        df_fuel_ws = pd.read_sql('SELECT * FROM "WS_fuel" ORDER BY Date ASC', conn)
+        src = df_fuel_ws["Source"] if "Source" in df_fuel_ws.columns else pd.Series(None, index=df_fuel_ws.index)
+        legacy = [c for c in ("RON_100", "RON_91", "Diesel_Plus") if c in df_fuel_ws.columns]
+        # Trusted: an official-bulletin row (DOE, or its GasWatch fallback). Legacy unlabelled rows count
+        # only when the old scraper captured all three secondary grades.
+        df_fuel_ws["_parse_complete"] = src.isin(TRUSTED_FUEL_SOURCES) | (
+            df_fuel_ws[legacy].notna().all(axis=1) if len(legacy) == 3 else False
         )
-        # A complete parse has all six columns; the 2026 corruption left three of them NULL.
-        df_fuel_ws["_parse_complete"] = (
-            df_fuel_ws[["RON_100", "RON_91", "Diesel_Plus"]].notna().all(axis=1)
-        )
-        df_fuel_ws = df_fuel_ws.drop(columns=["RON_100", "RON_91", "Diesel_Plus"])
+        df_fuel_ws = df_fuel_ws.rename(columns={"RON_95": "fuel_ron95", "Diesel": "fuel_diesel"})[
+            ["Date", "fuel_ron95", "fuel_diesel", "_parse_complete"]]
+        # From the first official DOE week on, DOE replaces the 2015-2025 dataset rather than being
+        # averaged with it: through 2025 that dataset runs PHP 10-20 above DOE's NCR common price, and
+        # two definitions on interleaved dates (dataset Mondays, DOE Tuesdays) would zig-zag the feature.
+        doe_dates = pd.to_datetime(df_fuel_ws.loc[src.isin(TRUSTED_FUEL_SOURCES), "Date"], errors="coerce").dropna()
+        if not doe_dates.empty:
+            hist_dates = pd.to_datetime(df_fuel["Date"], errors="coerce")
+            df_fuel = df_fuel[hist_dates < doe_dates.min()]
+            # Likewise an unlabelled WS row dated inside the DOE era can only be a leftover from the
+            # retired Zigwheels scraper (e.g. a server still running old code): it never overrides DOE.
+            ws_dates = pd.to_datetime(df_fuel_ws["Date"], errors="coerce")
+            df_fuel_ws = df_fuel_ws[src.isin(TRUSTED_FUEL_SOURCES) | (ws_dates < doe_dates.min())]
         df_fuel_ws = _scrub_degenerate_fuel(df_fuel_ws)
         df_fuel_ws = _drop_implausible_fuel(df_fuel_ws)
         df_fuel = pd.concat([df_fuel, df_fuel_ws], ignore_index=True)
@@ -287,22 +364,41 @@ def load_merged_frame() -> pd.DataFrame:
     except Exception:
         pass
 
-    df_stock = pd.read_sql(
-        'SELECT Date, "Rice Stock Inventory  Metric Ton" AS stock FROM rice_stock ORDER BY Date ASC',
-        conn,
-    )
+    # Rice stocks and palay farmgate: official PSA OpenSTAT monthly series (datasets/import_psa.py) when
+    # present. The older rice_stock / farmgate_prices tables stopped at Dec 2025 and differ from PSA's
+    # current figures; they are only the fallback for a database that has not been re-imported.
+    try:
+        df_stock = pd.read_sql('SELECT Date, total AS stock FROM "PSA_rice_stocks" ORDER BY Date ASC', conn)
+    except Exception:
+        df_stock = pd.DataFrame()
+    if df_stock.empty:
+        df_stock = pd.read_sql(
+            'SELECT Date, "Rice Stock Inventory  Metric Ton" AS stock FROM rice_stock ORDER BY Date ASC',
+            conn,
+        )
+    psa_farmgate = pd.DataFrame()
+    try:
+        psa_farmgate = pd.read_sql('SELECT Date, other_variety, fancy FROM "PSA_farmgate" ORDER BY Date ASC', conn)
+    except Exception:
+        pass
     try:
         df_farmgate = pd.read_sql(
             'SELECT Year, Month_Num, "Price_Ordinary (₱/kg)" AS farmgate_ordinary, '
             '"Price_Fancy (₱/kg)" AS farmgate_fancy FROM farmgate_prices',
             conn,
-        )
+        ) if psa_farmgate.empty else pd.DataFrame()
     except Exception:
         df_farmgate = pd.DataFrame()
 
     conn.close()
 
-    if not df_farmgate.empty:
+    if not psa_farmgate.empty:
+        # Same definition as before: the mean of the two palay grades (PSA leaves "Fancy" blank in a few months,
+        # where the mean is just "Other Variety").
+        psa_farmgate["farmgate"] = psa_farmgate[["other_variety", "fancy"]].apply(
+            pd.to_numeric, errors="coerce").mean(axis=1, skipna=True)
+        df_farmgate = psa_farmgate[["Date", "farmgate"]].copy()
+    elif not df_farmgate.empty:
         df_farmgate["Year"] = pd.to_numeric(df_farmgate.get("Year"), errors="coerce")
         df_farmgate["Month_Num"] = pd.to_numeric(df_farmgate.get("Month_Num"), errors="coerce")
         df_farmgate["farmgate_ordinary"] = pd.to_numeric(df_farmgate.get("farmgate_ordinary"), errors="coerce")
@@ -318,6 +414,13 @@ def load_merged_frame() -> pd.DataFrame:
         if not df.empty and "Date" in df.columns:
             df["Date"] = _parse_date_column(df["Date"])
 
+    # Monthly PSA figures enter on the day they could have been known, not on the first of their month:
+    # PSA publishes month M around the 7th-15th of M+1 (e.g. Aug 2026 stocks on Sep 7, farmgate on Sep 14).
+    # Dated on the 1st, training let early-August days use an August figure that did not exist yet.
+    for df in (df_stock, df_farmgate):
+        if not df.empty and "Date" in df.columns:
+            df["Date"] = df["Date"] + MONTHLY_RELEASE_LAG
+
     df_rice = df_rice.dropna(subset=["Date"]).sort_values("Date")
     for col in (
         "locWellMilled", "locPremium", "locSpecial", "locRegular",
@@ -326,6 +429,21 @@ def load_merged_frame() -> pd.DataFrame:
         if col in df_rice.columns:
             df_rice[col] = pd.to_numeric(df_rice[col], errors="coerce")
     df_rice = df_rice.groupby("Date", as_index=False).mean(numeric_only=True)
+
+    # Data readiness checklist: the frame ends at the newest day whose inputs are all verified.
+    rice_cols = [c for c in RICE_COLUMNS if c in df_rice.columns]
+    rice_counts = pd.Series((df_rice[rice_cols] > 0).sum(axis=1).values, index=pd.DatetimeIndex(df_rice["Date"]))
+    fuel_dates = df_fuel.loc[df_fuel[["fuel_ron95", "fuel_diesel"]].notna().any(axis=1), "Date"].dropna()
+    fx_dates = df_usd.loc[pd.to_numeric(df_usd["exchange"], errors="coerce").notna(), "Date"].dropna()
+    reached = [s.max() for s in (df_rice["Date"], fuel_dates, fx_dates) if len(s)] + list(estimated_dates)
+    newest = min(max(reached), pd.Timestamp.today().normalize()) if reached else None
+    readiness = evaluate_readiness(
+        rice_counts, fuel_dates, fx_dates, estimated_dates, newest,
+        stock_last=df_stock["Date"].max() if not df_stock.empty else None,
+        farmgate_last=df_farmgate["Date"].max() if not df_farmgate.empty else None,
+    )
+    LAST_READINESS.clear()
+    LAST_READINESS.update(readiness)
 
     df = df_rice
     for extra in (df_fuel, df_usd, df_stock, df_farmgate):
@@ -336,6 +454,10 @@ def load_merged_frame() -> pd.DataFrame:
 
     df = df.sort_values("Date").reset_index(drop=True)
     df = df.ffill().bfill()
+    # Days after the last ready day wait: before this, a day with only (say) today's exchange rate
+    # became a model row carrying yesterday's rice price forward, as if DA had reported "no change".
+    if readiness["ready_through"]:
+        df = df[df["Date"] <= pd.Timestamp(readiness["ready_through"])]
 
     for col in FEATURE_COLUMNS + [TARGET_COLUMN]:
         if col not in df.columns:

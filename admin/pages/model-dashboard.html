@@ -16,7 +16,7 @@
       <div class="mdl-metric-title mdl-tooltip">
         Average Forecast Error
         <i class="ti ti-info-circle mdl-tooltip-icon"></i>
-        <span class="mdl-tooltip-text"><strong>Forecast MAE:</strong> average error per kg of the published forecast (the LSTM-based adaptive ensemble) on the held-out test set for the primary classification (Local Well-Milled). Represents normal day-to-day accuracy.</span>
+        <span class="mdl-tooltip-text"><strong>Forecast MAE:</strong> average error per kg of the published forecast (the LSTM-based adaptive ensemble) on the held-out test set for the classification selected under the chart below. Represents normal day-to-day accuracy.</span>
       </div>
       <div class="mdl-metric-value" id="mdl-mae">—</div>
       <div class="mdl-metric-delta flat" id="mdl-mae-delta">Loading…</div>
@@ -119,7 +119,10 @@
             <th data-key="err">Avg Error (₱) <i class="ti ti-arrows-sort mdl-sort-arrow"></i></th>
             <th data-key="bench">Benchmark (₱) <i class="ti ti-arrows-sort mdl-sort-arrow"></i></th>
             <th data-key="mape">MAPE % <i class="ti ti-arrows-sort mdl-sort-arrow"></i></th>
-            <th data-key="acc">Accuracy <i class="ti ti-arrows-sort mdl-sort-arrow"></i></th>
+            <th data-key="acc"><span class="mdl-tooltip" tabindex="0">Within ₱0.50 <i class="ti ti-arrows-sort mdl-sort-arrow"></i>
+                <i class="ti ti-info-circle mdl-tooltip-icon"></i>
+                <span class="mdl-tooltip-text" style="text-transform:none;font-weight:400;">Share of next-day forecasts that landed within ₱0.50 of the real price on the held-out test window — the same figure the public Price Forecast page shows.</span>
+              </span></th>
             <th data-key="status">
               <span class="mdl-tooltip" tabindex="0">Status <i class="ti ti-arrows-sort mdl-sort-arrow"></i>
                 <i class="ti ti-info-circle mdl-tooltip-icon"></i>

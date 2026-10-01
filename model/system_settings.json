@@ -11,7 +11,8 @@
     "scrape_interval_hours": 24,
     "da_enabled": true,
     "fuel_enabled": true,
-    "exchange_enabled": true
+    "exchange_enabled": true,
+    "psa_enabled": true
   },
   "model": {
     "forecast_horizon": 2,
@@ -46,8 +47,8 @@
       }
     ],
     "password_hash": null,
-    "admin_access_code_hash": "scrypt:32768:8:1$rnNl7Qg8zBOkKbIJ$797ac0b6267e83b318e5ef0893dcfce4cc142cab8d45ebab57294f8f151ac9bde364e3d652563681ec9717b8230245c6a3c0926fbce1191178ad56d71155497e",
-    "admin_password_hash": "scrypt:32768:8:1$r2zaS4ToZKOkGx4c$53b3438ef0c4cbea8dc492df3d88ca51fe95463122c691c45d62b3e41d21c150e4b85c0439590a83c2b3f37d2c7e049c9ffe52fddf237e1d2629b3cbfcdc7ed6"
+    "admin_access_code_hash": "scrypt:32768:8:1$SrHxz2Z222xK8j3z$81213d8a3572ad72d6cfbc5542b4d7dec1a324ccccdd2aaa6910673a9fa9e0acf7ff3e90f293b3d6e7d03de309ba7064373ad2873dc7a89cb84909ba380cb52e",
+    "admin_password_hash": "scrypt:32768:8:1$dkLUftKJUKTiBYXi$bb506d59f22927050d5d8cd2807fa5b14e6c220d7bcc97a5974ee1fe28500fe0ce2b9e1422be6dc4ef6da45a2391553fa426116cc5d15867b4c5bace0a968c88"
   },
-  "updated_at": "2026-09-25T03:52:17"
+  "updated_at": "2026-10-01T15:42:38"
 }

@@ -11,9 +11,9 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <link rel="stylesheet" href="../css/global.css" />
 <link rel="stylesheet" href="css/landpage.css" />
-<link rel="stylesheet" href="css/public.css" />
+<link rel="stylesheet" href="css/public.css?v=20261001" />
 <link rel="stylesheet" href="css/landpage-nav.css" />
-<link rel="stylesheet" href="css/public-alert.css" />
+<link rel="stylesheet" href="css/public-alert.css?v=20261001c" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
 /* ==========================================================================
@@ -629,11 +629,11 @@ html.public-compact .brand-compare-head{padding:16px 20px 10px}
 
 <script src="../js/dates.js"></script>
 <script src="../js/data.js"></script>
-<script src="../js/api.js"></script>
+<script src="../js/api.js?v=20261001b"></script>
 <script src="js/public-rice.js"></script>
-<script src="js/public-alert.js"></script>
-<script src="js/public-auth.js"></script>
-<script src="js/public-auth-modal.js"></script>
+<script src="js/public-alert.js?v=20261001c"></script>
+<script src="js/public-auth.js?v=20261001b"></script>
+<script src="js/public-auth-modal.js?v=20261001"></script>
 <script src="js/public-shell.js"></script>
 <script src="js/public-pages.js"></script>
 
@@ -1060,7 +1060,8 @@ function renderBrandCompare() {
 
 function setHit(n, pct) {
   const w = pct == null ? '0%' : `${Math.round(pct)}%`;
-  const t = pct == null ? '—' : `${Math.round(pct)}%`;
+  // One decimal, the same as the admin tables, so the two sides print the identical figure (87.5%, not 88%).
+  const t = pct == null ? '—' : `${Number(pct).toFixed(1)}%`;
   document.getElementById(`conf${n}`).style.width = w;
   document.getElementById(`conf${n}-pct`).textContent = t;
   document.getElementById(`row${n}-conf-bar`).style.width = w;
@@ -1192,6 +1193,13 @@ function updateUI(key) {
   const confNote = document.getElementById('conf-note');
   if (confNote) {
     confNote.textContent = `Share of past ${originLabel} ${group.label} forecasts that landed within ₱0.50 of the real DA price, checked on days the model never saw.`;
+  }
+  // The footnote sits under this rice type's table, so it quotes this type's own figure — it used to
+  // quote the average over all 8 types whichever type was selected.
+  const hrType = apiPredictions?.metrics?.by_target?.[TAB_TO_API_KEY[key]]?.hit_rate_pct?.['1.00'];
+  const footnoteEl = document.getElementById('table-footnote');
+  if (footnoteEl && Array.isArray(hrType) && Number.isFinite(Number(hrType[0]))) {
+    footnoteEl.textContent = `Trained on DA rice prices from 2015 to now · ${Math.round(Number(hrType[0]))} of 100 next-day ${originLabel} ${group.label} forecasts landed within ₱1.00 on unseen data`;
   }
 
   document.getElementById('table-sub').textContent = `${displayName} · per kilo`;
@@ -1349,8 +1357,8 @@ async function loadLiveData() {
     footnote.textContent = !apiPredictions?.ready
       ? ''
       : Number.isFinite(hit1)
-        ? `Based on 9+ years of daily prices (2015–now) · ${Math.round(hit1)} of 100 next-day forecasts landed within ₱1.00 on unseen data`
-        : `Based on 9+ years of daily prices (2015–now) · Typically within ${toPeso(maePeso)} per kilo`;
+        ? `Trained on DA rice prices from 2015 to now · ${Math.round(hit1)} of 100 next-day forecasts (all rice types) landed within ₱1.00 on unseen data`
+        : `Trained on DA rice prices from 2015 to now · Typically within ${toPeso(maePeso)} per kilo`;
   }
 
   const lastUpdatedEl = document.getElementById('last-updated-val');

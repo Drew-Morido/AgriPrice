@@ -75,6 +75,48 @@
 
 #hist-main-chart { cursor: pointer; }
 
+/* ---- Main chart (Chart.js): title + one-line description + summary strip + chart ---- */
+.hist-chart-body { padding-top: 14px; }
+.hist-chart-head { margin-bottom: 10px; }
+.hist-chart-title { font-size: 14px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 6px; }
+.hist-chart-desc { font-size: 12px; color: var(--text-muted); margin: 2px 0 0; }
+.hist-chart-wrap { position: relative; height: 320px; }
+.hist-chart-summary {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; min-height: 30px;
+}
+.hist-sum-item {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 10px; border-radius: 99px;
+  background: var(--bg-input); border: 1px solid var(--border-color);
+  font-size: 11.5px; white-space: nowrap;
+  animation: hist-sum-in 0.35s ease-out both;
+}
+.hist-sum-item:nth-child(2) { animation-delay: 0.05s; }
+.hist-sum-item:nth-child(3) { animation-delay: 0.1s; }
+.hist-sum-item:nth-child(4) { animation-delay: 0.15s; }
+@keyframes hist-sum-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.hist-sum-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.hist-sum-name { color: var(--text-secondary); }
+.hist-sum-val { font-family: var(--font-mono); font-weight: 700; color: var(--text-primary); }
+.hist-sum-chg { font-family: var(--font-mono); font-weight: 600; }
+.hist-sum-chg.up { color: var(--color-danger); }      /* a rising price is the unwelcome direction for buyers */
+.hist-sum-chg.down { color: var(--color-success); }
+.hist-sum-chg.flat { color: var(--text-muted); }
+.hist-sum-more, .hist-sum-note { font-size: 11px; color: var(--text-muted); }
+.hist-sum-note { margin-left: auto; font-style: italic; }
+
+/* Legend chips are real buttons now (keyboard-accessible); a hidden line fades out. */
+button.legend-item.interactive-legend {
+  font: inherit; font-size: 11px; background: transparent; border: 1px solid transparent;
+  border-radius: 99px; padding: 3px 8px; transition: opacity 0.2s, border-color 0.2s, background 0.2s;
+}
+button.legend-item.interactive-legend:hover { border-color: var(--border-color); background: var(--bg-input); }
+button.legend-item.interactive-legend.is-off { opacity: 0.35; text-decoration: line-through; }
+@media (max-width: 640px) {
+  .hist-chart-wrap { height: 260px; }
+  .hist-sum-note { margin-left: 0; }
+}
+
 /* ---- Table caption (mirrors the category + date range currently selected above) ---- */
 .hist-table-sub { font-size: 11.5px; color: var(--text-muted); margin: 2px 0 0; }
 

@@ -252,6 +252,9 @@ AgriPricePH.WebScraper = (function () {
             missingEl.textContent =
               `✓ Up to date — latest DA bulletin ${dataObj.latest_date}`;
             missingEl.style.color = 'var(--color-success)';
+          } else if (kind === 'fuel' && dataObj.latest_date) {
+            missingEl.textContent = `✓ Complete — DOE week of ${dataObj.latest_date}`;
+            missingEl.style.color = 'var(--color-success)';
           } else {
             missingEl.textContent = `✓ Complete${dateLabel ? ' — ' + dateLabel : ''}`;
             missingEl.style.color = 'var(--color-success)'; // Green
@@ -271,14 +274,25 @@ AgriPricePH.WebScraper = (function () {
     };
 
     renderItem('stat-rice', 'missing-rice', stats.rice, 8, 'rice');
-    renderItem('stat-fuel', 'missing-fuel', stats.fuel, 8, 'fuel');
+    renderItem('stat-fuel', 'missing-fuel', stats.fuel, 6, 'fuel');   // DOE bulletin: 6 products
     renderItem('stat-rates', 'missing-rates', stats.rates, 3, 'rates');
   }
 
   // ─── SCHEDULE & COUNTDOWN ──────────────────────────────────────────────────
 
-  // Every source in the schedule table is a live backend scraper.
-  const _LIVE_SCRAPERS  = ['rice', 'fuel', 'rate', 'tariff'];
+  // Every source in the schedule table is a live backend scraper. The times come from the backend's real
+  // plan (/api/scrape-status → stats.schedule, see api/app.py::_loop_scraper): one full sync every N hours
+  // (Admin → Settings), plus DA-only retries while today's bulletin is still missing. This page used to
+  // invent per-source schedules (rice every 4h, fuel Mondays, rates hourly, "daily 8:00 AM") that the
+  // backend never ran.
+  const _LIVE_SCRAPERS = ['rice', 'fuel', 'rate', 'tariff', 'psa'];
+  const _SOURCE_ID = { rice: 'da', fuel: 'doe', rate: 'api', tariff: 'tc', psa: 'psa' };
+
+  function _schedule() { return (_cachedStats && _cachedStats.schedule) || null; }
+
+  function _fmtTime(dt) {
+    return dt.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', hour12: true });
+  }
 
   function _formatScheduleNext(dt) {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -286,26 +300,34 @@ AgriPricePH.WebScraper = (function () {
     const now = new Date();
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const time = dt.toLocaleTimeString('en-PH', {
-      hour: 'numeric', minute: '2-digit', hour12: true,
-    });
-    if (dt.toDateString() === now.toDateString()) return `Next: Today ${time}`;
-    if (dt.toDateString() === tomorrow.toDateString()) return `Next: Tomorrow ${time}`;
-    return `Next: ${months[dt.getMonth()]} ${dt.getDate()}`;
+    if (dt.toDateString() === now.toDateString()) return `Today ${_fmtTime(dt)}`;
+    if (dt.toDateString() === tomorrow.toDateString()) return `Tomorrow ${_fmtTime(dt)}`;
+    return `${months[dt.getMonth()]} ${dt.getDate()} ${_fmtTime(dt)}`;
   }
 
   function _updateScheduleRows() {
-    const now = new Date();
-    const rows = [
-      { id: 'rice',   next: _nextInterval(now, 4 * 60) },
-      { id: 'fuel',   next: _nextWeekday(now, 1) },
-      { id: 'rate',   next: _nextInterval(now, 60) },
-      { id: 'tariff', next: _nextInterval(now, 24 * 60) },
-    ];
-    rows.forEach(({ id, next }) => _setText(`next-${id}`, _formatScheduleNext(next)));
+    const sc = _schedule();
+    const off = new Set((sc && sc.disabled) || []);
+    const every = sc && sc.interval_hours ? `Every ${+sc.interval_hours}h` : 'Daily';
+    const cadence = {
+      rice: `${every} + retries`, fuel: `${every} · DOE weekly`, rate: every,
+      tariff: `${every} · quarterly rate`, psa: `${every} · PSA monthly`,
+    };
+    const full = sc && sc.next_full ? new Date(sc.next_full) : null;
+    _LIVE_SCRAPERS.forEach(id => {
+      _setText(`int-${id}`, cadence[id]);
+      let next = 'Next: —';
+      if (sc && !sc.auto) next = 'Auto-scrape off';
+      else if (off.has(_SOURCE_ID[id])) next = 'Off in Settings';
+      else if (id === 'rice' && sc && sc.da_waiting && sc.next_da_retry) next = `Retry: ${_formatScheduleNext(new Date(sc.next_da_retry))}`;
+      else if (full) next = `Next: ${_formatScheduleNext(full)}`;
+      _setText(`next-${id}`, next);
+    });
   }
 
   function _updateSchedulePills() {
+    const sc = _schedule();
+    const off = new Set((sc && sc.disabled) || []);
     _LIVE_SCRAPERS.forEach(key => {
       const el = document.getElementById(`pill-${key}`);
       if (!el) return;
@@ -313,23 +335,27 @@ AgriPricePH.WebScraper = (function () {
         el.textContent = 'Running...';
         el.className = 'pill pill-yellow';
         el.style.animation = 'pulse 1s ease-in-out infinite';
+      } else if ((sc && !sc.auto) || off.has(_SOURCE_ID[key])) {
+        el.textContent = 'Off';
+        el.className = 'pill pill-gray';
+        el.style.animation = '';
+      } else if (key === 'rice' && sc && sc.da_waiting) {
+        el.textContent = 'Waiting';
+        el.className = 'pill pill-yellow';
+        el.style.animation = '';
+        el.title = `Today's DA bulletin is not in yet — retried every ${sc.da_retry_every_hours || 2}h between ${(sc.da_retry_hours || [7, 21]).join(':00 and ')}:00.`;
       } else {
         el.textContent = 'Active';
         el.className = 'pill pill-green';
         el.style.animation = '';
+        el.title = '';
       }
     });
   }
 
   function _updateSchedule() {
-    const now = new Date();
-    let nextRun = new Date(now);
-
-    // Global auto-scrape cycle (backend default: daily ~8:00 AM)
-    nextRun.setHours(8, 0, 0, 0);
-    if (now > nextRun) nextRun.setDate(nextRun.getDate() + 1);
-
-    _nextRun = nextRun;
+    const sc = _schedule();
+    _nextRun = sc && sc.auto && sc.next_full ? new Date(sc.next_full) : null;
     _updateScheduleRows();
     _startCountdown();
     _updateSchedulePills();
@@ -338,23 +364,16 @@ AgriPricePH.WebScraper = (function () {
   function _startCountdown() {
     clearInterval(_cdTimer);
     const tick = () => {
-      _updateScheduleRows();
-      if (!_nextRun) return;
       if (_running) { _setText('stat-lastrun', 'Scraping now...'); return; }
-
+      const sc = _schedule();
+      if (sc && !sc.auto) { _setText('stat-lastrun', 'Auto-scrape is off\n(Admin → Settings)'); return; }
+      if (!_nextRun) { _setText('stat-lastrun', '—'); return; }
       const diff = _nextRun - new Date();
-      if (diff <= 0) { _setText('stat-lastrun', 'Scraping now...'); return; }
-
+      if (diff <= 0) { _setText('stat-lastrun', 'Starting shortly...'); return; }
       const h = Math.floor(diff / 3_600_000);
       const m = Math.floor((diff % 3_600_000) / 60_000);
       const s = Math.floor((diff % 60_000) / 1_000);
-
-      // Aalamin kung mamaya na ba ito o bukas pa
-      const isToday = _nextRun.getDate() === new Date().getDate();
-      const dayStr = isToday ? 'Today' : 'Tomorrow';
-
-      // Pinaghiwalay natin ng linya para mas malinis tignan
-      _setText('stat-lastrun', `${dayStr} 8:00 AM\n(in ${h}h ${m}m ${s}s)`);
+      _setText('stat-lastrun', `${_formatScheduleNext(_nextRun)}\n(in ${h}h ${m}m ${s}s)`);
     };
     tick();
     _cdTimer = setInterval(tick, 1000);
@@ -390,18 +409,6 @@ AgriPricePH.WebScraper = (function () {
   }
 
   // ─── UTILITIES ─────────────────────────────────────────────────────────────
-  function _nextInterval(now, mins) {
-    const ms = mins * 60_000;
-    return new Date(Math.ceil((now.getTime() + 1) / ms) * ms);
-  }
-
-  function _nextWeekday(now, day) {
-    const d    = new Date(now);
-    const diff = (day - d.getDay() + 7) % 7 || 7;
-    d.setDate(d.getDate() + diff);
-    d.setHours(6, 0, 0, 0);
-    return d;
-  }
 
   function _setText(id, val) {
     const el = document.getElementById(id);
@@ -415,7 +422,8 @@ AgriPricePH.WebScraper = (function () {
 
   async function _fetchReview() {
     try {
-      const res = await fetch(`${API}/api/scrape-review`);
+      const token = _adminToken();
+      const res = await fetch(`${API}/api/scrape-review`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       if (!res.ok) return;
       _review = (await res.json()).pending || [];
       _renderReview();

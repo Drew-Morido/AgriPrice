@@ -146,7 +146,7 @@ AgriPricePH.Reports = (function () {
           <div class="report-actions">
             ${printBtn}
             <button type="button" class="btn btn-ghost btn-sm" data-download="${escapeAttr(f.filename)}">Download</button>
-            <button type="button" class="btn btn-ghost btn-sm" data-delete-report="${escapeAttr(f.filename)}" style="color:var(--color-danger);">Delete</button>
+            <button type="button" class="btn btn-ghost btn-sm super-only" data-delete-report="${escapeAttr(f.filename)}" style="color:var(--color-danger);">Delete</button>
           </div>
         </div>`;
     }).join('');

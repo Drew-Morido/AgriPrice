@@ -40,6 +40,7 @@ from user_store import (
     update_password_hash,
 )
 
+MAX_CODE_ATTEMPTS = 5
 DEACTIVATED_MSG = "This account has been deactivated. Please contact the AgriPricePH administrator."
 
 MAX_ATTEMPTS = 5
@@ -220,8 +221,17 @@ def verify_reset_code(email: str, code: str) -> tuple[bool, str, str | None]:
     if not entry or entry["expires_at"] < time.time():
         _RESET_CODES.pop(email, None)
         return False, "That code is invalid or has expired. Request a new one.", None
+    if not entry.get("code_hash"):
+        return False, "That code was already used. Request a new one.", None
     if len(code) != 6 or _hash_code(code) != entry["code_hash"]:
-        return False, "That code is incorrect.", None
+        # A 6-digit code has only a million values: after MAX_CODE_ATTEMPTS wrong tries the code
+        # is destroyed, so it cannot be guessed (not even from many addresses at once).
+        entry["attempts"] = entry.get("attempts", 0) + 1
+        if entry["attempts"] >= MAX_CODE_ATTEMPTS:
+            _RESET_CODES.pop(email, None)
+            return False, "Too many wrong codes. Request a new code.", None
+        left = MAX_CODE_ATTEMPTS - entry["attempts"]
+        return False, f"That code is incorrect. {left} {'try' if left == 1 else 'tries'} left.", None
     ticket = secrets.token_urlsafe(24)
     entry["ticket_hash"] = _hash_code(ticket)
     entry["code_hash"] = None  # the code itself is now spent — only the ticket unlocks step 3

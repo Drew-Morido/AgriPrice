@@ -171,7 +171,46 @@ AgriPricePH.PublicAuth = (function () {
     if (res.ok && res.data?.user) {
       refreshSessionUser(res.data.user);
       updateTopbarUser();
+      if (res.data.user.show_welcome) showFirstWelcome(res.data.user, s.token);
     }
+  }
+
+  /* One-time welcome for a brand-new account, on the first page after sign-up or first sign-in.
+     The server remembers it per account (users.welcome_seen_at), so it never repeats — not on
+     another page, another browser, or another device. Not on the login/sign-up pages themselves. */
+  let _welcomeShown = false;
+  function loadWelcomeModal() {
+    if (AgriPricePH.WelcomeModal) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      const tag = document.createElement('script');
+      tag.src = '../js/welcome-modal.js?v=1';
+      tag.onload = () => resolve(!!AgriPricePH.WelcomeModal);
+      tag.onerror = () => resolve(false);
+      document.head.appendChild(tag);
+    });
+  }
+
+  async function showFirstWelcome(user, token) {
+    const page = (window.location.pathname.split('/').pop() || '').toLowerCase();
+    if (_welcomeShown || page === 'login.html' || page === 'signup.html') return;
+    _welcomeShown = true;
+    if (!(await loadWelcomeModal())) return;
+    const first = String(user.name || '').trim().split(/\s+/)[0] || 'there';
+    await AgriPricePH.WelcomeModal.show({
+      name: user.name,
+      avatar: user.avatar,
+      eyebrow: 'Your free account is ready',
+      title: `Welcome to AgriPricePH, ${first}!`,
+      text: 'Follow rice prices across the Philippines and plan your rice budget with confidence.',
+      tiles: [
+        { icon: 'tag', title: 'Today’s rice prices', text: 'DA retail prices for 8 local and imported rice types.' },
+        { icon: 'trend', title: '3-day price forecast', text: 'Where prices may go next, with a likely price range.' },
+        { icon: 'history', title: 'Price history & charts', text: 'Daily prices since 2015, now unlocked for you.' },
+      ],
+      secondary: { label: 'Set up my profile', onClick: () => { window.location.href = 'profile.html'; } },
+      primary: { label: 'Start exploring' },
+    });
+    AgriPricePH.API?.authWelcomeSeen?.(token).catch(() => {});
   }
 
   /* The page a logged-in user is sent to (post-login + when they hit the landing page). Sourced
@@ -232,7 +271,7 @@ AgriPricePH.PublicAuth = (function () {
       const res = await AgriPricePH.API.authSignup(name, email.toLowerCase(), password);
       if (res.ok && res.data?.success && res.data?.token) {
         startSession(res.data);
-        return { ok: true };
+        return { ok: true, user: res.data.user };
       }
       return { ok: false, message: res.data?.error || 'Could not create your account.' };
     } catch {
@@ -357,7 +396,7 @@ AgriPricePH.PublicAuth = (function () {
       const res = await AgriPricePH.API.authLogin(email, password, remember);
       if (res.ok && res.data?.success && res.data?.token) {
         startSession(res.data);
-        return { ok: true };
+        return { ok: true, user: res.data.user };
       }
       if (res.status === 429) {
         return { ok: false, message: res.data?.error || 'Too many attempts. Try again later.' };
@@ -368,9 +407,27 @@ AgriPricePH.PublicAuth = (function () {
       const migrated = await migrateLegacyAccount(email, password);
       if (migrated) {
         startSession(migrated);
-        return { ok: true };
+        return { ok: true, user: migrated.user };
       }
       return { ok: false, message: res.data?.error || 'Email or password is incorrect.' };
+    } catch {
+      return { ok: false, message: NETWORK_ERROR };
+    }
+  }
+
+  /* "Continue with Google": the server verifies Google's ID token, then signs in, links (same
+     verified email) or creates the public account. Returns { ok, user, created, linked }. */
+  async function googleSignIn(credential, remember) {
+    try {
+      const res = await AgriPricePH.API.authGoogle(credential, remember);
+      if (res.ok && res.data?.success && res.data?.token) {
+        startSession(res.data);
+        return { ok: true, user: res.data.user, created: !!res.data.created, linked: !!res.data.linked };
+      }
+      if (res.status === 403 && res.data?.code === 'deactivated') {
+        return { ok: false, deactivated: true, message: res.data.error };
+      }
+      return { ok: false, message: res.data?.error || 'Google sign-in did not work. Please try again.' };
     } catch {
       return { ok: false, message: NETWORK_ERROR };
     }
@@ -458,7 +515,7 @@ AgriPricePH.PublicAuth = (function () {
       const res = await AgriPricePH.API.adminVerify(username.trim(), password, code);
       if (res.ok && res.data?.success && res.data?.token) {
         saveAdminSession(res.data.token, res.data.expires_in);
-        return { ok: true };
+        return { ok: true, admin: res.data.admin || null };
       }
       const status = res.status;
       const msg = res.data?.error || 'Could not sign in. Check your details.';
@@ -565,6 +622,7 @@ AgriPricePH.PublicAuth = (function () {
     verifyAdminPassword,
     signup,
     login,
+    googleSignIn,
     adminLogin,
     logout,
     updateTopbarUser,

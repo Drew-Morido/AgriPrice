@@ -76,6 +76,7 @@ try:
     from scrap import (
         fetch_exchange_rates,
         fetch_fuel_prices,
+        fetch_psa_monthly,
         fetch_rice_prices,
         fetch_tariff_rate,
     )
@@ -94,6 +95,9 @@ except ImportError as _scraper_import_err:
         raise RuntimeError(f"Scraper unavailable: {_SCRAPER_IMPORT_ERROR}")
 
     def fetch_tariff_rate():  # type: ignore
+        raise RuntimeError(f"Scraper unavailable: {_SCRAPER_IMPORT_ERROR}")
+
+    def fetch_psa_monthly():  # type: ignore
         raise RuntimeError(f"Scraper unavailable: {_SCRAPER_IMPORT_ERROR}")
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
@@ -168,6 +172,15 @@ SOURCE_META = {
         "ws_sql":   None,
         "csv":      os.path.join(BASE_DIR, "..", "tools", "_tariff_no_csv_marker"),
         "fetch":    "tariff",
+    },
+    # PSA OpenSTAT monthly series (PSA_rice_stocks / PSA_farmgate). "Last Fetch" comes from
+    # _last_source_ts["psa"] or PSA_meta.fetched_at (see _build_psa_source), not from a CSV.
+    "psa": {
+        "ws_table": "PSA_rice_stocks",
+        "hist_sql": None,
+        "ws_sql":   'SELECT Date FROM "PSA_rice_stocks"',
+        "csv":      os.path.join(DATASETS_DIR, "psa_rice_stocks_monthly.csv"),
+        "fetch":    "psa",
     },
 }
 
@@ -283,12 +296,28 @@ def _maybe_clear_stale_scrape() -> None:
         _release_scrape_lock()
 
 
-def _do_scrape() -> bool:
+def _refresh_forecast_async() -> None:
+    """Rebuild the published forecast in the background after new data, so no visitor waits for it and the
+    day's forecast is written to the forward-evaluation log. A no-op rebuild when the model's inputs did not
+    change (predict's cache key covers the last verified day and a fingerprint of the latest inputs)."""
+    logger = logging.getLogger("agriprice_scraper")
+
+    def _run():
+        try:
+            from predict import warm_payload
+            if warm_payload():
+                logger.info("Forecast is up to date with the latest verified data.")
+        except Exception as exc:
+            logger.warning("Forecast refresh after scrape skipped: %s", exc)
+    threading.Thread(target=_run, daemon=True).start()
+
+
+def _do_scrape(skip=()) -> bool:
     """
-    Runs rice → fuel → exchange-rate → tariff scraping sequentially. The first three write
-    straight to their WS_* tables; tariff only ever stages an inactive candidate for admin
-    review (see fetch_tariff_rate) and isn't tracked by _last_source_ts / the Data Sources page.
-    Logs each step in real-time (visible via SSE stream and /api/scrape-status).
+    One full sync: DA rice → DOE fuel → exchange rates → tariff → PSA monthly (stocks, farmgate).
+    Rice/fuel/rates/PSA write straight to their tables; tariff only ever stages an inactive candidate for
+    admin review (see fetch_tariff_rate). `skip`: source ids switched off in Admin → Settings (da, doe, api,
+    psa) — reported as SKIPPED, not FAILED. Logs each step (SSE stream and /api/scrape-status).
     Thread-safe: skips if a scrape is already in progress.
     """
     global _scrape_running, _last_scrape_ts, _last_scrape_ok, _scrape_started_at
@@ -303,7 +332,27 @@ def _do_scrape() -> bool:
         _scrape_started_at = datetime.now()
 
     logger = logging.getLogger("agriprice_scraper")
-    results = {"rice": False, "fuel": False, "rates": False, "tariff": False}
+    # (result key, source id, label, fetcher, start message, message when it returns False)
+    steps = [
+        ("rice", "da", "Rice", fetch_rice_prices,
+         "DA-AMAS IS SCRAPING NOW // https://www.da.gov.ph/price-monitoring/",
+         "DA-AMAS rice scrape failed — check logs above."),
+        ("fuel", "doe", "Fuel", fetch_fuel_prices,
+         "DATA FUEL IS SCRAPING NOW // DOE NCR weekly pump prices "
+         "(https://doe.gov.ph/data-and-prices/liquid-fuels/retail-pump-prices/ncr-pump-prices)",
+         "DOE fuel fetch failed (GasWatch PH fallback too) — kept the stored weeks."),
+        ("rates", "api", "Rates", fetch_exchange_rates,
+         "RATE EXCHANGE IS SCRAPING NOW // https://open.er-api.com/v6/latest/USD",
+         "ALREADY SCRAPPED OR FAILED TO FETCH EXCHANGE RATES"),
+        # Tariff only ever STAGES a candidate; the rate never goes live without an admin's Approve click.
+        ("tariff", "tc", "Tariff", fetch_tariff_rate,
+         "TARIFF FINDER IS CHECKING NOW // https://finder.tariffcommission.gov.ph",
+         "Tariff Finder check failed — check logs above."),
+        ("psa", "psa", "PSA", fetch_psa_monthly,
+         "PSA OPENSTAT IS CHECKING NOW // https://openstat.psa.gov.ph (rice stocks, palay farmgate)",
+         "PSA OpenSTAT refresh failed or was refused — kept the stored copy."),
+    ]
+    results: dict = {}
 
     try:
         if not _SCRAPER_AVAILABLE:
@@ -313,71 +362,37 @@ def _do_scrape() -> bool:
             _last_scrape_ok = False
             return False
 
-        _add_log("INFO", "Scrape job started (rice → fuel → exchange rates)")
+        _add_log("INFO", "Scrape job started (rice → fuel → exchange rates → tariff → PSA)")
         logger.info("SCRAPPING IS INITIATING...")
 
-        # ── STEP 1: Rice prices ──────────────────────────────────────────────
-        logger.info("DA-AMAS IS SCRAPING NOW // https://www.da.gov.ph/price-monitoring/")
-        try:
-            ok = fetch_rice_prices()
-            results["rice"] = bool(ok)
-            if ok:
-                _last_source_ts["da"] = datetime.now()
-            elif not ok:
-                logger.warning("DA-AMAS rice scrape failed — check logs above.")
-        except Exception as exc:
-            logger.error("FAILED AT DA-AMAS: %s", exc)
-
-        # ── STEP 2: Fuel prices ──────────────────────────────────────────────
-        logger.info("DATA FUEL IS SCRAPING NOW // https://www.zigwheels.ph/fuel-price")
-        try:
-            ok = fetch_fuel_prices()
-            results["fuel"] = bool(ok)
-            if ok:
-                _last_source_ts["doe"] = datetime.now()
-            elif not ok:
-                logger.warning("ALREADY SCRAPPED OR FAILED TO FETCH FUEL")
-        except Exception as exc:
-            logger.error("FAILED AT FUEL DATA: %s", exc)
-
-        # ── STEP 3: Exchange rates ───────────────────────────────────────────
-        logger.info("RATE EXCHANGE IS SCRAPING NOW // https://open.er-api.com/v6/latest/USD")
-        try:
-            ok = fetch_exchange_rates()
-            results["rates"] = bool(ok)
-            if ok:
-                _last_source_ts["api"] = datetime.now()
-            elif not ok:
-                logger.warning("ALREADY SCRAPPED OR FAILED TO FETCH EXCHANGE RATES")
-        except Exception as exc:
-            logger.error("FAILED AT EXCHANGE RATES: %s", exc)
-
-        # ── STEP 4: Rice import tariff (only ever STAGES a candidate for admin review — see
-        #    fetch_tariff_rate/add_scraped_tariff_candidate; the Data Sources card below tracks
-        #    when this source was last successfully checked, same as the other three, but the
-        #    rate itself never goes live without an admin's Approve click on the Taxes page). ──
-        logger.info("TARIFF FINDER IS CHECKING NOW // https://finder.tariffcommission.gov.ph")
-        try:
-            ok = fetch_tariff_rate()
-            results["tariff"] = bool(ok)
-            if ok:
-                _last_source_ts["tc"] = datetime.now()
-            else:
-                logger.warning("Tariff Finder check failed — check logs above.")
-        except Exception as exc:
-            logger.error("FAILED AT TARIFF FINDER: %s", exc)
+        for key, sid, _label, fn, start_msg, fail_msg in steps:
+            if sid in skip:
+                results[key] = None
+                logger.info("%s skipped — switched off in Admin → Settings.", sid.upper())
+                continue
+            logger.info(start_msg)
+            try:
+                ok = bool(fn())
+                results[key] = ok
+                if ok:
+                    _last_source_ts[sid] = datetime.now()
+                else:
+                    logger.warning(fail_msg)
+            except Exception as exc:
+                results[key] = False
+                logger.error("FAILED AT %s: %s", sid.upper(), exc)
 
         # ── Summary ──────────────────────────────────────────────────────────
-        any_ok = any(results.values())
-        all_ok = all(results.values())
+        ran = [v for v in results.values() if v is not None]
+        any_ok = any(ran)
+        all_ok = bool(ran) and all(ran)
 
         logger.info("")
         logger.info("---------------------------------------")
         logger.info("  SUMMARY")
-        logger.info("  Rice   : %s", "OK" if results["rice"] else "FAILED")
-        logger.info("  Fuel   : %s", "OK" if results["fuel"] else "FAILED")
-        logger.info("  Rates  : %s", "OK" if results["rates"] else "FAILED")
-        logger.info("  Tariff : %s", "OK" if results["tariff"] else "FAILED")
+        for key, _sid, label, *_ in steps:
+            v = results.get(key)
+            logger.info("  %-6s : %s", label, "SKIPPED" if v is None else ("OK" if v else "FAILED"))
         if all_ok:
             logger.info("  Status : All datasets updated successfully.")
         elif any_ok:
@@ -389,17 +404,8 @@ def _do_scrape() -> bool:
         _last_scrape_ts = datetime.now()
         _last_scrape_ok = any_ok
         _add_log("INFO", "Scrape job finished.")
-        if results["rice"]:
-            # New rice data: rebuild the published forecast now, in the background, so no visitor waits
-            # ~35 s for it and the day's forecast is written to the forward-evaluation log (forecast_log).
-            def _refresh_forecast():
-                try:
-                    from predict import warm_payload
-                    if warm_payload():
-                        logger.info("Forecast refreshed for the new data and logged for forward evaluation.")
-                except Exception as exc:
-                    logger.warning("Forecast refresh after scrape skipped: %s", exc)
-            threading.Thread(target=_refresh_forecast, daemon=True).start()
+        if any_ok:
+            _refresh_forecast_async()
         return any_ok
 
     except Exception as exc:
@@ -412,14 +418,15 @@ def _do_scrape() -> bool:
 
 
 def _do_scrape_one(source_id: str) -> bool:
-    """Run scraper for a single source (da | doe | api)."""
-    global _scrape_running, _last_scrape_ts, _last_scrape_ok
+    """Run scraper for a single source (da | doe | api | tc | psa)."""
+    global _scrape_running, _last_scrape_ts, _last_scrape_ok, _scrape_started_at
 
     fetch_map = {
         "da":  fetch_rice_prices,
         "doe": fetch_fuel_prices,
         "api": fetch_exchange_rates,
         "tc":  fetch_tariff_rate,
+        "psa": fetch_psa_monthly,
     }
     fn = fetch_map.get(source_id)
     if not fn:
@@ -441,6 +448,8 @@ def _do_scrape_one(source_id: str) -> bool:
         ok = bool(fn())
         if ok:
             _last_source_ts[source_id] = datetime.now()
+            if source_id != "tc":           # a tariff candidate never changes the model's inputs
+                _refresh_forecast_async()
         _last_scrape_ts = datetime.now()
         _last_scrape_ok = ok
         return ok
@@ -453,19 +462,95 @@ def _do_scrape_one(source_id: str) -> bool:
         _release_scrape_lock()
 
 
+# ── Auto-scrape scheduler ─────────────────────────────────────────────────────
+# A full sync (every source) runs every `scrape_interval_hours` (Admin → Settings; default 24). Between syncs,
+# while today's DA bulletin is still missing, DA alone is retried every DA_RETRY_SECONDS during DA_RETRY_HOURS:
+# DA posts during the day, and a once-a-day sync that happened to run early left the site on a temporary
+# estimate until the next day.
+DA_RETRY_SECONDS = 2 * 60 * 60
+DA_RETRY_HOURS = (7, 21)          # local time window for DA retries
+_schedule: dict = {"auto": True, "interval_hours": None, "next_full": None,
+                   "da_waiting": False, "next_da_retry": None, "disabled": []}
+
+
+def _scrape_settings() -> dict:
+    try:
+        from settings_store import get_settings
+        return (get_settings().get("settings") or {}).get("data_sources") or {}
+    except Exception:
+        return {}
+
+
+def _da_official_today() -> bool:
+    """True once today's DA bulletin (not a temporary estimate) is in WS_rice_price."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        try:
+            cols = [r[1] for r in conn.execute('PRAGMA table_info("WS_rice_price")')]
+            today = datetime.now().strftime("%m/%d/%Y")
+            if "Source" in cols:
+                row = conn.execute('SELECT 1 FROM "WS_rice_price" WHERE Date = ? AND '
+                                   "LOWER(COALESCE(Source, 'da_official')) != 'estimated' LIMIT 1", (today,)).fetchone()
+            else:
+                row = conn.execute('SELECT 1 FROM "WS_rice_price" WHERE Date = ? LIMIT 1', (today,)).fetchone()
+            return row is not None
+        finally:
+            conn.close()
+    except Exception:
+        return True   # can't tell: don't hammer DA
+
+
 def _loop_scraper(interval: int) -> None:
-    """Background auto-scrape loop. Used in --loop and server modes."""
+    """Background auto-scrape loop. Used in --loop and server modes.
+
+    `interval` (seconds) comes from --interval; when left at the default, Admin → Settings decides
+    (`scrape_interval_hours`). `auto_scrape` off pauses automatic runs (manual "Run scraper" still works),
+    and a source switched off in Settings is skipped by the automatic sync.
+    """
     logger = logging.getLogger("agriprice_scraper")
-    logger.info("Auto-scraper loop started. Interval: %ss", interval)
-    # Let Flask respond before the first scrape (avoids "stuck on Running" on page load)
-    time.sleep(15)
+    logger.info("Auto-scraper loop started (full sync every %s h unless Settings says otherwise; "
+                "DA retried every %s h until today's bulletin arrives).", interval // 3600, DA_RETRY_SECONDS // 3600)
+    time.sleep(15)   # let Flask respond before the first scrape (avoids "stuck on Running" on page load)
+    next_full = time.time()
+    last_da_try = 0.0
     while True:
-        start = time.time()
-        _do_scrape()
-        elapsed = time.time() - start
-        sleep_for = max(60, int(interval - elapsed))
-        logger.info("Next auto-scrape in %ss", sleep_for)
-        time.sleep(sleep_for)
+        ds = _scrape_settings()
+        auto = ds.get("auto_scrape", True) is not False
+        hours = ds.get("scrape_interval_hours")
+        every = interval if interval != DEFAULT_INTERVAL or not isinstance(hours, (int, float)) or hours <= 0 \
+            else int(hours * 3600)
+        disabled = [k for k, flag in (("da", "da_enabled"), ("doe", "fuel_enabled"), ("api", "exchange_enabled"),
+                                      ("psa", "psa_enabled")) if ds.get(flag, True) is False]
+        now = time.time()
+        hour = datetime.now().hour
+        try:
+            if auto and now >= next_full:
+                _do_scrape(skip=disabled)
+                next_full = time.time() + every
+                last_da_try = time.time()
+            elif (auto and "da" not in disabled and DA_RETRY_HOURS[0] <= hour < DA_RETRY_HOURS[1]
+                  and now - last_da_try >= DA_RETRY_SECONDS and not _scrape_running and not _da_official_today()):
+                logger.info("Today's DA bulletin is not in yet — retrying DA only.")
+                _do_scrape_one("da")
+                last_da_try = time.time()
+        except Exception as exc:
+            logger.error("Auto-scrape loop error: %s", exc)
+
+        da_waiting = auto and "da" not in disabled and not _da_official_today()
+        retry = None
+        if da_waiting:
+            retry = datetime.fromtimestamp(max(last_da_try + DA_RETRY_SECONDS, time.time()))
+            if retry.hour >= DA_RETRY_HOURS[1]:
+                retry = (retry + timedelta(days=1)).replace(hour=DA_RETRY_HOURS[0], minute=0, second=0)
+            elif retry.hour < DA_RETRY_HOURS[0]:
+                retry = retry.replace(hour=DA_RETRY_HOURS[0], minute=0, second=0)
+        _schedule.update({
+            "auto": auto, "interval_hours": round(every / 3600, 2), "disabled": disabled,
+            "next_full": datetime.fromtimestamp(next_full).isoformat(timespec="seconds") if auto else None,
+            "da_waiting": da_waiting,
+            "next_da_retry": retry.isoformat(timespec="seconds") if retry else None,
+        })
+        time.sleep(60)
 
 
 # ─── CSV / DB helpers ─────────────────────────────────────────────────────────
@@ -538,7 +623,11 @@ def _count_merged_dates(hist_sql: str, ws_sql: str) -> int:
         return 0
     if not frames:
         return 0
-    dates = pd.to_datetime(pd.concat(frames, ignore_index=True), errors="coerce").dropna()
+    # Parse each table on its own: the historical tables store "2025-12-29 00:00:00" and the scraped ones
+    # "12/03/2024". Parsed together, pandas inferred one format and silently dropped every row in the other,
+    # so e.g. the fuel card said 575 records (history only) instead of 667.
+    dates = pd.concat([pd.to_datetime(f.astype(str), errors="coerce", format="mixed") for f in frames],
+                      ignore_index=True).dropna()
     if dates.empty:
         return 0
     return int(dates.dt.normalize().nunique())
@@ -579,6 +668,14 @@ def _relative_time(ts: datetime | None) -> str:
     return f"{secs // 86400} day ago"
 
 
+_SOURCE_LABELS = {
+    "estimated": "Estimated (temporary)",
+    "da_official": "DA official",
+    "doe_ncr_weekly": "DOE weekly NCR bulletin",
+    "gaswatchph": "GasWatch PH (fallback)",
+}
+
+
 def _build_row_summary(latest: dict, expected_cols: list) -> list:
     """Human-readable field list from the latest DB row (for modal detail)."""
     out: list[dict] = []
@@ -588,8 +685,13 @@ def _build_row_summary(latest: dict, expected_cols: list) -> list:
 
     src = latest.get("Source")
     if src is not None and not (isinstance(src, float) and pd.isna(src)):
-        label = "Estimated (temporary)" if str(src).lower() == "estimated" else "DA official"
+        label = _SOURCE_LABELS.get(str(src).strip().lower(), str(src))
         out.append({"label": "Source", "value": label})
+    filled = latest.get("Filled")
+    if isinstance(filled, str) and filled.strip():
+        # DOE left these blank; the value shown is GasWatch PH's for the same week.
+        out.append({"label": "Filled from GasWatch PH",
+                    "value": ", ".join(f.replace("_", " ") for f in filled.split(","))})
 
     for col in expected_cols:
         val = latest.get(col)
@@ -689,6 +791,46 @@ _CORS_ORIGINS = [
 ]
 CORS(app, resources={r"/api/*": {"origins": _CORS_ORIGINS}}, supports_credentials=True)
 
+# Browser security headers on every response.
+#  * frame-ancestors / X-Frame-Options: no other site can load these pages in a frame and trick an
+#    admin into clicking (clickjacking).
+#  * The Content-Security-Policy lists the only places scripts, styles, fonts and API calls may come
+#    from: this server, the Chart.js/icon CDNs, Google Fonts and Google sign-in. Inline scripts are
+#    still allowed ('unsafe-inline') because the pages use them; a script from any other site is not.
+#  * Images may come from any https host (rice photos are hot-linked from several photo sites).
+_CSP = "; ".join([
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://accounts.google.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://accounts.google.com",
+    "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net",
+    "img-src 'self' data: blob: https:",
+    "connect-src 'self' " + " ".join(sorted(set(_CORS_ORIGINS))) + " https://accounts.google.com",
+    "frame-src https://accounts.google.com",
+    "frame-ancestors 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+])
+
+
+_PRIVATE_API_PREFIXES = ("/api/auth/", "/api/admin/", "/api/settings", "/api/logs", "/api/alerts")
+
+
+@app.after_request
+def _security_headers(resp):
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    resp.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    # Google's sign-in popup needs to talk back to the page that opened it.
+    resp.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin-allow-popups")
+    if (resp.mimetype or "").startswith("text/html"):
+        resp.headers.setdefault("Content-Security-Policy", _CSP)
+    # Answers that carry account or admin data are never stored by the browser or a proxy.
+    if request.path.startswith(_PRIVATE_API_PREFIXES) and "Cache-Control" not in resp.headers:
+        resp.headers["Cache-Control"] = "no-store"
+    return resp
+
 
 def _auto_import_2026() -> None:
     """I-merge ang 2026 XLSX sa database kapag nag-start ang server."""
@@ -730,7 +872,7 @@ def api_scrape_status():
         "Imported Special", "Imported Premium", "Imported Well Milled", "Imported Regular Milled",
     ]
     EXPECTED_FUEL  = [
-        "Gasoline", "RON_100", "RON_97", "RON_95", "RON_91",
+        "RON_97", "RON_95", "RON_91",
         "Diesel", "Diesel_Plus", "Kerosene",
     ]
     EXPECTED_RATES = ["USD_to_PHP", "THB_to_PHP", "VND_to_PHP"]
@@ -752,6 +894,8 @@ def api_scrape_status():
         "running":     _scrape_running,
         "last_run":    _last_scrape_ts.isoformat() if _last_scrape_ts else None,
         "last_ok":     _last_scrape_ok,
+        # The auto-scraper's real plan (see _loop_scraper): next full sync, and whether DA is being retried.
+        "schedule":    dict(_schedule, da_retry_hours=list(DA_RETRY_HOURS), da_retry_every_hours=DA_RETRY_SECONDS // 3600),
     }
 
     return jsonify({
@@ -761,6 +905,19 @@ def api_scrape_status():
 
 
 # ── /api/forecast-check ───────────────────────────────────────────────────────
+# Data readiness checklist (model/data_pipeline.py): the newest day whose DA bulletin, fuel and USD/PHP
+# inputs are all verified. Only days up to it are fed to the model; later days are listed with what is missing.
+@app.route("/api/data-readiness", methods=["GET"])
+def api_data_readiness():
+    try:
+        from data_pipeline import LAST_READINESS
+        from predict import _get_merged_frame
+        _get_merged_frame()   # (re)runs the checklist; the merged frame is cached for 90 s
+        return jsonify({"ready": True, **LAST_READINESS})
+    except Exception as exc:
+        return jsonify({"ready": False, "error": str(exc)}), 503
+
+
 # Forward evaluation of the published forecast: forecasts logged before their DA price existed, scored now
 # (model/forecast_log.py). The clean check on days no experiment has ever seen.
 @app.route("/api/forecast-check", methods=["GET"])
@@ -778,6 +935,9 @@ def api_forecast_check():
 # only public DA prices); approving or rejecting needs an admin session.
 @app.route("/api/scrape-review", methods=["GET"])
 def api_scrape_review():
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     try:
         import scrape_guard
         return jsonify({"pending": scrape_guard.pending(), "guard_pct": scrape_guard.GUARD_PCT})
@@ -953,6 +1113,74 @@ def _build_tariff_source() -> dict:
     }
 
 
+def _build_psa_source() -> dict:
+    """Data Sources card for PSA OpenSTAT: monthly national rice stocks inventory and palay farmgate price.
+    A monthly source, so "up to date" means PSA has nothing newer, not a row dated today."""
+    fetch_ts = _last_source_ts.get("psa")
+    stocks = farmgate = meta = None
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        try:
+            stocks = pd.read_sql('SELECT * FROM "PSA_rice_stocks" ORDER BY Date', conn)
+            farmgate = pd.read_sql('SELECT * FROM "PSA_farmgate" ORDER BY Date', conn)
+            meta = pd.read_sql('SELECT * FROM "PSA_meta"', conn)
+        finally:
+            conn.close()
+    except Exception:
+        pass
+    if fetch_ts is None and meta is not None and not meta.empty:
+        try:
+            fetch_ts = datetime.fromisoformat(str(meta["fetched_at"].max()))
+        except ValueError:
+            fetch_ts = None
+
+    summary: list[dict] = []
+    latest_month = None
+    if stocks is not None and not stocks.empty:
+        last = stocks.iloc[-1]
+        latest_month = pd.to_datetime(last["Date"])
+        summary.append({"label": "Date", "value": latest_month.strftime("%B %Y")})
+        summary.append({"label": "Source", "value": "PSA OpenSTAT"})
+        for col, label in (("total", "Stock: total (MT)"), ("household", "Stock: household"),
+                           ("commercial", "Stock: commercial"), ("nfa", "Stock: NFA")):
+            if pd.notna(last.get(col)):
+                summary.append({"label": label, "value": f"{float(last[col]):,.0f}"})
+    if farmgate is not None and not farmgate.empty:
+        last = farmgate.iloc[-1]
+        for col, label in (("other_variety", "Farmgate: other (₱/kg)"),
+                           ("fancy", "Farmgate: fancy (₱/kg)")):
+            if pd.notna(last.get(col)):
+                summary.append({"label": label, "value": f"{float(last[col]):.2f}"})
+    # PSA publishes month M around the 7th-15th of M+1: "current" = last month or the one before it.
+    current = latest_month is not None and (pd.Timestamp.now().normalize() - latest_month).days <= 75
+    months = (len(stocks) if stocks is not None else 0) + (len(farmgate) if farmgate is not None else 0)
+    return {
+        "id": "psa",
+        "name": "PSA OpenSTAT (Rice stocks & farmgate)",
+        "type": "REST API (PXWeb JSON)",
+        "dataType": "Rice stocks inventory & palay farmgate price (Monthly)",
+        "status": "running" if _scrape_running else ("active" if months else "idle"),
+        "lastFetch": _format_fetch_timestamp(fetch_ts, {}),
+        "lastFetchRelative": _relative_time(fetch_ts),
+        "lastFetchAt": fetch_ts.isoformat() if fetch_ts else None,
+        "hasDataToday": bool(current),
+        "hasCalendarToday": False,
+        "isEstimated": False,
+        "recordsToday": 0,
+        "todaySummary": summary if current else [],
+        "dataSummary": summary,
+        "historicalRecords": len(stocks) if stocks is not None else 0,
+        "scrapedRecords": len(farmgate) if farmgate is not None else 0,
+        "totalRecords": months,
+        "psaUpdated": {r["table"]: r["psa_updated"] for _, r in meta.iterrows()} if meta is not None else {},
+        "url": "https://openstat.psa.gov.ph",
+        "color": "#0EA5E9",
+        "bgColor": "rgba(14,165,233,0.12)",
+        "live": True,
+        "implemented": True,
+    }
+
+
 @app.route("/api/data-sources", methods=["GET"])
 def api_data_sources():
     """Live metadata for Data Sources page (historical + scraped DB counts)."""
@@ -961,7 +1189,7 @@ def api_data_sources():
         "Imported Special", "Imported Premium", "Imported Well Milled", "Imported Regular Milled",
     ]
     EXPECTED_FUEL  = [
-        "Gasoline", "RON_100", "RON_97", "RON_95", "RON_91",
+        "RON_97", "RON_95", "RON_91",
         "Diesel", "Diesel_Plus", "Kerosene",
     ]
     EXPECTED_RATES = ["USD_to_PHP", "THB_to_PHP", "VND_to_PHP"]
@@ -978,10 +1206,10 @@ def api_data_sources():
             'SELECT Date FROM "WS_rice_price"',
         ),
         _build_live_source(
-            "doe", "Zigwheels (Fuel)",
-            "Web Scraper (BeautifulSoup)",
-            "Diesel & Fuel Prices (Weekly)",
-            "https://www.zigwheels.ph/fuel-price",
+            "doe", "DOE – NCR Pump Prices (Fuel)",
+            "Web Scraper (weekly DOE PDF)",
+            "RON95 & Diesel common price, NCR (Weekly)",
+            "https://doe.gov.ph/data-and-prices/liquid-fuels/retail-pump-prices/ncr-pump-prices",
             "#F59E0B", "rgba(245,158,11,0.12)",
             "WS_fuel", EXPECTED_FUEL,
             "SELECT Date FROM fuel_history",
@@ -998,6 +1226,7 @@ def api_data_sources():
             'SELECT Date FROM "WS_currency"',
         ),
         _build_tariff_source(),
+        _build_psa_source(),
     ]
 
     active_count = sum(1 for s in sources if s["status"] in ("active", "running"))
@@ -1018,7 +1247,7 @@ def api_data_sources():
 @app.route("/api/run-scraper", methods=["POST"])
 def api_run_scraper():
     """
-    Triggers scrape in background. Optional JSON body: {"source": "da"|"doe"|"api"|"tc"}.
+    Triggers scrape in background. Optional JSON body: {"source": "da"|"doe"|"api"|"tc"|"psa"}.
     """
     ok, resp = _require_admin()
     if not ok:
@@ -1055,6 +1284,9 @@ def api_run_scraper():
 # ── /api/stream-scrape (SSE) ──────────────────────────────────────────────────
 @app.route("/api/stream-scrape", methods=["GET"])
 def api_stream_scrape():
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     """
     Server-Sent Events endpoint.
     Subscribers receive every log line in real-time while a scrape runs.
@@ -1463,20 +1695,19 @@ def _build_training_insights(entry: dict, prev: dict | None) -> list[str]:
             "mild overfitting may be present; early stopping helps limit this."
         )
 
-    acc = entry.get("accuracy_pct")
-    if acc is not None:
-        if acc >= 95:
-            insights.append(
-                f"Estimated accuracy is {acc}% on held-out data — strong for rice price forecasting."
-            )
-        elif acc >= 85:
-            insights.append(
-                f"Estimated accuracy is {acc}% — acceptable; additional runs may refine forecasts."
-            )
-        else:
-            insights.append(
-                f"Estimated accuracy is {acc}% — review scraper data freshness and training samples."
-            )
+    # The measured day-1 hit rate, not the legacy accuracy_pct (98–99% for any model, the naive
+    # "tomorrow = today" forecast included), which made every run read as "strong".
+    hr = (entry.get("hit_rate_pct") or {}).get("1.00")
+    hit1 = hr[0] if isinstance(hr, list) and hr else None
+    skill = entry.get("skill_vs_baseline_pct")
+    if hit1 is not None:
+        vs = ""
+        if skill is not None:
+            vs = (f"; average error is {abs(skill):.1f}% {'lower' if skill > 0 else 'higher'} than "
+                  "the naive \"tomorrow = today\" forecast")
+        insights.append(
+            f"{hit1:.1f}% of next-day forecasts landed within ₱1.00 of the real price on held-out data{vs}."
+        )
 
     done = entry.get("epochs_completed") or 0
     planned = entry.get("epochs_planned") or 0
@@ -1771,9 +2002,11 @@ def _do_training() -> bool:
     elif ok:
         _add_train_log("SUCCESS", f"Training complete! Duration: {mins}m {secs}s")
         try:
-            from predict import invalidate_caches
+            from predict import invalidate_caches, warm_payload
             invalidate_caches()
-            _add_train_log("INFO", "Prediction cache cleared — new LSTM weights will load on next request.")
+            # Visitors keep getting the previous forecast until this finishes (model/predict.py).
+            threading.Thread(target=warm_payload, daemon=True).start()
+            _add_train_log("INFO", "Rebuilding the published forecast with the new weights in the background.")
         except Exception:
             pass
     else:
@@ -1924,6 +2157,9 @@ def api_dashboard_metrics():
             # Honest per-day figure for the predictions table: % of that day's forecasts that
             # landed within P1.00. `per_horizon_accuracy_pct` above is the legacy formula.
             "hit_rate_1p_pct": _f_list((tm.get("hit_rate_pct") or {}).get("1.00")),
+            # Same measure at P0.50 — the band the public Price Summary shows per rice type and day,
+            # so the admin tables can show the identical figure instead of a different threshold.
+            "hit_rate_050_pct": _f_list((tm.get("hit_rate_pct") or {}).get("0.50")),
             "skill_vs_baseline_pct": _f(tm.get("skill_vs_baseline_pct")),
         }
 
@@ -1951,6 +2187,25 @@ def api_dashboard_metrics():
     baseline_now = _avg_baseline_mae(latest)
     baseline_prev = _avg_baseline_mae(prev)
 
+    def _avg_target_mae(run):
+        """Mean MAE across a run's rice types. The top-level `mae_peso` is the primary type's only,
+        which made the dashboard pair one type's error with the all-type hit rate beside it."""
+        tms = (run or {}).get("targets_meta")
+        if not isinstance(tms, dict):
+            return None
+        vals = [_f(t.get("mae_peso")) for t in tms.values() if isinstance(t, dict)]
+        vals = [v for v in vals if v is not None]
+        return round(sum(vals) / len(vals), 4) if vals else None
+
+    def _hit1(run):
+        """Day-1 share of forecasts within P1.00, averaged over rice types (None for pre-v4 runs)."""
+        hr = ((run or {}).get("hit_rate_pct") or {}).get("1.00")
+        return _f(hr[0]) if isinstance(hr, list) and hr else None
+
+    mae_all_now = _avg_target_mae(latest) if latest else _avg_target_mae({"targets_meta": targets_meta})
+    mae_all_prev = _avg_target_mae(prev)
+    hit1_now, hit1_prev = _hit1(latest) or _hit1(meta), _hit1(prev)
+
     return jsonify({
         "ready": bool(latest or meta.get("mae_peso") is not None),
         "source": "training_history" if latest else ("meta.json" if meta else "none"),
@@ -1958,6 +2213,7 @@ def api_dashboard_metrics():
         "previous_ok_run": prev,
         "metrics": {
             "mae_peso": mae,
+            "mae_peso_all_types": mae_all_now,
             "rmse_peso": rmse,
             "accuracy_pct": _f(latest.get("accuracy_pct") if latest else None) or _f(
                 meta.get("accuracy_pct")
@@ -2011,6 +2267,15 @@ def api_dashboard_metrics():
                 if acc is not None and prev
                 else None
             ),
+            # Change in the figure the dashboard actually shows (day-1 hit rate within P1.00), in
+            # percentage points. `accuracy_pct_delta` above is the legacy formula's change and was
+            # being printed under the hit rate.
+            "hit_rate_1p_delta": (
+                round(hit1_now - hit1_prev, 2) if hit1_now is not None and hit1_prev is not None else None
+            ),
+            "mae_all_types_delta": (
+                round(mae_all_now - mae_all_prev, 4) if mae_all_now is not None and mae_all_prev is not None else None
+            ),
         },
         "model": {
             "backend": (latest or meta or {}).get("backend"),
@@ -2023,8 +2288,9 @@ def api_dashboard_metrics():
         },
         "notes": {
             "accuracy_definition": (
-                "Hold-out test accuracy (2024–2025): estimated as 100% − (MAE ÷ mean rice price × 100), "
-                "capped at 99.9%. Same formula used when saving Training History."
+                "hit_rate_pct: share of held-out test forecasts that landed within P0.50/1.00/1.50/2.00 "
+                "of the real DA price, per forecast day. accuracy_pct is the legacy 100% − MAE ÷ mean "
+                "price formula (98–99% for any model, naive included) — kept for old runs, not displayed."
             ),
             "final_mae_in_logs": (
                 "Epoch log MAE is on the normalized scale; PHP/kg values are mae_peso / rmse_peso."
@@ -2084,7 +2350,7 @@ def api_training_status():
 @app.route("/api/run-training", methods=["POST"])
 def api_run_training():
     global _train_running, _train_cancel_requested
-    ok, resp = _require_admin()
+    ok, resp = _require_super_admin()
     if not ok:
         return resp
     with _train_lock:
@@ -2101,6 +2367,9 @@ def api_run_training():
 @app.route("/api/cancel-training", methods=["POST"])
 def api_cancel_training():
     global _train_cancel_requested, _train_process
+    ok, resp = _require_super_admin()
+    if not ok:
+        return resp
     with _train_lock:
         if not _train_running:
             return jsonify({"success": False, "message": "No training in progress."}), 409
@@ -2121,6 +2390,9 @@ def api_cancel_training():
 # ── /api/stream-training (SSE) ────────────────────────────────────────────────
 @app.route("/api/stream-training", methods=["GET"])
 def api_stream_training():
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     q: queue.Queue = queue.Queue(maxsize=500)
     with _train_sse_lock:
         _train_sse_queues.append(q)
@@ -2381,6 +2653,18 @@ def _delete_brand_image_file(rel_path):
         pass
 
 
+def _looks_like_image(head: bytes, ext: str) -> bool:
+    """Check the file's first bytes (its "magic number") match the image type its name claims, so
+    a renamed HTML/script file cannot be uploaded and served from /public/images."""
+    if ext == "png":
+        return head.startswith(b"\x89PNG\r\n\x1a\n")
+    if ext in ("jpg", "jpeg"):
+        return head.startswith(b"\xff\xd8\xff")
+    if ext == "webp":
+        return head[:4] == b"RIFF" and head[8:12] == b"WEBP"
+    return False
+
+
 @app.route("/api/brands/<int:brand_id>/image", methods=["POST"])
 def api_brand_image_upload(brand_id):
     """Admin: upload (or replace) one brand's catalog-display image."""
@@ -2401,6 +2685,10 @@ def api_brand_image_upload(brand_id):
         return jsonify({"ok": False, "error": "The uploaded file is empty."}), 400
     if size > BRAND_IMAGE_MAX_BYTES:
         return jsonify({"ok": False, "error": "Image must be 4MB or smaller."}), 400
+    head = file.read(16)
+    file.seek(0)
+    if not _looks_like_image(head, ext):
+        return jsonify({"ok": False, "error": "That file is not a real PNG, JPG, or WEBP image."}), 400
 
     try:
         from catalog_service import set_brand_image
@@ -2562,7 +2850,7 @@ def api_logs():
 @app.route("/api/logs/clear", methods=["POST"])
 def api_logs_clear():
     """Admin: clear the in-memory system-log buffer."""
-    ok, resp = _require_admin()
+    ok, resp = _require_super_admin()
     if not ok:
         return resp
     with _LOG_LOCK:
@@ -2649,9 +2937,12 @@ except ImportError as _alerts_err:
 
 @app.route("/api/alerts", methods=["GET"])
 def api_alerts():
-    """Rules + notification log; optional ?evaluate=1 runs live price checks."""
+    """Rules + notification log; optional ?evaluate=1 runs live price checks. Admin only."""
     if not _ALERTS_AVAILABLE:
         return jsonify({"error": _ALERTS_IMPORT_ERROR, "ready": False}), 503
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     try:
         if request.args.get("evaluate", "").lower() in ("1", "true", "yes"):
             result = evaluate_alerts()
@@ -2762,6 +3053,9 @@ def api_alerts_toggle_rule(rule_id: str):
 def api_alerts_log():
     if not _ALERTS_AVAILABLE:
         return jsonify({"ready": False, "error": _ALERTS_IMPORT_ERROR}), 503
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     return jsonify({"ready": True, "log": alerts_list_log(100)})
 
 
@@ -2790,10 +3084,19 @@ except ImportError as _settings_err:
 
 @app.route("/api/settings", methods=["GET"])
 def api_get_settings():
+    """Full settings for a signed-in admin. Anyone else gets only the display options (system
+    name, currency, date format): this used to return the admin's username, email, phone, bio,
+    photo, the alert email and the server file path to anyone who asked."""
     if not _SETTINGS_AVAILABLE:
         return jsonify({"ready": False, "error": _SETTINGS_IMPORT_ERROR}), 503
     try:
-        return jsonify({"ready": True, **get_settings()})
+        data = get_settings()
+        data.pop("path", None)
+        if _ADMIN_AUTH_AVAILABLE and not session_identity(_admin_token_from_request()):
+            general = (data.get("settings") or {}).get("general") or {}
+            data = {"settings": {"general": {k: general.get(k) for k in ("system_name", "currency", "date_format")}},
+                    "public": True}
+        return jsonify({"ready": True, **data})
     except Exception as exc:
         return jsonify({"ready": False, "error": str(exc)}), 500
 
@@ -2802,7 +3105,7 @@ def api_get_settings():
 def api_put_settings():
     if not _SETTINGS_AVAILABLE:
         return jsonify({"success": False, "error": _SETTINGS_IMPORT_ERROR}), 503
-    ok, resp = _require_admin()
+    ok, resp = _require_super_admin()
     if not ok:
         return resp
     payload = request.get_json(silent=True) or {}
@@ -2817,7 +3120,7 @@ def api_put_settings():
 def api_reset_settings():
     if not _SETTINGS_AVAILABLE:
         return jsonify({"success": False, "error": _SETTINGS_IMPORT_ERROR}), 503
-    ok, resp = _require_admin()
+    ok, resp = _require_super_admin()
     if not ok:
         return resp
     try:
@@ -2835,10 +3138,12 @@ try:
         create_session,
         record_failure,
         authenticate_admin,
+        change_primary_credentials,
         revoke_session,
         session_identity,
         validate_session,
         verify_admin_password,
+        verify_admin_pin,
     )
     _ADMIN_AUTH_AVAILABLE = True
 except ImportError as _admin_auth_err:
@@ -2846,25 +3151,70 @@ except ImportError as _admin_auth_err:
     _ADMIN_AUTH_IMPORT_ERROR = str(_admin_auth_err)
 
 
+# Rate limits are keyed on the caller's address. X-Forwarded-For is set by the CLIENT unless a
+# reverse proxy overwrites it, so trusting it let anyone send a fresh fake address per request and
+# never hit a lockout. It is only honoured when AGRIPRICE_TRUST_PROXY=1 (deployed behind a proxy).
+_TRUST_PROXY = os.environ.get("AGRIPRICE_TRUST_PROXY", "").strip().lower() in ("1", "true", "yes")
+
+
 def _admin_client_key():
-    return (request.headers.get("X-Forwarded-For") or request.remote_addr or "unknown").split(",")[0].strip()
+    if _TRUST_PROXY and request.headers.get("X-Forwarded-For"):
+        return request.headers["X-Forwarded-For"].split(",")[0].strip()
+    return request.remote_addr or "unknown"
+
+
+def _account_key(name: str) -> str:
+    """Second lockout key per account, so changing address does not reset the count for it."""
+    return "acct:" + str(name or "").strip().lower()
 
 
 def _admin_token_from_request():
     auth = request.headers.get("Authorization") or ""
     if auth.lower().startswith("bearer "):
         return auth[7:].strip()
-    return (request.args.get("token") or request.headers.get("X-Admin-Token") or "").strip()
+    # Never from the URL (?token=): URLs end up in browser history, logs and Referer headers.
+    return (request.headers.get("X-Admin-Token") or "").strip()
+
+
+MUST_CHANGE_MSG = "Change the default admin password and PIN first."
+
+
+def _must_change_response():
+    return jsonify({"ok": False, "success": False, "error": MUST_CHANGE_MSG, "code": "must_change_credentials"}), 403
 
 
 def _require_admin():
-    """Guard for admin write endpoints. Returns (ok, error_response). When admin auth is wired,
-    a valid server-side session token is required; if the auth module is unavailable (dev), allow."""
+    """Guard for admin endpoints. Returns (ok, error_response). When admin auth is wired,
+    a valid server-side session token is required; if the auth module is unavailable (dev), allow.
+    A built-in admin still signed in with the default password/PIN is refused until they change it."""
     if not _ADMIN_AUTH_AVAILABLE:
         return True, None
-    if validate_session(_admin_token_from_request()):
+    me = session_identity(_admin_token_from_request())
+    if not me:
+        return False, (jsonify({"ok": False, "error": "Admin session required."}), 401)
+    if me.get("must_change_credentials"):
+        return False, _must_change_response()
+    return True, None
+
+
+SUPER_ADMIN_ONLY_MSG = "Only a Super Admin can do this. Ask a Super Admin to make this change."
+
+
+def _require_super_admin():
+    """Guard for Super-Admin-only actions: User Management, Settings changes, model training,
+    clearing logs and deleting report files. A plain Admin keeps every read-only view plus the
+    day-to-day actions (scraper runs, alerts, reports). Same return shape as _require_admin."""
+    if not _ADMIN_AUTH_AVAILABLE:
         return True, None
-    return False, (jsonify({"ok": False, "error": "Admin session required."}), 401)
+    me = session_identity(_admin_token_from_request())
+    if not me:
+        return False, (jsonify({"ok": False, "success": False, "error": "Admin session required."}), 401)
+    if me.get("must_change_credentials"):
+        return False, _must_change_response()
+    if me.get("role") != "super_admin":
+        return False, (jsonify({"ok": False, "success": False, "error": SUPER_ADMIN_ONLY_MSG,
+                                "code": "super_admin_only"}), 403)
+    return True, None
 
 
 @app.route("/api/admin/verify-password", methods=["POST"])
@@ -2873,13 +3223,13 @@ def api_admin_verify_password():
     if not _ADMIN_AUTH_AVAILABLE:
         return jsonify({"success": False, "error": _ADMIN_AUTH_IMPORT_ERROR}), 503
     client_key = _admin_client_key()
-    ok_lock, lock_msg = check_lockout(client_key)
-    if not ok_lock:
-        return jsonify({"success": False, "error": lock_msg}), 429
-
     payload = request.get_json(silent=True) or {}
     username = (payload.get("username") or "").strip()
     password = payload.get("password") or ""
+    for key in (client_key, _account_key(username)):
+        ok_lock, lock_msg = check_lockout(key)
+        if not ok_lock:
+            return jsonify({"success": False, "error": lock_msg}), 429
 
     try:
         valid, err = verify_admin_password(username, password)
@@ -2888,8 +3238,11 @@ def api_admin_verify_password():
             return jsonify({"success": False, "error": err, "code": "deactivated"}), 403
         if not valid:
             record_failure(client_key)
+            record_failure(_account_key(username))
             return jsonify({"success": False, "error": err or "Invalid sign-in details."}), 401
-        clear_failures(client_key)
+        # Deliberately NOT clearing the failure count here: only a full sign-in (password + PIN)
+        # does. Clearing on the password step let someone who knew the password guess the PIN
+        # forever, since every correct password reset the counter.
         return jsonify({"success": True})
     except Exception as exc:
         return jsonify({"success": False, "error": str(exc)}), 500
@@ -2901,15 +3254,15 @@ def api_admin_verify():
     if not _ADMIN_AUTH_AVAILABLE:
         return jsonify({"success": False, "error": _ADMIN_AUTH_IMPORT_ERROR}), 503
     client_key = _admin_client_key()
-    ok_lock, lock_msg = check_lockout(client_key)
-    if not ok_lock:
-        _add_log("WARN", f"Admin login blocked (locked out) from {client_key}", source="AUTH")
-        return jsonify({"success": False, "error": lock_msg}), 429
-
     payload = request.get_json(silent=True) or {}
     username = (payload.get("username") or "").strip()
     password = payload.get("password") or ""
     access_code = "".join(ch for ch in str(payload.get("access_code", "")) if ch.isdigit())
+    for key in (client_key, _account_key(username)):
+        ok_lock, lock_msg = check_lockout(key)
+        if not ok_lock:
+            _add_log("WARN", f"Admin login blocked (locked out) for '{username or '?'}' from {client_key}", source="AUTH")
+            return jsonify({"success": False, "error": lock_msg}), 429
 
     try:
         valid, err, identity = authenticate_admin(username, password, access_code)
@@ -2917,15 +3270,18 @@ def api_admin_verify():
             return jsonify({"success": False, "error": err, "code": "deactivated"}), 403
         if not valid:
             record_failure(client_key)
+            record_failure(_account_key(username))
             _add_log("WARN", f"Failed admin login for '{username or '?'}' from {client_key}", source="AUTH")
             return jsonify({"success": False, "error": err or "Invalid sign-in details."}), 401
         clear_failures(client_key)
+        clear_failures(_account_key(username))
         token, ttl_sec = create_session(client_key, identity)
         _add_log("INFO", f"Admin '{username}' signed in from {client_key}", source="AUTH")
         return jsonify({
             "success": True,
             "token": token,
             "expires_in": ttl_sec,
+            "admin": {k: identity.get(k) for k in ("kind", "username", "name", "role", "avatar", "must_change_credentials")} if identity else None,
         })
     except Exception as exc:
         return jsonify({"success": False, "error": str(exc)}), 500
@@ -2942,6 +3298,36 @@ def api_admin_session():
     return jsonify({"valid": False}), 401
 
 
+@app.route("/api/admin/me/credentials", methods=["POST"])
+def api_admin_me_credentials():
+    """The built-in admin replaces their password and/or PIN (required while the defaults are in
+    use). Needs the current password; works even while other admin actions are blocked."""
+    if not _ADMIN_AUTH_AVAILABLE:
+        return jsonify({"success": False, "error": _ADMIN_AUTH_IMPORT_ERROR}), 503
+    token = _admin_token_from_request()
+    me = session_identity(token)
+    if not me:
+        return jsonify({"success": False, "error": "Admin session required."}), 401
+    if me.get("kind") != "primary":
+        return jsonify({"success": False, "error": "Ask a Super Admin to change your password or PIN in User Management."}), 403
+    client_key = _admin_client_key()
+    ok_lock, lock_msg = check_lockout(client_key)
+    if not ok_lock:
+        return jsonify({"success": False, "error": lock_msg}), 429
+    payload = request.get_json(silent=True) or {}
+    ok, msg = change_primary_credentials(
+        payload.get("current_password") or "",
+        new_password=payload.get("new_password") or None,
+        new_code=payload.get("new_pin") or None,
+    )
+    if not ok:
+        if msg == "Current password is incorrect.":
+            record_failure(client_key)
+        return jsonify({"success": False, "error": msg}), 400
+    _add_log("WARN", f"Admin '{me.get('username')}' changed their sign-in credentials", source="AUTH")
+    return jsonify({"success": True, "message": msg, "admin": session_identity(token)})
+
+
 @app.route("/api/admin/logout", methods=["POST"])
 def api_admin_logout():
     if not _ADMIN_AUTH_AVAILABLE:
@@ -2955,7 +3341,7 @@ def api_admin_logout():
 def api_change_password():
     if not _SETTINGS_AVAILABLE:
         return jsonify({"success": False, "error": _SETTINGS_IMPORT_ERROR}), 503
-    ok_admin, resp = _require_admin()
+    ok_admin, resp = _require_super_admin()
     if not ok_admin:
         return resp
     payload = request.get_json(silent=True) or {}
@@ -3004,6 +3390,7 @@ try:
         get_session_user,
         get_user_by_email as user_get_by_email,
         list_activity as user_list_activity,
+        mark_user_welcomed,
         revoke_user_session,
         revoke_user_sessions,
         update_profile as user_update_profile,
@@ -3022,6 +3409,9 @@ def _public_user(user: dict) -> dict:
         "title": user.get("title") or "", "phone": user.get("phone") or "", "bio": user.get("bio") or "",
         "avatar": user.get("avatar") or "", "extra_info": user.get("extra_info") or [],
         "created_at": user.get("created_at"), "last_login_at": user.get("last_login_at"),
+        # True until this account has seen its one-time welcome popup (new accounts only).
+        "show_welcome": not user.get("welcome_seen_at"),
+        "google_linked": bool(user.get("google_linked")),
     }
 
 
@@ -3071,11 +3461,13 @@ def api_auth_login():
     if not _USER_AUTH_AVAILABLE:
         return jsonify({"success": False, "error": _USER_AUTH_IMPORT_ERROR}), 503
     client_key = _admin_client_key()
-    ok_lock, lock_msg = user_check_lockout(LOGIN_ATTEMPTS, client_key)
-    if not ok_lock:
-        return jsonify({"success": False, "error": lock_msg}), 429
-
     payload = request.get_json(silent=True) or {}
+    acct_key = _account_key(payload.get("email"))
+    for key in (client_key, acct_key):
+        ok_lock, lock_msg = user_check_lockout(LOGIN_ATTEMPTS, key)
+        if not ok_lock:
+            return jsonify({"success": False, "error": lock_msg}), 429
+
     try:
         ok, msg, user = login_user(payload.get("email"), payload.get("password"))
         if not ok:
@@ -3083,6 +3475,7 @@ def api_auth_login():
                 # Correct credentials, so not a guessing attempt — don't burn a lockout strike.
                 return jsonify({"success": False, "error": msg, "code": "deactivated"}), 403
             user_record_failure(LOGIN_ATTEMPTS, client_key)
+            user_record_failure(LOGIN_ATTEMPTS, acct_key)
             # Shown on that account's Recent Activity (no IP is recorded).
             target = user_get_by_email(payload.get("email"))
             if target:
@@ -3091,11 +3484,62 @@ def api_auth_login():
                     user_add_activity(target["id"], "ERROR", "Sign-in locked for 15 minutes after too many failed attempts")
             return jsonify({"success": False, "error": msg}), 401
         user_clear_failures(LOGIN_ATTEMPTS, client_key)
+        user_clear_failures(LOGIN_ATTEMPTS, acct_key)
         full = user_get_by_email(user["email"]) or user
         user_add_activity(full["id"], "INFO", "Signed in" + (" (remembered on this device)" if payload.get("remember") else ""))
         return jsonify({"success": True, **_start_user_session(full, remember=bool(payload.get("remember")))})
     except Exception as exc:
         return jsonify({"success": False, "error": str(exc)}), 500
+
+
+try:
+    import google_signin as _google
+    _GOOGLE_AVAILABLE = True
+except ImportError:
+    _GOOGLE_AVAILABLE = False
+
+
+@app.route("/api/auth/config", methods=["GET"])
+def api_auth_config():
+    """Public sign-in options for the login/sign-up pages. The Google client ID is public by design
+    (it is visible in every page that shows the Google button); no secret is ever returned."""
+    return jsonify({
+        "success": True,
+        "google_client_id": _google.client_id() if _GOOGLE_AVAILABLE else "",
+    })
+
+
+@app.route("/api/auth/google", methods=["POST"])
+def api_auth_google():
+    """Continue with Google: verify the ID token from Google Identity Services, then sign in,
+    link (same verified email) or create the public account. Public users only."""
+    if not _USER_AUTH_AVAILABLE or not _GOOGLE_AVAILABLE:
+        return jsonify({"success": False, "error": "Google sign-in is unavailable on this server."}), 503
+    client_key = _admin_client_key()
+    ok_lock, lock_msg = user_check_lockout(LOGIN_ATTEMPTS, client_key)
+    if not ok_lock:
+        return jsonify({"success": False, "error": lock_msg}), 429
+    payload = request.get_json(silent=True) or {}
+    ok, msg, claims = _google.verify_credential(payload.get("credential"))
+    if not ok:
+        user_record_failure(LOGIN_ATTEMPTS, client_key)
+        return jsonify({"success": False, "error": msg}), 401
+    try:
+        ok, msg, user, info = _google.sign_in(claims)
+    except Exception as exc:
+        _add_log("ERROR", f"Google sign-in failed: {exc}", source="AUTH")
+        return jsonify({"success": False, "error": "Could not sign you in with Google right now."}), 500
+    if not ok:
+        return jsonify({"success": False, "error": msg, "code": "deactivated"}), 403
+    user_clear_failures(LOGIN_ATTEMPTS, client_key)
+    remember = bool(payload.get("remember"))
+    if info["created"]:
+        user_add_activity(user["id"], "INFO", "Account created with Google")
+    elif info["linked"]:
+        user_add_activity(user["id"], "WARN", "Google account linked to this account")
+    user_add_activity(user["id"], "INFO", "Signed in with Google" + (" (remembered on this device)" if remember else ""))
+    return jsonify({"success": True, **_start_user_session(user, remember=remember),
+                    "created": info["created"], "linked": info["linked"]})
 
 
 @app.route("/api/auth/forgot-password", methods=["POST"])
@@ -3209,6 +3653,18 @@ def api_auth_session():
     return jsonify({"success": True, "user": _public_user(user)})
 
 
+@app.route("/api/auth/welcome-seen", methods=["POST"])
+def api_auth_welcome_seen():
+    """The signed-in public user closed their one-time welcome popup — never show it again."""
+    if not _USER_AUTH_AVAILABLE:
+        return jsonify({"success": False, "error": _USER_AUTH_IMPORT_ERROR}), 503
+    user, err = _require_user()
+    if err:
+        return err
+    mark_user_welcomed(user["id"])
+    return jsonify({"success": True})
+
+
 @app.route("/api/auth/logout", methods=["POST"])
 def api_auth_logout():
     if not _USER_AUTH_AVAILABLE:
@@ -3317,9 +3773,10 @@ except ImportError as _um_err:
     _UM_IMPORT_ERROR = str(_um_err)
 
 
-def _um_guard(super_only: bool = False):
-    """(identity, None) for a signed-in admin, else (None, error_response). super_only restricts
-    the call to Super Admins — the only role allowed to manage other admin accounts."""
+def _um_guard(super_only: bool = True):
+    """(identity, None) for a signed-in admin, else (None, error_response). User Management is a
+    Super Admin module (public users and admin accounts alike); only /api/admin/me, which every
+    admin needs to learn its own role, passes super_only=False."""
     if not _UM_AVAILABLE:
         return None, (jsonify({"success": False, "error": _UM_IMPORT_ERROR}), 503)
     if not _ADMIN_AUTH_AVAILABLE:
@@ -3327,8 +3784,11 @@ def _um_guard(super_only: bool = False):
     me = session_identity(_admin_token_from_request())
     if not me:
         return None, (jsonify({"success": False, "error": "Admin session required."}), 401)
+    if super_only and me.get("must_change_credentials"):
+        return None, _must_change_response()
     if super_only and me.get("role") != "super_admin":
-        return None, (jsonify({"success": False, "error": "Only a Super Admin can manage admin accounts."}), 403)
+        return None, (jsonify({"success": False, "error": "Only a Super Admin can manage user accounts.",
+                               "code": "super_admin_only"}), 403)
     return me, None
 
 
@@ -3341,10 +3801,46 @@ def _um_result(ok, msg, data, me, action):
 
 @app.route("/api/admin/me", methods=["GET"])
 def api_admin_me():
+    me, err = _um_guard(super_only=False)
+    if err:
+        return err
+    return jsonify({"success": True, "admin": me, "show_welcome": _um.welcome_pending(me)})
+
+
+@app.route("/api/admin/me/welcome-seen", methods=["POST"])
+def api_admin_me_welcome_seen():
+    """The signed-in admin closed their one-time welcome popup."""
+    me, err = _um_guard(super_only=False)
+    if err:
+        return err
+    if me.get("kind") == "account":
+        _um.store.mark_admin_welcomed(me["id"])
+    return jsonify({"success": True})
+
+
+@app.route("/api/admin/me/avatar", methods=["PUT"])
+def api_admin_me_avatar():
+    """Any admin (either role) may change their own profile photo; "" removes it."""
+    me, err = _um_guard(super_only=False)
+    if err:
+        return err
+    ok, msg, avatar = _um.set_own_avatar(me, (request.get_json(silent=True) or {}).get("avatar"))
+    if not ok:
+        return jsonify({"success": False, "error": msg}), 400
+    _add_log("INFO", f"Admin '{me.get('username')}' {'changed' if avatar else 'removed'} their profile photo", source="USERS")
+    return jsonify({"success": True, "message": msg, "avatar": avatar})
+
+
+@app.route("/api/admin/accounts/users/<int:user_id>", methods=["GET"])
+def api_admin_accounts_user_detail(user_id):
+    """One public user's profile summary plus recent account activity (User Management popup)."""
     me, err = _um_guard()
     if err:
         return err
-    return jsonify({"success": True, "admin": me})
+    detail = _um.user_detail(user_id)
+    if not detail:
+        return jsonify({"success": False, "error": "Account not found."}), 404
+    return jsonify({"success": True, "account": detail})
 
 
 @app.route("/api/admin/accounts", methods=["GET"])
@@ -3367,12 +3863,36 @@ def api_admin_accounts_user_create():
     return _um_result(ok, msg, data, me, "created")
 
 
+def _confirm_pin_error(me: dict, payload: dict, what: str):
+    """Account changes in User Management (edit, deactivate, reactivate) are re-authenticated: the
+    request must carry the acting admin's own 6-digit PIN as `confirm_pin`. Checked with the same
+    lockout as sign-in (5 wrong → 15 minutes). Returns an error response, or None when it matches.
+    The PIN is removed from `payload` either way, so it is never passed on or stored."""
+    pin = payload.pop("confirm_pin", "")
+    client_key = _admin_client_key()
+    for key in (client_key, _account_key(me.get("username"))):
+        ok_lock, lock_msg = check_lockout(key)
+        if not ok_lock:
+            return jsonify({"success": False, "error": lock_msg, "code": "locked"}), 429
+    if not verify_admin_pin(me, pin):
+        record_failure(client_key)
+        record_failure(_account_key(me.get("username")))
+        _add_log("WARN", f"Wrong PIN confirming {what} by '{me.get('username')}'", source="USERS")
+        return jsonify({"success": False, "error": "That PIN is incorrect.", "code": "pin_invalid"}), 403
+    return None
+
+
 @app.route("/api/admin/accounts/users/<int:user_id>", methods=["PUT"])
 def api_admin_accounts_user_update(user_id):
+    """Edit a public user (confirmed with the acting admin's PIN, see _confirm_pin_error)."""
     me, err = _um_guard()
     if err:
         return err
-    ok, msg, data = _um.update_user(user_id, request.get_json(silent=True) or {})
+    payload = request.get_json(silent=True) or {}
+    bad = _confirm_pin_error(me, payload, f"an edit of public user #{user_id}")
+    if bad:
+        return bad
+    ok, msg, data = _um.update_user(user_id, payload)
     return _um_result(ok, msg, data, me, "updated")
 
 
@@ -3381,14 +3901,18 @@ def api_admin_accounts_user_status(user_id):
     me, err = _um_guard()
     if err:
         return err
-    active = bool((request.get_json(silent=True) or {}).get("active"))
+    payload = request.get_json(silent=True) or {}
+    active = bool(payload.get("active"))
+    bad = _confirm_pin_error(me, payload, f"{'reactivating' if active else 'deactivating'} public user #{user_id}")
+    if bad:
+        return bad
     ok, msg, data = _um.set_user_active(user_id, active)
     return _um_result(ok, msg, data, me, "reactivated" if active else "deactivated")
 
 
 @app.route("/api/admin/accounts/admins", methods=["POST"])
 def api_admin_accounts_admin_create():
-    me, err = _um_guard(super_only=True)
+    me, err = _um_guard()
     if err:
         return err
     ok, msg, data = _um.create_admin(request.get_json(silent=True) or {}, me)
@@ -3397,19 +3921,27 @@ def api_admin_accounts_admin_create():
 
 @app.route("/api/admin/accounts/admins/<int:admin_id>", methods=["PUT"])
 def api_admin_accounts_admin_update(admin_id):
-    me, err = _um_guard(super_only=True)
+    me, err = _um_guard()
     if err:
         return err
-    ok, msg, data = _um.update_admin(admin_id, request.get_json(silent=True) or {}, me)
+    payload = request.get_json(silent=True) or {}
+    bad = _confirm_pin_error(me, payload, f"an edit of admin #{admin_id}")
+    if bad:
+        return bad
+    ok, msg, data = _um.update_admin(admin_id, payload, me)
     return _um_result(ok, msg, data, me, "updated")
 
 
 @app.route("/api/admin/accounts/admins/<int:admin_id>/status", methods=["POST"])
 def api_admin_accounts_admin_status(admin_id):
-    me, err = _um_guard(super_only=True)
+    me, err = _um_guard()
     if err:
         return err
-    active = bool((request.get_json(silent=True) or {}).get("active"))
+    payload = request.get_json(silent=True) or {}
+    active = bool(payload.get("active"))
+    bad = _confirm_pin_error(me, payload, f"{'reactivating' if active else 'deactivating'} admin #{admin_id}")
+    if bad:
+        return bad
     ok, msg, data = _um.set_admin_active(admin_id, active, me)
     return _um_result(ok, msg, data, me, "reactivated" if active else "deactivated")
 
@@ -3478,36 +4010,12 @@ def api_reports_download(filename: str):
 def api_reports_delete_file(filename: str):
     if not _REPORTS_AVAILABLE:
         return jsonify({"success": False, "error": _REPORTS_IMPORT_ERROR}), 503
-    ok, resp = _require_admin()
+    ok, resp = _require_super_admin()
     if not ok:
         return resp
     if not reports_delete_file(filename):
         return jsonify({"success": False, "error": "File not found"}), 404
     return jsonify({"success": True})
-
-
-# ── /api/save-export ──────────────────────────────────────────────────────────
-@app.route("/api/save-export", methods=["POST"])
-def save_export():
-    """Saves a CSV string sent by the frontend to disk under documents/<module>/."""
-    try:
-        data        = request.json
-        module_name = data.get("module",   "General")
-        filename    = data.get("filename", "export.csv")
-        csv_content = data.get("csv_data", "")
-
-        documents_dir = os.path.join(BASE_DIR, "documents", module_name)
-        os.makedirs(documents_dir, exist_ok=True)
-
-        filepath = os.path.join(documents_dir, filename)
-        with open(filepath, "w", encoding="utf-8") as f:
-            f.write(csv_content)
-
-        return jsonify({"success": True, "message": f"File saved to {filepath}"})
-
-    except Exception as e:
-        print(f"Export Error: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
 
 
 # ─── Frontend (same origin as API — open http://127.0.0.1:5000/) ─────────────

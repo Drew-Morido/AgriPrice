@@ -49,12 +49,19 @@ def _server_up():
 # ── availability ──────────────────────────────────────────────────────────────
 @pytest.mark.parametrize("ep", [
     "/api/health", "/api/predictions", "/api/dashboard-metrics", "/api/historical-data",
-    "/api/model-status", "/api/data-sources", "/api/alerts", "/api/catalog",
+    "/api/model-status", "/api/data-sources", "/api/catalog",
     "/api/brand-prices", "/api/taxes", "/api/training-status", "/api/reports/history",
 ])
 def test_endpoint_returns_200(ep):
     code, _ = _get(ep)
     assert code == 200, f"{ep} returned {code}"
+
+
+@pytest.mark.parametrize("ep", ["/api/alerts", "/api/alerts/log", "/api/stream-training", "/api/scrape-review"])
+def test_admin_reads_refuse_the_public(ep):
+    """Admin-only since the 2026-10-01 security fixes (tests/test_security.py)."""
+    code, _ = _get(ep)
+    assert code == 401, f"{ep} returned {code} without an admin session"
 
 
 # ── performance budget (the 3.4s finding) ─────────────────────────────────────

@@ -1,7 +1,7 @@
 <div class="section-header" style="margin-bottom:16px;">
   <div>
     <div class="section-title">Historical Price Data</div>
-    <div class="section-subtitle" id="hist-record-count">Loading records…</div>
+    <div class="section-subtitle" id="hist-record-count">&nbsp;</div>
   </div>
   <div class="filter-bar">
     <div class="hist-mode-tabs" id="hist-mode-tabs" role="tablist">
@@ -60,8 +60,20 @@
     </div>
 
   </div>
-  <div class="card-body">
-    <canvas id="hist-main-chart" class="big-chart-container" style="width:100%;height:320px;display:block;"></canvas>
+  <div class="card-body hist-chart-body">
+    <div class="hist-chart-head">
+      <div class="hist-chart-title">Price trend
+        <span class="hist-info" tabindex="0">
+          <span class="hist-info-icon"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><line x1="12" y1="11" x2="12" y2="17"/><circle cx="12" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg></span>
+          <span class="hist-info-pop">One line per item: DA daily rice prices, DOE diesel, or the USD/PHP rate. Hover to read every line on that day; click a point to compare it with the day before; click a legend item to hide or show a line.</span>
+        </span>
+      </div>
+      <p class="hist-chart-desc" id="hist-chart-desc">Daily prices over the selected period — spot trends, spikes and gaps between grades.</p>
+    </div>
+    <div class="hist-chart-summary" id="hist-chart-summary" aria-live="polite"></div>
+    <div class="hist-chart-wrap">
+      <canvas id="hist-main-chart" role="img" aria-label="Line chart of prices over the selected period"></canvas>
+    </div>
   </div>
   <!-- Click a point on the chart to see it here — populated by historical.js, idle until then. -->
   <div class="card-body hist-click-summary-wrap" id="hist-click-summary">

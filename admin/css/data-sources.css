@@ -161,6 +161,53 @@ html.theme-dark .ds-badge.bad  { color: #F59A9A; }
 .ds-detail-icon svg { width: 22px; height: 22px; }
 .ds-detail-title { flex: 1; min-width: 180px; }
 .ds-detail-title h3 { font-size: 17px; font-weight: 700; color: var(--text-primary); line-height: 1.3; }
+/* "Fresh today" KPI opens the Model input checklist popup */
+button.ds-kpi.is-clickable { font: inherit; color: inherit; text-align: left; width: 100%; cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast); }
+button.ds-kpi.is-clickable:hover { border-color: var(--color-accent); box-shadow: var(--shadow-md); }
+button.ds-kpi.is-clickable:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.ds-kpi-more { font-size: 14px; font-weight: 700; color: var(--color-accent); margin-left: 2px; }
+
+/* ── Model input checklist (popup) ── */
+.ds-modal-box.ds-ready-modal { position: relative; width: 640px; max-width: calc(100vw - 32px); max-height: 85vh;
+  overflow-y: auto; text-align: left; padding: 20px 22px; border-color: var(--border-color); }
+.ds-ready-close { position: absolute; top: 10px; right: 12px; width: 30px; height: 30px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--text-muted); font-size: 22px; line-height: 1; cursor: pointer; }
+.ds-ready-close:hover { background: var(--bg-input); color: var(--text-primary); }
+.ds-ready-modal .ds-ready-head { padding-right: 34px; }
+.ds-ready-empty { font-size: 13px; color: var(--text-muted); }
+.ds-ready-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.ds-ready-title { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+.ds-ready-caption { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.ds-ready-chip { font-size: 12px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border-color); color: var(--text-secondary); white-space: nowrap; }
+.ds-ready-chip.ok { background: var(--color-success-bg); border-color: rgba(45,138,80,0.28); color: var(--color-success); }
+.ds-ready-chip.warn { background: rgba(245,158,11,0.10); border-color: rgba(245,158,11,0.3); color: #B45309; }
+.ds-ready-sub { font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); margin: 14px 0 6px; }
+.ds-ready-day { border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 12px; }
+.ds-ready-day + .ds-ready-day { margin-top: 8px; }
+.ds-ready-day.is-held { border-style: dashed; }
+.ds-ready-date { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
+.ds-ready-pass { font-size: 11.5px; font-weight: 600; color: var(--color-success); margin-left: 6px; }
+.ds-ready-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.ds-ready-item { display: grid; grid-template-columns: 20px minmax(0, 1fr) minmax(0, 1.1fr); gap: 8px; align-items: baseline; font-size: 12.5px; }
+.ds-ready-label { color: var(--text-primary); }
+.ds-ready-label em { color: var(--text-muted); font-style: normal; font-size: 11.5px; }
+.ds-ready-detail { color: var(--text-secondary); }
+.ds-ready-mark { font-weight: 700; text-align: center; }
+.ds-ready-mark.ok { color: var(--color-success); }
+.ds-ready-mark.bad { color: var(--color-danger); }
+.ds-ready-mark.warn { color: #B45309; }
+@media (max-width: 640px) {
+  .ds-ready-item { grid-template-columns: 20px minmax(0, 1fr); }
+  .ds-ready-detail { grid-column: 2; }
+}
+
+/* The (i) sits beside the h3, not inside it: the h3 clips overflow for its ellipsis and would clip
+   the tooltip too. The tooltip opens downward, over the banner, at a readable width. */
+.ds-detail-name { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.ds-detail-name h3 { min-width: 0; }
+.ds-detail-name .stat-info-icon { flex-shrink: 0; }
+.ds-detail-name .stat-info-icon[data-tooltip]::after { max-width: min(300px, 70vw); z-index: 50; }
 .ds-detail-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; overflow-wrap: anywhere; }
 .ds-detail-sub a { color: var(--color-accent-hover); text-decoration: underline; text-underline-offset: 2px; }
 .ds-detail-actions { display: flex; gap: 8px; flex-shrink: 0; }
@@ -230,6 +277,9 @@ html.theme-dark .ds-badge.bad  { color: #F59A9A; }
   gap: 8px;
 }
 .ds-values.is-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+/* PSA: 4 stock figures + 2 farmgate prices in one row, so the monthly card fits without scrolling. */
+.ds-values.is-six { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+@media (max-width: 1100px) { .ds-values.is-six { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .ds-value {
   display: flex; flex-direction: column; gap: 2px;
   padding: 8px 12px;
@@ -360,7 +410,7 @@ html.theme-dark .ds-matrix thead th { background: rgba(0,0,0,0.15); }
   .ds-fact:nth-child(3n) { border-right: 1px solid var(--border-color); }
   .ds-fact:nth-child(2n) { border-right: none; }
   .ds-fact:last-child { grid-column: 1 / -1; border-bottom: none; }
-  .ds-values.is-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ds-values.is-grid, .ds-values.is-six { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 560px) {
   .ds-kpis { gap: 10px; }

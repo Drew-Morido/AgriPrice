@@ -15,7 +15,7 @@ AgriPricePH.Router = (function () {
     'taxes':        { title: 'Taxes & Import Charges',     module: 'Taxes' },
     'rice-brands':  { title: 'Rice Brands',               module: 'RiceBrands' },
     'alerts':       { title: 'Price Alerts',             module: 'Alerts' },
-    'users':        { title: 'User Management',          module: 'UserManagement' },
+    'users':        { title: 'User Management',          module: 'UserManagement', superOnly: true },
     'settings':     { title: 'System Settings',          module: 'Settings' },
     'logs':         { title: 'System Logs',              module: 'SystemLogs' },
     'account':      { title: 'Account Profile',          module: 'AccountProfile' },
@@ -34,11 +34,34 @@ AgriPricePH.Router = (function () {
     return html;
   }
 
+  // Super-Admin-only modules: a plain Admin is sent to the Dashboard (the server refuses the API
+  // calls too — this is only so they never land on a page that can't load).
+  async function allowed(routeKey) {
+    if (!routes[routeKey]?.superOnly) return true;
+    const role = AgriPricePH.AdminRole;
+    if (!role) return true;
+    await role.ready();
+    return role.isSuper();
+  }
+
   async function navigate(routeKey) {
     const route = routes[routeKey];
     if (!route) return;
 
-    if (currentRoute === 'training' && routeKey !== currentRoute) {
+    if (!(await allowed(routeKey))) {
+      AgriPricePH.Modals?.alert?.({
+        title: 'Super Admin only',
+        text: `${route.title} is available to Super Admin accounts only.`,
+        type: 'info',
+      });
+      if (currentRoute) { window.location.hash = currentRoute; return; }
+      routeKey = 'dashboard';
+      return navigate(routeKey);
+    }
+
+    // Leaving Training mid-run cancels it — only for a Super Admin, the role that can start or stop
+    // training. A plain Admin is just watching, so leaving must not stop someone else's run.
+    if (currentRoute === 'training' && routeKey !== currentRoute && (!AgriPricePH.AdminRole || AgriPricePH.AdminRole.isSuper())) {
       const train = AgriPricePH.Training;
       if (train?.isActive?.()) {
         const ok = await train.confirmLeave?.();
@@ -147,6 +170,13 @@ AgriPricePH.Router = (function () {
     const hash    = window.location.hash.replace('#', '');
     const initial = routes[hash] ? hash : 'dashboard';
     navigate(initial);
+
+    // Role demoted mid-session (another Super Admin changed it): leave a page this role can't use.
+    // A reload re-renders every page (and the sidebar) for the new role in one step.
+    document.addEventListener('agriprice:role-changed', () => {
+      if (routes[currentRoute]?.superOnly && !AgriPricePH.AdminRole?.isSuper?.()) window.location.hash = 'dashboard';
+      window.location.reload();
+    });
 
     window.addEventListener('hashchange', () => {
       const h = window.location.hash.replace('#', '');

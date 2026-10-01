@@ -728,7 +728,7 @@ body.public-auth-body {
 
 html.public-compact .public-card,
 html.public-compact .lp-info-card,
-html.public-compact .public-unlock-card {
+html.public-compact .pu-body {
   padding: 16px 18px;
 }
 
@@ -900,6 +900,9 @@ html.reduce-motion *::after {
   transition: filter 0.35s ease;
 }
 
+/* ===== Members-only unlock prompt (public-auth-modal.js) =====
+   A dark-green preview panel with a chart that keeps drawing itself, a padlock whose shackle lifts
+   on hover, then the pitch, three perks and the two actions. Theme tokens throughout (dark mode). */
 .public-unlock-backdrop {
   position: fixed;
   inset: 0;
@@ -908,117 +911,159 @@ html.reduce-motion *::after {
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background: rgba(8, 21, 16, 0.55);
+  background: radial-gradient(circle at 50% 35%, rgba(26, 58, 42, 0.42), rgba(8, 21, 16, 0.66) 70%);
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.28s ease, visibility 0.28s ease;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+  overflow-y: auto;
 }
-
-.public-unlock-backdrop.open {
-  opacity: 1;
-  visibility: visible;
-}
+.public-unlock-backdrop.open { opacity: 1; visibility: visible; }
 
 .public-unlock-card {
   position: relative;
-  width: min(420px, 100%);
-  /* Theme-reactive (was a hardcoded white gradient with theme-reactive text —
-     that mismatch is what made the title/body go invisible in dark mode). */
+  width: min(440px, 100%);
+  margin: auto;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 20px;
-  padding: 24px 24px 22px;
-  box-shadow: 0 24px 60px rgba(8, 34, 18, 0.22);
+  border-radius: 22px;
+  overflow: hidden;
   text-align: left;
-  transform: translateY(12px) scale(0.98);
-  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 0 30px 70px rgba(8, 34, 18, 0.3), 0 8px 18px rgba(8, 34, 18, 0.1);
+  transform: translateY(24px) scale(0.96);
+  opacity: 0;
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
 }
+.public-unlock-backdrop.open .public-unlock-card { transform: none; opacity: 1; }
 
-.public-unlock-backdrop.open .public-unlock-card {
-  transform: translateY(0) scale(1);
+/* ---- Preview panel ---- */
+.pu-preview {
+  position: relative;
+  height: 150px;
+  background:
+    radial-gradient(circle at 80% 0%, rgba(255, 236, 170, 0.18), transparent 45%),
+    linear-gradient(160deg, #1A3A2A 0%, #24503A 60%, #2D6A47 100%);
+  overflow: hidden;
 }
-
+.pu-chart { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 118px; }
+.pu-grid line { stroke: rgba(255, 255, 255, 0.07); stroke-width: 1; }
+.pu-area { fill: url(#pu-area-grad); opacity: 0; animation: pu-area 6s ease-in-out infinite; }
+.pu-line {
+  fill: none; stroke-width: 2.4; stroke-linecap: round;
+  stroke-dasharray: 420; stroke-dashoffset: 420;
+  animation: pu-draw 6s ease-in-out infinite;
+}
+.pu-l1 { stroke: #F3D27A; animation-delay: 0.15s; }
+.pu-l2 { stroke: #8FE3AE; animation-delay: 0.35s; }
+.pu-l3 { stroke: rgba(255, 255, 255, 0.45); animation-delay: 0.55s; }
+.pu-pulse {
+  position: absolute; right: 10px; top: 66px;
+  width: 9px; height: 9px; border-radius: 50%; background: #8FE3AE;
+  box-shadow: 0 0 0 0 rgba(143, 227, 174, 0.6);
+  animation: pu-pulse 2s ease-out infinite;
+}
+.pu-lock {
+  position: absolute; left: 50%; top: 50%;
+  width: 64px; height: 64px; margin: -36px 0 0 -32px;
+  border-radius: 20px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+  animation: pu-bob 3.4s ease-in-out infinite;
+}
+.pu-lock svg { width: 30px; height: 30px; overflow: visible; }
+.pu-shackle { transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); animation: pu-shackle 3.4s ease-in-out infinite; }
+.public-unlock-card:hover .pu-shackle,
+.public-unlock-card:focus-within .pu-shackle { animation: none; transform: translateY(-4px); }
+.public-unlock-card:hover .pu-lock { background: rgba(143, 227, 174, 0.28); }
+.pu-badge {
+  position: absolute; left: 14px; top: 14px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
+  color: #1A3A2A; background: #F3D27A;
+  padding: 5px 11px; border-radius: 999px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
+}
 .public-unlock-close {
-  position: absolute;
-  top: 12px;
-  right: 14px;
-  border: none;
-  background: none;
-  font-size: 22px;
-  line-height: 1;
-  color: var(--text-muted);
-  cursor: pointer;
+  position: absolute; top: 10px; right: 12px;
+  width: 32px; height: 32px; border-radius: 50%;
+  border: none; cursor: pointer;
+  background: rgba(255, 255, 255, 0.14); color: #fff;
+  font-size: 20px; line-height: 1;
+  transition: background 0.15s ease, transform 0.15s ease;
 }
+.public-unlock-close:hover { background: rgba(255, 255, 255, 0.28); transform: rotate(90deg); }
 
-/* Solid fill + white text, not a translucent tint + dark text — a tint's
-   contrast against the card depends on which theme is active, a solid
-   accent fill reads the same (and stays legible) in both. */
-.public-unlock-badge {
-  display: inline-block;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  color: #ffffff;
-  background: var(--color-accent);
-  border-radius: 99px;
-  padding: 5px 12px;
-  margin-bottom: 16px;
+/* ---- Body ---- */
+.pu-body { padding: 20px 24px 20px; }
+.pu-kicker {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase;
+  color: var(--color-accent-hover);
 }
-
-/* Icon + title sit in one row (not a big centered icon over a centered
-   title) — the same layout the redesigned success/error popup uses. */
-.public-unlock-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 10px;
-}
-
 .public-unlock-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--border-radius, 10px);
-  background: var(--color-accent);
-  color: #ffffff;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 8px;
+  background: var(--color-accent-light); color: var(--color-accent-hover);
 }
-
-.public-unlock-icon svg {
-  width: 22px;
-  height: 22px;
-}
-
+.public-unlock-icon svg { width: 16px; height: 16px; }
 .public-unlock-title {
-  font-family: 'DM Serif Display', Georgia, serif;
-  font-size: 21px;
+  font-family: 'DM Serif Display', 'Fraunces', Georgia, serif;
+  font-size: 25px; line-height: 1.2;
   color: var(--text-primary);
-  margin: 0;
-  line-height: 1.25;
+  margin: 8px 0 6px;
 }
+.public-unlock-body { font-size: 14px; line-height: 1.6; color: var(--text-secondary); margin: 0 0 14px; }
 
-.public-unlock-body {
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--text-secondary);
-  margin: 0 0 22px;
-  padding-left: 52px;
+.pu-perks { list-style: none; margin: 0 0 18px; padding: 0; display: grid; gap: 8px; }
+.pu-perks li {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13.5px; color: var(--text-primary);
+  opacity: 0; transform: translateX(-8px);
 }
-
-.public-unlock-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.public-unlock-backdrop.open .pu-perks li { animation: pu-in 0.4s ease-out forwards; animation-delay: calc(0.35s + var(--i, 0) * 0.1s); }
+.pu-check {
+  width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--color-accent-light); color: var(--color-accent-hover);
 }
+.pu-check svg { width: 12px; height: 12px; }
 
+.public-unlock-actions { display: flex; flex-direction: column; gap: 10px; }
+.public-unlock-actions .btn { justify-content: center; }
+#public-unlock-signup { box-shadow: 0 8px 18px rgba(76, 175, 110, 0.3); }
 .public-unlock-foot {
-  margin-top: 16px;
-  font-size: 12px;
-  color: var(--text-muted);
-  text-align: center;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  margin: 14px 0 0; font-size: 12px; color: var(--text-muted);
+}
+.public-unlock-foot svg { color: var(--color-accent-hover); }
+
+@keyframes pu-draw {
+  0% { stroke-dashoffset: 420; }
+  40%, 82% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -420; }
+}
+@keyframes pu-area { 0%, 20% { opacity: 0; } 45%, 80% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes pu-pulse { 0% { box-shadow: 0 0 0 0 rgba(143, 227, 174, 0.6); } 100% { box-shadow: 0 0 0 12px rgba(143, 227, 174, 0); } }
+@keyframes pu-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes pu-shackle { 0%, 70%, 100% { transform: none; } 78%, 88% { transform: translateY(-3px); } }
+@keyframes pu-in { to { opacity: 1; transform: none; } }
+
+@media (min-width: 520px) {
+  .public-unlock-actions { flex-direction: row; }
+  .public-unlock-actions .btn { flex: 1; }
+}
+@media (max-width: 380px) {
+  .pu-body { padding: 18px 18px 18px; }
+  .public-unlock-title { font-size: 22px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pu-line { animation: none; stroke-dashoffset: 0; }
+  .pu-area { animation: none; opacity: 1; }
+  .pu-pulse, .pu-lock, .pu-shackle { animation: none; }
+  .public-unlock-backdrop.open .pu-perks li { animation: none; opacity: 1; transform: none; }
+  .public-unlock-card { transition: opacity 0.2s ease; transform: none; }
 }
 
 /* Terms & Conditions modal must sit above the signup (9000) and admin-PIN (9100) modals.
@@ -1118,20 +1163,3 @@ html.reduce-motion *::after {
   font-size: 18px !important;
 }
 
-@media (min-width: 520px) {
-  .public-unlock-actions {
-    flex-direction: row;
-  }
-
-  .public-unlock-actions .btn {
-    flex: 1;
-  }
-}
-
-.public-unlock-actions .btn {
-  justify-content: center;
-}
-
-@media (max-width: 380px) {
-  .public-unlock-body { padding-left: 0; }
-}

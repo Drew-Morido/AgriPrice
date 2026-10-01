@@ -138,9 +138,9 @@ AgriPricePH.Data = (function () {
     },
     {
       id: 'doe',
-      name: 'Zigwheels (Fuel)',
-      type: 'Web Scraper (Selenium)',
-      dataType: 'Diesel Fuel Price (Weekly)',
+      name: 'DOE – NCR Pump Prices (Fuel)',
+      type: 'Web Scraper (weekly DOE PDF)',
+      dataType: 'RON95 & Diesel common price, NCR (Weekly)',
       status: 'active',
       lastFetch: '1 hr ago',
       recordsToday: '1',

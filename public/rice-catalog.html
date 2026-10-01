@@ -10,9 +10,9 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/global.css" />
   <link rel="stylesheet" href="css/landpage.css" />
-  <link rel="stylesheet" href="css/public.css" />
+  <link rel="stylesheet" href="css/public.css?v=20261001" />
   <link rel="stylesheet" href="css/landpage-nav.css" />
-  <link rel="stylesheet" href="css/public-alert.css" />
+  <link rel="stylesheet" href="css/public-alert.css?v=20261001c" />
   <style>
     /* AgriPricePH — Rice Catalog (public, NCR rice catalog). Card-based catalog so brand detail already
        tracked in the admin Rice Brands module (verification, image, source, survey provenance) has
@@ -216,7 +216,7 @@
       opacity: 0; visibility: hidden; transition: opacity .15s, visibility .15s; pointer-events: none;
     }
     .rc-tip:hover::after, .rc-tip:focus::after { opacity: 1; visibility: visible; }
-    .rc-note .rc-tip::after { right: auto; left: -8px; top: auto; bottom: calc(100% + 8px); }
+    .rc-note .rc-tip::after { right: auto; left: -8px; top: auto; bottom: calc(100% + 8px); max-width: min(440px, 80vw); }
     html.theme-dark .rc-tip::after { background: #e8f0eb; color: #0f1e14; }
     .rc-card-perkg { font-size: 11.5px; color: var(--lp-text-secondary, #3a5045); margin-top: 1px; }
     .rc-card-pack {
@@ -318,7 +318,7 @@
 
     /* ---- About the data ---- */
     .rc-note {
-      margin-top: 28px; font-size: 12px; line-height: 1.65; color: var(--lp-text-secondary, #3a5045);
+      margin-top: 28px; font-size: 13px; line-height: 1.65; color: var(--lp-text-secondary, #3a5045);
       background: #fff; border: 1px solid var(--lp-border, rgba(53,115,80,.14)); border-radius: 14px; padding: 16px;
     }
     .rc-note strong { color: var(--lp-text-primary, #0f1e14); }
@@ -611,15 +611,15 @@
 </main>
 
 <script src="../js/data.js"></script>
-<script src="../js/api.js"></script>
-<script src="js/public-alert.js"></script>
-<script src="js/public-auth.js"></script>
-<script src="js/public-auth-modal.js"></script>
+<script src="../js/api.js?v=20261001b"></script>
+<script src="js/public-alert.js?v=20261001c"></script>
+<script src="js/public-auth.js?v=20261001b"></script>
+<script src="js/public-auth-modal.js?v=20261001"></script>
 <script src="js/public-shell.js"></script>
 <script src="js/public-pages.js"></script>
 <script src="js/public-varieties.js?v=6"></script>
 <script src="js/rice-photos.js?v=1"></script>
 <script src="js/image-zoom.js?v=1"></script>
-<script src="js/public-catalog.js?v=26"></script>
+<script src="js/public-catalog.js?v=27"></script>
 </body>
 </html>

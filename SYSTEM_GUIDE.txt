@@ -259,7 +259,7 @@ Mga pangunahing layunin:
   [Data Sources]          [Storage]              [ML]              [UI]
        |                      |                    |                 |
   DA PDF/HTML  ----->   SQLite DB  ----->   train.py  ----->   Training page
-  Zigwheels    ----->   (datasets/)      predict.py       Predictions page
+  DOE fuel PDF ----->   (datasets/)      predict.py       Predictions page
   ER-API       ----->        |              meta.json         Dashboard
   XLSX 2026    ----->        |              lstm_model.keras  Historical charts
        |                      |                    |                 |
@@ -770,7 +770,8 @@ Tumatakbo sa background kapag naka-start ang api/app.py (auto every 24h), o manu
 Sunod-sunod na scrape (_do_scrape):
 
   1. fetch_rice_prices()     — DA price monitoring (PDF/HTML)
-  2. fetch_fuel_prices()     — zigwheels.ph fuel prices
+  2. fetch_fuel_prices()     — DOE weekly NCR pump-price PDF (tools/doe_fuel.py);
+                               GasWatch PH fallback / same-week filler for a DOE "#N/A"
   3. fetch_exchange_rates()  — open.er-api.com USD rates
 
 PDF reading (tools/pdfconvrt.py): hinahanap ang bawat presyo ayon sa POSISYON ng

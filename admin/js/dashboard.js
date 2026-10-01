@@ -157,8 +157,11 @@ AgriPricePH.Dashboard = (function () {
     const m = dm?.metrics || {};
     _metricsByTarget = _mergeMetricsByTarget(m.by_target, _predApi?.metrics?.by_target);
 
-    if (m.mae_peso != null) {
-      _setStat('stat-mae', `₱${Number(m.mae_peso).toFixed(2)}`);
+    // All-types average, to match the all-types hit rate beside it. `mae_peso` alone is the primary
+    // rice type's (Local Well-Milled) error; it is only the fallback for an older backend.
+    const maeAll = m.mae_peso_all_types ?? m.mae_peso;
+    if (maeAll != null) {
+      _setStat('stat-mae', `₱${Number(maeAll).toFixed(2)}`);
     }
     // Headline accuracy = day-1 hit rate within ₱1.00, NOT the legacy `accuracy_pct`
     // (100 − MAE/mean_price), which returns 98–99% for anything and rates the naive
@@ -175,8 +178,11 @@ AgriPricePH.Dashboard = (function () {
     }
 
     const trends = dm?.trends || {};
-    _setStatTrend('stat-mae-change', trends.mae_peso_delta, 'mae');
-    _setStatTrend('stat-accuracy-change', trends.accuracy_pct_delta, 'accuracy');
+    _setStatTrend('stat-mae-change',
+      m.mae_peso_all_types != null ? trends.mae_all_types_delta : trends.mae_peso_delta, 'mae');
+    // The trend must describe the number on the card: the hit rate's change, not the legacy formula's.
+    if (hit1 != null) _setStatTrend('stat-accuracy-change', trends.hit_rate_1p_delta, 'points');
+    else _setStatTrend('stat-accuracy-change', trends.accuracy_pct_delta, 'accuracy');
 
     // Pill thresholds are for the ₱1.00 hit rate, which sits far lower than the legacy
     // accuracy figure — 95/85 there would have read "Excellent" for every possible model.
@@ -223,8 +229,9 @@ AgriPricePH.Dashboard = (function () {
     // Short form for the card ("▼ ₱0.50 (better)"); what it's compared against
     // and what "better/worse" means is explained in the card's ⓘ tooltip instead
     // of being repeated here.
-    const val = kind === 'accuracy' ? `${abs.toFixed(2)}%` : `₱${abs.toFixed(2)}`;
-    const improved = kind === 'accuracy' ? d > 0 : d < 0;
+    const val = kind === 'points' ? `${abs.toFixed(1)} pts`
+      : kind === 'accuracy' ? `${abs.toFixed(2)}%` : `₱${abs.toFixed(2)}`;
+    const improved = kind === 'accuracy' || kind === 'points' ? d > 0 : d < 0;
     const dir = improved ? 'up' : d === 0 ? 'flat' : 'down';
     const arrow = d > 0 ? '▲' : d < 0 ? '▼' : '→';
     const word = d === 0 ? 'same' : (improved ? 'better' : 'worse');
@@ -261,7 +268,9 @@ AgriPricePH.Dashboard = (function () {
     // Preferred: % of that day's forecasts that landed within ₱1.00 — a figure that states its
     // threshold. `per_horizon_accuracy_pct` is the legacy 100−MAE/mean_price formula, which
     // returns 98–99% for any model; it is only a fallback for pre-v4 runs.
-    const hit = t.hit_rate_1p_pct;
+    // P0.50, the band the public Price Forecast page shows for the same rice type and day, so both
+    // sides print the same number (they used to show P1.00 here and P0.50 there).
+    const hit = t.hit_rate_050_pct || t.hit_rate_pct?.['0.50'];
     if (dayIdx != null && Array.isArray(hit) && hit[dayIdx] != null) return Number(hit[dayIdx]);
     const perDay = t.per_horizon_accuracy_pct;
     if (dayIdx != null && Array.isArray(perDay) && perDay[dayIdx] != null) {
@@ -273,7 +282,7 @@ AgriPricePH.Dashboard = (function () {
 
   /** True when the table is showing hit rates rather than the legacy accuracy formula. */
   function usingHitRate(keys) {
-    return keys.some(k => Array.isArray(_metricsByTarget?.[k]?.hit_rate_1p_pct));
+    return keys.some(k => Array.isArray(_metricsByTarget?.[k]?.hit_rate_050_pct || _metricsByTarget?.[k]?.hit_rate_pct?.['0.50']));
   }
 
   function trainMaeForKey(riceKey, dayIdx) {
@@ -671,10 +680,10 @@ AgriPricePH.Dashboard = (function () {
       // since the Day 1/2/3 toggle right above the table already makes that obvious.
       accHead.textContent = !perDay
         ? 'Accuracy'
-        : isHit ? 'Hit Rate (±₱1)' : `Day ${_predDay} accuracy`;
+        : isHit ? 'Within ₱0.50' : `Day ${_predDay} accuracy`;
       if (accInfo) {
         setStatTooltip(accInfo, isHit
-          ? `How many of the Day ${_predDay} forecasts landed within ₱1.00 of the real price, measured on data the model never saw during training. Higher is better.`
+          ? `How many of the Day ${_predDay} forecasts landed within ₱0.50 of the real price, measured on data the model never saw during training — the same figure the public Price Forecast page shows. Higher is better.`
           : `Day ${_predDay} hold-out test accuracy (legacy formula).`);
       }
     }
@@ -719,7 +728,7 @@ AgriPricePH.Dashboard = (function () {
       const accTitle = trainAcc == null
         ? (isLstm ? 'Estimated from model error' : 'Trend estimate')
         : (isHit
-          ? `Share of day-${_predDay} forecasts that landed within ₱1.00 of the real price, on hold-out test data`
+          ? `Share of day-${_predDay} forecasts that landed within ₱0.50 of the real price, on hold-out test data`
           : `${perDayAcc ? `Day ${_predDay}` : 'Whole 3-day'} hold-out test accuracy (legacy formula)`)
           + `${maeHint != null ? ` · average error ₱${Number(maeHint).toFixed(2)}/kg` : ''}`;
       const originLabel = _predOrigin === 'imported' ? 'Imported' : 'Local';
@@ -873,7 +882,7 @@ AgriPricePH.Dashboard = (function () {
     const hist = AgriPricePH.Data.historical;
     const series = (arr) => (arr || []).filter((v) => typeof v === 'number' && Number.isFinite(v));
 
-    const dayChange = (arr) => {
+    const change = (arr) => {
       const s = series(arr);
       if (!s.length) return null;
       const last = s[s.length - 1];
@@ -881,27 +890,40 @@ AgriPricePH.Dashboard = (function () {
       const pct = prev ? ((last - prev) / prev) * 100 : 0;
       return { last, pct };
     };
+    // Fuel comes from DOE's WEEKLY bulletin, forward-filled to daily rows, so compare with the previous
+    // bulletin's value (the last different one within 3 weeks), not with yesterday or "7 days ago" — a
+    // bulletin can be carried for more than 7 days until the next one is published.
+    const weekChange = (arr) => {
+      const s = series(arr);
+      if (!s.length) return null;
+      const last = s[s.length - 1];
+      let prev = last;
+      for (let i = s.length - 2; i >= Math.max(0, s.length - 22); i--) {
+        if (s[i] !== last) { prev = s[i]; break; }
+      }
+      return { last, pct: prev ? ((last - prev) / prev) * 100 : 0 };
+    };
 
-    const setCard = (valueId, changeId, entry, unit) => {
+    const setCard = (valueId, changeId, entry, unit, period) => {
       const valueEl = document.getElementById(valueId);
       const changeEl = document.getElementById(changeId);
       if (valueEl) valueEl.textContent = entry ? `₱${entry.last.toFixed(2)}${unit || ''}` : '—';
       if (!changeEl) return;
       if (!entry || Math.abs(entry.pct) < 0.05) {
-        changeEl.textContent = 'No change vs. yesterday';
+        changeEl.textContent = `No change vs. ${period}`;
         changeEl.className = 'stat-change text-muted';
         return;
       }
       const up = entry.pct > 0;
       const arrow = up ? '▲' : '▼';
-      changeEl.innerHTML = `<span>${arrow} ${Math.abs(entry.pct).toFixed(1)}% vs. yesterday</span>`;
+      changeEl.innerHTML = `<span>${arrow} ${Math.abs(entry.pct).toFixed(1)}% vs. ${period}</span>`;
       // Rising cost is the unwelcome direction here (unlike the ML "lower is better" cards),
       // matching the same red-up/green-down convention the rice price ticker already uses.
       changeEl.className = `stat-change ${up ? 'cost-up' : 'cost-down'}`;
     };
 
-    setCard('stat-currency-value', 'stat-currency-change', dayChange(hist.exchange), null);
-    setCard('stat-diesel-value', 'stat-diesel-change', dayChange(hist.fuel), '/L');
+    setCard('stat-currency-value', 'stat-currency-change', change(hist.exchange), null, 'yesterday');
+    setCard('stat-diesel-value', 'stat-diesel-change', weekChange(hist.fuel), '/L', 'previous week');
   }
 
   function renderMainChart() {
@@ -968,6 +990,7 @@ AgriPricePH.Dashboard = (function () {
       pill.querySelector('.dot')?.classList.toggle('active', active);
       pill.title = s
         ? `${s.name} — ${active ? 'Active' : 'Idle'}, last fetch ${s.lastFetchRelative || s.lastFetch || 'unknown'}`
+          + (s.id === 'doe' ? '\nMain: DOE weekly NCR bulletin. Fallback: GasWatch PH (gaswatchph.com) when DOE is unavailable or leaves a price blank.' : '')
         : 'Not reported by the API';
     });
   }

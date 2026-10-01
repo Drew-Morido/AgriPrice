@@ -39,3 +39,10 @@ tools/debug_fetch/*.pdf
 
 # DA Daily Price Index bulletins cached by datasets/repair_ws_rice_from_bulletins.py (~100 MB)
 tools/debug_fetch/dpi/
+
+# Last built forecast payload (runtime cache, rebuilt automatically — model/predict.py)
+model/forecast_cache.json
+model/forecast_cache.json.tmp
+
+# DOE weekly NCR fuel PDFs cached by tools/doe_fuel.py (re-downloadable)
+tools/doe_fuel_cache/

@@ -21,34 +21,34 @@
       "backend": "tensorflow",
       "delta_mode": true,
       "seed": 42,
-      "mae_peso": 0.2799,
-      "rmse_peso": 0.4204,
-      "mape_pct": 0.5933,
-      "r2": 0.9768,
+      "mae_peso": 0.2812,
+      "rmse_peso": 0.4211,
+      "mape_pct": 0.5957,
+      "r2": 0.9766,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.2484,
-          0.2297,
-          0.4202,
-          0.2083,
-          0.292
+          0.2483,
+          0.2325,
+          0.4198,
+          0.2156,
+          0.29
         ],
-        "mean": 0.2797,
-        "std": 0.0755
+        "mean": 0.2812,
+        "std": 0.0735
       },
       "accuracy_pct": 99.37,
       "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
       "hit_rate_pct": {
         "0.25": [
-          66.0,
-          58.4,
-          55.5
+          65.4,
+          57.7,
+          54.9
         ],
         "0.50": [
-          87.5,
-          86.4,
+          87.3,
+          86.2,
           83.9
         ],
         "1.00": [
@@ -69,19 +69,19 @@
       },
       "baseline_hit_rate_pct": {
         "0.25": [
-          61.5,
-          54.4,
-          49.6
+          61.1,
+          53.8,
+          49.3
         ],
         "0.50": [
-          82.7,
-          78.5,
-          76.8
+          82.5,
+          78.3,
+          76.6
         ],
         "1.00": [
           94.1,
           93.8,
-          92.6
+          92.7
         ],
         "1.50": [
           98.3,
@@ -95,37 +95,42 @@
         ]
       },
       "directional_pct": [
-        61.5,
-        65.1,
-        63.6
+        61.1,
+        65.6,
+        63.5
+      ],
+      "directional_n": [
+        324,
+        346,
+        345
       ],
       "lstm_ablation": {
         "test": "mcnemar_paired_directional",
         "subset": "genuine_signal_only",
-        "n_scored": 920,
-        "lstm_fixes": 39,
-        "lstm_breaks": 30,
-        "n_discordant": 69,
-        "chi_square": 0.928,
-        "p_value": 0.3355,
+        "n_scored": 926,
+        "lstm_fixes": 40,
+        "lstm_breaks": 34,
+        "n_discordant": 74,
+        "chi_square": 0.338,
+        "p_value": 0.5611,
         "significant_at_05": false,
-        "directional_pct_with_lstm": 63.7,
-        "directional_pct_reversion_only": 62.7,
+        "directional_pct_with_lstm": 63.3,
+        "directional_pct_reversion_only": 62.6,
         "excluded_tie_rows": 89,
         "tie_row_share_pct": 8.8
       },
       "movement": {
-        "pred_abs_change_peso": 0.1285,
-        "true_abs_change_peso": 0.325,
-        "ratio": 0.3954
+        "pred_abs_change_peso": 0.1283,
+        "true_abs_change_peso": 0.3264,
+        "ratio": 0.3929
       },
       "reversion": {
         "phi": [
           [
-            -0.2201
+            -0.2203
           ],
           [
-            -0.259
+            -0.2591
           ],
           [
             -0.328
@@ -133,35 +138,35 @@
         ],
         "n_lags": 1,
         "t_stat": [
-          -5.379,
-          -5.65,
-          -7.057
+          -5.412,
+          -5.682,
+          -7.094
         ],
-        "n_fit": 187,
+        "n_fit": 189,
         "applied": true,
         "shrink": 0.6,
         "min_abs_t": 2.0,
         "fit_rows": [
           3743,
-          3932
+          3934
         ],
         "rolling_window": 120,
         "scored_with": "rolling",
         "weekday_mode": true
       },
-      "skill_vs_baseline_pct": 13.87,
+      "skill_vs_baseline_pct": 13.84,
       "per_horizon_mae_peso": [
-        0.2448,
-        0.2883,
-        0.3065
+        0.2458,
+        0.2899,
+        0.3081
       ],
       "per_horizon_accuracy_pct": [
         99.45,
         99.35,
         99.31
       ],
-      "baseline_mae_peso": 0.325,
-      "baseline_rmse_peso": 0.4857,
+      "baseline_mae_peso": 0.3264,
+      "baseline_rmse_peso": 0.4862,
       "baseline_accuracy_pct": 99.27,
       "beats_baseline": true,
       "arima": {
@@ -170,9 +175,9 @@
           1,
           1
         ],
-        "mae_peso": 0.2842,
-        "rmse_peso": 0.4226,
-        "n": 353
+        "mae_peso": 0.2855,
+        "rmse_peso": 0.4232,
+        "n": 355
       },
       "beats_arima": true,
       "forecaster": "adaptive_ensemble",
@@ -189,7 +194,7 @@
           "hybrid": [
             0.335,
             0.329,
-            0.337
+            0.336
           ],
           "arima": [
             0.331,
@@ -197,34 +202,34 @@
             0.348
           ],
           "kalman": [
-            0.334,
+            0.335,
             0.325,
             0.316
           ]
         }
       },
       "hybrid": {
-        "mae_peso": 0.2877,
-        "skill_vs_baseline_pct": 11.46,
+        "mae_peso": 0.2893,
+        "skill_vs_baseline_pct": 11.39,
         "beats_arima": false,
         "directional_pct": [
-          61.2,
           60.8,
-          62.4
+          60.4,
+          62.0
         ]
       },
       "shock": {
         "pct": 90,
-        "threshold_peso": 1.206,
+        "threshold_peso": 1.202,
         "count": 36,
-        "lstm_mae_peso": 0.669,
+        "lstm_mae_peso": 0.6688,
         "baseline_mae_peso": 0.8642,
         "beats_baseline": true
       },
-      "adf_pvalue": 0.1095,
+      "adf_pvalue": 0.1122,
       "train_samples": 3713,
-      "val_samples": 189,
-      "test_samples": 353,
+      "val_samples": 191,
+      "test_samples": 355,
       "split_policy": "regime_aware_active_from_2025-04-01",
       "split_dates": {
         "train": [
@@ -233,23 +238,18 @@
         ],
         "val": [
           "2025-04-01",
-          "2025-10-06"
+          "2025-10-08"
         ],
         "test": [
-          "2025-10-07",
-          "2026-09-24"
+          "2025-10-09",
+          "2026-09-28"
         ]
       },
       "flat_pct_by_split": {
         "train": 81.9,
-        "val": 5.3,
-        "test": 8.8
-      },
-      "directional_n": [
-        322,
-        344,
-        343
-      ]
+        "val": 5.2,
+        "test": 8.7
+      }
     },
     "locRegular": {
       "target": "locRegular",
@@ -271,35 +271,35 @@
       "backend": "tensorflow",
       "delta_mode": true,
       "seed": 42,
-      "mae_peso": 0.2642,
-      "rmse_peso": 0.4418,
-      "mape_pct": 0.6244,
+      "mae_peso": 0.2624,
+      "rmse_peso": 0.4398,
+      "mape_pct": 0.619,
       "r2": 0.9773,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.1945,
-          0.2406,
-          0.4008,
-          0.3256,
-          0.159
+          0.1886,
+          0.2353,
+          0.4066,
+          0.3156,
+          0.1658
         ],
-        "mean": 0.2641,
-        "std": 0.0882
+        "mean": 0.2624,
+        "std": 0.0885
       },
       "accuracy_pct": 99.35,
       "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
       "hit_rate_pct": {
         "0.25": [
-          69.4,
-          67.4,
+          69.6,
+          67.6,
           60.6
         ],
         "0.50": [
-          88.4,
-          84.7,
-          84.7
+          88.7,
+          85.1,
+          85.1
         ],
         "1.00": [
           96.9,
@@ -307,7 +307,7 @@
           95.8
         ],
         "1.50": [
-          98.9,
+          98.6,
           99.2,
           99.2
         ],
@@ -319,18 +319,18 @@
       },
       "baseline_hit_rate_pct": {
         "0.25": [
-          65.2,
-          62.0,
-          56.7
+          65.1,
+          61.7,
+          56.1
         ],
         "0.50": [
-          83.3,
-          81.3,
-          79.0
+          83.4,
+          81.4,
+          79.2
         ],
         "1.00": [
           95.2,
-          94.3,
+          94.4,
           94.1
         ],
         "1.50": [
@@ -345,73 +345,78 @@
         ]
       },
       "directional_pct": [
-        62.3,
-        62.5,
-        63.0
+        62.6,
+        63.7,
+        63.6
+      ],
+      "directional_n": [
+        318,
+        333,
+        343
       ],
       "lstm_ablation": {
         "test": "mcnemar_paired_directional",
         "subset": "genuine_signal_only",
-        "n_scored": 893,
-        "lstm_fixes": 30,
-        "lstm_breaks": 26,
-        "n_discordant": 56,
-        "chi_square": 0.161,
-        "p_value": 0.6885,
+        "n_scored": 899,
+        "lstm_fixes": 31,
+        "lstm_breaks": 24,
+        "n_discordant": 55,
+        "chi_square": 0.655,
+        "p_value": 0.4185,
         "significant_at_05": false,
-        "directional_pct_with_lstm": 62.9,
-        "directional_pct_reversion_only": 62.5,
+        "directional_pct_with_lstm": 63.6,
+        "directional_pct_reversion_only": 62.8,
         "excluded_tie_rows": 95,
         "tie_row_share_pct": 9.6
       },
       "movement": {
-        "pred_abs_change_peso": 0.126,
+        "pred_abs_change_peso": 0.1246,
         "true_abs_change_peso": 0.3136,
-        "ratio": 0.4019
+        "ratio": 0.3972
       },
       "reversion": {
         "phi": [
           [
-            -0.3356
+            -0.3253
           ],
           [
-            -0.2781
+            -0.2777
           ],
           [
-            -0.291
+            -0.3006
           ]
         ],
         "n_lags": 1,
         "t_stat": [
-          -9.022,
-          -7.502,
-          -7.557
+          -8.848,
+          -7.576,
+          -7.825
         ],
-        "n_fit": 187,
+        "n_fit": 189,
         "applied": true,
         "shrink": 0.6,
         "min_abs_t": 2.0,
         "fit_rows": [
           3743,
-          3932
+          3934
         ],
         "rolling_window": 120,
         "scored_with": "rolling",
         "weekday_mode": true
       },
-      "skill_vs_baseline_pct": 15.74,
+      "skill_vs_baseline_pct": 16.35,
       "per_horizon_mae_peso": [
-        0.2357,
-        0.2666,
-        0.2904
+        0.2342,
+        0.2648,
+        0.2881
       ],
       "per_horizon_accuracy_pct": [
         99.42,
         99.34,
-        99.28
+        99.29
       ],
       "baseline_mae_peso": 0.3136,
-      "baseline_rmse_peso": 0.5363,
+      "baseline_rmse_peso": 0.5354,
       "baseline_accuracy_pct": 99.22,
       "beats_baseline": true,
       "arima": {
@@ -420,9 +425,9 @@
           1,
           1
         ],
-        "mae_peso": 0.2766,
-        "rmse_peso": 0.456,
-        "n": 353
+        "mae_peso": 0.2738,
+        "rmse_peso": 0.4528,
+        "n": 355
       },
       "beats_arima": true,
       "forecaster": "adaptive_ensemble",
@@ -442,39 +447,39 @@
             0.328
           ],
           "arima": [
-            0.316,
+            0.317,
             0.328,
             0.334
           ],
           "kalman": [
-            0.36,
+            0.359,
             0.35,
-            0.337
+            0.338
           ]
         }
       },
       "hybrid": {
-        "mae_peso": 0.2764,
-        "skill_vs_baseline_pct": 11.85,
-        "beats_arima": true,
+        "mae_peso": 0.2749,
+        "skill_vs_baseline_pct": 12.36,
+        "beats_arima": false,
         "directional_pct": [
-          62.0,
-          62.5,
-          59.2
+          62.6,
+          63.4,
+          59.8
         ]
       },
       "shock": {
         "pct": 90,
-        "threshold_peso": 1.136,
+        "threshold_peso": 1.132,
         "count": 36,
-        "lstm_mae_peso": 0.7057,
+        "lstm_mae_peso": 0.7055,
         "baseline_mae_peso": 1.0235,
         "beats_baseline": true
       },
-      "adf_pvalue": 0.083,
+      "adf_pvalue": 0.0831,
       "train_samples": 3713,
-      "val_samples": 189,
-      "test_samples": 353,
+      "val_samples": 191,
+      "test_samples": 355,
       "split_policy": "regime_aware_active_from_2025-04-01",
       "split_dates": {
         "train": [
@@ -483,23 +488,18 @@
         ],
         "val": [
           "2025-04-01",
-          "2025-10-06"
+          "2025-10-08"
         ],
         "test": [
-          "2025-10-07",
-          "2026-09-24"
+          "2025-10-09",
+          "2026-09-28"
         ]
       },
       "flat_pct_by_split": {
         "train": 82.5,
-        "val": 6.9,
-        "test": 10.5
-      },
-      "directional_n": [
-        316,
-        331,
-        341
-      ]
+        "val": 6.8,
+        "test": 10.4
+      }
     },
     "locPremium": {
       "target": "locPremium",
@@ -521,35 +521,35 @@
       "backend": "tensorflow",
       "delta_mode": true,
       "seed": 42,
-      "mae_peso": 0.2634,
-      "rmse_peso": 0.3551,
-      "mape_pct": 0.5026,
-      "r2": 0.9774,
+      "mae_peso": 0.2641,
+      "rmse_peso": 0.3549,
+      "mape_pct": 0.5033,
+      "r2": 0.9771,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.3233,
-          0.2522,
-          0.2862,
-          0.1841,
-          0.2704
+          0.3252,
+          0.2416,
+          0.2864,
+          0.1867,
+          0.2807
         ],
-        "mean": 0.2632,
-        "std": 0.046
+        "mean": 0.2641,
+        "std": 0.0469
       },
       "accuracy_pct": 99.48,
       "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
       "hit_rate_pct": {
         "0.25": [
-          64.6,
-          60.3,
-          54.7
+          65.6,
+          59.7,
+          54.4
         ],
         "0.50": [
-          89.8,
-          84.1,
-          80.7
+          90.1,
+          83.9,
+          80.6
         ],
         "1.00": [
           99.4,
@@ -569,19 +569,19 @@
       },
       "baseline_hit_rate_pct": {
         "0.25": [
-          61.5,
-          52.1,
-          48.2
+          61.1,
+          51.5,
+          47.9
         ],
         "0.50": [
-          86.1,
-          79.9,
-          73.9
+          85.9,
+          79.2,
+          73.5
         ],
         "1.00": [
           98.3,
           97.5,
-          97.2
+          96.9
         ],
         "1.50": [
           99.4,
@@ -595,73 +595,78 @@
         ]
       },
       "directional_pct": [
-        59.4,
-        61.5,
-        61.6
+        61.4,
+        62.3,
+        62.7
+      ],
+      "directional_n": [
+        324,
+        345,
+        351
       ],
       "lstm_ablation": {
         "test": "mcnemar_paired_directional",
         "subset": "genuine_signal_only",
-        "n_scored": 930,
+        "n_scored": 932,
         "lstm_fixes": 3,
-        "lstm_breaks": 3,
-        "n_discordant": 6,
-        "chi_square": 0.167,
-        "p_value": 0.6831,
+        "lstm_breaks": 5,
+        "n_discordant": 8,
+        "chi_square": 0.125,
+        "p_value": 0.7237,
         "significant_at_05": false,
-        "directional_pct_with_lstm": 62.8,
-        "directional_pct_reversion_only": 62.8,
-        "excluded_tie_rows": 85,
-        "tie_row_share_pct": 8.4
+        "directional_pct_with_lstm": 62.9,
+        "directional_pct_reversion_only": 63.1,
+        "excluded_tie_rows": 88,
+        "tie_row_share_pct": 8.6
       },
       "movement": {
-        "pred_abs_change_peso": 0.1352,
-        "true_abs_change_peso": 0.2938,
-        "ratio": 0.46
+        "pred_abs_change_peso": 0.1345,
+        "true_abs_change_peso": 0.2964,
+        "ratio": 0.4539
       },
       "reversion": {
         "phi": [
           [
-            -0.209
+            -0.2051
           ],
           [
-            -0.2033
+            -0.2043
           ],
           [
-            -0.3068
+            -0.3112
           ]
         ],
         "n_lags": 1,
         "t_stat": [
-          -5.038,
-          -4.194,
-          -5.898
+          -4.988,
+          -4.25,
+          -6.012
         ],
-        "n_fit": 187,
+        "n_fit": 189,
         "applied": true,
         "shrink": 0.6,
         "min_abs_t": 2.0,
         "fit_rows": [
           3743,
-          3932
+          3934
         ],
         "rolling_window": 120,
         "scored_with": "rolling",
         "weekday_mode": true
       },
-      "skill_vs_baseline_pct": 10.34,
+      "skill_vs_baseline_pct": 10.9,
       "per_horizon_mae_peso": [
-        0.2336,
-        0.2656,
-        0.291
+        0.2332,
+        0.2664,
+        0.2927
       ],
       "per_horizon_accuracy_pct": [
         99.54,
         99.48,
         99.43
       ],
-      "baseline_mae_peso": 0.2938,
-      "baseline_rmse_peso": 0.4058,
+      "baseline_mae_peso": 0.2964,
+      "baseline_rmse_peso": 0.4088,
       "baseline_accuracy_pct": 99.42,
       "beats_baseline": true,
       "arima": {
@@ -670,9 +675,9 @@
           1,
           1
         ],
-        "mae_peso": 0.2705,
-        "rmse_peso": 0.3619,
-        "n": 353
+        "mae_peso": 0.2709,
+        "rmse_peso": 0.3617,
+        "n": 355
       },
       "beats_arima": true,
       "forecaster": "adaptive_ensemble",
@@ -687,44 +692,44 @@
         "warmup_origins": 45,
         "mean_weights_test": {
           "hybrid": [
-            0.356,
+            0.355,
             0.338,
             0.33
           ],
           "arima": [
-            0.344,
+            0.345,
             0.346,
             0.342
           ],
           "kalman": [
             0.3,
-            0.315,
+            0.316,
             0.328
           ]
         }
       },
       "hybrid": {
-        "mae_peso": 0.2712,
-        "skill_vs_baseline_pct": 7.69,
+        "mae_peso": 0.2723,
+        "skill_vs_baseline_pct": 8.12,
         "beats_arima": false,
         "directional_pct": [
-          61.3,
-          61.5,
-          64.2
+          61.1,
+          61.4,
+          63.8
         ]
       },
       "shock": {
         "pct": 90,
         "threshold_peso": 0.84,
-        "count": 37,
-        "lstm_mae_peso": 0.4963,
-        "baseline_mae_peso": 0.6808,
+        "count": 36,
+        "lstm_mae_peso": 0.5062,
+        "baseline_mae_peso": 0.6976,
         "beats_baseline": true
       },
-      "adf_pvalue": 0.154,
+      "adf_pvalue": 0.1557,
       "train_samples": 3713,
-      "val_samples": 189,
-      "test_samples": 353,
+      "val_samples": 191,
+      "test_samples": 355,
       "split_policy": "regime_aware_active_from_2025-04-01",
       "split_dates": {
         "train": [
@@ -733,23 +738,18 @@
         ],
         "val": [
           "2025-04-01",
-          "2025-10-06"
+          "2025-10-08"
         ],
         "test": [
-          "2025-10-07",
-          "2026-09-24"
+          "2025-10-09",
+          "2026-09-28"
         ]
       },
       "flat_pct_by_split": {
         "train": 80.2,
-        "val": 4.8,
-        "test": 8.5
-      },
-      "directional_n": [
-        323,
-        343,
-        349
-      ]
+        "val": 4.7,
+        "test": 8.7
+      }
     },
     "locSpecial": {
       "target": "locSpecial",
@@ -771,35 +771,35 @@
       "backend": "tensorflow",
       "delta_mode": true,
       "seed": 42,
-      "mae_peso": 0.2153,
-      "rmse_peso": 0.315,
-      "mape_pct": 0.3638,
-      "r2": 0.9392,
+      "mae_peso": 0.2169,
+      "rmse_peso": 0.3158,
+      "mape_pct": 0.3663,
+      "r2": 0.9381,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.2085,
-          0.1414,
-          0.2493,
-          0.2355,
-          0.2426
+          0.2132,
+          0.1395,
+          0.2499,
+          0.2359,
+          0.2458
         ],
-        "mean": 0.2155,
-        "std": 0.0395
+        "mean": 0.2169,
+        "std": 0.0407
       },
       "accuracy_pct": 99.62,
       "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
       "hit_rate_pct": {
         "0.25": [
-          74.5,
-          69.4,
-          63.2
+          74.4,
+          69.0,
+          62.8
         ],
         "0.50": [
           92.4,
-          91.2,
-          90.1
+          91.3,
+          89.9
         ],
         "1.00": [
           98.3,
@@ -819,14 +819,14 @@
       },
       "baseline_hit_rate_pct": {
         "0.25": [
-          73.1,
-          64.6,
-          58.4
+          73.0,
+          63.7,
+          57.7
         ],
         "0.50": [
           87.3,
-          84.7,
-          83.0
+          84.8,
+          82.8
         ],
         "1.00": [
           96.6,
@@ -845,29 +845,34 @@
         ]
       },
       "directional_pct": [
-        57.9,
-        63.7,
-        64.6
+        56.3,
+        63.0,
+        64.2
+      ],
+      "directional_n": [
+        323,
+        341,
+        352
       ],
       "lstm_ablation": {
         "test": "mcnemar_paired_directional",
         "subset": "genuine_signal_only",
-        "n_scored": 918,
-        "lstm_fixes": 17,
-        "lstm_breaks": 24,
-        "n_discordant": 41,
-        "chi_square": 0.878,
-        "p_value": 0.3487,
+        "n_scored": 924,
+        "lstm_fixes": 11,
+        "lstm_breaks": 19,
+        "n_discordant": 30,
+        "chi_square": 1.633,
+        "p_value": 0.2012,
         "significant_at_05": false,
-        "directional_pct_with_lstm": 60.5,
-        "directional_pct_reversion_only": 61.2,
+        "directional_pct_with_lstm": 60.6,
+        "directional_pct_reversion_only": 61.5,
         "excluded_tie_rows": 92,
         "tie_row_share_pct": 9.1
       },
       "movement": {
-        "pred_abs_change_peso": 0.1105,
-        "true_abs_change_peso": 0.2551,
-        "ratio": 0.4332
+        "pred_abs_change_peso": 0.111,
+        "true_abs_change_peso": 0.2568,
+        "ratio": 0.4321
       },
       "reversion": {
         "phi": [
@@ -878,40 +883,40 @@
             -0.1766
           ],
           [
-            -0.3084
+            -0.3083
           ]
         ],
         "n_lags": 1,
         "t_stat": [
-          -4.225,
-          -3.484,
-          -5.591
+          -4.247,
+          -3.502,
+          -5.62
         ],
-        "n_fit": 187,
+        "n_fit": 189,
         "applied": true,
         "shrink": 0.6,
         "min_abs_t": 2.0,
         "fit_rows": [
           3743,
-          3932
+          3934
         ],
         "rolling_window": 120,
         "scored_with": "rolling",
         "weekday_mode": true
       },
-      "skill_vs_baseline_pct": 15.59,
+      "skill_vs_baseline_pct": 15.56,
       "per_horizon_mae_peso": [
-        0.1914,
-        0.2197,
-        0.2349
+        0.1924,
+        0.2212,
+        0.2369
       ],
       "per_horizon_accuracy_pct": [
         99.66,
-        99.62,
+        99.61,
         99.59
       ],
-      "baseline_mae_peso": 0.2551,
-      "baseline_rmse_peso": 0.3864,
+      "baseline_mae_peso": 0.2568,
+      "baseline_rmse_peso": 0.3874,
       "baseline_accuracy_pct": 99.55,
       "beats_baseline": true,
       "arima": {
@@ -920,9 +925,9 @@
           1,
           1
         ],
-        "mae_peso": 0.2252,
-        "rmse_peso": 0.3231,
-        "n": 353
+        "mae_peso": 0.2268,
+        "rmse_peso": 0.324,
+        "n": 355
       },
       "beats_arima": true,
       "forecaster": "adaptive_ensemble",
@@ -942,39 +947,39 @@
             0.313
           ],
           "arima": [
-            0.334,
-            0.339,
+            0.336,
+            0.34,
             0.343
           ],
           "kalman": [
-            0.338,
-            0.349,
+            0.336,
+            0.348,
             0.344
           ]
         }
       },
       "hybrid": {
-        "mae_peso": 0.2365,
-        "skill_vs_baseline_pct": 7.27,
+        "mae_peso": 0.238,
+        "skill_vs_baseline_pct": 7.31,
         "beats_arima": false,
         "directional_pct": [
-          53.9,
-          65.2,
-          60.9
+          53.3,
+          61.6,
+          61.6
         ]
       },
       "shock": {
         "pct": 90,
         "threshold_peso": 0.86,
         "count": 36,
-        "lstm_mae_peso": 0.4631,
+        "lstm_mae_peso": 0.4632,
         "baseline_mae_peso": 0.6762,
         "beats_baseline": true
       },
-      "adf_pvalue": 0.2121,
+      "adf_pvalue": 0.2137,
       "train_samples": 3713,
-      "val_samples": 189,
-      "test_samples": 353,
+      "val_samples": 191,
+      "test_samples": 355,
       "split_policy": "regime_aware_active_from_2025-04-01",
       "split_dates": {
         "train": [
@@ -983,23 +988,18 @@
         ],
         "val": [
           "2025-04-01",
-          "2025-10-06"
+          "2025-10-08"
         ],
         "test": [
-          "2025-10-07",
-          "2026-09-24"
+          "2025-10-09",
+          "2026-09-28"
         ]
       },
       "flat_pct_by_split": {
         "train": 79.7,
         "val": 4.2,
-        "test": 9.1
-      },
-      "directional_n": [
-        321,
-        339,
-        350
-      ]
+        "test": 9.0
+      }
     },
     "impWellMilled": {
       "target": "impWellMilled",
@@ -1021,43 +1021,43 @@
       "backend": "tensorflow",
       "delta_mode": true,
       "seed": 42,
-      "mae_peso": 0.2828,
-      "rmse_peso": 0.7016,
-      "mape_pct": 0.6199,
-      "r2": 0.8823,
+      "mae_peso": 0.2809,
+      "rmse_peso": 0.6974,
+      "mape_pct": 0.6153,
+      "r2": 0.8827,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.6405,
-          0.5914,
-          0.0941,
-          0.0313,
-          0.0498
+          0.6331,
+          0.5869,
+          0.0933,
+          0.0315,
+          0.0597
         ],
-        "mean": 0.2814,
-        "std": 0.2743
+        "mean": 0.2809,
+        "std": 0.2698
       },
-      "accuracy_pct": 99.35,
+      "accuracy_pct": 99.36,
       "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
       "hit_rate_pct": {
         "0.25": [
-          78.2,
-          74.8,
-          72.5
+          78.9,
+          75.2,
+          72.4
         ],
         "0.50": [
           87.0,
-          83.6,
-          82.2
+          83.9,
+          82.0
         ],
         "1.00": [
-          94.3,
-          92.4,
-          90.4
+          94.6,
+          92.7,
+          90.7
         ],
         "1.50": [
-          96.9,
+          96.6,
           95.5,
           94.1
         ],
@@ -1069,22 +1069,22 @@
       },
       "baseline_hit_rate_pct": {
         "0.25": [
-          79.9,
-          73.7,
-          71.7
+          80.3,
+          74.1,
+          71.8
         ],
         "0.50": [
-          86.7,
-          82.4,
-          80.5
+          87.0,
+          82.8,
+          80.8
         ],
         "1.00": [
-          93.5,
-          91.2,
-          90.4
+          93.8,
+          91.5,
+          90.7
         ],
         "1.50": [
-          96.0,
+          96.1,
           94.9,
           93.5
         ],
@@ -1095,34 +1095,39 @@
         ]
       },
       "directional_pct": [
-        65.6,
-        65.3,
-        68.5
+        64.0,
+        64.5,
+        68.3
+      ],
+      "directional_n": [
+        211,
+        265,
+        278
       ],
       "lstm_ablation": {
         "test": "mcnemar_paired_directional",
         "subset": "genuine_signal_only",
-        "n_scored": 484,
-        "lstm_fixes": 23,
-        "lstm_breaks": 38,
-        "n_discordant": 61,
-        "chi_square": 3.213,
-        "p_value": 0.07305,
+        "n_scored": 490,
+        "lstm_fixes": 20,
+        "lstm_breaks": 35,
+        "n_discordant": 55,
+        "chi_square": 3.564,
+        "p_value": 0.05906,
         "significant_at_05": false,
-        "directional_pct_with_lstm": 65.9,
-        "directional_pct_reversion_only": 69.0,
-        "excluded_tie_rows": 263,
-        "tie_row_share_pct": 35.2
+        "directional_pct_with_lstm": 65.5,
+        "directional_pct_reversion_only": 68.6,
+        "excluded_tie_rows": 264,
+        "tie_row_share_pct": 35.0
       },
       "movement": {
-        "pred_abs_change_peso": 0.1073,
-        "true_abs_change_peso": 0.2921,
-        "ratio": 0.3673
+        "pred_abs_change_peso": 0.1083,
+        "true_abs_change_peso": 0.2887,
+        "ratio": 0.3751
       },
       "reversion": {
         "phi": [
           [
-            -0.1822
+            -0.1812
           ],
           [
             -0.2688
@@ -1133,36 +1138,36 @@
         ],
         "n_lags": 1,
         "t_stat": [
-          -4.347,
-          -5.581,
-          -6.298
+          -4.344,
+          -5.585,
+          -6.304
         ],
-        "n_fit": 187,
+        "n_fit": 189,
         "applied": true,
         "shrink": 0.6,
         "min_abs_t": 2.0,
         "fit_rows": [
           3743,
-          3932
+          3934
         ],
         "rolling_window": 120,
         "scored_with": "rolling",
         "weekday_mode": true
       },
-      "skill_vs_baseline_pct": 3.19,
+      "skill_vs_baseline_pct": 2.69,
       "per_horizon_mae_peso": [
-        0.2354,
-        0.2829,
+        0.2325,
+        0.2801,
         0.3301
       ],
       "per_horizon_accuracy_pct": [
-        99.46,
-        99.35,
+        99.47,
+        99.36,
         99.24
       ],
-      "baseline_mae_peso": 0.2921,
-      "baseline_rmse_peso": 0.7454,
-      "baseline_accuracy_pct": 99.33,
+      "baseline_mae_peso": 0.2887,
+      "baseline_rmse_peso": 0.7406,
+      "baseline_accuracy_pct": 99.34,
       "beats_baseline": true,
       "arima": {
         "order": [
@@ -1170,9 +1175,9 @@
           1,
           1
         ],
-        "mae_peso": 0.2972,
-        "rmse_peso": 0.7037,
-        "n": 353
+        "mae_peso": 0.2929,
+        "rmse_peso": 0.6984,
+        "n": 355
       },
       "beats_arima": true,
       "forecaster": "adaptive_ensemble",
@@ -1187,44 +1192,44 @@
         "warmup_origins": 45,
         "mean_weights_test": {
           "hybrid": [
-            0.311,
-            0.306,
-            0.305
+            0.313,
+            0.307,
+            0.307
           ],
           "arima": [
-            0.332,
+            0.33,
             0.344,
-            0.338
+            0.339
           ],
           "kalman": [
-            0.357,
+            0.358,
             0.35,
-            0.357
+            0.355
           ]
         }
       },
       "hybrid": {
-        "mae_peso": 0.2866,
-        "skill_vs_baseline_pct": 1.88,
+        "mae_peso": 0.2823,
+        "skill_vs_baseline_pct": 2.2,
         "beats_arima": true,
         "directional_pct": [
-          61.2,
-          60.7,
-          58.3
+          60.2,
+          61.1,
+          57.9
         ]
       },
       "shock": {
         "pct": 90,
-        "threshold_peso": 1.242,
+        "threshold_peso": 1.21,
         "count": 36,
-        "lstm_mae_peso": 1.4636,
-        "baseline_mae_peso": 1.6613,
+        "lstm_mae_peso": 1.445,
+        "baseline_mae_peso": 1.6574,
         "beats_baseline": true
       },
-      "adf_pvalue": 0.1087,
+      "adf_pvalue": 0.1106,
       "train_samples": 3713,
-      "val_samples": 189,
-      "test_samples": 353,
+      "val_samples": 191,
+      "test_samples": 355,
       "split_policy": "regime_aware_active_from_2025-04-01",
       "split_dates": {
         "train": [
@@ -1233,23 +1238,18 @@
         ],
         "val": [
           "2025-04-01",
-          "2025-10-06"
+          "2025-10-08"
         ],
         "test": [
-          "2025-10-07",
-          "2026-09-24"
+          "2025-10-09",
+          "2026-09-28"
         ]
       },
       "flat_pct_by_split": {
         "train": 81.3,
-        "val": 24.3,
-        "test": 40.8
-      },
-      "directional_n": [
-        209,
-        262,
-        276
-      ]
+        "val": 24.6,
+        "test": 40.6
+      }
     },
     "impRegular": {
       "target": "impRegular",
@@ -1271,35 +1271,35 @@
       "backend": "tensorflow",
       "delta_mode": true,
       "seed": 42,
-      "mae_peso": 0.3287,
-      "rmse_peso": 0.5902,
-      "mape_pct": 0.7762,
-      "r2": 0.9613,
+      "mae_peso": 0.3244,
+      "rmse_peso": 0.5875,
+      "mape_pct": 0.7654,
+      "r2": 0.9614,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.4267,
-          0.3971,
-          0.3177,
-          0.3465,
-          0.1535
+          0.4239,
+          0.3886,
+          0.3212,
+          0.3485,
+          0.1398
         ],
-        "mean": 0.3283,
-        "std": 0.0953
+        "mean": 0.3244,
+        "std": 0.0987
       },
-      "accuracy_pct": 99.17,
+      "accuracy_pct": 99.18,
       "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
       "hit_rate_pct": {
         "0.25": [
-          73.4,
-          62.9,
-          55.2
+          73.2,
+          63.7,
+          55.8
         ],
         "0.50": [
-          82.7,
-          80.7,
-          78.8
+          82.8,
+          81.1,
+          79.2
         ],
         "1.00": [
           93.5,
@@ -1319,24 +1319,24 @@
       },
       "baseline_hit_rate_pct": {
         "0.25": [
-          67.7,
-          62.9,
-          52.4
+          68.5,
+          63.4,
+          53.2
         ],
         "0.50": [
-          78.5,
-          75.9,
-          74.8
+          78.6,
+          76.3,
+          75.2
         ],
         "1.00": [
           93.2,
-          88.4,
-          87.8
+          88.5,
+          87.9
         ],
         "1.50": [
           95.5,
           93.2,
-          92.9
+          93.0
         ],
         "2.00": [
           98.0,
@@ -1345,60 +1345,65 @@
         ]
       },
       "directional_pct": [
-        45.7,
-        46.1,
-        47.8
+        46.2,
+        46.5,
+        47.3
+      ],
+      "directional_n": [
+        208,
+        230,
+        245
       ],
       "lstm_ablation": null,
       "movement": {
-        "pred_abs_change_peso": 0.1325,
-        "true_abs_change_peso": 0.346,
-        "ratio": 0.3831
+        "pred_abs_change_peso": 0.131,
+        "true_abs_change_peso": 0.3412,
+        "ratio": 0.384
       },
       "reversion": {
         "phi": [
           [
-            -0.2688
+            -0.2622
           ],
           [
-            -0.3313
+            -0.3307
           ],
           [
-            -0.2578
+            -0.2651
           ]
         ],
         "n_lags": 1,
         "t_stat": [
-          -6.758,
-          -8.109,
-          -6.236
+          -6.66,
+          -8.308,
+          -6.547
         ],
-        "n_fit": 187,
+        "n_fit": 189,
         "applied": true,
         "shrink": 0.6,
         "min_abs_t": 2.0,
         "fit_rows": [
           3743,
-          3932
+          3934
         ],
         "rolling_window": 120,
         "scored_with": "rolling",
         "weekday_mode": true
       },
-      "skill_vs_baseline_pct": 4.98,
+      "skill_vs_baseline_pct": 4.92,
       "per_horizon_mae_peso": [
-        0.2696,
-        0.334,
-        0.3826
+        0.2657,
+        0.3293,
+        0.3782
       ],
       "per_horizon_accuracy_pct": [
-        99.32,
-        99.16,
-        99.04
+        99.33,
+        99.17,
+        99.05
       ],
-      "baseline_mae_peso": 0.346,
-      "baseline_rmse_peso": 0.6417,
-      "baseline_accuracy_pct": 99.13,
+      "baseline_mae_peso": 0.3412,
+      "baseline_rmse_peso": 0.6385,
+      "baseline_accuracy_pct": 99.14,
       "beats_baseline": true,
       "arima": {
         "order": [
@@ -1406,9 +1411,9 @@
           1,
           1
         ],
-        "mae_peso": 0.3533,
-        "rmse_peso": 0.6122,
-        "n": 353
+        "mae_peso": 0.3489,
+        "rmse_peso": 0.6093,
+        "n": 355
       },
       "beats_arima": true,
       "forecaster": "adaptive_ensemble",
@@ -1424,43 +1429,43 @@
         "mean_weights_test": {
           "hybrid": [
             0.367,
-            0.345,
-            0.342
+            0.344,
+            0.341
           ],
           "arima": [
-            0.313,
-            0.313,
-            0.312
+            0.314,
+            0.314,
+            0.313
           ],
           "kalman": [
-            0.32,
+            0.319,
             0.342,
             0.346
           ]
         }
       },
       "hybrid": {
-        "mae_peso": 0.3286,
-        "skill_vs_baseline_pct": 5.03,
+        "mae_peso": 0.3235,
+        "skill_vs_baseline_pct": 5.16,
         "beats_arima": true,
         "directional_pct": [
-          62.4,
-          59.5,
-          45.3
+          62.5,
+          59.6,
+          44.9
         ]
       },
       "shock": {
         "pct": 90,
-        "threshold_peso": 1.706,
+        "threshold_peso": 1.692,
         "count": 36,
-        "lstm_mae_peso": 1.0788,
+        "lstm_mae_peso": 1.0791,
         "baseline_mae_peso": 1.2712,
         "beats_baseline": true
       },
-      "adf_pvalue": 0.1085,
+      "adf_pvalue": 0.1084,
       "train_samples": 3713,
-      "val_samples": 189,
-      "test_samples": 353,
+      "val_samples": 191,
+      "test_samples": 355,
       "split_policy": "regime_aware_active_from_2025-04-01",
       "split_dates": {
         "train": [
@@ -1469,23 +1474,18 @@
         ],
         "val": [
           "2025-04-01",
-          "2025-10-06"
+          "2025-10-08"
         ],
         "test": [
-          "2025-10-07",
-          "2026-09-24"
+          "2025-10-09",
+          "2026-09-28"
         ]
       },
       "flat_pct_by_split": {
         "train": 83.5,
-        "val": 21.2,
-        "test": 40.5
-      },
-      "directional_n": [
-        210,
-        232,
-        247
-      ]
+        "val": 20.9,
+        "test": 41.4
+      }
     },
     "impPremium": {
       "target": "impPremium",
@@ -1507,35 +1507,35 @@
       "backend": "tensorflow",
       "delta_mode": true,
       "seed": 42,
-      "mae_peso": 0.3094,
-      "rmse_peso": 0.547,
-      "mape_pct": 0.5876,
-      "r2": 0.9766,
+      "mae_peso": 0.3086,
+      "rmse_peso": 0.5456,
+      "mape_pct": 0.5855,
+      "r2": 0.9762,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.3751,
-          0.3602,
-          0.2087,
-          0.3908,
-          0.2118
+          0.3697,
+          0.3645,
+          0.2035,
+          0.3902,
+          0.2152
         ],
-        "mean": 0.3093,
-        "std": 0.0815
+        "mean": 0.3086,
+        "std": 0.0816
       },
       "accuracy_pct": 99.36,
       "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
       "hit_rate_pct": {
         "0.25": [
-          72.0,
-          61.2,
+          71.8,
+          61.4,
           54.4
         ],
         "0.50": [
-          88.1,
-          84.1,
-          79.3
+          88.2,
+          84.2,
+          79.7
         ],
         "1.00": [
           95.8,
@@ -1555,18 +1555,18 @@
       },
       "baseline_hit_rate_pct": {
         "0.25": [
-          72.8,
+          73.0,
           63.7,
-          57.2
+          56.9
         ],
         "0.50": [
           88.7,
-          85.0,
-          79.6
+          85.1,
+          79.7
         ],
         "1.00": [
           95.2,
-          94.3,
+          94.4,
           91.8
         ],
         "1.50": [
@@ -1581,73 +1581,78 @@
         ]
       },
       "directional_pct": [
-        50.3,
+        50.0,
         48.0,
-        51.0
+        51.6
+      ],
+      "directional_n": [
+        330,
+        346,
+        349
       ],
       "lstm_ablation": {
         "test": "mcnemar_paired_directional",
         "subset": "genuine_signal_only",
-        "n_scored": 706,
+        "n_scored": 712,
         "lstm_fixes": 32,
         "lstm_breaks": 26,
         "n_discordant": 58,
         "chi_square": 0.431,
         "p_value": 0.5115,
         "significant_at_05": false,
-        "directional_pct_with_lstm": 54.0,
-        "directional_pct_reversion_only": 53.1,
+        "directional_pct_with_lstm": 53.8,
+        "directional_pct_reversion_only": 52.9,
         "excluded_tie_rows": 313,
-        "tie_row_share_pct": 30.7
+        "tie_row_share_pct": 30.5
       },
       "movement": {
-        "pred_abs_change_peso": 0.1152,
-        "true_abs_change_peso": 0.3177,
-        "ratio": 0.3625
+        "pred_abs_change_peso": 0.1148,
+        "true_abs_change_peso": 0.3171,
+        "ratio": 0.362
       },
       "reversion": {
         "phi": [
           [
-            -0.1379
+            -0.1372
           ],
           [
-            -0.1673
+            -0.1681
           ],
           [
-            -0.2706
+            -0.2719
           ]
         ],
         "n_lags": 1,
         "t_stat": [
-          -3.221,
-          -3.14,
-          -4.603
+          -3.224,
+          -3.179,
+          -4.656
         ],
-        "n_fit": 187,
+        "n_fit": 189,
         "applied": true,
         "shrink": 0.6,
         "min_abs_t": 2.0,
         "fit_rows": [
           3743,
-          3932
+          3934
         ],
         "rolling_window": 120,
         "scored_with": "rolling",
         "weekday_mode": true
       },
-      "skill_vs_baseline_pct": 2.63,
+      "skill_vs_baseline_pct": 2.68,
       "per_horizon_mae_peso": [
-        0.2411,
-        0.3136,
-        0.3734
+        0.2404,
+        0.3129,
+        0.3725
       ],
       "per_horizon_accuracy_pct": [
         99.5,
         99.35,
         99.23
       ],
-      "baseline_mae_peso": 0.3177,
-      "baseline_rmse_peso": 0.581,
+      "baseline_mae_peso": 0.3171,
+      "baseline_rmse_peso": 0.5797,
       "baseline_accuracy_pct": 99.34,
       "beats_baseline": true,
       "arima": {
@@ -1656,9 +1661,9 @@
           1,
           1
         ],
-        "mae_peso": 0.3509,
-        "rmse_peso": 0.5979,
-        "n": 353
+        "mae_peso": 0.3505,
+        "rmse_peso": 0.5968,
+        "n": 355
       },
       "beats_arima": true,
       "forecaster": "adaptive_ensemble",
@@ -1673,44 +1678,44 @@
         "warmup_origins": 45,
         "mean_weights_test": {
           "hybrid": [
-            0.366,
-            0.362,
+            0.367,
+            0.363,
             0.362
           ],
           "arima": [
-            0.297,
+            0.296,
             0.306,
             0.298
           ],
           "kalman": [
             0.337,
-            0.332,
+            0.331,
             0.34
           ]
         }
       },
       "hybrid": {
-        "mae_peso": 0.2931,
-        "skill_vs_baseline_pct": 7.75,
+        "mae_peso": 0.2923,
+        "skill_vs_baseline_pct": 7.84,
         "beats_arima": true,
         "directional_pct": [
-          57.9,
+          57.3,
           47.1,
-          56.2
+          56.4
         ]
       },
       "shock": {
         "pct": 90,
-        "threshold_peso": 1.162,
+        "threshold_peso": 1.154,
         "count": 36,
-        "lstm_mae_peso": 1.0136,
+        "lstm_mae_peso": 1.0134,
         "baseline_mae_peso": 1.1884,
         "beats_baseline": true
       },
-      "adf_pvalue": 0.1147,
+      "adf_pvalue": 0.1186,
       "train_samples": 3713,
-      "val_samples": 189,
-      "test_samples": 353,
+      "val_samples": 191,
+      "test_samples": 355,
       "split_policy": "regime_aware_active_from_2025-04-01",
       "split_dates": {
         "train": [
@@ -1719,23 +1724,18 @@
         ],
         "val": [
           "2025-04-01",
-          "2025-10-06"
+          "2025-10-08"
         ],
         "test": [
-          "2025-10-07",
-          "2026-09-24"
+          "2025-10-09",
+          "2026-09-28"
         ]
       },
       "flat_pct_by_split": {
         "train": 79.3,
-        "val": 4.8,
-        "test": 7.1
-      },
-      "directional_n": [
-        328,
-        344,
-        347
-      ]
+        "val": 4.7,
+        "test": 7.0
+      }
     },
     "impSpecial": {
       "target": "impSpecial",
@@ -1757,72 +1757,72 @@
       "backend": "tensorflow",
       "delta_mode": true,
       "seed": 42,
-      "mae_peso": 0.3394,
-      "rmse_peso": 0.5242,
-      "mape_pct": 0.5671,
-      "r2": 0.7104,
+      "mae_peso": 0.3338,
+      "rmse_peso": 0.5174,
+      "mape_pct": 0.5575,
+      "r2": 0.7068,
       "rolling_eval": {
         "method": "blocked rolling-origin over held-out test (no refit)",
         "k": 5,
         "block_mae": [
-          0.5245,
-          0.2931,
-          0.2976,
-          0.3429,
-          0.2378
+          0.5049,
+          0.2917,
+          0.3082,
+          0.3351,
+          0.2291
         ],
-        "mean": 0.3392,
-        "std": 0.0985
+        "mean": 0.3338,
+        "std": 0.0924
       },
-      "accuracy_pct": 99.38,
+      "accuracy_pct": 99.39,
       "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
       "hit_rate_pct": {
         "0.25": [
-          62.0,
+          62.8,
           54.4,
-          50.1
+          51.3
         ],
         "0.50": [
-          79.9,
-          77.3,
-          75.6
+          80.6,
+          77.5,
+          75.8
         ],
         "1.00": [
-          94.6,
-          94.1,
+          94.9,
+          94.4,
           94.1
         ],
         "1.50": [
-          97.5,
+          97.7,
           97.5,
           97.2
         ],
         "2.00": [
-          98.6,
+          98.9,
           98.9,
           98.9
         ]
       },
       "baseline_hit_rate_pct": {
         "0.25": [
-          58.6,
-          51.8,
-          47.3
+          59.4,
+          52.4,
+          47.9
         ],
         "0.50": [
-          75.1,
-          69.4,
-          65.7
+          75.5,
+          69.9,
+          65.9
         ],
         "1.00": [
-          90.1,
-          89.2,
+          90.4,
+          89.6,
           88.7
         ],
         "1.50": [
-          94.6,
           94.9,
-          94.3
+          94.9,
+          94.4
         ],
         "2.00": [
           98.6,
@@ -1831,74 +1831,79 @@
         ]
       },
       "directional_pct": [
-        68.9,
-        65.3,
-        70.1
+        69.8,
+        66.1,
+        70.3
+      ],
+      "directional_n": [
+        245,
+        274,
+        296
       ],
       "lstm_ablation": {
         "test": "mcnemar_paired_directional",
         "subset": "genuine_signal_only",
-        "n_scored": 601,
+        "n_scored": 604,
         "lstm_fixes": 5,
-        "lstm_breaks": 4,
-        "n_discordant": 9,
-        "chi_square": 0.0,
-        "p_value": 1.0,
+        "lstm_breaks": 5,
+        "n_discordant": 10,
+        "chi_square": 0.1,
+        "p_value": 0.7518,
         "significant_at_05": false,
-        "directional_pct_with_lstm": 64.9,
-        "directional_pct_reversion_only": 64.7,
-        "excluded_tie_rows": 208,
-        "tie_row_share_pct": 25.7
+        "directional_pct_with_lstm": 64.4,
+        "directional_pct_reversion_only": 64.4,
+        "excluded_tie_rows": 211,
+        "tie_row_share_pct": 25.9
       },
       "movement": {
-        "pred_abs_change_peso": 0.1822,
-        "true_abs_change_peso": 0.3955,
-        "ratio": 0.4608
+        "pred_abs_change_peso": 0.1803,
+        "true_abs_change_peso": 0.39,
+        "ratio": 0.4623
       },
       "reversion": {
         "phi": [
           [
-            -0.2051
+            -0.2053
           ],
           [
-            -0.2321
+            -0.2322
           ],
           [
-            -0.2419
+            -0.2417
           ]
         ],
         "n_lags": 1,
         "t_stat": [
-          -4.96,
-          -4.872,
-          -4.655
+          -4.986,
+          -4.897,
+          -4.676
         ],
-        "n_fit": 187,
+        "n_fit": 189,
         "applied": true,
         "shrink": 0.6,
         "min_abs_t": 2.0,
         "fit_rows": [
           3743,
-          3932
+          3934
         ],
         "rolling_window": 120,
         "scored_with": "rolling",
         "weekday_mode": true
       },
-      "skill_vs_baseline_pct": 14.17,
+      "skill_vs_baseline_pct": 14.42,
       "per_horizon_mae_peso": [
-        0.3093,
-        0.3449,
-        0.3641
+        0.3016,
+        0.3388,
+        0.361
       ],
       "per_horizon_accuracy_pct": [
-        99.43,
-        99.37,
-        99.33
+        99.45,
+        99.38,
+        99.34
       ],
-      "baseline_mae_peso": 0.3955,
-      "baseline_rmse_peso": 0.6404,
-      "baseline_accuracy_pct": 99.27,
+      "baseline_mae_peso": 0.39,
+      "baseline_rmse_peso": 0.6344,
+      "baseline_accuracy_pct": 99.28,
       "beats_baseline": true,
       "arima": {
         "order": [
@@ -1906,9 +1911,9 @@
           1,
           1
         ],
-        "mae_peso": 0.3425,
-        "rmse_peso": 0.5177,
-        "n": 353
+        "mae_peso": 0.3368,
+        "rmse_peso": 0.5121,
+        "n": 355
       },
       "beats_arima": true,
       "forecaster": "adaptive_ensemble",
@@ -1924,7 +1929,7 @@
         "mean_weights_test": {
           "hybrid": [
             0.339,
-            0.324,
+            0.323,
             0.309
           ],
           "arima": [
@@ -1933,34 +1938,34 @@
             0.369
           ],
           "kalman": [
-            0.305,
-            0.313,
+            0.306,
+            0.314,
             0.322
           ]
         }
       },
       "hybrid": {
-        "mae_peso": 0.3579,
-        "skill_vs_baseline_pct": 9.49,
+        "mae_peso": 0.3528,
+        "skill_vs_baseline_pct": 9.55,
         "beats_arima": false,
         "directional_pct": [
-          66.0,
-          60.1,
-          59.2
+          65.7,
+          59.1,
+          59.8
         ]
       },
       "shock": {
         "pct": 90,
-        "threshold_peso": 1.644,
+        "threshold_peso": 1.616,
         "count": 36,
-        "lstm_mae_peso": 0.7885,
-        "baseline_mae_peso": 1.1621,
+        "lstm_mae_peso": 0.7837,
+        "baseline_mae_peso": 1.1657,
         "beats_baseline": true
       },
-      "adf_pvalue": 0.1355,
+      "adf_pvalue": 0.1353,
       "train_samples": 3713,
-      "val_samples": 189,
-      "test_samples": 353,
+      "val_samples": 191,
+      "test_samples": 355,
       "split_policy": "regime_aware_active_from_2025-04-01",
       "split_dates": {
         "train": [
@@ -1969,23 +1974,18 @@
         ],
         "val": [
           "2025-04-01",
-          "2025-10-06"
+          "2025-10-08"
         ],
         "test": [
-          "2025-10-07",
-          "2026-09-24"
+          "2025-10-09",
+          "2026-09-28"
         ]
       },
       "flat_pct_by_split": {
         "train": 78.5,
-        "val": 25.9,
-        "test": 30.9
-      },
-      "directional_n": [
-        244,
-        271,
-        294
-      ]
+        "val": 25.7,
+        "test": 31.0
+      }
     }
   },
   "trained_types": [
@@ -2004,17 +2004,17 @@
   "seed": 42,
   "hit_rate_pct": {
     "0.50": [
-      87.0,
-      84.0,
-      81.9
+      87.1,
+      84.2,
+      82.0
     ],
     "1.00": [
-      96.1,
-      95.4,
+      96.2,
+      95.5,
       94.8
     ],
     "1.50": [
-      98.5,
+      98.4,
       97.9,
       97.5
     ],
@@ -2024,28 +2024,28 @@
       98.7
     ]
   },
-  "skill_vs_baseline_pct": 10.06,
+  "skill_vs_baseline_pct": 10.17,
   "lstm_ablation": {
     "test": "mcnemar_paired_directional_pooled",
     "subset": "genuine_signal_only",
     "types_pooled": 7,
-    "n_scored": 5452,
-    "lstm_fixes": 149,
-    "lstm_breaks": 151,
-    "n_discordant": 300,
-    "chi_square": 0.003,
-    "p_value": 0.954,
+    "n_scored": 5487,
+    "lstm_fixes": 142,
+    "lstm_breaks": 148,
+    "n_discordant": 290,
+    "chi_square": 0.086,
+    "p_value": 0.7691,
     "significant_at_05": false,
-    "directional_pct_with_lstm": 62.1,
+    "directional_pct_with_lstm": 62.0,
     "directional_pct_reversion_only": 62.3,
     "verdict": "LSTM shows no significant contribution over the reversion coefficient alone."
   },
   "forecaster": "adaptive_ensemble",
   "beats_arima_count": 8,
-  "hybrid_skill_vs_baseline_pct": 7.8,
-  "hybrid_beats_arima_count": 4,
-  "movement_ratio": 0.408,
-  "last_date": "2026-09-26",
+  "hybrid_skill_vs_baseline_pct": 7.99,
+  "hybrid_beats_arima_count": 3,
+  "movement_ratio": 0.4074,
+  "last_date": "2026-09-30",
   "target": "locWellMilled",
   "features": [
     "locWellMilled",
@@ -2063,34 +2063,34 @@
     "locWellMilled_roll7"
   ],
   "backend": "tensorflow",
-  "mae_peso": 0.2799,
-  "rmse_peso": 0.4204,
-  "mape_pct": 0.5933,
-  "r2": 0.9768,
+  "mae_peso": 0.2812,
+  "rmse_peso": 0.4211,
+  "mape_pct": 0.5957,
+  "r2": 0.9766,
   "rolling_eval": {
     "method": "blocked rolling-origin over held-out test (no refit)",
     "k": 5,
     "block_mae": [
-      0.2484,
-      0.2297,
-      0.4202,
-      0.2083,
-      0.292
+      0.2483,
+      0.2325,
+      0.4198,
+      0.2156,
+      0.29
     ],
-    "mean": 0.2797,
-    "std": 0.0755
+    "mean": 0.2812,
+    "std": 0.0735
   },
   "accuracy_pct": 99.39,
   "primary_accuracy_pct": 99.37,
   "avg_accuracy_pct": 99.39,
-  "baseline_mae_peso": 0.325,
-  "baseline_rmse_peso": 0.4857,
+  "baseline_mae_peso": 0.3264,
+  "baseline_rmse_peso": 0.4862,
   "baseline_accuracy_pct": 99.27,
   "beats_baseline": true,
-  "adf_pvalue": 0.1095,
+  "adf_pvalue": 0.1122,
   "train_samples": 3713,
-  "val_samples": 189,
-  "test_samples": 353,
+  "val_samples": 191,
+  "test_samples": 355,
   "split_policy": "regime_aware_active_from_2025-04-01",
   "split_dates": {
     "train": [
@@ -2099,16 +2099,16 @@
     ],
     "val": [
       "2025-04-01",
-      "2025-10-06"
+      "2025-10-08"
     ],
     "test": [
-      "2025-10-07",
-      "2026-09-24"
+      "2025-10-09",
+      "2026-09-28"
     ]
   },
   "flat_pct_by_split": {
     "train": 81.9,
-    "val": 5.3,
-    "test": 8.8
+    "val": 5.2,
+    "test": 8.7
   }
 }

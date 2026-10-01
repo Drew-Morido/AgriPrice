@@ -15,12 +15,18 @@ from user_store import get_admin_account, get_admin_account_by_username, get_met
 
 # The built-in admin (credentials in system_settings.json) is always the Super Admin. Additional
 # admin accounts created from Admin → User Management live in agriprice_users.db (admin_accounts)
-# with their own password + 6-digit access code, and are either 'super_admin' (may manage other
-# admin accounts) or 'admin' (may manage retailer accounts only).
+# with their own password + 6-digit access code, and are either 'super_admin' (everything) or
+# 'admin' (day-to-day operator: no User Management, no Settings changes, no model training, no
+# clearing logs or deleting reports — enforced in api/app.py by _require_super_admin/_um_guard).
 ROLE_SUPER_ADMIN = "super_admin"
 ROLE_ADMIN = "admin"
 ADMIN_ROLES = (ROLE_SUPER_ADMIN, ROLE_ADMIN)
 DEACTIVATED_ADMIN_MSG = "This admin account has been deactivated. Contact the Super Admin."
+
+# The documented first-run login. Still accepted so a fresh install can sign in, but a session
+# opened with either default is limited to changing them (api/app.py MUST_CHANGE_MSG).
+DEFAULT_ADMIN_PASSWORD = "Admin@123"
+DEFAULT_ACCESS_CODE = "123456"
 
 MAX_ATTEMPTS = 5
 LOCKOUT_SECONDS = 15 * 60
@@ -35,7 +41,7 @@ def _migrate_security(sec: dict) -> dict:
     if not sec.get("admin_username"):
         sec["admin_username"] = "admin"
     if not sec.get("admin_password_hash"):
-        sec["admin_password_hash"] = _hash_password("Admin@123")
+        sec["admin_password_hash"] = _hash_password(DEFAULT_ADMIN_PASSWORD)
     plain = sec.get("admin_access_code")
     if plain and not sec.get("admin_access_code_hash"):
         digits = "".join(c for c in str(plain) if c.isdigit())
@@ -43,7 +49,7 @@ def _migrate_security(sec: dict) -> dict:
             sec["admin_access_code_hash"] = _hash_password(digits)
         sec.pop("admin_access_code", None)
     if not sec.get("admin_access_code_hash"):
-        sec["admin_access_code_hash"] = _hash_password("123456")
+        sec["admin_access_code_hash"] = _hash_password(DEFAULT_ACCESS_CODE)
     return sec
 
 
@@ -87,6 +93,18 @@ def verify_access_code(code: str) -> bool:
     return bool(plain and digits == str(plain).strip())
 
 
+def verify_admin_pin(me: dict, pin: str) -> bool:
+    """Does `pin` match the 6-digit PIN of the admin making this request? Used to confirm sensitive
+    edits (re-authentication), on top of the session they already have."""
+    digits = "".join(c for c in str(pin or "") if c.isdigit())
+    if len(digits) != 6 or not me:
+        return False
+    if me.get("kind") == "account":
+        acct = get_admin_account(me.get("id"))
+        return bool(acct and acct.get("status") == "active" and check_password_hash(acct["access_code_hash"], digits))
+    return verify_access_code(digits)
+
+
 def primary_admin_username() -> str:
     return _security().get("admin_username", "admin")
 
@@ -99,6 +117,7 @@ def _primary_identity() -> dict[str, Any]:
         "username": sec.get("admin_username", "admin"),
         "name": sec.get("admin_display_name") or "Admin User",
         "role": ROLE_SUPER_ADMIN,
+        "avatar": sec.get("admin_avatar") or "",
     }
 
 
@@ -109,6 +128,7 @@ def _account_identity(acct: dict) -> dict[str, Any]:
         "username": acct["username"],
         "name": acct["name"],
         "role": acct["role"] if acct["role"] in ADMIN_ROLES else ROLE_ADMIN,
+        "avatar": acct.get("avatar") or "",
     }
 
 
@@ -153,7 +173,9 @@ def authenticate_admin(username: str, password: str, access_code: str) -> tuple[
     if not verify_access_code(access_code):
         return False, "Invalid access code.", None
     _touch_primary_login()
-    return True, "", _primary_identity()
+    digits = "".join(c for c in str(access_code) if c.isdigit())
+    return True, "", {**_primary_identity(),
+                      "must_change_credentials": password == DEFAULT_ADMIN_PASSWORD or digits == DEFAULT_ACCESS_CODE}
 
 
 def _touch_primary_login() -> None:
@@ -180,10 +202,23 @@ def verify_admin_credentials(username: str, password: str, access_code: str) -> 
     return ok, err
 
 
+EASY_PIN_MSG = "Choose a PIN that is harder to guess (not 123456, 111111, 121212 and the like)."
+
+
+def easy_pin(digits: str) -> bool:
+    """All one digit, a straight run (123456 / 654321), or a repeated pair/triple (121212, 123123)."""
+    if len(digits) != 6:
+        return False
+    return (len(set(digits)) == 1 or digits in "01234567890" or digits in "09876543210"
+            or digits[:3] == digits[3:] or digits[:2] * 3 == digits)
+
+
 def set_admin_access_code(new_code: str) -> tuple[bool, str]:
     digits = "".join(c for c in str(new_code) if c.isdigit())
     if len(digits) != 6:
         return False, "Access code must be exactly 6 numbers."
+    if digits == DEFAULT_ACCESS_CODE or easy_pin(digits):
+        return False, EASY_PIN_MSG
     data = _load_raw()
     sec = _migrate_security(data.get("security") or {})
     sec["admin_access_code_hash"] = _hash_password(digits)
@@ -191,6 +226,59 @@ def set_admin_access_code(new_code: str) -> tuple[bool, str]:
     data["security"] = sec
     _save_raw(data)
     return True, "Access code updated."
+
+
+def _password_problem(password: str, username: str) -> str:
+    import re
+    if (len(password) < 8 or not re.search(r"[A-Z]", password) or not re.search(r"[a-z]", password)
+            or not re.search(r"[0-9]", password)):
+        return "Password must be at least 8 characters with uppercase, lowercase, and a number."
+    if password == DEFAULT_ADMIN_PASSWORD:
+        return "Choose a password other than the default one."
+    if username and len(username) >= 3 and username.lower() in password.lower():
+        return "The password must not contain the username."
+    return ""
+
+
+def change_primary_credentials(current_password: str, new_password: str | None = None,
+                               new_code: str | None = None) -> tuple[bool, str]:
+    """Replace the built-in admin's password and/or 6-digit PIN after checking the current password.
+    Once neither default remains, lifts the "change the defaults first" restriction on that admin's
+    open sessions."""
+    data = _load_raw()
+    sec = _migrate_security(data.get("security") or {})
+    if not _verify_password(current_password or "", sec.get("admin_password_hash")):
+        return False, "Current password is incorrect."
+    if not new_password and not new_code:
+        return False, "Enter a new password or a new PIN."
+    if new_password:
+        problem = _password_problem(new_password, sec.get("admin_username", "admin"))
+        if problem:
+            return False, problem
+        if new_password == current_password:
+            return False, "The new password must be different from the current one."
+    digits = ""
+    if new_code:
+        digits = "".join(c for c in str(new_code) if c.isdigit())
+        if len(digits) != 6 or len(str(new_code).strip()) != 6:
+            return False, "The PIN must be exactly 6 digits."
+        if digits == DEFAULT_ACCESS_CODE or easy_pin(digits):
+            return False, EASY_PIN_MSG
+    if new_password:
+        sec["admin_password_hash"] = _hash_password(new_password)
+    if digits:
+        sec["admin_access_code_hash"] = _hash_password(digits)
+        sec.pop("admin_access_code", None)
+    data["security"] = sec
+    _save_raw(data)
+    still_default = (_verify_password(DEFAULT_ADMIN_PASSWORD, sec["admin_password_hash"])
+                     or _verify_password(DEFAULT_ACCESS_CODE, sec["admin_access_code_hash"]))
+    if not still_default:
+        for rec in _SESSIONS.values():
+            if rec.get("kind") == "primary":
+                rec["must_change"] = False
+    parts = [x for x in ("password" if new_password else "", "PIN" if digits else "") if x]
+    return True, f"Your {' and '.join(parts)} {'were' if len(parts) > 1 else 'was'} updated."
 
 
 # Any settings key whose name contains one of these is a credential and must never be serialised
@@ -264,6 +352,7 @@ def create_session(client_key: str, identity: dict | None = None) -> tuple[str, 
         "created": time.time(),
         "kind": ident["kind"],
         "admin_id": ident["id"],
+        "must_change": bool(ident.get("must_change_credentials")),
     }
     return token, ttl
 
@@ -279,7 +368,7 @@ def session_identity(token: str | None) -> dict[str, Any] | None:
             _SESSIONS.pop(token.strip(), None)
             return None
         return _account_identity(acct)
-    return _primary_identity()
+    return {**_primary_identity(), "must_change_credentials": bool(rec.get("must_change"))}
 
 
 def revoke_sessions_for_admin(admin_id: int) -> int:

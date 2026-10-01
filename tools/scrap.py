@@ -32,7 +32,7 @@ USER_AGENT = (
     "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 )
 DA_URL = "https://www.da.gov.ph/price-monitoring/"
-FUEL_URL = "https://www.zigwheels.ph/fuel-price"
+FUEL_URL = "https://doe.gov.ph/data-and-prices/liquid-fuels/retail-pump-prices/ncr-pump-prices"
 RATE_URL = "https://open.er-api.com/v6/latest/USD"
 TARIFF_FINDER_URL = "https://finder.tariffcommission.gov.ph"
 
@@ -649,201 +649,117 @@ def fetch_tariff_rate() -> bool:
         return False
 
 
-def _clean_text_lines(html: str) -> List[str]:
-    soup = BeautifulSoup(html, "html.parser")
-    text = soup.get_text("\n", strip=True)
-    lines: List[str] = []
-    for raw in text.splitlines():
-        line = re.sub(r"\s+", " ", raw).strip()
-        if line:
-            lines.append(line)
-    return lines
-
-
-def _extract_price_after_label(text: str, label: str) -> Optional[float]:
-    pattern = rf"{re.escape(label)}[^0-9]{{0,12}}(?:₱\s*)?(\d{{1,3}}\.\d{{1,2}})"
-    match = re.search(pattern, text, flags=re.IGNORECASE)
-    if not match:
-        return None
-    return float(match.group(1))
-
-
-_FUEL_LABELS = {
-    "Gasoline": ("Gasoline",),
-    "RON_100": ("RON 100",),
-    "RON_97": ("RON 97",),
-    "RON_95": ("RON 95",),
-    "RON_91": ("RON 91",),
-    "Diesel": ("Diesel",),
-    "Diesel_Plus": ("Diesel Plus",),
-    "Kerosene": ("Kerosene",),
-}
-
-
-# Plausible PH pump-price band, PHP/litre. The DOE historical series spans 18.40-103.95
-# (the upper end is the real mid-2022 spike), so this is wide enough to keep every genuine
-# reading while rejecting a mis-parse.
+# Plausible PH pump-price band, PHP/litre. DOE's own NCR bulletins reach PHP 153.70 (diesel, week of
+# 2026-04-07), so the upper bound must sit above that. (It used to be 110, set when the 2026 spike was
+# wrongly believed to be a Zigwheels mis-parse — the DOE PDFs show it was real.)
 FUEL_MIN_PHP = 15.0
-FUEL_MAX_PHP = 110.0
-
-
-def _parse_fuel_table(html: str) -> Dict[str, float]:
-    """Parse Zigwheels fuel prices for Manila.
-
-    Two tables on the page match `.fuel-price-table`: the labelled Manila summary
-    (`.fuel-rates`) and a per-city table whose first column is a CITY name. Iterating both
-    indiscriminately is what produced the 2026-03-10..05-27 corruption in `WS_fuel`
-    (Gasoline ~PHP 72-96, Diesel ~PHP 82-129 — roughly double reality) with RON_100/RON_91/
-    Diesel_Plus left NaN and Gasoline == RON_95, a degenerate partial parse that
-    `_fill_missing_fuel_fields()` then back-filled and hid.
-
-    So: read the labelled summary first, then use the city table's own "Manila" row (which
-    carries all six columns) as a fallback/cross-check.
-    """
-    soup = BeautifulSoup(html, "html.parser")
-    row: Dict[str, float] = {}
-
-    def _price_from_cell(text: str) -> Optional[float]:
-        match = re.search(r"(\d{1,3}\.\d{1,2})", text.replace(",", ""))
-        return float(match.group(1)) if match else None
-
-    # ── 1. labelled Manila summary table ────────────────────────────────────────────────
-    for table in soup.select("table.fuel-rates"):
-        for tr in table.find_all("tr"):
-            cells = [c.get_text(" ", strip=True) for c in tr.find_all(["td", "th"])]
-            if len(cells) < 2:
-                continue
-            norm = re.sub(r"\s+", " ", cells[0]).strip().lower()
-            price = _price_from_cell(cells[1])
-            if price is None:
-                continue
-            for key, aliases in _FUEL_LABELS.items():
-                if any(norm == alias.lower() for alias in aliases):
-                    row[key] = price
-                    break
-
-    # ── 2. per-city table: take the Manila row by header position ───────────────────────
-    for table in soup.select("table.fuel-price-table"):
-        header = None
-        for tr in table.find_all("tr"):
-            cells = [c.get_text(" ", strip=True) for c in tr.find_all(["td", "th"])]
-            if not cells:
-                continue
-            if header is None:
-                if re.sub(r"\s+", " ", cells[0]).strip().lower() == "city":
-                    header = [re.sub(r"\s+", " ", c).strip().lower() for c in cells]
-                continue
-            if re.sub(r"\s+", " ", cells[0]).strip().lower() != "manila":
-                continue
-            for key, aliases in _FUEL_LABELS.items():
-                for alias in aliases:
-                    if alias.lower() in header:
-                        idx = header.index(alias.lower())
-                        if idx < len(cells):
-                            price = _price_from_cell(cells[idx])
-                            if price is not None:
-                                row.setdefault(key, price)
-                        break
-
-    return _validated_fuel_row(row)
-
-
-def _validated_fuel_row(row: Dict[str, float]) -> Dict[str, float]:
-    """Drop implausible values and reject a whole scrape that looks like a degenerate parse.
-
-    Returning {} makes the caller keep the previous good reading instead of writing garbage.
-    """
-    clean = {
-        k: v for k, v in row.items()
-        if isinstance(v, (int, float)) and FUEL_MIN_PHP <= float(v) <= FUEL_MAX_PHP
-    }
-    dropped = set(row) - set(clean)
-    if dropped:
-        logger.warning("Fuel: dropped out-of-range field(s) %s from %s", sorted(dropped), row)
-
-    # Degenerate-parse signature seen in the 2026 corruption: only the three "headline" fields
-    # came back AND gasoline equals RON 95 (they differ by ~PHP 4 on a healthy parse).
-    core = {"Gasoline", "RON_95", "Diesel"}
-    if core.issubset(clean) and len(clean) <= 3 and clean["Gasoline"] == clean["RON_95"]:
-        logger.error(
-            "Fuel: rejecting scrape — degenerate parse (only %s, Gasoline == RON 95 == %.2f). "
-            "Keeping previous reading.", sorted(clean), clean["Gasoline"],
-        )
-        return {}
-
-    # Ordering sanity when the octane grades are present.
-    if {"RON_100", "RON_95"}.issubset(clean) and clean["RON_100"] < clean["RON_95"]:
-        logger.warning("Fuel: RON 100 (%.2f) < RON 95 (%.2f) — suspicious parse.",
-                       clean["RON_100"], clean["RON_95"])
-    return clean
-
-
-def _fill_missing_fuel_fields(row: Dict[str, float]) -> None:
-    """
-    Zigwheels Manila lists 6 fuel types (no RON 97 / Kerosene on page).
-    Fill gaps from last CSV row, then sensible defaults from scraped siblings.
-    """
-    if os.path.exists(FUEL_CSV):
-        try:
-            hist = pd.read_csv(FUEL_CSV)
-            if not hist.empty:
-                hist["_sort"] = pd.to_datetime(hist["Date"], errors="coerce")
-                hist = hist.sort_values("_sort")
-                prev = hist.iloc[-1].to_dict()
-                for key in _FUEL_LABELS:
-                    if key not in row and key in prev and pd.notna(prev[key]):
-                        row[key] = float(prev[key])
-        except Exception:
-            pass
-
-    if "RON_97" not in row and "RON_95" in row and "RON_100" in row:
-        row["RON_97"] = round((row["RON_95"] + row["RON_100"]) / 2, 2)
-        logger.info("RON_97 not on Zigwheels — using average of RON 95 and RON 100.")
-
-    if "Kerosene" not in row:
-        if "Diesel" in row:
-            row["Kerosene"] = row["Diesel"]
-            logger.info("Kerosene not on Zigwheels — using Diesel price as proxy.")
-        elif "RON_91" in row:
-            row["Kerosene"] = row["RON_91"]
-            logger.info("Kerosene not on Zigwheels — using RON 91 price as proxy.")
+FUEL_MAX_PHP = 250.0
+# If the newest DOE week is older than this, DOE has stopped publishing (or its page changed): use the
+# GasWatch PH fallback for the current week instead of silently re-serving an old price.
+DOE_STALE_DAYS = 14
 
 
 def fetch_fuel_prices() -> bool:
+    """Weekly NCR pump prices from the DOE bulletin (official), GasWatch PH as fallback.
+
+    Replaces the Zigwheels scraper: that page kept a fresh "Last updated" date while its prices stayed
+    frozen at RON95 PHP 58.15 / Diesel PHP 56.74 from 2026-05-28 on (DOE: PHP 96.20 / 103.30 for
+    Sep 22-28, 2026). One WS_fuel row per DOE week (every week DOE publishes, Dec 2024 onward), dated
+    the week's first day. A product DOE prints as "#N/A" takes GasWatch PH's figure for the same week
+    when it has one (listed in the row's "Filled" column), otherwise stays empty; nothing is estimated.
+    """
+    import doe_fuel
+
     try:
-        resp = SESSION.get(FUEL_URL, timeout=REQUEST_TIMEOUT)
-        resp.raise_for_status()
-        html = resp.text
-        save_debug_file("zigwheels_fuel.html", html)
+        weeks = doe_fuel.fetch_doe_weeks()
+        # A product DOE printed as "#N/A" takes GasWatch PH's figure for the same week, flagged in "Filled".
+        weeks = doe_fuel.fill_blanks_from_gaswatch(weeks, doe_fuel.load_gaswatch())
+        for w in weeks:
+            for k in ("RON_95", "RON_91", "RON_97", "Diesel", "Diesel_Plus", "Kerosene"):
+                v = w.get(k)
+                if v is not None and not (FUEL_MIN_PHP <= v <= FUEL_MAX_PHP):
+                    logger.warning("Fuel (DOE %s): %s = %.2f outside PHP %.0f-%.0f, left empty",
+                                   w["week_start"], k, v, FUEL_MIN_PHP, FUEL_MAX_PHP)
+                    w[k] = None
+        if weeks:
+            latest = weeks[-1]
+            # Only write weeks not already stored from DOE, plus the latest (DOE sometimes re-uploads).
+            for w in weeks:
+                upsert_sqlite("WS_fuel", doe_fuel.to_ws_fuel_row(w, doe_fuel.SOURCE_DOE))
+            upsert_csv(FUEL_CSV, doe_fuel.to_ws_fuel_row(latest, doe_fuel.SOURCE_DOE))
+            logger.info("Fuel (DOE NCR, week of %s): RON95 %.2f, Diesel %.2f",
+                        latest["week_label"], latest.get("RON_95") or 0, latest.get("Diesel") or 0)
+            if (date.today() - latest["week_start"]).days <= DOE_STALE_DAYS:
+                logger.info(f"SUCCESSFULLY SCRAPED FUEL DATA ({datetime.now().strftime('%Y-%m-%d')})")
+                return True
+            logger.warning("Fuel: newest DOE week (%s) is over %s days old — trying GasWatch PH.",
+                           latest["week_start"], DOE_STALE_DAYS)
+        else:
+            logger.warning("Fuel: no DOE NCR bulletin could be read — trying GasWatch PH.")
+    except Exception as e:
+        logger.warning("Fuel: DOE fetch failed (%s) — trying GasWatch PH.", e)
 
-        row: Dict[str, float] = {"Date": formatted_today()}
-        row.update(_parse_fuel_table(html))
-
-        if not row.get("Gasoline"):
-            lines = _clean_text_lines(html)
-            joined = "\n".join(lines)
-            for key, aliases in _FUEL_LABELS.items():
-                if key in row:
-                    continue
-                for label in aliases:
-                    price = _extract_price_after_label(joined, label)
-                    if price is not None:
-                        row[key] = price
-                        break
-
-        if not row.get("Gasoline"):
-            raise RuntimeError("No fuel prices found on the page.")
-
-        _fill_missing_fuel_fields(row)
-        found = sum(1 for key in _FUEL_LABELS if key in row)
-        logger.info("Fuel fields captured: %s/%s", found, len(_FUEL_LABELS))
-
-        upsert_csv(FUEL_CSV, row)
+    try:
+        gw = doe_fuel.fetch_gaswatch_week()
+        if not gw or gw.get("Diesel") is None:
+            raise RuntimeError("GasWatch PH data file had no weekly averages.")
+        row = doe_fuel.to_ws_fuel_row(gw, doe_fuel.SOURCE_GASWATCH)
         upsert_sqlite("WS_fuel", row)
-        logger.info(f"SUCCESSFULLY SCRAPED FUEL DATA ({datetime.now().strftime('%Y-%m-%d')})")
+        upsert_csv(FUEL_CSV, row)
+        logger.info("Fuel (GasWatch PH fallback, week of %s): RON95 %.2f, Diesel %.2f",
+                    gw["week_start"], gw.get("RON_95") or 0, gw["Diesel"])
         return True
     except Exception as e:
-        logger.error("Fuel price fetch failed: %s", e)
+        logger.error("Fuel price fetch failed (DOE and GasWatch PH): %s", e)
+        return False
+
+
+def fetch_psa_monthly() -> bool:
+    """Monthly national rice stocks inventory and palay farmgate price from PSA OpenSTAT (tools/psa_openstat.py).
+
+    Refreshes the whole 2015-onward series each run, because PSA revises past months. A refresh that looks
+    wrong (fewer months than already stored, or a value outside a plausible band) is refused and the stored
+    copy kept, so a PSA outage or a partial response can never shrink or corrupt the model's inputs.
+    """
+    import psa_openstat as psa
+
+    try:
+        stocks = psa.fetch_rice_stocks(2015)
+        farmgate = psa.fetch_palay_farmgate(2015)
+        conn = sqlite3.connect(DB_PATH)
+        try:
+            existing, before = {}, {}
+            for name in ("PSA_rice_stocks", "PSA_farmgate"):
+                try:
+                    old = pd.read_sql(f'SELECT * FROM "{name}"', conn)
+                    existing[name] = len(old)
+                    before[name] = old
+                except Exception:
+                    existing[name] = 0
+            problems = psa.validate(stocks, farmgate, existing)
+            if problems:
+                for p in problems:
+                    logger.error("PSA refresh refused: %s", p)
+                return False
+            psa.write_tables(conn, stocks, farmgate)
+        finally:
+            conn.close()
+
+        # Report what changed: new months and months PSA revised since the last refresh.
+        for name, df, col in (("PSA_rice_stocks", stocks, "total"), ("PSA_farmgate", farmgate, "other_variety")):
+            old = before.get(name)
+            new_months, revised = len(df), 0
+            if old is not None and not old.empty:
+                o = old.set_index(pd.to_datetime(old["Date"]))[col]
+                n = df.set_index("Date")[col]
+                new_months = int((~n.index.isin(o.index)).sum())
+                common = n.index.intersection(o.index)
+                revised = int((n.loc[common].round(2) != o.loc[common].round(2)).sum())
+            logger.info("PSA %s: latest %s, %s new month(s), %s revised", name, psa.latest_months(df), new_months, revised)
+        logger.info(f"SUCCESSFULLY FETCHED PSA MONTHLY DATA ({datetime.now().strftime('%Y-%m-%d')})")
+        return True
+    except Exception as e:
+        logger.error("PSA OpenSTAT fetch failed: %s", e)
         return False
 
 
@@ -853,7 +769,8 @@ def run_cycle() -> bool:
     rate_ok = fetch_exchange_rates()
     fuel_ok = fetch_fuel_prices()
     tariff_ok = fetch_tariff_rate()
-    ok = rice_ok or rate_ok or fuel_ok or tariff_ok
+    psa_ok = fetch_psa_monthly()
+    ok = rice_ok or rate_ok or fuel_ok or tariff_ok or psa_ok
     if ok:
         logger.info("Cycle finished.")
     else:

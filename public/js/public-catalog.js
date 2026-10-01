@@ -39,7 +39,7 @@
   let PRICE = {};       // canonical_key -> { min, max, label } (category-level forecast range)
   let BRAND_INFO = {};  // brand id -> { price, estimated, weight_pct, sample_date, sample_locations, sample_n, source_notes }
   let OUTLOOK = {};     // canonical_key -> { dir, delta, days } (category-level 3-day forecast direction)
-  let active = 'locRegular';
+  let active = 'locRegular';   // replaced on load by the category with the most products
   // Grades the market survey found no branded product for, with the reason it recorded.
   const EMPTY_NOTE = {
     impRegular: 'Imported regular-milled rice is not sold under a brand name in the Philippines, so there are no products to list.',
@@ -284,8 +284,9 @@
   function cardMedia(b) {
     const p = photoFor(b);
     if (!p) return `<div class="rc-card-placeholder">${PLACEHOLDER_SVG}</div>`;
-    return `<img class="rc-card-img" src="${esc(p.card)}" alt="${esc(p.alt)}" loading="lazy">`
-      + (p.uploaded ? '' : '<span class="rc-photo-tag">Representative photo</span>');
+    // The "Representative photo" label and credit are shown in the product's details (modalMedia),
+    // not on the card itself; the image's alt text still says so for screen readers.
+    return `<img class="rc-card-img" src="${esc(p.card)}" alt="${esc(p.alt)}" loading="lazy">`;
   }
 
   /** "Photo: Takeaway, CC BY-SA 3.0, via Wikimedia Commons" — the attribution CC BY / BY-SA require. */
@@ -865,18 +866,26 @@
       const note = document.getElementById('rc-note');
       const anyBrands = (cat.categories || []).some(c => c.brands && c.brands.length);
       if (note) {
+        const details =
+          'How a brand price is set: it is its rice grade\'s price for the day (the DA Bantay Presyo ' +
+          'prevailing range, or the latest forecast) adjusted by how that brand usually sells against ' +
+          'it, so it can sit above or below the grade\'s range. ' +
+          'Store prices were canvassed in local markets every day for 30 days (Aug 6 – Sep 4, 2026) and ' +
+          'verified by the local government; the last day, Sep 4, is the one used. ' +
+          'Some milled-rice grades are sold by classification, not by brand (DA 2018 labeling rule), so ' +
+          'they may show no branded products. ' +
+          'Products without their own photo show a representative photo of that kind of rice, not the ' +
+          'brand\'s packaging; the credit is in each product\'s details.';
         note.innerHTML =
-          '<strong>About the data.</strong> A brand\'s price is its category\'s range (DA Bantay Presyo ' +
-          'prevailing range or the latest forecast) adjusted by how that brand usually sells against it, ' +
-          'so it can sit above or below the category range. Brands, pack sizes and store prices are ' +
-          'verified by the local government' + infoTip('Store prices were canvassed in local markets every day for 30 days (Aug 6 – Sep 4, 2026); the 30th and last day, Sep 4, is the one used.') + '. ' +
-          'Many milled-rice categories are sold <em>by classification, not by brand</em> (per DA\'s ' +
-          '2018 labeling rule), so they may show no branded products. ' +
-          'Products without their own photo show a <em>representative photo</em> of that kind of rice ' +
-          '(not the brand\'s packaging), credited in each product\'s details. ' +
-          (anyBrands ? '' : 'No verified branded products are loaded yet.');
+          '<strong>About the data.</strong> Brand prices are estimates based on the DA\'s daily price ' +
+          'for each rice grade, adjusted for how each brand usually sells. Brands and pack sizes are ' +
+          'verified by the local government.' + infoTip(details) +
+          (anyBrands ? '' : ' No verified branded products are loaded yet.');
       }
       buildSuggestions();
+      // Open on the category that has the most products (ties: the order of the list).
+      const fullest = TABS.reduce((best, t) => (brandCount(t.key) > brandCount(best.key) ? t : best), TABS[0]);
+      if (fullest && brandCount(fullest.key) > 0) active = fullest.key;
       renderCategoryDropdown();
       try {
         const params = new URLSearchParams(location.search);

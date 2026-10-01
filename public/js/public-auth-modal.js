@@ -18,15 +18,19 @@ AgriPricePH.PublicAuthModal = (function () {
   const FEATURES = {
     historical: {
       iconSvg: ICON_HISTORY,
+      kicker: 'Price History',
       title: 'Unlock Price History',
-      body: 'View daily rice prices from 2015 to today across all 8 rice types — free with a quick account.',
-      badge: 'Members only',
+      body: 'See how rice prices really moved, day by day. Free with a quick account.',
+      perks: ['Daily prices from 2015 to today', 'All 8 local and imported rice types', 'Cheapest time to buy and the biggest price swings'],
+      badge: 'Members only · Free',
     },
     statistics: {
       iconSvg: ICON_STATS,
+      kicker: 'Charts & Stats',
       title: 'Unlock Charts & Stats',
-      body: 'Compare all 8 rice types, see if local or imported costs less, and plan your rice budget — free with a quick account.',
-      badge: 'Members only',
+      body: 'Compare rice types and plan your rice budget. Free with a quick account.',
+      perks: ['All 8 rice types side by side', 'Local or imported: see which costs less', 'Estimate what your rice will cost'],
+      badge: 'Members only · Free',
     },
   };
 
@@ -71,6 +75,11 @@ AgriPricePH.PublicAuthModal = (function () {
     return AgriPricePH.PublicAlert;
   }
 
+  function celebrate(opts, fallbackText) {
+    if (Alert()?.celebrate) Alert().celebrate(opts);
+    else Alert()?.success?.(fallbackText, { onConfirm: opts.onContinue });
+  }
+
   // The page scrolls on <html> (landpage-nav.css), so that is where scrolling is locked. Locking
   // <body> instead never stopped the page scrolling, and made <body> a scroll container, which
   // un-pinned the sticky site nav for as long as a modal was open.
@@ -84,26 +93,55 @@ AgriPricePH.PublicAuthModal = (function () {
     unlockRoot = document.createElement('div');
     unlockRoot.id = 'public-unlock-root';
     unlockRoot.className = 'public-unlock-backdrop';
+    // A small live-looking chart sits behind a padlock: the preview "draws" itself on a loop and
+    // the shackle lifts when the visitor hovers, so the prompt shows what they are unlocking.
     unlockRoot.innerHTML = `
-      <div class="public-unlock-card" role="dialog" aria-modal="true" aria-labelledby="public-unlock-title">
-        <button type="button" class="public-unlock-close" aria-label="Close">&times;</button>
-        <div class="public-unlock-badge" id="public-unlock-badge"></div>
-        <div class="public-unlock-head">
-          <div class="public-unlock-icon" id="public-unlock-icon" aria-hidden="true"></div>
+      <div class="public-unlock-card" role="dialog" aria-modal="true" aria-labelledby="public-unlock-title" aria-describedby="public-unlock-body">
+        <div class="pu-preview" aria-hidden="true">
+          <svg class="pu-chart" viewBox="0 0 360 140" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="pu-area-grad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#8FE3AE" stop-opacity="0.35"/>
+                <stop offset="1" stop-color="#8FE3AE" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <g class="pu-grid"><line x1="0" y1="35" x2="360" y2="35"/><line x1="0" y1="70" x2="360" y2="70"/><line x1="0" y1="105" x2="360" y2="105"/></g>
+            <path class="pu-area" d="M0,82 C30,78 60,86 90,74 S150,64 180,70 S240,52 270,58 S320,46 360,48 L360,140 L0,140 Z"/>
+            <path class="pu-line pu-l3" d="M0,112 C40,108 70,114 100,104 S160,100 190,96 S250,90 280,88 S330,80 360,82"/>
+            <path class="pu-line pu-l2" d="M0,82 C30,78 60,86 90,74 S150,64 180,70 S240,52 270,58 S320,46 360,48"/>
+            <path class="pu-line pu-l1" d="M0,50 C30,46 50,38 80,42 S130,28 160,34 S210,20 240,26 S300,12 360,16"/>
+          </svg>
+          <span class="pu-pulse"></span>
+          <div class="pu-lock">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path class="pu-shackle" d="M7.5 11V7.5a4.5 4.5 0 0 1 9 0V11"/>
+              <rect x="4" y="11" width="16" height="10.5" rx="2.6"/>
+              <circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none"/>
+            </svg>
+          </div>
+          <span class="pu-badge" id="public-unlock-badge"></span>
+          <button type="button" class="public-unlock-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="pu-body">
+          <div class="pu-kicker"><span class="public-unlock-icon" id="public-unlock-icon"></span><span id="public-unlock-kicker"></span></div>
           <h2 class="public-unlock-title" id="public-unlock-title"></h2>
+          <p class="public-unlock-body" id="public-unlock-body"></p>
+          <ul class="pu-perks" id="public-unlock-perks"></ul>
+          <div class="public-unlock-actions">
+            <button type="button" class="btn btn-primary btn-lg" id="public-unlock-signup">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+              Sign up free
+            </button>
+            <button type="button" class="btn btn-outline btn-lg" id="public-unlock-login">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+              Log in
+            </button>
+          </div>
+          <p class="public-unlock-foot">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+            Price forecast stays free, no account needed.
+          </p>
         </div>
-        <p class="public-unlock-body" id="public-unlock-body"></p>
-        <div class="public-unlock-actions">
-          <button type="button" class="btn btn-primary btn-lg" id="public-unlock-login">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-            Log in
-          </button>
-          <button type="button" class="btn btn-outline btn-lg" id="public-unlock-signup">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
-            Sign up free
-          </button>
-        </div>
-        <p class="public-unlock-foot">Price forecast stays free — no account needed.</p>
       </div>
     `;
     document.body.appendChild(unlockRoot);
@@ -395,8 +433,11 @@ AgriPricePH.PublicAuthModal = (function () {
     const root = ensureUnlockRoot();
     root.querySelector('#public-unlock-badge').textContent = cfg.badge;
     root.querySelector('#public-unlock-icon').innerHTML = cfg.iconSvg;
+    root.querySelector('#public-unlock-kicker').textContent = cfg.kicker;
     root.querySelector('#public-unlock-title').textContent = cfg.title;
     root.querySelector('#public-unlock-body').textContent = cfg.body;
+    root.querySelector('#public-unlock-perks').innerHTML = (cfg.perks || []).map((p, i) =>
+      `<li style="--i:${i}"><span class="pu-check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>${p}</li>`).join('');
 
     requestAnimationFrame(() => {
       root.classList.add('open');
@@ -486,9 +527,11 @@ AgriPricePH.PublicAuthModal = (function () {
       const userResult = await Auth().login({ email: id, password });
       if (userResult.ok) {
         hideAuth();
-        Alert()?.success?.('Welcome back! You are now logged in.', {
-          onConfirm: () => routeAfterAuth(),
-        });
+        celebrate({
+          variant: 'login', name: userResult.user?.name, avatar: userResult.user?.avatar,
+          dest: gatedUnlockCallback || onAuthSuccess ? '' : Auth().defaultLandingPage?.(),
+          onContinue: () => routeAfterAuth(),
+        }, 'Welcome back! You are now logged in.');
         return;
       }
     }
@@ -527,9 +570,8 @@ AgriPricePH.PublicAuthModal = (function () {
       return;
     }
     hideAuth();
-    Alert()?.success?.('Your account was created successfully.', {
-      onConfirm: () => routeAfterAuth(),
-    });
+    celebrate({ variant: 'signup', name, autoMs: 3000, onContinue: () => routeAfterAuth() },
+      'Your account was created successfully.');
   }
 
   /* After a successful public login/signup, send the user to their default page (Preferences) —
@@ -563,12 +605,13 @@ AgriPricePH.PublicAuthModal = (function () {
       Alert()?.authFailure?.(result.message);
       return;
     }
+    const who = pendingAdmin?.username;
     hidePin();
-    Alert()?.success?.('Admin sign-in successful.', {
-      onConfirm: () => {
-        window.location.href = '../admin/index.html';
-      },
-    });
+    celebrate({
+      variant: 'admin', name: result.admin?.name || who, avatar: result.admin?.avatar,
+      roleLabel: result.admin?.role === 'super_admin' ? 'Super Admin' : 'Admin',
+      onContinue: () => { window.location.href = '../admin/index.html'; },
+    }, 'Admin sign-in successful.');
   }
 
   function lockGatedContent() {

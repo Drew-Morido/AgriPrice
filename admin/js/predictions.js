@@ -118,7 +118,8 @@ AgriPricePH.Predictions = (function () {
     const t = _metricsByTarget?.[riceKey];
     const dayIdx = forecastRow?.day != null ? Number(forecastRow.day) - 1 : null;
     if (t && dayIdx != null && dayIdx >= 0) {
-      const hit = t.hit_rate_1p_pct;
+      // P0.50: the band the public Price Forecast page shows for the same type and day.
+      const hit = t.hit_rate_050_pct || t.hit_rate_pct?.['0.50'];
       if (Array.isArray(hit) && hit[dayIdx] != null) return Number(hit[dayIdx]);
       const perDay = t.per_horizon_accuracy_pct;
       if (Array.isArray(perDay) && perDay[dayIdx] != null) return Number(perDay[dayIdx]);
@@ -132,15 +133,16 @@ AgriPricePH.Predictions = (function () {
 
   /** True when the figures shown are hit rates rather than the legacy accuracy formula. */
   function usingHitRate(riceKey) {
-    return Array.isArray(_metricsByTarget?.[riceKey]?.hit_rate_1p_pct);
+    const t = _metricsByTarget?.[riceKey];
+    return Array.isArray(t?.hit_rate_050_pct || t?.hit_rate_pct?.['0.50']);
   }
 
-  // Thresholds are for the ₱1.00 hit rate (typically 80–96%). The legacy accuracy formula sits at
+  // Thresholds are for the ₱0.50 hit rate (typically 75–92%). The legacy accuracy formula sits at
   // 98–99% for any model, so its scale needs its own band or everything reads green.
   function accuracyBarColor(pct, isHit = true) {
     if (pct == null || Number.isNaN(pct)) return '#94a3b8';
-    const good = isHit ? 90 : 95;
-    const ok = isHit ? 80 : 85;
+    const good = isHit ? 85 : 95;
+    const ok = isHit ? 75 : 85;
     if (pct >= good) return '#4CAF6E';
     if (pct >= ok) return '#F59E0B';
     return '#EF4444';
@@ -335,7 +337,7 @@ AgriPricePH.Predictions = (function () {
       ? `₱${Number(day1.low).toFixed(2)} – ₱${Number(day1.high).toFixed(2)}`
       : `₱${Number(day1.price).toFixed(2)}`;
     const headlineSize = hasBand ? 24 : 36;
-    const accLabel = isHit ? 'Forecasts within ₱1.00 (day 1)' : 'Hold-out accuracy (same as dashboard)';
+    const accLabel = isHit ? 'Forecasts within ₱0.50 (day 1)' : 'Hold-out accuracy (same as dashboard)';
     const barPct = accPct != null
       ? Math.min(100, accPct).toFixed(0)
       : ((day1.confidence || 0) * 100).toFixed(0);
@@ -456,13 +458,13 @@ AgriPricePH.Predictions = (function () {
       const p = backtestByLabel.get(lb);
       if (!p) return;
       const err = Math.abs(p.predicted - p.actual);
-      pointNotes[i] = `Predicted that day: ₱${p.predicted.toFixed(2)} · off by ₱${err.toFixed(2)}${err <= 1 ? ' (within ₱1.00)' : ''}`;
+      pointNotes[i] = `Predicted that day: ₱${p.predicted.toFixed(2)} · off by ₱${err.toFixed(2)}${err <= 0.5 ? ' (within ₱0.50)' : err <= 1 ? ' (within ₱1.00)' : ''}`;
     });
     (forecast || []).forEach((f, i) => {
       const acc = trainAccuracyPct(riceKey, f);
       const isHit = usingHitRate(riceKey);
       pointNotes[histLabels.length + i] = acc != null
-        ? `Accuracy (day ${f.day}): ${acc.toFixed(1)}%${isHit ? ' of forecasts land within ₱1.00' : ' hold-out accuracy'}`
+        ? `Within ₱0.50 (day ${f.day}): ${acc.toFixed(1)}%${isHit ? ' of past forecasts' : ' hold-out accuracy'}`
         : `Accuracy (day ${f.day}): not available`;
     });
 
@@ -497,7 +499,7 @@ AgriPricePH.Predictions = (function () {
       const accTitle = acc == null
         ? 'Accuracy unavailable — retrain model'
         : isHit
-          ? `${accStr} of day-${f.day} forecasts landed within ₱1.00 of the real price`
+          ? `${accStr} of day-${f.day} forecasts landed within ₱0.50 of the real price`
           : 'Hold-out test accuracy (legacy formula)';
       const upTo = (forecast || []).slice(0, i + 1).map(d => Number(d.price)).filter(Number.isFinite);
       return `

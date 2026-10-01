@@ -88,14 +88,20 @@ AgriPricePH/
   username/password are recognized as an admin account, then you're redirected into
   admin/index.html.
 
+  First sign-in on a fresh install:
   Username: admin
   Password: Admin@123
-  Code:     123456  (change in Admin → Settings → Security)
+  Code:     123456
+  These defaults are public, so the dashboard asks you to set your own password and 6-digit PIN
+  right after signing in with them; until you do, every admin action is refused. Afterwards use
+  your own (change them again in Admin → Settings → Security).
 
   Security:
-    • Server-issued session token (not a simple browser flag)
-    • 6-digit code stored as hash on server
-    • 5 failed attempts → 15-minute lockout
+    • Server-issued session token (not a simple browser flag), sent only in a header
+    • Password and 6-digit code stored as salted hashes on the server
+    • 5 failed attempts → 15-minute lockout, per address AND per account
+    • Password-reset codes stop working after 5 wrong tries
+    • Roles: Super Admin (everything) and Admin (no User Management / Settings / Training changes)
     • Backend (api/app.py) must be running on port 5000
 
 

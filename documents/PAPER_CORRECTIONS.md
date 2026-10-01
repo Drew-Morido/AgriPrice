@@ -2242,6 +2242,194 @@ into the admin System Logs (`_add_log(... from {client_key})`), which contradict
 evaluator or end-user personal data" / "does not log end-user IP addresses". Either redact it (`privacy.redact_email`,
 drop the IP) or change the paper.
 
+### Round — Every displayed accuracy figure audited against meta.json (2026-09-28)
+Trigger: the public Price Summary showed Local Well-Milled at 88% while Admin showed 96.3%. Both were real
+(`meta.json` hit_rate_pct), but at different thresholds (₱0.50 public, ₱1.00 admin) with unclear labels. All three
+sources (`meta.json`, `/api/predictions`, `/api/dashboard-metrics`) agree for all 8 types, so no model or metric changed.
+Only what the screens say about those numbers changed:
+- **One convention everywhere:** per-type, per-day tables show **% within ₱0.50** (public Price Summary, Admin Dashboard
+  predictions table, Predictions page card/table, Metrics table), to one decimal on both sides (87.5 / 86.4 / 83.9 for
+  Local Well-Milled). Headline all-type figures show **% of next-day forecasts within ₱1.00** (Dashboard card 96.1%,
+  top-bar badge, Training history), labelled as the 8-type average.
+- **Replaced estimates with measurements:** Metrics "Est. within ±₱0.50" (a normal approximation from RMSE: 77%)
+  is now the measured 87.5%. **Removed the legacy `accuracy_pct` (98–99%) from display:** Metrics table, Training
+  history/chart/details, training insights, the Forecast Report export. The report's "Confidence" column (a fixed
+  MAE→% mapping, not a measured rate) is now the measured ₱0.50 hit rate per day, its title says 3-day ensemble (was
+  "2-Day LSTM"), and it names the rice type its rows describe.
+- **Scope fixes:** the Dashboard MAE card is now the 8-type average (₱0.29), to match the 8-type hit rate beside it
+  (it showed Local Well-Milled's ₱0.28 unlabelled). Its trend arrow is now the hit rate's change in points (+1.7 pts);
+  before, it showed the legacy formula's change (0.11%). Metrics cards follow the Classification picker and name the
+  type. The public footnote quotes the selected type's own ₱1.00 figure (was the 8-type average, 96, for every type).
+  "9+ years of daily prices" became "DA rice prices from 2015", because pre-2025 figures are weekly, forward-filled.
+- **Training → Split table** was hard-coded to "Training 2015–2023 / Test 2024–2025". It now reads `meta.json`:
+  Train Jan 2015–Mar 2025 (3,713), Validation Apr–Oct 2025 (189), Test Oct 2025–Sep 2026 (353), matching Ch. 3.
+- Still simulated and labelled as such (unchanged): the Metrics page's forecast-vs-actual dashed line and error histogram.
+  The real walk-forward backtest (`history_backtest`) could replace them.
+- Not a paper change: `/api/predictions` now serves the last finished forecast instantly (also after a restart, from
+  `model/forecast_cache.json`) and rebuilds in the background. The ensemble made a rebuild take ~80 s.
+
+### Round — Fuel source replaced with DOE; the 2026 fuel feature was wrong (2026-10-01)
+**What was wrong.**
+- From 2026-05-28 the Zigwheels page showed a fresh "Last updated" date but frozen prices ("Diesel saw a
+  price change from ₱56.74 to ₱56.74"). WS_fuel stored RON95 ₱58.15 / Diesel ₱56.74 every day for four
+  months. DOE's NCR bulletin for Sep 22–28, 2026 gives RON95 **₱96.20** / Diesel **₱103.30** (common price).
+- The March–May 2026 spike (diesel up to ₱153.70, week of Apr 7) was **real**. The DOE weekly PDFs match
+  `Fuel_2026_Daily.csv` to the centavo. Two guards had been written on the belief that it was a scraper
+  mis-parse: `data_pipeline._scrub_degenerate_fuel` (range taken from the frozen Zigwheels rows ×0.8–1.2 =
+  ₱46.52–69.78) and `_drop_implausible_fuel` (cap ₱110). Together they blanked 79 genuine values, so the
+  model never saw the 2026 fuel shock. That covers the whole test window (Oct 2025–Sep 2026) and every
+  published metric. `scrap._fill_missing_fuel_fields` also filled fields Zigwheels lacked (RON97 = mean of
+  RON95/RON100; Kerosene = the diesel price).
+- Round 2 above claimed the Mar–May rows were a mis-parse. The DOE PDFs disprove that.
+
+**What changed.**
+- `tools/doe_fuel.py` reads DOE's "Price Monitoring of Liquid Fuels — NCR" weekly PDFs (listed at
+  doe.gov.ph → Retail Pump Prices → NCR). It takes the summary table "Prevailing Retail Prices of Petroleum
+  Products NCR", common price per product. No interpolation; "#N/A" is stored empty. There are 91 weeks,
+  Dec 2024 → Sep 2026, and all parse.
+- `scrap.fetch_fuel_prices` uses DOE, with GasWatch PH (gaswatchph.com: DOE advisories + station reports)
+  only when DOE is unreachable or more than 14 days stale. WS_fuel rows now carry `Source`
+  (`doe_ncr_weekly` / `gaswatchph`). The Zigwheels parser and its fill-ins are removed.
+- `datasets/import_doe_fuel.py` backed up the DB (`backup-pre-doe-fuel-*`) and replaced every 2026 WS_fuel
+  row with the 38 DOE weeks (Jan 6 → Sep 22). All 91 weeks are listed with source URLs in
+  `datasets/doe_ncr_fuel_weekly.csv`.
+- The guards trust DOE/GasWatch rows, and the plausibility band is now ₱15–250. Admin labels read
+  "DOE – NCR Pump Prices".
+
+**`fuel_history` (the 2015–2025 dataset) does not match DOE's NCR common price.** On all 37 overlapping 2025
+weeks the dataset runs ₱10–20 higher and smoother. Example: Dec 22–23, 2025, dataset RON95 ₱78.20 vs DOE
+₱58.40, which is above DOE's most expensive NCR station that week (₱72.49). Its Change/Status columns
+suggest it was built by summing weekly advisories, which drifts from pump prices.
+**Decision (team, 2026-10-01): replace it with DOE wherever DOE exists.**
+- WS_fuel now holds all **92 DOE weeks, 2024-12-03 → 2026-09-22**. That includes one week DOE no longer links
+  (Dec 31, 2024 – Jan 6, 2025, in `doe_fuel.EXTRA_URLS`).
+- `load_merged_frame` ignores `fuel_history` from the first DOE week on. It also ignores any unlabelled WS_fuel
+  row inside the DOE era, so a server still running the old Zigwheels code cannot re-insert ₱56.74.
+- The level break moved from 2026-01-06 (₱78.20 → ₱54.80) to Dec 2024 (₱67.40 → ₱61.65), inside the
+  training period. Validation and test are now DOE-consistent.
+- **Not available:** DOE's pre-Dec-2024 bulletins (its old site no longer resolves), and three 2025 weeks
+  (Apr 15–21, May 27–Jun 2, Jun 3–9) not found under any file name tried. Those weeks forward-fill.
+- **[TEAM] 2015–Nov 2024 still comes from `DATASETS_FUEL_HISTORY_PRICE_2015_2025.xlsx`, whose source is
+  undocumented.** If the paper names a source for historical fuel prices, confirm it. Its 2025 values do not
+  match DOE, so earlier years may not either.
+
+**GasWatch PH fill.** When a DOE bulletin prints "#N/A" for a product, the week's value comes from GasWatch PH
+for the *same* week (±3 days), never from another week. It is recorded in WS_fuel `Filled` and shown on
+Admin → Data Sources as "Filled from GasWatch PH". Currently 0 of 92 weeks need it. GasWatch keeps only 12
+weeks of history (diesel/RON91 averages; other grades for the current week only), so it cannot fill older
+weeks. Its figures are station averages, not DOE's common price.
+
+**Retrained on the corrected fuel data (2026-10-01, seed 42; test 2025-10-09 → 2026-09-29, 356 origins; previous
+model in `model/_backup_pre-doe-fuel-20261001-033150/`):**
+
+| | before (Zigwheels/scrubbed fuel) | **after (DOE fuel)** |
+|---|---|---|
+| ensemble skill vs naive | +10.06% | **+10.11%** |
+| ensemble beats ARIMA | 8/8 | **8/8** |
+| worst type | impPremium +2.63% | **impWellMilled +2.43%** |
+| hybrid skill / beats ARIMA | +7.80% / 4 of 8 | **+7.91% / 3 of 8** (locRegular's tie flipped: 0.2752 vs ARIMA 0.2740) |
+| within ₱0.50, day 1/2/3 | 87.0 / 84.0 / 81.9 | **87.2 / 84.2 / 81.9** |
+| within ₱1.00, day 1 | 96.1 | **96.3** |
+| range coverage (walk-forward 120 × 8) | 91.5% | **91.5%** (92.3 / 91.5 / 90.8) |
+| LSTM ablation (McNemar) | 149 vs 151, p = 0.95 | **154 vs 158, p = 0.87** |
+| day-1 direction, at chance | impRegular 45.7% (210), impPremium 50.3% | **impRegular 46.2% (208), impPremium 50.8%** |
+
+**Reading.** Correcting a whole input series moved the headline by 0.05 points, which is consistent with the
+ablation: the forecast barely uses the fuel inputs. Say this plainly if asked. The corrected data is still what
+the paper must describe. The test window grew by three days (new data), so part of each small difference comes
+from the window, not only from the fuel fix.
+
+**Paper (.docx patched, backup `AgriPrice_Draft_Revised.backup-pre-doe-fuel-20261001-034244.docx`):**
+- Framework ¶ third stream: DOE NCR bulletin with GasWatch PH fallback.
+- Ch. 4 draft note, test window and origin count, all 40 cells of Table 1, the accuracy / direction / component /
+  ablation paragraphs.
+- SOP 2 paragraph: DOE bulletin, 273 records through Sep 30, 102 tests.
+- Ch. 5 summary.
+- Round 2's "drop the DOE wording unless a DOE fetcher is added" is resolved: there is now one.
+
+**[VERIFY]**
+- "LSTM network on its own … skill −1.29%" (Ch. 4) was measured in an earlier experiment and is not stored in
+  `meta.json`. It was not re-measured on this run.
+- The test targets of the last origin include 2026-10-01, which is a temporary *estimated* rice row:
+  `tools/rice_estimate.py` trend-extrapolates a day DA has not published yet, and `load_merged_frame` does not
+  filter those rows. That is 1–2 cells of about 1,068 per type, negligible. **[DECISION pending]** Exclude
+  `Source = 'estimated'` rows from the model (proposed 2026-09-30). The live forecast then starts from the last
+  real bulletin.
+
+### Round — Rice stocks and farmgate from PSA OpenSTAT (2026-10-01; paper edit deferred)
+- `tools/psa_openstat.py` reads PSA's PXWeb API. Rice stocks come from "Monthly Total Stocks Inventory by Sector"
+  (0032E4ECNV0, MT). Palay farmgate comes from "Cereals: Farmgate Prices" (0032M4AFN01, PHILIPPINES, Other Variety +
+  Fancy). These are the tables PhilRice Ricelytics cites as its source. `datasets/import_psa.py` loaded **Jan 2015 → Aug
+  2026, 140 months each, no gaps** into `PSA_rice_stocks` / `PSA_farmgate` (backup `backup-pre-psa-*`). PSA leaves 6
+  "Fancy" months blank.
+- `load_merged_frame` uses the PSA tables. The old `rice_stock` / `farmgate_prices` tables stopped at Dec 2025, so the model
+  carried Dec 2025 forward for 8 months. They also differ from PSA's current release: Aug 2025 stock 1.72M vs PSA 2.32M MT;
+  farmgate fancy off by ₱1.70 on average. Farmgate keeps its definition, the mean of the two palay grades.
+- **Retrained 2026-10-01 06:32** (PSA stocks/farmgate + release lag + no estimated rows; previous model in
+  `model/_backup_pre-psa-retrain-20261001-063223/`; test 2025-10-09 → 2026-09-28, 355 origins). Essentially unchanged —
+  consistent with the ablation (the forecast barely uses the exogenous inputs):
+
+  | | DOE-fuel run | **PSA run (current)** |
+  |---|---|---|
+  | ensemble skill / beats ARIMA | +10.11% / 8 of 8 | **+10.17% / 8 of 8** |
+  | worst type | impWellMilled +2.43% | **impPremium +2.68%** |
+  | hybrid skill / beats ARIMA | +7.91% / 3 of 8 | **+7.99% / 3 of 8** |
+  | within ₱0.50 day 1/2/3 · ₱1.00 day 1 | 87.2/84.2/81.9 · 96.3 | **87.1/84.2/82.0 · 96.2** |
+  | range coverage (walk-forward) | 91.5% | **91.7%** (92.3/91.5/91.2) |
+  | LSTM ablation | 154 vs 158, p = 0.87 | **142 vs 148, p = 0.77** |
+  | day-1 direction at chance | impRegular 46.2%, impPremium 50.8% | **impRegular 46.2% (208), impPremium 50.0%** |
+
+  **[ACTION, with the paper update]** the .docx still carries the DOE-fuel run's numbers (patched earlier today):
+  Table 1 and Ch. 4–5 text need these; also name PSA OpenSTAT as the stock/farmgate source (Ch. 3).
+- **Timing fixed (same day):** PSA publishes month M around the 7th–15th of M+1 (tables updated Sep 7 / Sep 14 with
+  August). `data_pipeline.MONTHLY_RELEASE_LAG` now dates each monthly stock/farmgate figure on the 15th of the following
+  month, so no training day sees a figure before it existed (previously dated the 1st of its own month: mild look-ahead).
+- **Auto-scraper:** PSA is step 5 of every sync (`scrap.fetch_psa_monthly`: whole 2015→ series, refused and kept if PSA
+  returns fewer months or implausible values). `api/app.py::_loop_scraper` now obeys Admin → Settings (auto on/off,
+  interval, per-source toggles incl. new `psa_enabled`) and retries DA alone every 2 h (7:00–21:00) while today's
+  bulletin is missing; the Web Scraper page shows this real schedule (it used to show invented per-source intervals).
+
+
+### Round — Admin roles and "Public User" wording (2026-10-01; paper edit deferred)
+- **UI wording:** public-site accounts are now called **Public Users** (not "retailers") in Admin → User Management.
+  The stored role value stays `retailer` (no data migration). If the paper's user/role description says "retailer",
+  align it when the paper is updated.
+- **Roles:** Super Admin = full access. Admin = day-to-day operator: dashboards, forecasts, history, market drivers,
+  scraper/import runs, alerts, rice brands, taxes, reports; **no** User Management, Settings and Training view-only,
+  cannot clear logs or delete report files. Enforced server-side (`_require_super_admin`, `_um_guard`), tested in
+  `tests/test_user_roles.py`. Before this, any admin could change Settings (including the built-in admin's password)
+  and start training.
+- **Add Admin:** 3 steps (basic info → role → password + 6-digit PIN, each typed twice) plus a review/confirm step,
+  with live validation. New admins now **require an email**, admin emails must be unique, and the password may not
+  contain the username (server-side too).
+
+- **Follow-up (same day):** Add Admin now has separate Password and PIN steps (PIN entered, then re-entered on its own
+  screen; a mismatch starts over), an optional profile photo, and a plain review step. Admin accounts store a photo
+  that the admin can change themselves. Every new account (public or admin) sees a one-time welcome on first sign-in,
+  recorded server-side per account. New stored data: `admin_accounts.avatar`, `admin_accounts.welcome_seen_at`,
+  `users.welcome_seen_at` (timestamps only). If the paper lists stored personal data, add the admin photo.
+
+
+### Round — "Continue with Google" for public users (2026-10-01; paper edit deferred)
+- Public users can sign up / log in with Google (Google Identity Services; the server verifies the signed ID token with
+  Google's keys for this app's Client ID). Admins still use username + password + PIN only.
+- New stored data: `users.google_sub` (the Google account id) and, for new Google accounts, the Google profile photo
+  copied in as the account photo. No Google password or token is stored; the OAuth client secret is not used.
+- Paper/Terms to update later: authentication section (email/password **or** Google for public users), stored
+  personal data, and the Terms & Conditions/privacy notice (Google shares name, email, and photo).
+
+
+### Round — Security audit fixes (2026-10-01; paper edit deferred)
+- Removed an unused, unauthenticated file-write endpoint (`/api/save-export`).
+- Lockouts can no longer be dodged by faking the visitor address; added a per-account lockout; reset codes expire
+  after 5 wrong tries; a correct admin password no longer resets the PIN failure count.
+- Settings, alerts, live logs and the scrape review list are no longer readable without an admin session.
+- Security headers (CSP, clickjacking protection, nosniff) on every response.
+- The default admin login (Admin@123 / 123456) now only allows replacing itself. **Paper/demo impact:** if the
+  paper or the defense script lists the default credentials, say they are first-run only and must be changed.
+- Bugs fixed: Settings → Change Password wrote a field sign-in never read (the password never changed); a PIN
+  changed in Settings was overwritten by the same save; Reset Defaults silently restored the default login.
+
 ---
 
 ## Still [VERIFY] / [ACTION]

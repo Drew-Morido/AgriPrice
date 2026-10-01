@@ -27,6 +27,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "da_enabled": True,
         "fuel_enabled": True,
         "exchange_enabled": True,
+        "psa_enabled": True,
     },
     "model": {
         "forecast_horizon": 2,
@@ -107,21 +108,19 @@ def _verify_password(password: str, stored: str) -> bool:
 
 
 def change_password(current: str, new_password: str) -> tuple[bool, str]:
-    data = _load_raw()
-    sec = data.get("security") or {}
-    stored = sec.get("password_hash")
-    if stored and not _verify_password(current, stored):
-        return False, "Current password is incorrect."
-    if len(new_password) < 6:
-        return False, "New password must be at least 6 characters."
-    sec["password_hash"] = _hash_password(new_password)
-    data["security"] = sec
-    _save_raw(data)
-    return True, "Password updated successfully."
+    """Settings -> Change Password. It used to write a `password_hash` key that sign-in never reads
+    (sign-in checks `admin_password_hash`), so the admin password never actually changed. Now it
+    goes through the same checked path as the first-sign-in change."""
+    from admin_auth import change_primary_credentials
+    return change_primary_credentials(current, new_password=new_password)
 
 
 def reset_to_defaults() -> dict:
-    _save_raw(deepcopy(DEFAULT_SETTINGS))
+    """Restore every setting EXCEPT the admin account (credentials, profile, session options):
+    resetting used to wipe the password/PIN hashes, silently bringing back Admin@123 / 123456."""
+    fresh = deepcopy(DEFAULT_SETTINGS)
+    fresh["security"] = _load_raw().get("security") or fresh["security"]
+    _save_raw(fresh)
     return get_settings()
 
 
@@ -186,8 +185,9 @@ def _prepare_security_on_save(patch_sec: dict) -> dict:
         ok, msg = set_admin_access_code(str(new_code))
         if not ok:
             raise ValueError(msg)
-    sec.pop("admin_access_code_hash", None)
-    sec.pop("admin_password_hash", None)
+    for key in list(sec):
+        if "hash" in key or "password" in key or key == "admin_username":
+            sec.pop(key, None)   # credentials and the login name are never set through Settings
     return sec
 
 
@@ -215,6 +215,9 @@ def update_settings(patch: dict) -> dict:
     patch = patch if isinstance(patch, dict) else {}
     if "security" in patch and isinstance(patch["security"], dict):
         sec_patch = _prepare_security_on_save(patch["security"])
+        # Re-read: _prepare_security_on_save may have just saved a new PIN hash, and merging onto
+        # the copy loaded before it would write the OLD hash back (the PIN change was lost).
+        current = _load_raw()
         other = {k: v for k, v in patch.items() if k != "security"}
         sec_current = _deep_merge(current.get("security") or {}, sec_patch)
         merged = _deep_merge(current, {**other, "security": sec_current})

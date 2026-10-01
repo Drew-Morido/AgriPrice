@@ -470,3 +470,24 @@
   .settings-row > div[style*="display:flex"] input.form-input { flex: 1 1 180px; }
   .settings-row-desc { max-width: none; }
 }
+
+/* ===== Role-based UI (Super Admin vs Admin) =====
+   <html data-admin-role> is set by admin/js/admin-auth.js from the server session. `.super-only`
+   is hidden unless the server has confirmed a Super Admin (default deny, no flash for an Admin);
+   `.admin-only` (e.g. the "View only" note) shows for a plain Admin only. The server enforces the
+   same rules (api/app.py::_require_super_admin), this is presentation only. */
+html:not([data-admin-role="super_admin"]) .super-only { display: none !important; }
+html:not([data-admin-role="admin"]) .admin-only { display: none !important; }
+
+.role-viewonly {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: 12.5px; line-height: 1.5;
+  background: var(--color-info-bg);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-left: 3px solid var(--color-info);
+  color: var(--text-primary);
+  border-radius: var(--border-radius-sm);
+  padding: 10px 14px;
+  margin: 0 0 16px;
+}
+.role-viewonly svg { color: var(--color-info); flex-shrink: 0; margin-top: 1px; }
