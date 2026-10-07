@@ -34,6 +34,16 @@ USER_AGENT = (
 DA_URL = "https://www.da.gov.ph/price-monitoring/"
 FUEL_URL = "https://doe.gov.ph/data-and-prices/liquid-fuels/retail-pump-prices/ncr-pump-prices"
 RATE_URL = "https://open.er-api.com/v6/latest/USD"
+# open.er-api.com only serves today's rate, so a day the scraper did not run stayed empty for good.
+# Missed days are filled from this dated daily archive (market mid-rates, weekends included, same kind
+# of rate as RATE_URL; within ~PHP 0.10 of it on overlapping days). Rows it writes carry its Source.
+RATE_HISTORY_URL = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@{day}/v1/currencies/usd.json"
+RATE_HISTORY_MIRROR = "https://{day}.currency-api.pages.dev/v1/currencies/usd.json"   # same archive; has days the CDN lacks
+SOURCE_RATE_LIVE = "open_er_api"
+SOURCE_RATE_HISTORY = "currency_api_archive"
+RATE_MIN_PHP, RATE_MAX_PHP = 40.0, 90.0   # a USD/PHP value outside this is a bad read, not a rate
+# How far back each cycle looks for days it missed (scraper or PC off, network down).
+CATCHUP_DAYS = 45
 TARIFF_FINDER_URL = "https://finder.tariffcommission.gov.ph"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -75,6 +85,8 @@ PRICE_DIR = os.path.join(BASE_DIR, "scrapped price")
 RATE_DIR = os.path.join(BASE_DIR, "scrapped rate")
 FUEL_DIR = os.path.join(BASE_DIR, "scrapped fuel")
 DEBUG_DIR = os.path.join(BASE_DIR, "debug_fetch")
+# Every DA bulletin PDF the scraper reads is kept with the other DA source files (datasets/README.md).
+DA_PDF_DIR = os.path.join(os.path.dirname(BASE_DIR), "datasets", "3_source_files", "DA-AMAS", "scraper_downloads")
 
 PRICE_CSV = os.path.join(PRICE_DIR, "agriprice_database.csv")
 RATE_CSV = os.path.join(RATE_DIR, "exchange_rate_database.csv")
@@ -243,7 +255,8 @@ def label_from_url(url: str) -> str:
     return name
 
 
-def choose_latest_da_pdf() -> Tuple[Optional[datetime], Optional[str], Optional[str]]:
+def list_da_pdfs() -> List[Tuple[Optional[datetime], str, str]]:
+    """Every Daily Price Index bulletin linked on the DA page, newest first (undated ones last)."""
     candidates: List[Tuple[Optional[datetime], str, str]] = []
     with _DA_LOCK:
         resp = SESSION.get(DA_URL, timeout=REQUEST_TIMEOUT)
@@ -265,16 +278,15 @@ def choose_latest_da_pdf() -> Tuple[Optional[datetime], Optional[str], Optional[
             except Exception:
                 continue
 
+    dated = sorted((c for c in candidates if c[0] is not None), key=lambda c: c[0], reverse=True)
+    return dated + [c for c in candidates if c[0] is None]
+
+
+def choose_latest_da_pdf() -> Tuple[Optional[datetime], Optional[str], Optional[str]]:
+    candidates = list_da_pdfs()
     if not candidates:
         return None, None, None
-
-    dated = [item for item in candidates if item[0] is not None]
-    if not dated:
-        first = candidates[0]
-        return first[0], first[1], first[2]
-
-    dated.sort(key=lambda item: item[0], reverse=True)
-    return dated[0]
+    return candidates[0]
 
 
 def download_binary(url: str) -> bytes:
@@ -396,8 +408,9 @@ def _sync_official_bulletin(
     doc_name = latest_text or "DA_Price_Index.pdf"
     logger.info("Downloading official DA bulletin: %s", doc_name)
     pdf_bytes = download_binary(pdf_url)
+    os.makedirs(DA_PDF_DIR, exist_ok=True)
     with open(
-        os.path.join(DEBUG_DIR, f"da_latest_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"),
+        os.path.join(DA_PDF_DIR, f"da_latest_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"),
         "wb",
     ) as f:
         f.write(pdf_bytes)
@@ -474,6 +487,54 @@ def _sync_estimated_through_today(last_official: date) -> bool:
     return saved
 
 
+def _has_published_rice_row(date_str: str) -> bool:
+    """A row from DA itself (official or verified) — not an estimate — exists for this day."""
+    if not os.path.exists(DB_PATH):
+        return False
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        try:
+            if _ws_rice_has_source_column(conn):
+                row = conn.execute(
+                    'SELECT 1 FROM "WS_rice_price" WHERE Date = ? AND COALESCE(Source, ?) != ? LIMIT 1',
+                    (date_str, SOURCE_OFFICIAL, SOURCE_ESTIMATED),
+                ).fetchone()
+            else:
+                row = conn.execute('SELECT 1 FROM "WS_rice_price" WHERE Date = ? LIMIT 1', (date_str,)).fetchone()
+            return row is not None
+        finally:
+            conn.close()
+    except Exception:
+        return False
+
+
+def backfill_rice_bulletins(days: int = CATCHUP_DAYS, candidates=None) -> List[str]:
+    """Store every DA bulletin from the last `days` days that the database has no DA row for.
+
+    The regular cycle only reads the newest bulletin, so a day the scraper did not run was lost, or
+    kept its temporary estimate. Days that already hold a DA row (official or verified) are never
+    touched. Returns the dates written (MM/DD/YYYY).
+    """
+    if candidates is None:
+        candidates = list_da_pdfs()
+    oldest = datetime.now() - timedelta(days=days)
+    written: List[str] = []
+    for dt, text, url in sorted((c for c in candidates if c[0] is not None), key=lambda c: c[0]):
+        if dt < oldest:
+            continue
+        date_str = dt.strftime("%m/%d/%Y")
+        if _has_published_rice_row(date_str):
+            continue
+        try:
+            if _sync_official_bulletin(dt, text, url):
+                written.append(date_str)
+        except Exception as e:
+            logger.warning("Catch-up: DA bulletin %s could not be read: %s", date_str, e)
+    if written:
+        logger.info("Catch-up: stored %s missed DA bulletin(s): %s", len(written), ", ".join(written))
+    return written
+
+
 def fetch_rice_prices() -> bool:
     try:
         latest_dt, latest_text, pdf_url = choose_latest_da_pdf()
@@ -495,9 +556,10 @@ def fetch_rice_prices() -> bool:
             )
 
         official_saved = _sync_official_bulletin(bulletin_dt, latest_text, pdf_url)
+        caught_up = backfill_rice_bulletins()
         estimate_saved = _sync_estimated_through_today(bulletin_dt.date())
 
-        if official_saved or estimate_saved:
+        if official_saved or caught_up or estimate_saved:
             return True
 
         today_str = calendar_today.strftime("%m/%d/%Y")
@@ -528,14 +590,88 @@ def fetch_exchange_rates() -> bool:
             "USD_to_PHP": round(usd_to_php, 4),
             "THB_to_PHP": round(usd_to_php / usd_to_thb, 4),
             "VND_to_PHP": round(usd_to_php / usd_to_vnd, 6),
+            "Source": SOURCE_RATE_LIVE,
         }
         upsert_csv(RATE_CSV, row)
         upsert_sqlite("WS_currency", row)
         logger.info(f"SUCCESSFULLY SCRAPED EXCHANGE RATES ({datetime.now().strftime('%Y-%m-%d')})")
-        return True
+        ok = True
     except Exception as e:
         logger.error("Exchange rate fetch failed: %s", e)
-        return False
+        ok = False
+    try:
+        ok = bool(backfill_exchange_rates()) or ok
+    except Exception as e:
+        logger.warning("Catch-up: exchange-rate backfill failed: %s", e)
+    return ok
+
+
+def fetch_rate_for_day(day: date) -> Optional[Dict]:
+    """USD/PHP (plus THB and VND in PHP) for one past day from the dated archive, or None."""
+    rates: Dict = {}
+    for url in (RATE_HISTORY_URL, RATE_HISTORY_MIRROR):
+        try:
+            resp = SESSION.get(url.format(day=day.isoformat()), timeout=REQUEST_TIMEOUT)
+            if resp.ok:
+                rates = (resp.json() or {}).get("usd") or {}
+                if rates:
+                    break
+        except Exception as e:
+            logger.debug("Rate archive %s for %s: %s", url, day, e)
+    if not rates:
+        return None
+    php, thb, vnd = rates.get("php"), rates.get("thb"), rates.get("vnd")
+    if not php or not (RATE_MIN_PHP <= float(php) <= RATE_MAX_PHP):
+        logger.warning("Catch-up: USD/PHP for %s looks wrong (%s) — skipped", day, php)
+        return None
+    php = float(php)
+    return {
+        "Date": day.strftime("%m/%d/%Y"),
+        "USD_to_PHP": round(php, 4),
+        "THB_to_PHP": round(php / float(thb), 4) if thb else None,
+        "VND_to_PHP": round(php / float(vnd), 6) if vnd else None,
+        "Source": SOURCE_RATE_HISTORY,
+    }
+
+
+def backfill_exchange_rates(days: int = CATCHUP_DAYS, since: Optional[date] = None) -> List[str]:
+    """Fill every day without a USD/PHP row, from `since` (default: `days` ago) up to yesterday.
+
+    Only empty days are written; a stored rate is never replaced. Returns the dates written.
+    """
+    today = datetime.now().date()
+    start = since or (today - timedelta(days=days))
+    have = set()
+    if os.path.exists(DB_PATH):
+        conn = sqlite3.connect(DB_PATH)
+        try:
+            have = {
+                d.date() for d in pd.to_datetime(
+                    pd.read_sql('SELECT Date FROM "WS_currency" WHERE USD_to_PHP IS NOT NULL', conn)["Date"],
+                    errors="coerce", format="mixed",
+                ).dropna()
+            }
+        except Exception:
+            have = set()
+        finally:
+            conn.close()
+    written: List[str] = []
+    day = start
+    while day < today:
+        if day not in have:
+            try:
+                row = fetch_rate_for_day(day)
+            except Exception as e:
+                logger.warning("Catch-up: no archived rate for %s (%s)", day, e)
+                row = None
+            if row:
+                upsert_csv(RATE_CSV, row)
+                upsert_sqlite("WS_currency", row)
+                written.append(row["Date"])
+        day += timedelta(days=1)
+    if written:
+        logger.info("Catch-up: filled %s missed USD/PHP day(s): %s .. %s", len(written), written[0], written[-1])
+    return written
 
 
 # ── Rice import tariff (EO 105 s.2025 / IAGRTA Circular 2025-001) ──────────────────────────────
@@ -763,6 +899,44 @@ def fetch_psa_monthly() -> bool:
         return False
 
 
+def _refresh_macro(table: str, label: str) -> bool:
+    """One monthly economic factor (tools/macro_factors.py), its own scrape step since 2026-10-07. A refresh that
+    looks wrong is refused and the stored copy kept."""
+    import macro_factors as mf
+
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        try:
+            ok, problems = mf.refresh(conn, [table])
+            latest = conn.execute(f'SELECT MAX(Date), COUNT(*) FROM "{table}"').fetchone() if ok else None
+        finally:
+            conn.close()
+        for p in problems:
+            logger.error("%s refresh refused: %s", label, p)
+        if ok:
+            logger.info("SUCCESSFULLY FETCHED %s — latest month %s, %s months stored", label.upper(), str(latest[0])[:7], latest[1])
+        return ok
+    except Exception as e:
+        logger.error("%s fetch failed: %s", label, e)
+        return False
+
+
+def fetch_core_inflation() -> bool:
+    """PSA OpenSTAT core inflation (year-on-year %, monthly, 2015 onward) -> MACRO_core_inflation."""
+    return _refresh_macro("MACRO_core_inflation", "PSA core inflation")
+
+
+def fetch_world_rice() -> bool:
+    """World Bank Pink Sheet, Rice Viet Namese 5% (USD/t, monthly, 2015 onward) -> MACRO_world_rice."""
+    return _refresh_macro("MACRO_world_rice", "World Bank rice price")
+
+
+def refresh_macro_factors() -> bool:
+    """Both monthly economic factors (kept for callers that refresh them together)."""
+    a, b = fetch_core_inflation(), fetch_world_rice()
+    return a and b
+
+
 def run_cycle() -> bool:
     logger.info("Starting scrape cycle...")
     rice_ok = fetch_rice_prices()
@@ -770,7 +944,9 @@ def run_cycle() -> bool:
     fuel_ok = fetch_fuel_prices()
     tariff_ok = fetch_tariff_rate()
     psa_ok = fetch_psa_monthly()
-    ok = rice_ok or rate_ok or fuel_ok or tariff_ok or psa_ok
+    cpi_ok = fetch_core_inflation()
+    wb_ok = fetch_world_rice()
+    ok = rice_ok or rate_ok or fuel_ok or tariff_ok or psa_ok or cpi_ok or wb_ok
     if ok:
         logger.info("Cycle finished.")
     else:

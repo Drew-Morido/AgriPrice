@@ -13,11 +13,11 @@ where py >nul 2>&1 && set PY=py -3.13
 if not defined PY set PY=python
 
 echo Step 1: Build database tables (first time only)...
-cd datasets
+cd datasets\scripts
 %PY% script.py
 if errorlevel 1 (
   echo [ERROR] script.py failed.
-  cd ..
+  cd ..\..
   pause
   exit /b 1
 )
@@ -25,7 +25,7 @@ if errorlevel 1 (
 echo.
 echo Step 2: Import 2026 daily data...
 %PY% import_2026.py
-cd ..
+cd ..\..
 
 echo.
 echo Done. Database should be at:

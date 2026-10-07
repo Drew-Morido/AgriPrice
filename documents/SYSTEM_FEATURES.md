@@ -15,13 +15,13 @@ and serves both a **public site** (households/retailers) and an **admin dashboar
 **single Flask app**. It also models the **dynamic import tariff** on imported rice and shows a
 **consumer price** = base price + applicable taxes.
 
-**One honest headline for the panel (training run 2026‑09‑26):** the published forecast — an
+**One honest headline for the panel (training run 2026‑10‑07):** the published forecast — an
 **LSTM‑based adaptive ensemble** (LSTM hybrid + ARIMA(1,1,1) + weekday Kalman filter) — beats naive
-persistence on **8/8** rice types (**skill +10.06%**, worst +2.63%) and **ARIMA(1,1,1) on 8/8**, with
-price ranges that cover **91.5%** of actual prices (target 90%). Say precisely where the gain comes
-from: the **LSTM network alone does not add significant accuracy** (McNemar p = 0.95; alone it
+persistence on **8/8** rice types (**skill +10.34%**, worst +2.25%) and **ARIMA(1,1,1) on 8/8**, with
+price ranges that cover **90.9%** of actual prices (target 90%). Say precisely where the gain comes
+from: the **LSTM network alone does not add significant accuracy** (McNemar p = 0.69; alone it
 reproduces persistence, skill −1.29%) — the gain is the weekday mean‑reversion term and the forecast
-combination. Rice prices are a **near‑random walk** (ADF p 0.08–0.21), so the margin is small in pesos
+combination. Rice prices are a **near‑random walk** (ADF p 0.06–0.65), so the margin is small in pesos
 (≈ ₱0.03/kg) but consistent.
 
 ---
@@ -32,7 +32,7 @@ combination. Rice prices are a **near‑random walk** (ADF p 0.08–0.21), so th
  Data sources                Ingestion                Storage            Model                 Serving
  ────────────                ─────────                ───────            ─────                 ───────
  DA price bulletins (PDF)    tools/scrap.py           SQLite            model/train.py         api/app.py (Flask :5000)
- Manila fuel prices (web)    datasets/import_2026.py  agriprice_        (MinMaxScaler +        ├─ REST /api/*
+ Manila fuel prices (web)    datasets/scripts/import_2026.py  agriprice_        (MinMaxScaler +        ├─ REST /api/*
  USD/PHP (keyless API)       tools/pdfconvrt.py        database.db       30‑day LSTM per type)  ├─ SSE log streams
  2015–2026 XLSX/CSV                                    (WS_* + history   → model/lstm_models/    ├─ static file server
                                                         tables)          *.keras + meta.json   └─ serves public/ + admin/
@@ -53,7 +53,7 @@ combination. Rice prices are a **near‑random walk** (ADF p 0.08–0.21), so th
 ### 2.1 Sources (what feeds the model)
 | Signal | Source | Notes |
 |---|---|---|
-| Retail rice prices (8 types) | DA price bulletins (PDF) | extracted with **rule‑based, layout‑aware PDF parsing** (`tools/pdfconvrt.py`), **not** HTML scraping |
+| Retail rice prices (8 types) | DA price bulletins (PDF); history: PSA OpenSTAT monthly NCR retail (Jan 2015 – Sep 2018), DA daily bulletins (Oct 2018 – 2022), DA weekly prevailing (2023 – Feb 2025), DA Daily Price Index after (`datasets/scripts/rebuild_verified_rice_history.py`) | extracted with **rule‑based, layout‑aware PDF parsing** (`tools/pdfconvrt.py`), **not** HTML scraping |
 | Fuel (RON95, diesel) | public Manila fuel‑price page | proxy for pump prices |
 | USD→PHP exchange rate | keyless public API (open.er‑api.com) | **no hardcoded API key** |
 | Rice stock, farmgate | historical XLSX/CSV | 2015–2026 |
@@ -62,14 +62,14 @@ combination. Rice prices are a **near‑random walk** (ADF p 0.08–0.21), so th
 - `tools/scrap.py` — live fetchers (`fetch_rice_prices`, `fetch_fuel_prices`,
   `fetch_exchange_rates`) write to `WS_*` tables + CSV backups under `tools/scrapped */`.
   Runs **every 24h** from the app and can be triggered manually (`/api/run-scraper`).
-- `datasets/import_2026.py` — syncs the current‑year daily files; **auto‑runs on every app
+- `datasets/scripts/import_2026.py` — syncs the current‑year daily files; **auto‑runs on every app
   startup** so the DB stays current with no manual step.
-- `datasets/script.py` — one‑time bulk import of the 2015–2025 history.
+- `datasets/scripts/script.py` — one‑time bulk import of the 2015–2025 history.
 
 ### 2.3 Database (SQLite, `datasets/agriprice_database.db`)
 - **Time‑series tables** used by the model: `retail_prices` + `WS_rice_price`, `fuel_history` +
   `WS_fuel`, `usd_php_rates` + `WS_currency`, `rice_stock`, `weather_data`.
-- **Catalog/tax layer** (added for Round‑2 DTI feedback, `datasets/catalog_schema.py`):
+- **Catalog/tax layer** (added for Round‑2 DTI feedback, `datasets/scripts/catalog_schema.py`):
   `dti_category` (8 rice types), `rice_brand`, `market`, `rice_price_bracket` (min–max ranges),
   `tax_component` (VAT), and the **tariff tables** (`tariff_schedule`, `tariff_audit`,
   `tariff_config`).
@@ -102,7 +102,7 @@ This **anchors** forecasts to reality and prevents level drift. It also means th
 
 ### 3.3 Training (`model/train.py`)
 - **Regime‑aware chronological split** (`train.py::_split_indices`): train 2015‑01‑31 → 2025‑03‑31,
-  validation 2025‑04‑01 → 2025‑10‑06, test 2025‑10‑07 → 2026‑09‑24 (353 origins per type). Validation
+  validation 2025‑04‑01 → 2025‑10‑10, test 2025‑10‑11 → 2026‑10‑04 (359 origins per type). Validation
   and test both come from the **daily‑observation era** (DA data before 2025 is weekly, carried
   forward). The old 70/15/15 put an 88%‑flat period in validation. **No shuffling.**
 - **Scaler fit on training rows only** (`MinMaxScaler` on `raw[:train_row_end]`) — another
@@ -113,25 +113,26 @@ This **anchors** forecasts to reality and prevents level drift. It also means th
   hybrid's own numbers and the ensemble's weights per type.
 
 ### 3.4 Evaluation & honest results (`meta.json`)
-Test window 2025‑10‑07 → 2026‑09‑24, MAE pooled over days 1–3 (₱/kg):
+Test window 2025‑10‑11 → 2026‑10‑04 (training run 2026‑10‑07, after the rice history was rebuilt from PSA/DA
+sources incl. DA daily bulletins 2018–2022), MAE pooled over days 1–3 (₱/kg):
 | Rice type | Ensemble | Persistence | ARIMA(1,1,1) | Skill | Day‑1 direction |
 |---|---|---|---|---|---|
-| Local Well‑Milled | **0.280** | 0.325 | 0.284 | +13.9% | 61.5% |
-| Local Regular | **0.264** | 0.314 | 0.277 | +15.7% | 62.3% |
-| Local Premium | **0.263** | 0.294 | 0.271 | +10.3% | 59.4% |
-| Local Special | **0.215** | 0.255 | 0.225 | +15.6% | 57.9% |
-| Imported Well‑Milled | **0.283** | 0.292 | 0.297 | +3.2% | 65.6% |
-| Imported Regular | **0.329** | 0.346 | 0.353 | +5.0% | 45.7% (chance) |
-| Imported Premium | **0.309** | 0.318 | 0.351 | +2.6% | 50.3% (chance) |
-| Imported Special | **0.339** | 0.396 | 0.343 | +14.2% | 68.9% |
+| Local Well‑Milled | **0.283** | 0.328 | 0.299 | +13.5% | 61.3% |
+| Local Regular | **0.269** | 0.316 | 0.291 | +14.7% | 61.4% |
+| Local Premium | **0.265** | 0.298 | 0.277 | +11.1% | 60.2% |
+| Local Special | **0.219** | 0.258 | 0.230 | +15.1% | 57.4% |
+| Imported Well‑Milled | **0.276** | 0.282 | 0.291 | +2.2% | 63.0% |
+| Imported Regular | **0.333** | 0.347 | 0.359 | +3.9% | 48.6% (chance) |
+| Imported Premium | **0.293** | 0.312 | 0.335 | +6.3% | 52.4% (chance) |
+| Imported Special | **0.321** | 0.381 | 0.339 | +15.8% | 68.8% |
 
-Component ladder (same window): LSTM alone −1.29% → LSTM hybrid (+ weekday reversion) +7.80%
-(ARIMA 4/8) → adaptive ensemble +10.06% (ARIMA 8/8). Hit rate within ₱1.00: 96.1 / 95.4 / 94.8%
-(days 1/2/3). Range coverage 91.5%.
+Component ladder (same window): LSTM alone −1.29% (last measured separately in Sep 2026) → LSTM hybrid (+ weekday
+reversion) +8.03% (ARIMA 6/8, also against the best of four ARIMA fitting windows) → adaptive ensemble +10.34% (ARIMA 8/8
+under every fitting window). Hit rate within ₱1.00: 96.2 / 95.5 / 95.0% (days 1/2/3). Range coverage 90.9%.
 
 - **Baselines:** naive **persistence** ("tomorrow = today") and **ARIMA(1,1,1)** walk‑forward.
-- **ADF test** p 0.08–0.21 ⇒ series is **near random walk** → persistence is a very strong benchmark.
-- **Caveats to state first:** the LSTM ablation is not significant (149 vs 151, p = 0.95); direction
+- **ADF test** p 0.06–0.65 ⇒ series is **near random walk** → persistence is a very strong benchmark.
+- **Caveats to state first:** the LSTM ablation is not significant (113 vs 120, p = 0.69); direction
   is at chance for impRegular/impPremium; the test window was reused across experiments, so a
   **forward evaluation** runs from 2026‑09‑26 (`model/forecast_log.py`, `GET /api/forecast-check`).
 - **R² is not used as proof of quality** — because prices trend, persistence also scores high R².
@@ -240,7 +241,7 @@ the tariff is **not fixed**.
 - Each quarter the **DA posts a certification** (da.gov.ph) and **BOC issues a Customs Memorandum
   Order**. **There is no official API/feed** — so we do **not** fake an auto‑updater.
 
-### 6.2 How the app models it (`datasets/catalog_schema.py`, `api/catalog_service.py`)
+### 6.2 How the app models it (`datasets/scripts/catalog_schema.py`, `api/catalog_service.py`)
 - **`tariff_schedule`** — one **dated row per confirmed quarter**: `rate_pct`, `effective_start`,
   `effective_end`, `quarter_label`, `legal_basis`, `da_certification_url`, `verified`,
   `approved_by/at`, **`active`**.
@@ -333,7 +334,7 @@ drops to VAT‑only. Reactivate → the 15% returns. Every toggle is in System L
 
 ## 10. Five defense talking points (say these confidently)
 1. **Measured, not assumed:** the published ensemble beats persistence and ARIMA on 8/8 types; the
-   LSTM network alone does not add significant accuracy (p = 0.95), and we say so — the gain is the
+   LSTM network alone does not add significant accuracy (p = 0.69), and we say so — the gain is the
    mean‑reversion structure and forecast combination. A forward evaluation confirms it on new data.
 2. **No leakage:** regime‑aware chronological split, scaler fit on train only, ensemble weights and
    reversion coefficients from past data only, seeded runs.

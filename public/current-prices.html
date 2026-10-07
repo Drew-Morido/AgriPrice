@@ -632,8 +632,8 @@ html.public-compact .brand-compare-head{padding:16px 20px 10px}
 <script src="../js/api.js?v=20261001b"></script>
 <script src="js/public-rice.js"></script>
 <script src="js/public-alert.js?v=20261001c"></script>
-<script src="js/public-auth.js?v=20261001b"></script>
-<script src="js/public-auth-modal.js?v=20261001"></script>
+<script src="js/public-auth.js?v=20261006"></script>
+<script src="js/public-auth-modal.js?v=20261006"></script>
 <script src="js/public-shell.js"></script>
 <script src="js/public-pages.js"></script>
 
@@ -1199,7 +1199,7 @@ function updateUI(key) {
   const hrType = apiPredictions?.metrics?.by_target?.[TAB_TO_API_KEY[key]]?.hit_rate_pct?.['1.00'];
   const footnoteEl = document.getElementById('table-footnote');
   if (footnoteEl && Array.isArray(hrType) && Number.isFinite(Number(hrType[0]))) {
-    footnoteEl.textContent = `Trained on DA rice prices from 2015 to now · ${Math.round(Number(hrType[0]))} of 100 next-day ${originLabel} ${group.label} forecasts landed within ₱1.00 on unseen data`;
+    footnoteEl.textContent = `Trained on PSA and DA rice prices from 2015 to now · ${Math.round(Number(hrType[0]))} of 100 next-day ${originLabel} ${group.label} forecasts landed within ₱1.00 on unseen data`;
   }
 
   document.getElementById('table-sub').textContent = `${displayName} · per kilo`;
@@ -1357,8 +1357,8 @@ async function loadLiveData() {
     footnote.textContent = !apiPredictions?.ready
       ? ''
       : Number.isFinite(hit1)
-        ? `Trained on DA rice prices from 2015 to now · ${Math.round(hit1)} of 100 next-day forecasts (all rice types) landed within ₱1.00 on unseen data`
-        : `Trained on DA rice prices from 2015 to now · Typically within ${toPeso(maePeso)} per kilo`;
+        ? `Trained on PSA and DA rice prices from 2015 to now · ${Math.round(hit1)} of 100 next-day forecasts (all rice types) landed within ₱1.00 on unseen data`
+        : `Trained on PSA and DA rice prices from 2015 to now · Typically within ${toPeso(maePeso)} per kilo`;
   }
 
   const lastUpdatedEl = document.getElementById('last-updated-val');

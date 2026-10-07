@@ -74,11 +74,13 @@ if TOOLS_DIR not in sys.path:
 
 try:
     from scrap import (
+        fetch_core_inflation,
         fetch_exchange_rates,
         fetch_fuel_prices,
         fetch_psa_monthly,
         fetch_rice_prices,
         fetch_tariff_rate,
+        fetch_world_rice,
     )
     _SCRAPER_AVAILABLE = True
 except ImportError as _scraper_import_err:
@@ -100,6 +102,12 @@ except ImportError as _scraper_import_err:
     def fetch_psa_monthly():  # type: ignore
         raise RuntimeError(f"Scraper unavailable: {_SCRAPER_IMPORT_ERROR}")
 
+    def fetch_core_inflation():  # type: ignore
+        raise RuntimeError(f"Scraper unavailable: {_SCRAPER_IMPORT_ERROR}")
+
+    def fetch_world_rice():  # type: ignore
+        raise RuntimeError(f"Scraper unavailable: {_SCRAPER_IMPORT_ERROR}")
+
 # ─── Paths ────────────────────────────────────────────────────────────────────
 BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
@@ -111,10 +119,13 @@ DB_PATH = _DATASETS_DB if os.path.exists(_DATASETS_DB) else _API_DB
 
 MODEL_DIR = os.path.join(PROJECT_ROOT, "model")
 DATASETS_DIR = os.path.join(PROJECT_ROOT, "datasets")
+# Import / rebuild / export scripts live in datasets/scripts/ (folder layout: datasets/README.md).
+DATASET_SCRIPTS_DIR = os.path.join(DATASETS_DIR, "scripts")
+FACTOR_CSV_DIR = os.path.join(DATASETS_DIR, "1_factor_csv")
 if MODEL_DIR not in sys.path:
     sys.path.insert(0, MODEL_DIR)
-if DATASETS_DIR not in sys.path:
-    sys.path.insert(0, DATASETS_DIR)
+if DATASET_SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, DATASET_SCRIPTS_DIR)
 
 # Raw scraper CSVs (used by /api/scrape-status previews)
 PRICE_CSV = os.path.join(BASE_DIR, "..", "tools", "scrapped price",  "agriprice_database.csv")
@@ -137,7 +148,8 @@ _scrape_lock     = threading.Lock()
 _scrape_started_at: datetime | None = None
 _last_scrape_ts: datetime | None = None
 _last_scrape_ok: bool | None     = None
-_last_source_ts: dict[str, datetime | None] = {"da": None, "doe": None, "api": None, "tc": None}
+_last_source_ts: dict[str, datetime | None] = {"da": None, "doe": None, "api": None, "tc": None, "psa": None,
+                                               "cpi": None, "wb": None}
 SCRAPE_STALE_SEC = 300  # force-release stuck "running" after 5 minutes
 
 SOURCE_META = {
@@ -179,8 +191,24 @@ SOURCE_META = {
         "ws_table": "PSA_rice_stocks",
         "hist_sql": None,
         "ws_sql":   'SELECT Date FROM "PSA_rice_stocks"',
-        "csv":      os.path.join(DATASETS_DIR, "psa_rice_stocks_monthly.csv"),
+        "csv":      os.path.join(FACTOR_CSV_DIR, "psa_rice_stocks_monthly.csv"),
         "fetch":    "psa",
+    },
+    # Monthly economic factors (model inputs since 2026-10-07, tools/macro_factors.py). "Last Fetch" comes from
+    # _last_source_ts or MACRO_meta.fetched_at (see _build_macro_source).
+    "cpi": {
+        "ws_table": "MACRO_core_inflation",
+        "hist_sql": None,
+        "ws_sql":   'SELECT Date FROM "MACRO_core_inflation"',
+        "csv":      os.path.join(FACTOR_CSV_DIR, "psa_core_inflation_monthly.csv"),
+        "fetch":    "cpi",
+    },
+    "wb": {
+        "ws_table": "MACRO_world_rice",
+        "hist_sql": None,
+        "ws_sql":   'SELECT Date FROM "MACRO_world_rice"',
+        "csv":      os.path.join(FACTOR_CSV_DIR, "worldbank_rice_monthly.csv"),
+        "fetch":    "wb",
     },
 }
 
@@ -351,6 +379,13 @@ def _do_scrape(skip=()) -> bool:
         ("psa", "psa", "PSA", fetch_psa_monthly,
          "PSA OPENSTAT IS CHECKING NOW // https://openstat.psa.gov.ph (rice stocks, palay farmgate)",
          "PSA OpenSTAT refresh failed or was refused — kept the stored copy."),
+        ("cpi", "cpi", "CPI", fetch_core_inflation,
+         "PSA CORE INFLATION IS CHECKING NOW // https://openstat.psa.gov.ph (core CPI, year-on-year %)",
+         "PSA core inflation refresh failed or was refused — kept the stored copy."),
+        ("wb", "wb", "WB", fetch_world_rice,
+         "WORLD BANK RICE PRICE IS CHECKING NOW // https://www.worldbank.org/en/research/commodity-markets "
+         "(Pink Sheet, Rice Viet Namese 5%)",
+         "World Bank rice price refresh failed or was refused — kept the stored copy."),
     ]
     results: dict = {}
 
@@ -362,7 +397,7 @@ def _do_scrape(skip=()) -> bool:
             _last_scrape_ok = False
             return False
 
-        _add_log("INFO", "Scrape job started (rice → fuel → exchange rates → tariff → PSA)")
+        _add_log("INFO", "Scrape job started (rice → fuel → exchange rates → tariff → PSA → core inflation → world rice)")
         logger.info("SCRAPPING IS INITIATING...")
 
         for key, sid, _label, fn, start_msg, fail_msg in steps:
@@ -405,6 +440,7 @@ def _do_scrape(skip=()) -> bool:
         _last_scrape_ok = any_ok
         _add_log("INFO", "Scrape job finished.")
         if any_ok:
+            _export_factor_files()
             _refresh_forecast_async()
         return any_ok
 
@@ -417,8 +453,19 @@ def _do_scrape(skip=()) -> bool:
         _release_scrape_lock()
 
 
+def _export_factor_files() -> None:
+    """Refresh datasets/1_factor_csv (one CSV per factor) and datasets/2_backup_database/by_factor (one SQLite copy
+    per factor) from the database after a scrape. Never fails the scrape."""
+    try:
+        from export_factors import export_all
+        written = export_all(verbose=False)
+        logging.getLogger("agriprice_scraper").info("Factor CSVs and per-factor backups refreshed (%s files).", written)
+    except Exception as exc:
+        logging.getLogger("agriprice_scraper").warning("Factor export skipped: %s", exc)
+
+
 def _do_scrape_one(source_id: str) -> bool:
-    """Run scraper for a single source (da | doe | api | tc | psa)."""
+    """Run scraper for a single source (da | doe | api | tc | psa | cpi | wb)."""
     global _scrape_running, _last_scrape_ts, _last_scrape_ok, _scrape_started_at
 
     fetch_map = {
@@ -427,6 +474,8 @@ def _do_scrape_one(source_id: str) -> bool:
         "api": fetch_exchange_rates,
         "tc":  fetch_tariff_rate,
         "psa": fetch_psa_monthly,
+        "cpi": fetch_core_inflation,
+        "wb":  fetch_world_rice,
     }
     fn = fetch_map.get(source_id)
     if not fn:
@@ -449,6 +498,7 @@ def _do_scrape_one(source_id: str) -> bool:
         if ok:
             _last_source_ts[source_id] = datetime.now()
             if source_id != "tc":           # a tariff candidate never changes the model's inputs
+                _export_factor_files()
                 _refresh_forecast_async()
         _last_scrape_ts = datetime.now()
         _last_scrape_ok = ok
@@ -1181,6 +1231,88 @@ def _build_psa_source() -> dict:
     }
 
 
+_MACRO_SOURCES = {
+    "cpi": {"table": "MACRO_core_inflation", "col": "core_inflation", "name": "PSA OpenSTAT (Core inflation)",
+            "type": "REST API (PXWeb JSON)", "dataType": "Core inflation, year-on-year % (Monthly)",
+            "source": "PSA OpenSTAT", "label": "Core inflation (%)", "fmt": "{:.1f}%",
+            "extra": [("core_cpi", "Core CPI (2018=100)", "{:.1f}")],
+            "url": "https://openstat.psa.gov.ph", "color": "#E11D48", "bgColor": "rgba(225,29,72,0.12)",
+            "current_days": 75},
+    "wb":  {"table": "MACRO_world_rice", "col": "viet5", "name": "World Bank Pink Sheet (World rice price)",
+            "type": "Excel download (monthly XLSX)", "dataType": "Rice export price, Viet Nam 5% broken, US$/t (Monthly)",
+            "source": "World Bank Pink Sheet", "label": "Viet Nam 5% (US$/t)", "fmt": "${:,.2f}",
+            "extra": [("thai5", "Thai 5% (US$/t), reference only", "${:,.2f}")],
+            "url": "https://www.worldbank.org/en/research/commodity-markets", "color": "#14B8A6",
+            "bgColor": "rgba(20,184,166,0.12)", "current_days": 62},
+}
+
+
+def _build_macro_source(source_id: str) -> dict:
+    """Data Sources card for one monthly economic factor (core inflation from PSA, world rice price from the
+    World Bank). Monthly, so "up to date" means the source has nothing newer, not a row dated today."""
+    d = _MACRO_SOURCES[source_id]
+    fetch_ts = _last_source_ts.get(source_id)
+    df = None
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            df = pd.read_sql(f'SELECT * FROM "{d["table"]}" ORDER BY Date', conn)
+            if fetch_ts is None:
+                try:
+                    row = conn.execute('SELECT fetched_at FROM "MACRO_meta" WHERE "table" = ?', (d["table"],)).fetchone()
+                    if row and row[0]:
+                        fetch_ts = datetime.fromisoformat(row[0])
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    if fetch_ts is None:
+        fetch_ts = _infer_source_fetch_time(source_id)
+
+    summary: list[dict] = []
+    latest_month = None
+    if df is not None and not df.empty:
+        last = df.iloc[-1]
+        latest_month = pd.to_datetime(last["Date"])
+        summary.append({"label": "Date", "value": latest_month.strftime("%B %Y")})
+        summary.append({"label": "Source", "value": d["source"]})
+        summary.append({"label": d["label"], "value": d["fmt"].format(float(last[d["col"]]))})
+        if len(df) > 12:
+            summary.append({"label": "Same month last year", "value": d["fmt"].format(float(df.iloc[-13][d["col"]]))})
+        for col, label, fmt in d["extra"]:
+            if col in df.columns and pd.notna(last.get(col)):
+                summary.append({"label": label, "value": fmt.format(float(last[col]))})
+        summary.append({"label": "Used by the model from",
+                        "value": (latest_month + pd.DateOffset(months=1, days=14)).strftime("%b %d, %Y")})
+    current = latest_month is not None and (pd.Timestamp.now().normalize() - latest_month).days <= d["current_days"]
+    months = len(df) if df is not None else 0
+    return {
+        "id": source_id,
+        "name": d["name"],
+        "type": d["type"],
+        "dataType": d["dataType"],
+        "status": "running" if _scrape_running else ("active" if months else "idle"),
+        "lastFetch": _format_fetch_timestamp(fetch_ts, {}),
+        "lastFetchRelative": _relative_time(fetch_ts),
+        "lastFetchAt": fetch_ts.isoformat() if fetch_ts else None,
+        "hasDataToday": bool(current),
+        "hasCalendarToday": False,
+        "isEstimated": False,
+        "recordsToday": 0,
+        "todaySummary": summary if current else [],
+        "dataSummary": summary,
+        "historicalRecords": months,
+        "scrapedRecords": months,
+        "totalRecords": months,
+        "firstMonth": pd.to_datetime(df["Date"].iloc[0]).strftime("%b %Y") if months else None,
+        "latestMonth": latest_month.strftime("%b %Y") if latest_month is not None else None,
+        "url": d["url"],
+        "color": d["color"],
+        "bgColor": d["bgColor"],
+        "live": True,
+        "implemented": True,
+    }
+
+
 @app.route("/api/data-sources", methods=["GET"])
 def api_data_sources():
     """Live metadata for Data Sources page (historical + scraped DB counts)."""
@@ -1227,6 +1359,8 @@ def api_data_sources():
         ),
         _build_tariff_source(),
         _build_psa_source(),
+        _build_macro_source("cpi"),
+        _build_macro_source("wb"),
     ]
 
     active_count = sum(1 for s in sources if s["status"] in ("active", "running"))
@@ -1247,7 +1381,7 @@ def api_data_sources():
 @app.route("/api/run-scraper", methods=["POST"])
 def api_run_scraper():
     """
-    Triggers scrape in background. Optional JSON body: {"source": "da"|"doe"|"api"|"tc"|"psa"}.
+    Triggers scrape in background. Optional JSON body: {"source": "da"|"doe"|"api"|"tc"|"psa"|"cpi"|"wb"}.
     """
     ok, resp = _require_admin()
     if not ok:
@@ -1461,8 +1595,35 @@ def _build_historical_payload():
         df_final = pd.merge(df_final, df_usd, on="Date", how="outer")
 
     df_final = df_final.sort_values("Date").reset_index(drop=True)
-    df_final["Date"] = df_final["Date"].dt.strftime("%m/%d/%Y")
+
+    # Monthly economic factors (core inflation, world rice price), each placed on the day it became public —
+    # the 15th of the following month, the same rule the model uses (data_pipeline.MONTHLY_RELEASE_LAG).
+    for table, col, out in (("MACRO_core_inflation", "core_inflation", "core_inflation"),
+                            ("MACRO_world_rice", "viet5", "rice_world")):
+        try:
+            with sqlite3.connect(DB_PATH) as mconn:
+                m = pd.read_sql(f'SELECT Date, {col} AS {out} FROM "{table}" ORDER BY Date', mconn)
+            m["Date"] = pd.to_datetime(m["Date"]) + pd.DateOffset(months=1, days=14)
+            df_final = pd.merge_asof(df_final.sort_values("Date"), m.sort_values("Date"), on="Date", direction="backward")
+        except Exception:
+            pass
+
     df_final = df_final.ffill().bfill().fillna(0)
+
+    # The same factors by the month they describe (no release lag), for Admin -> Price History: every day of month M
+    # carries M's figure; days outside the published months stay empty (null).
+    month_ref: dict = {}
+    for table, col, out in (("MACRO_core_inflation", "core_inflation", "core_inflation_month"),
+                            ("MACRO_world_rice", "viet5", "rice_world_month")):
+        try:
+            with sqlite3.connect(DB_PATH) as mconn:
+                m = pd.read_sql(f'SELECT Date, {col} AS v FROM "{table}" ORDER BY Date', mconn)
+            by_month = dict(zip(pd.to_datetime(m["Date"]).dt.to_period("M"), m["v"].astype(float)))
+            month_ref[out] = [by_month.get(per) for per in df_final["Date"].dt.to_period("M")]
+        except Exception:
+            month_ref[out] = []
+
+    df_final["Date"] = df_final["Date"].dt.strftime("%m/%d/%Y")
 
     # ── 5. Build response ─────────────────────────────────────────────────────
     return {
@@ -1478,6 +1639,9 @@ def _build_historical_payload():
             "locRegular":    df_final["locRegular"].tolist(),
             "fuel":          df_final["fuel"].tolist()     if "fuel"     in df_final.columns else [],
             "exchange":      df_final["exchange"].tolist() if "exchange" in df_final.columns else [],
+            "core_inflation": df_final["core_inflation"].tolist() if "core_inflation" in df_final.columns else [],
+            "rice_world":    df_final["rice_world"].tolist() if "rice_world" in df_final.columns else [],
+            **month_ref,
         },
     }
 

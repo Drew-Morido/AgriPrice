@@ -38,7 +38,9 @@ _HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                   "(KHTML, like Gecko) Chrome/126.0 Safari/537.36",
 }
-_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "doe_fuel_cache")
+# DOE weekly PDFs are kept with the other source files (datasets/README.md).
+_CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "datasets", "3_source_files",
+                          "DOE", "weekly_pdf")
 
 # Summary-table label -> WS_fuel column
 _PRODUCTS = {

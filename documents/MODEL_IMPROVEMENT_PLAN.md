@@ -27,7 +27,7 @@ that's already working in your favor; it tries to make X a better finding.
 **Goal:** Prove (not assume) where the flat-lining comes from, so Phase 2 fixes the right thing.
 
 **What to do**
-1. Check `datasets/script.py` (the 2015–2025 historical importer) — does the source file it
+1. Check `datasets/scripts/script.py` (the 2015–2025 historical importer) — does the source file it
    reads already contain daily values, or is it a weekly/monthly published series that got
    expanded into a daily schema at import time?
 2. Check `tools/scrap.py`'s live scraper — does DA actually publish a new bulletin every day,
@@ -40,7 +40,7 @@ that's already working in your favor; it tries to make X a better finding.
 
 **Phase 1 prompt:**
 > Investigate the root cause of the ~90% zero-change-day / up-to-591-day flat streaks found in
-> `datasets/agriprice_database.db`'s `retail_prices` table. Check whether `datasets/script.py`'s
+> `datasets/agriprice_database.db`'s `retail_prices` table. Check whether `datasets/scripts/script.py`'s
 > historical import already receives non-daily source data, and whether `tools/scrap.py`'s live
 > scraper only gets a new DA bulletin every few days. Quantify the real median gap between
 > genuine value changes per rice category (not calendar days). Write a short, cited finding

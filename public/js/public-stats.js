@@ -13,7 +13,7 @@
  *    each side) is treated as a recording error and left out. Real daily moves are well under 2%;
  *    the rows it was written for were scrape errors (Sep 19, 20 and 22, 2026: three imported grades
  *    saved one column off). Those rows have since been repaired in the database from the DA
- *    bulletins (datasets/repair_ws_rice_from_bulletins.py), so this is now a safety net for any
+ *    bulletins (datasets/scripts/repair_ws_rice_from_bulletins.py), so this is now a safety net for any
  *    future bad reading. A real price jump that lasts survives, because after it the surrounding
  *    week agrees with it. Every skipped reading is disclosed on the card it affects.
  *

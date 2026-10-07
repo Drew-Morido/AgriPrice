@@ -29,8 +29,8 @@ forecast horizon, train/val/test split, evaluation metrics and baselines, and th
   `model/meta.json`, `HORIZON`/split in `model/train.py`, sources in `tools/scrap.py`, live
   `/api/predictions` and Admin → Metrics). If wording drifts, update the `.docx` too.
 - Never let the paper claim something the app does not do. The honest evaluation result: the
-  **LSTM network alone** ≈ naive persistence (skill −1.29%, ablation p = 0.77); the **published
-  adaptive ensemble** beats naive (+10.17%) and ARIMA (8/8) on the test window. Always say which one.
+  **LSTM network alone** ≈ naive persistence (skill −1.29%, ablation p = 0.69); the **published
+  adaptive ensemble** beats naive (+10.34%) and ARIMA (8/8) on the test window. Always say which one.
 - The `.docx` was reconciled on 2026-09-27 (Ch. 1 limitations, Ch. 2 counter-evidence, Ch. 3 data
   span/split/baselines/ensemble, plus a draft Ch. 4–5 built from `meta.json`). Edit it by patching
   `word/document.xml` only: its four images are PNGs stored as `*.undefined`, which python-docx can
@@ -47,7 +47,7 @@ py -3.13 -m pip install -r requirements.txt
 py -3.13 -m pip install tensorflow==2.20.0   # optional, version-pinned (see requirements.txt); without it, sklearn MLP is used as fallback
 
 # Build/refresh the SQLite database (first-time setup, or to pull in new 2026 data)
-cd datasets && py -3.13 script.py && py -3.13 import_2026.py
+cd datasets/scripts && py -3.13 script.py && py -3.13 import_2026.py
 # or: double-click setup_database.bat / import_2026.bat from project root
 
 # Start the backend (must cd into api/ first — app.py uses relative paths)
@@ -65,7 +65,7 @@ cd api && py -3.13 app.py --loop --interval 3600
 cd api && py -3.13 app.py --serve --port 8080 # custom port/host for the server itself
 ```
 
-Tests: `py -3.13 -m pytest tests -q` (175 tests: model/API contracts, admin roles, Google sign-in, security fixes, the DA bulletin reader, the scraper guard, the DOE fuel reader, weekday reversion, the ensemble, the forecast log; API tests skip if :5000 is down). No linter or JS build step — frontend is plain HTML/CSS/JS served as static files, no bundler/npm project.
+Tests: `py -3.13 -m pytest tests -q` (193 tests: model/API contracts, the verified rice history rebuild, the DA daily-bulletin reader, admin roles, Google sign-in, security fixes, the DA bulletin reader, the scraper guard, the DOE fuel reader, weekday reversion, the ensemble, the forecast log; API tests skip if :5000 is down). No linter or JS build step — frontend is plain HTML/CSS/JS served as static files, no bundler/npm project.
 
 ### Opening the app
 
@@ -79,7 +79,7 @@ Tests: `py -3.13 -m pytest tests -q` (175 tests: model/API contracts, admin role
 
 ```
 DA PDF/HTML, DOE NCR fuel PDF (weekly), USD API, 2026 XLSX
-        │  (tools/scrap.py, datasets/import_2026.py — auto-run on app.py startup)
+        │  (tools/scrap.py, datasets/scripts/import_2026.py — auto-run on app.py startup)
         ▼
 datasets/agriprice_database.db  (SQLite)
         │  model/data_pipeline.py: load_merged_frame()
@@ -141,7 +141,8 @@ the mean-reversion coefficient does not — a paired McNemar test on **genuine-s
 (last change non-zero and price actually moved), because on ~13% of moving-price forecasts the
 reversion term is structurally silent (`phi * 0 == 0`), `sign(0)` matches nothing, and counting those
 rows inflates the network's apparent directional contribution by ~9 points when it is in fact
-coin-flipping them at 50.7%. Current verdict (PSA retrain 2026-10-01): 142 fixes vs 148 breaks, **p = 0.77, not significant**.
+coin-flipping them at 50.7%. Current verdict (daily-bulletin retrain 2026-10-07): 113 fixes vs 120 breaks, **p = 0.69, not significant** (the 2018–2022
+daily bulletins doubled the disagreements tested, from 107 to 233, without changing the verdict).
 **Do not "improve" this by widening the subset or by scoring a window that overlaps training** — under
 the regime-aware split only ~342 rows per type are held out, and scoring the full active era instead
 credits the network for memorised rows (this produced a spurious p < 0.0001 in Round 19; see
@@ -162,11 +163,12 @@ serves the plain hybrid). Three forecasters are weighted each day by 1 / (their 
 forecasts), per rice type and forecast day (Bates & Granger): (1) the LSTM hybrid described below, (2) ARIMA(1,1,1),
 (3) a local-level Kalman filter with a noise variance per weekday (DA's Sunday bulletin is ~5x noisier). Past errors
 only; training scores it on the test window (`meta.json` `forecaster: adaptive_ensemble`; the hybrid's own numbers sit
-under each type's `hybrid`). Current (PSA retrain 2026-10-01): **skill +10.17%, beats ARIMA on 8/8, every type beats naive (worst impPremium
-+2.68%)**, price-range coverage 91.7% realised. Honest caveats, keep them in the paper: impRegular's day-1 direction fell
-to chance (46.2% on 208 moves, not significantly below 50%; the hybrid had 62%), impPremium to 50.0%, and the test
+under each type's `hybrid`). Current (daily-bulletin retrain 2026-10-07): **skill +10.34%, beats ARIMA on 8/8, every type beats naive (worst impWellMilled
++2.25%)**, price-range coverage 90.9% realised. The ensemble also beats ARIMA re-fitted from Oct 2018, from 2021 or on the
+daily era only, 8/8 under each (`model/experiments/arima_daily_era_check.json`). Honest caveats, keep them in the paper: impRegular's day-1 direction fell
+to chance (48.6% on 208 moves, not significantly below 50%; the hybrid had 62.5%), impPremium to 52.4%, and the test
 window was reused across many experiments (a forward evaluation is the clean confirmation). The LSTM ablation still
-shows no significant network contribution (p = 0.77) — the gain is the ensemble's, never the network's. See
+shows no significant network contribution (p = 0.69) — the gain is the ensemble's, never the network's. See
 PAPER_CORRECTIONS.md "Adaptive ensemble deployed". Forward evaluation: every freshly built forecast is logged before its
 DA price exists (`model/forecast_log.py`, table `forecast_log`, `GET /api/forecast-check`), and forecast moves under
 ₱0.10 are published as direction "steady" (`predict.STEADY_PESO`). Forecast day *h* is dated **last DA data day + h**
@@ -180,7 +182,7 @@ first differences are strongly mean-reverting (lag-1 autocorrelation −0.17 to 
 p < 0.0001, t = −3.0 to −7.2), so one OLS coefficient per horizon — shrunk, clipped to [−1, 0],
 and deployed only when |t| ≥ 2 — recovers it. With that term (Round 13, before the weekday and
 rolling-window changes below) the model first beat naive persistence: skill +3.51%, 7/8 types,
-`movement_ratio` 0.24; the current hybrid is +7.99%, 8/8. Shrinkage is 0.6 and a second lag was tested and rejected (dominated end-to-end at every shrink level). See PAPER_CORRECTIONS.md Rounds 11, 13 and 15. The coefficient is re-fitted on a rolling 120-day window before each forecast (`mean_reversion.rolling_phi`) rather than frozen at training time — scoring and serving use the same path, so they cannot diverge.
+`movement_ratio` 0.24; the current hybrid is +8.03%, 8/8. Shrinkage is 0.6 and a second lag was tested and rejected (dominated end-to-end at every shrink level). See PAPER_CORRECTIONS.md Rounds 11, 13 and 15. The coefficient is re-fitted on a rolling 120-day window before each forecast (`mean_reversion.rolling_phi`) rather than frozen at training time — scoring and serving use the same path, so they cannot diverge.
 **The coefficient is weekday-aware** (`mean_reversion.WEEKDAY_MODE`, default on): the anchor day's weekday
 gets its own coefficient, because DA's Sunday bulletin (fewer markets) is ~5× noisier than weekdays and is
 reversed on Monday, while Thursday/Friday moves persist. Chosen on the validation window only
@@ -188,15 +190,16 @@ reversed on Monday, while Thursday/Friday moves persist. Chosen on the validatio
 `AGRIPRICE_REVERSION_WEEKDAY=0` restores the single global coefficient.
 
 State this precisely: the **combined** model beats persistence on all 8 types, but beats
-**ARIMA(1,1,1) on only 3 of 8** as a *hybrid* (impWellMilled, impRegular, impPremium; locRegular, formerly a tie, now goes
-to ARIMA, PHP 0.2740 vs 0.2752; on `locWellMilled` ARIMA is ahead, PHP 0.2856 vs 0.2891). The published *ensemble* beats ARIMA on 8/8 — say which one you mean. Do not write "beats ARIMA" without that qualifier; the panel can check
+**ARIMA(1,1,1) on 6 of 8** as a *hybrid* (locSpecial PHP 0.2390 vs ARIMA 0.2296 and impSpecial 0.3464 vs 0.3386 go to
+ARIMA), the same against the best of four ARIMA fitting windows. It was 3 of 8 before the 2026-10-06 rice rebuild — mostly
+ARIMA getting worse on the newer test window, not the hybrid improving. The published *ensemble* beats ARIMA on 8/8 — say which one you mean. Do not write "beats ARIMA" without that qualifier; the panel can check
 it in one command. The defensible framing is that the two are close, and that this system adds
 prediction intervals, 8 simultaneous targets, and a daily operational pipeline that a single-series
 ARIMA does not. The **LSTM alone does
 not**. Round 16 went further and measured the network's *marginal* contribution by ablation — it
 is **negative on all 8 rice types**, so its delta is down-weighted to `LSTM_DELTA_WEIGHT=0.25`
-(w=0 scores best; 0.25 keeps it in the path, disclosed). Current (PSA retrain 2026-10-01): **skill +7.99%, 8/8 types
-positive, worst +1.71 (impWellMilled), directional 45–66% per horizon**. The weekday gain is the
+(w=0 scores best; 0.25 keeps it in the path, disclosed). Current (daily-bulletin retrain 2026-10-07): **skill +8.03%, 8/8 types
+positive, worst +1.97 (impWellMilled), directional 45–66% per horizon**. The weekday gain is the
 reversion term's, not the network's (the ablation above is unchanged). Never attribute the gain to the network — the
 ablation table in Round 16 is the evidence and a panel will ask.
 
@@ -257,17 +260,42 @@ both are served by the same Flask instance and share `css/global.css` and `js/`.
 
 ### Data/ML scripts (`datasets/`, `model/`, `tools/`)
 
-- `datasets/script.py` — one-time bulk import of historical (2015–2025) XLSX/CSV into SQLite.
-- `datasets/import_2026.py` — syncs current-year daily XLSX/CSV (rice, fuel, USD); also
+- **`datasets/` layout (since 2026-10-07, map in `datasets/README.md`)**: `agriprice_database.db` (live DB, stays at the
+  top) · `1_factor_csv/` one final CSV per factor, 2015 → latest · `2_backup_database/by_factor/` one SQLite copy per
+  factor + `full_snapshots/` (every pre-change DB copy; scripts write them via `paths.backup_path()`) · `3_source_files/`
+  everything downloaded/received (DA-AMAS bulletin + DPI PDFs, DA weekly xlsx, parsed CSVs, PSA OpenSTAT downloads incl.
+  wholesale, World Bank workbook, DOE PDFs, legacy workbooks) · `scripts/` all import/rebuild scripts. Every path comes
+  from `datasets/scripts/paths.py`; `datasets/scripts/export_factors.py` rewrites folders 1 and 2 from the DB after every
+  successful scrape (`api/app.py::_export_factor_files`) and at the end of `script.py`. Edit the DB, never the copies.
+
+- `datasets/scripts/script.py` — one-time bulk import of historical (2015–2025) XLSX/CSV into SQLite.
+- `datasets/scripts/import_2026.py` — syncs current-year daily XLSX/CSV (rice, fuel, USD); also
   auto-runs on every `app.py` startup so the DB stays current without manual steps.
 - `tools/doe_fuel.py` — reads DOE's weekly "Price Monitoring of Liquid Fuels — NCR" PDFs (summary table, common
   price per product; Dec 2024 onward) with GasWatch PH as fallback and as the same-week filler for a DOE "#N/A".
-  WS_fuel rows carry `Source` (`doe_ncr_weekly`/`gaswatchph`) and `Filled`; `datasets/import_doe_fuel.py` rebuilds them.
+  WS_fuel rows carry `Source` (`doe_ncr_weekly`/`gaswatchph`) and `Filled`; `datasets/scripts/import_doe_fuel.py` rebuilds them.
   From the first DOE week on, `load_merged_frame` ignores `fuel_history` (the 2015–2025 dataset runs PHP 10–20 above
   DOE in 2025) — see PAPER_CORRECTIONS.md "Fuel source replaced with DOE". The old Zigwheels source froze in May 2026.
+- **Rice price history is rebuilt from official sources only** (`datasets/scripts/rebuild_verified_rice_history.py`, run last by
+  `script.py`; table `rice_price_provenance` says where each day came from; `tests/test_rice_history_rebuild.py`):
+  Jan 2015 – Sep 2018 PSA OpenSTAT old-series NCR monthly retail (`2M/RP/0042M4ARP01`; one figure held across each month;
+  local = imported; PSA's blank Nov–Dec 2015 / May–Jun 2016 repeat the prior month); Oct 2018 – 2022 DA DAILY bulletins
+  (`datasets/scripts/fetch_da_bulletins.py` caches the PDFs listed on da.gov.ph/price-monitoring into
+  `datasets/3_source_files/DA-AMAS/daily_bulletins_pdf/` (PDFs gitignored); `datasets/scripts/parse_da_daily_bulletins.py`
+  classifies each page's layout and reads only known layouts → `3_source_files/DA-AMAS/parsed/da_daily_bulletins.csv`,
+  refusals → `da_daily_bulletins_review.csv`; `tests/test_da_bulletin_reader.py`);
+  2023 – Feb 2025 DA weekly prevailing (the daily bulletins then publish only a low–high RANGE, deliberately not converted);
+  Mar 2025 on DA Daily Price Index. A daily figure is carried up to 14 days before a weekly one may be used; longer gaps take
+  PSA's month. The original `DATASETS_RETAIL_PRICE_2015_2025.xlsx` matched no PSA or DA table
+  and no longer contributes any value. Never re-run `smooth_unverified_2015_2019.py` (it now refuses) — it would ramp the
+  flat PSA months. Expect a level shift on 2018-10-01 (PSA NCR average → DA prevailing price).
 - `tools/psa_openstat.py` — PSA OpenSTAT (PXWeb API) monthly national rice stocks + palay farmgate, 2015 onward, into
-  `PSA_rice_stocks` / `PSA_farmgate` (`datasets/import_psa.py` for a manual load). The pipeline prefers these over the old
+  `PSA_rice_stocks` / `PSA_farmgate` (`datasets/scripts/import_psa.py` for a manual load). The pipeline prefers these over the old
   `rice_stock` / `farmgate_prices` tables and uses each month's figure from the 15th of the next month (`MONTHLY_RELEASE_LAG`).
+- Catch-up: each scrape cycle stores any DA bulletin from the last 45 days with no DA row (`scrap.backfill_rice_bulletins`)
+  and fills USD/PHP days without a rate from a dated archive (`scrap.backfill_exchange_rates`, `RATE_HISTORY_URL`, rows
+  tagged `WS_currency.Source = currency_api_archive`). Never overwrites a stored value. One-off/longer range:
+  `cd datasets/scripts && py -3.13 backfill_missing_days.py [--since YYYY-MM-DD]` (backs up the DB, reports what is still missing).
 - Data readiness: `data_pipeline.evaluate_readiness` — the merged frame ends at the newest day whose DA bulletin (never an
   `estimated` row), DOE fuel week (≤14 days) and USD/PHP rate (≤4 days) are all present (`GET /api/data-readiness`).
 - Auto-scraper (`api/app.py::_loop_scraper`): full sync every `scrape_interval_hours` (Admin → Settings), DA-only retries

@@ -464,10 +464,10 @@ AgriPricePH.History = (function () {
   /* ─────────────────────── F · Biggest price swings ─────────────────────── */
 
   // A window whose entire move happened in one step is a break in the record, not a market move.
-  // Measured on the four largest swings in the series: 2020-11 put 96% of an ₱11.50 rise into a
-  // single day and 2019-09 put 117% into one (it overshot, then partly retraced) — both are
-  // reconstruction seams in the pre-2020 data. The real August-2023 price crisis, by contrast,
-  // climbed over several steps and held. Anything above this share is withheld.
+  // Two kinds of one-step windows exist in the record: 2015 - Sep 2019 is PSA's monthly figure (each month's
+  // change lands on the 1st), and Oct 1, 2019 is the hand-over from PSA's NCR average to DA's prevailing
+  // price (a level shift between two agencies, not a market move). The real August-2023 price crisis, by
+  // contrast, climbed over several steps and held. Anything above this share is withheld.
   const STEP_SHARE_LIMIT = 0.75;
 
   /**

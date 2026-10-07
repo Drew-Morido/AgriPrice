@@ -335,7 +335,7 @@ AgriPricePH.Taxes = (function () {
 
     cleanupMovedPopovers(body);
     if (!total) {
-      body.innerHTML = `<tr><td colspan="8" class="empty-state">${(_taxRows.length || _tariffSchedule.length) ? 'No charges match your search.' : 'No charges loaded — run datasets/seed_verified_data.py.'}</td></tr>`;
+      body.innerHTML = `<tr><td colspan="8" class="empty-state">${(_taxRows.length || _tariffSchedule.length) ? 'No charges match your search.' : 'No charges loaded — run datasets/scripts/seed_verified_data.py.'}</td></tr>`;
       return;
     }
 

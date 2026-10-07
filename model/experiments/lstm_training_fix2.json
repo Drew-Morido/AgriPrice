@@ -1,0 +1,419 @@
+{
+ "protocol": "(written before the run; test is looked at once):\n  - Early stopping on the first 60% of the validation block; the GATE window is the last 40%.\n  - Per rice type, the new network replaces the current one only if the hybrid's GATE-window MAE is at least 2%\n    lower (new <= 0.98 x current). Test plays no part in it.\n  - DEPLOY RULE: the gated result goes to production only if its mean ensemble skill on TEST is >= the current\n    10.32% AND the ensemble still beats ARIMA on 8/8. Otherwise production stays as it is and this is reported as\n    the eleventh approach tested and rejected. No further variants are run on this test window either way.",
+ "types": {
+  "locWellMilled": {
+   "epochs": [
+    38,
+    38,
+    33,
+    18,
+    51
+   ],
+   "genuine_train_share_pct": 30.6,
+   "gate_mae": {
+    "current": 0.1878,
+    "new": 0.185
+   },
+   "gate_picks": "current",
+   "arima_mae": 0.2992,
+   "current": {
+    "hybrid_skill": 11.65,
+    "ensemble_skill": 13.44,
+    "hybrid_mae": 0.2894,
+    "ensemble_mae": 0.2835,
+    "output_std_peso": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "new": {
+    "hybrid_skill": 12.08,
+    "ensemble_skill": 13.44,
+    "hybrid_mae": 0.288,
+    "ensemble_mae": 0.2836,
+    "output_std_peso": [
+     0.0349,
+     0.0542,
+     0.0665
+    ],
+    "permutation_day1_peso": {
+     "locWellMilled": 0.1027,
+     "fuel_diesel": 0.0174,
+     "stock": 0.006,
+     "farmgate": 0.0375,
+     "exchange": 0.0049,
+     "core_inflation": 0.0094,
+     "rice_world": 0.0113,
+     "season_sin": 0.0079,
+     "season_cos": 0.0278
+    }
+   }
+  },
+  "locRegular": {
+   "epochs": [
+    19,
+    18,
+    15,
+    18,
+    25
+   ],
+   "genuine_train_share_pct": 30.6,
+   "gate_mae": {
+    "current": 0.2874,
+    "new": 0.287
+   },
+   "gate_picks": "current",
+   "arima_mae": 0.2908,
+   "current": {
+    "hybrid_skill": 11.96,
+    "ensemble_skill": 14.7,
+    "hybrid_mae": 0.278,
+    "ensemble_mae": 0.2693,
+    "output_std_peso": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "new": {
+    "hybrid_skill": 11.68,
+    "ensemble_skill": 14.49,
+    "hybrid_mae": 0.2789,
+    "ensemble_mae": 0.27,
+    "output_std_peso": [
+     0.003,
+     0.003,
+     0.0022
+    ],
+    "permutation_day1_peso": {
+     "locRegular": 0.0012,
+     "fuel_diesel": 0.001,
+     "stock": 0.0004,
+     "farmgate": 0.0013,
+     "exchange": 0.0001,
+     "core_inflation": 0.0003,
+     "rice_world": 0.0001,
+     "season_sin": 0.0034,
+     "season_cos": 0.001
+    }
+   }
+  },
+  "locPremium": {
+   "epochs": [
+    68,
+    13,
+    29,
+    40,
+    86
+   ],
+   "genuine_train_share_pct": 30.6,
+   "gate_mae": {
+    "current": 0.3489,
+    "new": 0.3475
+   },
+   "gate_picks": "current",
+   "arima_mae": 0.2768,
+   "current": {
+    "hybrid_skill": 8.66,
+    "ensemble_skill": 11.15,
+    "hybrid_mae": 0.2719,
+    "ensemble_mae": 0.2645,
+    "output_std_peso": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "new": {
+    "hybrid_skill": 8.44,
+    "ensemble_skill": 11.02,
+    "hybrid_mae": 0.2726,
+    "ensemble_mae": 0.2649,
+    "output_std_peso": [
+     0.0165,
+     0.0204,
+     0.0255
+    ],
+    "permutation_day1_peso": {
+     "locPremium": 0.0261,
+     "fuel_diesel": 0.0054,
+     "stock": 0.0006,
+     "farmgate": 0.0026,
+     "exchange": 0.0063,
+     "core_inflation": 0.0029,
+     "rice_world": 0.0054,
+     "season_sin": 0.0015,
+     "season_cos": 0.0047
+    }
+   }
+  },
+  "locSpecial": {
+   "epochs": [
+    44,
+    50,
+    28,
+    16,
+    32
+   ],
+   "genuine_train_share_pct": 30.6,
+   "gate_mae": {
+    "current": 0.213,
+    "new": 0.2189
+   },
+   "gate_picks": "current",
+   "arima_mae": 0.2296,
+   "current": {
+    "hybrid_skill": 7.44,
+    "ensemble_skill": 15.02,
+    "hybrid_mae": 0.2392,
+    "ensemble_mae": 0.2196,
+    "output_std_peso": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "new": {
+    "hybrid_skill": -0.53,
+    "ensemble_skill": 11.56,
+    "hybrid_mae": 0.2598,
+    "ensemble_mae": 0.2286,
+    "output_std_peso": [
+     0.2457,
+     0.2702,
+     0.3161
+    ],
+    "permutation_day1_peso": {
+     "locSpecial": 0.1034,
+     "fuel_diesel": 0.1666,
+     "stock": 0.0127,
+     "farmgate": 0.1298,
+     "exchange": 0.0368,
+     "core_inflation": 0.0366,
+     "rice_world": 0.0356,
+     "season_sin": 0.0196,
+     "season_cos": 0.0799
+    }
+   }
+  },
+  "impWellMilled": {
+   "epochs": [
+    25,
+    52,
+    56,
+    56,
+    43
+   ],
+   "genuine_train_share_pct": 30.6,
+   "gate_mae": {
+    "current": 0.5444,
+    "new": 0.5469
+   },
+   "gate_picks": "current",
+   "arima_mae": 0.2911,
+   "current": {
+    "hybrid_skill": 1.99,
+    "ensemble_skill": 2.26,
+    "hybrid_mae": 0.2767,
+    "ensemble_mae": 0.2759,
+    "output_std_peso": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "new": {
+    "hybrid_skill": -2.27,
+    "ensemble_skill": -1.05,
+    "hybrid_mae": 0.2887,
+    "ensemble_mae": 0.2852,
+    "output_std_peso": [
+     0.1824,
+     0.2897,
+     0.3769
+    ],
+    "permutation_day1_peso": {
+     "impWellMilled": 0.1245,
+     "fuel_diesel": 0.0367,
+     "stock": 0.0259,
+     "farmgate": 0.1183,
+     "exchange": 0.0264,
+     "core_inflation": 0.0136,
+     "rice_world": 0.0292,
+     "season_sin": 0.0775,
+     "season_cos": 0.0277
+    }
+   }
+  },
+  "impRegular": {
+   "epochs": [
+    62,
+    82,
+    57,
+    29,
+    54
+   ],
+   "genuine_train_share_pct": 30.6,
+   "gate_mae": {
+    "current": 0.6902,
+    "new": 0.6781
+   },
+   "gate_picks": "current",
+   "arima_mae": 0.3595,
+   "current": {
+    "hybrid_skill": 5.16,
+    "ensemble_skill": 3.88,
+    "hybrid_mae": 0.3289,
+    "ensemble_mae": 0.3333,
+    "output_std_peso": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "new": {
+    "hybrid_skill": 1.27,
+    "ensemble_skill": 3.34,
+    "hybrid_mae": 0.3424,
+    "ensemble_mae": 0.3352,
+    "output_std_peso": [
+     0.3106,
+     0.315,
+     0.4147
+    ],
+    "permutation_day1_peso": {
+     "impRegular": 0.3472,
+     "fuel_diesel": 0.1027,
+     "stock": 0.0336,
+     "farmgate": 0.1464,
+     "exchange": 0.0138,
+     "core_inflation": 0.023,
+     "rice_world": 0.1139,
+     "season_sin": 0.1344,
+     "season_cos": 0.0539
+    }
+   }
+  },
+  "impPremium": {
+   "epochs": [
+    95,
+    84,
+    46,
+    41,
+    76
+   ],
+   "genuine_train_share_pct": 30.6,
+   "gate_mae": {
+    "current": 0.2867,
+    "new": 0.2817
+   },
+   "gate_picks": "current",
+   "arima_mae": 0.335,
+   "current": {
+    "hybrid_skill": 8.22,
+    "ensemble_skill": 6.24,
+    "hybrid_mae": 0.2867,
+    "ensemble_mae": 0.2929,
+    "output_std_peso": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "new": {
+    "hybrid_skill": -1.43,
+    "ensemble_skill": 1.04,
+    "hybrid_mae": 0.3169,
+    "ensemble_mae": 0.3091,
+    "output_std_peso": [
+     0.2793,
+     0.3156,
+     0.3823
+    ],
+    "permutation_day1_peso": {
+     "impPremium": 0.2562,
+     "fuel_diesel": 0.0616,
+     "stock": 0.027,
+     "farmgate": 0.1252,
+     "exchange": 0.027,
+     "core_inflation": 0.0325,
+     "rice_world": 0.0548,
+     "season_sin": 0.1148,
+     "season_cos": 0.0509
+    }
+   }
+  },
+  "impSpecial": {
+   "epochs": [
+    63,
+    18,
+    19,
+    48,
+    63
+   ],
+   "genuine_train_share_pct": 30.6,
+   "gate_mae": {
+    "current": 0.9949,
+    "new": 0.9894
+   },
+   "gate_picks": "current",
+   "arima_mae": 0.3386,
+   "current": {
+    "hybrid_skill": 9.02,
+    "ensemble_skill": 15.83,
+    "hybrid_mae": 0.3465,
+    "ensemble_mae": 0.3206,
+    "output_std_peso": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "new": {
+    "hybrid_skill": 6.65,
+    "ensemble_skill": 14.17,
+    "hybrid_mae": 0.3556,
+    "ensemble_mae": 0.3269,
+    "output_std_peso": [
+     0.0891,
+     0.1189,
+     0.1448
+    ],
+    "permutation_day1_peso": {
+     "impSpecial": 0.0629,
+     "fuel_diesel": 0.0203,
+     "stock": 0.0181,
+     "farmgate": 0.0917,
+     "exchange": 0.0177,
+     "core_inflation": 0.01,
+     "rice_world": 0.0236,
+     "season_sin": 0.0402,
+     "season_cos": 0.0317
+    }
+   }
+  }
+ },
+ "summary": {
+  "current": {
+   "ensemble_skill_mean": 10.32,
+   "hybrid_skill_mean": 8.01,
+   "ensemble_beats_arima": 8,
+   "hybrid_beats_arima": 6
+  },
+  "new_all": {
+   "ensemble_skill_mean": 8.5,
+   "hybrid_skill_mean": 4.49,
+   "ensemble_beats_arima": 8,
+   "hybrid_beats_arima": 6
+  },
+  "gated": {
+   "ensemble_skill_mean": 10.32,
+   "hybrid_skill_mean": 8.01,
+   "ensemble_beats_arima": 8,
+   "hybrid_beats_arima": 6
+  }
+ },
+ "deploy": true,
+ "elapsed_s": 3278
+}

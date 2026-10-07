@@ -148,6 +148,8 @@ AgriPricePH.Correlation = (function () {
       Object.keys(RICE_LABELS).forEach(key => { masterData[key] = res.historical?.[key] || []; });
       masterData.fuel = res.historical?.fuel || [];
       masterData.exchange = res.historical?.exchange || [];
+      masterData.coreInflation = res.historical?.core_inflation || [];
+      masterData.riceWorld = res.historical?.rice_world || [];
     } catch {
       // Offline — everything below just renders empty/placeholder states.
     }
@@ -171,6 +173,8 @@ AgriPricePH.Correlation = (function () {
 
     const dieselCorr = pearson(diesel, rice);
     const usdCorr = pearson(usd, rice);
+    const coreCorr = pearson(masterData.coreInflation || [], rice);
+    const worldCorr = pearson(masterData.riceWorld || [], rice);
 
     liveFactors = [
       {
@@ -182,6 +186,16 @@ AgriPricePH.Correlation = (function () {
         key: 'usd', name: 'USD/PHP Exchange Rate', icon: 'ti-currency-dollar',
         r: usdCorr.r, n: usdCorr.n, significant: isSignificant(usdCorr.r, usdCorr.n),
         detail: 'A weaker peso makes imported inputs costlier, giving retailers room to raise prices.',
+      },
+      {
+        key: 'core', name: 'Core Inflation (PSA)', icon: 'ti-chart-line',
+        r: coreCorr.r, n: coreCorr.n, significant: isSignificant(coreCorr.r, coreCorr.n),
+        detail: 'General price pressure in the economy, excluding food and energy so it does not repeat rice or fuel. A model input since Oct 2026.',
+      },
+      {
+        key: 'world', name: 'World Rice Price (Viet Nam 5%)', icon: 'ti-world',
+        r: worldCorr.r, n: worldCorr.n, significant: isSignificant(worldCorr.r, worldCorr.n),
+        detail: 'Export price of the rice the Philippines imports most (World Bank, USD per tonne). A model input since Oct 2026.',
       },
     ];
   }

@@ -9,7 +9,7 @@
 <div class="section-header" style="margin-bottom:20px;">
   <div>
     <div class="section-title">Web Scraper Monitor</div>
-    <div class="section-subtitle">Automated data collection — DA rice, DOE fuel, exchange rates, rice tariff, PSA stocks &amp; farmgate</div>
+    <div class="section-subtitle">Automated data collection — DA rice, DOE fuel, exchange rates, rice tariff, PSA stocks &amp; farmgate, core inflation, world rice price</div>
   </div>
   <button class="btn btn-primary" id="scraper-run-btn" type="button">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -118,6 +118,20 @@
           <span class="schedule-time" id="int-psa" style="font-size:12px;">Daily</span>
           <span class="schedule-next" id="next-psa" style="font-size:12px;">Next: —</span>
           <span id="pill-psa" class="pill pill-green" style="text-align:center;justify-self:center;">Active</span>
+        </div>
+
+        <div class="schedule-item" style="display:grid;grid-template-columns:1fr 110px 160px 90px;gap:8px;align-items:center;padding:11px 12px;border-top:1px solid rgba(76,175,110,0.08);">
+          <span class="schedule-name">PSA Core Inflation <i class="ti ti-info-circle stat-info-icon tooltip-wide" tabindex="0" role="img" data-tooltip="PSA OpenSTAT: core consumer price index (2018=100), monthly; the year-on-year % is a forecast input. The whole 2015-onward series is refreshed each sync; a refresh that looks incomplete is refused and the stored copy kept."></i></span>
+          <span class="schedule-time" id="int-cpi" style="font-size:12px;">Daily</span>
+          <span class="schedule-next" id="next-cpi" style="font-size:12px;">Next: —</span>
+          <span id="pill-cpi" class="pill pill-green" style="text-align:center;justify-self:center;">Active</span>
+        </div>
+
+        <div class="schedule-item" style="display:grid;grid-template-columns:1fr 110px 160px 90px;gap:8px;align-items:center;padding:11px 12px;border-top:1px solid rgba(76,175,110,0.08);">
+          <span class="schedule-name">World Bank Rice Price <i class="ti ti-info-circle stat-info-icon tooltip-wide" tabindex="0" role="img" data-tooltip="World Bank Pink Sheet: Rice, Viet Namese 5% export price (US$/t), monthly; a forecast input. The workbook link is found on the World Bank commodity-markets page each sync; a refresh that looks incomplete is refused."></i></span>
+          <span class="schedule-time" id="int-wb" style="font-size:12px;">Daily</span>
+          <span class="schedule-next" id="next-wb" style="font-size:12px;">Next: —</span>
+          <span id="pill-wb" class="pill pill-green" style="text-align:center;justify-self:center;">Active</span>
         </div>
 
       </div>

@@ -5,7 +5,10 @@
 window.AgriPricePH = window.AgriPricePH || {};
 
 AgriPricePH.HistoricalData = (function () {
-  let masterData = { labels: [], impSpecial: [], impPremium: [], impWellMilled: [], impRegular: [], locSpecial: [], locPremium: [], locWellMilled: [], locRegular: [], fuel: [], exchange: [] };
+  let masterData = { labels: [], impSpecial: [], impPremium: [], impWellMilled: [], impRegular: [], locSpecial: [], locPremium: [], locWellMilled: [], locRegular: [], fuel: [], exchange: [], coreInflation: [], riceWorld: [] };
+  // Monthly economic factors (PSA core inflation, World Bank rice price): shown by the month they describe, so the
+  // data table lists one row per month instead of repeating the figure on every day.
+  const MONTHLY_CATEGORIES = ['inflation', 'world'];
   let currentPeriod = 90;
   let hiddenSeries = new Set();
   let currentMode = 'chart'; // 'chart' | 'stats' — which top-level view is showing
@@ -90,6 +93,8 @@ AgriPricePH.HistoricalData = (function () {
       masterData.locRegular = realData.historical.locRegular;
       masterData.fuel = realData.historical.fuel;
       masterData.exchange = realData.historical.exchange;
+      masterData.coreInflation = realData.historical.core_inflation_month || [];
+      masterData.riceWorld = realData.historical.rice_world_month || [];
 
       // Real record count — was a hardcoded "36,500+ records" placeholder before.
       const countEl = document.getElementById('hist-record-count');
@@ -130,6 +135,8 @@ AgriPricePH.HistoricalData = (function () {
     AgriPricePH.Data.historical.locRegular = masterData.locRegular.slice(sliceStart);
     AgriPricePH.Data.historical.fuel = masterData.fuel.slice(sliceStart);
     AgriPricePH.Data.historical.exchange = masterData.exchange.slice(sliceStart);
+    AgriPricePH.Data.historical.coreInflation = masterData.coreInflation.slice(sliceStart);
+    AgriPricePH.Data.historical.riceWorld = masterData.riceWorld.slice(sliceStart);
     // Aliases para sa dashboard / predictions (wellMilled, etc.)
     AgriPricePH.Data.historical.wellMilled = AgriPricePH.Data.historical.locWellMilled;
     AgriPricePH.Data.historical.regularMilled = AgriPricePH.Data.historical.locRegular;
@@ -408,10 +415,12 @@ AgriPricePH.HistoricalData = (function () {
     return (map[origin] && map[origin][type]) || [];
   }
 
-  function changeCell(change) {
+  function changeCell(change, unit) {
     const pillClass = change > 0 ? 'pill-orange' : (change < 0 ? 'pill-green' : 'pill-gray');
-    const sign = change > 0 ? '+' : '';
-    const text = change === 0 ? '₱0.00' : `${sign}₱${Math.abs(change).toFixed(2)}`;
+    const sign = change > 0 ? '+' : (change < 0 && unit ? '−' : '');
+    const text = unit
+      ? (change === 0 ? unit.fmtDiff(0) : `${sign}${unit.fmtDiff(change)}`)
+      : (change === 0 ? '₱0.00' : `${sign}₱${Math.abs(change).toFixed(2)}`);
     return `<td><span class="pill ${pillClass}">${text}</span></td>`;
   }
 
@@ -425,7 +434,9 @@ AgriPricePH.HistoricalData = (function () {
     if (!sub) return;
     const periodEl = document.querySelector('#page-outlet .period-tab.active');
     const periodText = periodEl ? periodEl.textContent.trim() : '';
-    sub.textContent = `${currentCategoryLabel()} · ${periodText || 'selected range'}`;
+    const cat = document.getElementById('rice-category')?.value;
+    const monthly = MONTHLY_CATEGORIES.includes(cat) ? ' · one row per month' : '';
+    sub.textContent = `${currentCategoryLabel()} · ${periodText || 'selected range'}${monthly}`;
   }
 
   // ================= Table (now driven by the same category dropdown as the chart) =================
@@ -440,11 +451,26 @@ AgriPricePH.HistoricalData = (function () {
     const labels = AgriPricePH.Data.historicalLabels || [];
 
     const typeWrap = document.getElementById('table-rice-type-wrap');
-    if (typeWrap) typeWrap.style.display = (category === 'gas' || category === 'currency') ? 'none' : '';
+    if (typeWrap) typeWrap.style.display = (category === 'gas' || category === 'currency' || MONTHLY_CATEGORIES.includes(category)) ? 'none' : '';
+    const freqWrap = document.getElementById('table-frequency-wrap');
+    if (freqWrap) freqWrap.style.display = MONTHLY_CATEGORIES.includes(category) ? 'none' : '';
 
     let headHtml, rowsHtml = [], grouped, colspan;
 
-    if (category === 'gas') {
+    if (MONTHLY_CATEGORIES.includes(category)) {
+      const isInfl = category === 'inflation';
+      const u = chartUnit(category);
+      colspan = 4;
+      headHtml = isInfl
+        ? '<tr><th>Month</th><th>Core inflation (year-on-year)</th><th>Change vs. previous month</th><th>Source</th></tr>'
+        : '<tr><th>Month</th><th>Viet Nam 5% rice (US$/t)</th><th>Change vs. previous month</th><th>Source</th></tr>';
+      const months = monthlyRows(labels, isInfl ? AgriPricePH.Data.historical.coreInflation : AgriPricePH.Data.historical.riceWorld);
+      for (let i = months.length - 1; i >= 0; i--) {
+        const cur = months[i];
+        const change = i > 0 ? changeCell(cur.v - months[i - 1].v, u) : '<td>—</td>';
+        rowsHtml.push(`<tr><td>${esc(cur.label)}</td><td class="font-mono">${u.fmt(cur.v)}</td>${change}<td>${isInfl ? 'PSA OpenSTAT' : 'World Bank Pink Sheet'}</td></tr>`);
+      }
+    } else if (category === 'gas') {
       colspan = 3;
       headHtml = '<tr><th>Date / Period</th><th>Diesel (₱/L)</th><th>Change</th></tr>';
       grouped = groupSeriesByFrequency(labels, [{ key: 'v', arr: AgriPricePH.Data.historical.fuel }], frequency);
@@ -568,6 +594,8 @@ AgriPricePH.HistoricalData = (function () {
     if (category === 'imported') return imported;
     if (category === 'gas') return [{ id: 'fuel', label: 'Diesel Fuel (₱/L)', data: h.fuel, color: '#F59E0B', lineWidth: 2, fill: true }];
     if (category === 'currency') return [{ id: 'usd', label: 'USD/PHP', data: h.exchange, color: '#3B82F6', lineWidth: 2, fill: true }];
+    if (category === 'inflation') return [{ id: 'cpi', label: 'Core Inflation (PSA)', data: h.coreInflation || [], color: '#E11D48', lineWidth: 2, fill: true, stepped: true }];
+    if (category === 'world') return [{ id: 'wb', label: 'World Rice Price — Viet Nam 5% (World Bank)', data: h.riceWorld || [], color: '#14B8A6', lineWidth: 2, fill: true, stepped: true }];
     return local.concat(imported); // 'all'
   }
 
@@ -576,11 +604,39 @@ AgriPricePH.HistoricalData = (function () {
   const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   // What the y-axis measures for each category — also used in the tooltip and the summary strip.
+  // fmt/fmtDiff format a value and a change in that unit; pct=false hides the "% change" (a % change of a % is noise).
+  const PESO = { fmt: (v) => `₱${Number(v).toFixed(2)}`, fmtDiff: (d) => `₱${Math.abs(d).toFixed(2)}`, tick: (v) => `₱${Number(v).toFixed(v % 1 ? 1 : 0)}`, pct: true };
   function chartUnit(category) {
-    if (category === 'gas') return { axis: 'Diesel price (₱ per liter)', suffix: '/L', what: 'DOE diesel price' };
-    if (category === 'currency') return { axis: 'Exchange rate (₱ per US$1)', suffix: '', what: 'USD/PHP exchange rate' };
+    if (category === 'gas') return { ...PESO, axis: 'Diesel price (₱ per liter)', suffix: '/L', what: 'DOE diesel price' };
+    if (category === 'currency') return { ...PESO, axis: 'Exchange rate (₱ per US$1)', suffix: '', what: 'USD/PHP exchange rate' };
+    if (category === 'inflation') return {
+      axis: 'Core inflation (% year-on-year)', suffix: '', what: 'PSA core inflation, by the month it describes',
+      fmt: (v) => `${Number(v).toFixed(1)}%`, fmtDiff: (d) => `${Math.abs(d).toFixed(1)} pts`, tick: (v) => `${Number(v).toFixed(1)}%`, pct: false,
+    };
+    if (category === 'world') return {
+      axis: 'Export price (US$ per metric ton)', suffix: '/t', what: 'World Bank rice export price (Viet Nam 5%), by the month it describes',
+      fmt: (v) => `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      fmtDiff: (d) => `$${Math.abs(d).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      tick: (v) => `$${Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 })}`, pct: true,
+    };
     const who = category === 'local' ? 'Local rice' : category === 'imported' ? 'Imported rice' : 'Local & imported rice';
-    return { axis: 'Retail price (₱ per kg)', suffix: '/kg', what: `${who}, DA daily retail price` };
+    return { ...PESO, axis: 'Retail price (₱ per kg)', suffix: '/kg', what: `${who}, DA daily retail price` };
+  }
+
+  /** One {label: 'Sep 2026', v} per month that has a value, oldest first (daily labels in, monthly rows out). */
+  function monthlyRows(labels, arr) {
+    const out = [];
+    const seen = new Set();
+    labels.forEach((l, i) => {
+      const v = arr ? arr[i] : null;
+      const d = parseLabel(l);
+      if (v == null || isNaN(v) || !d) return;
+      const key = `${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push({ label: key, v: Number(v) });
+    });
+    return out;
   }
 
   function parseLabel(label) {
@@ -611,7 +667,8 @@ AgriPricePH.HistoricalData = (function () {
   }
 
   /** Latest value and change over the selected period for each visible line (up to 4, then "+N more"). */
-  function renderChartSummary(datasets, suffix) {
+  function renderChartSummary(datasets, unit) {
+    const suffix = unit.suffix;
     const el = document.getElementById('hist-chart-summary');
     if (!el) return;
     const rows = datasets.map(ds => {
@@ -627,11 +684,12 @@ AgriPricePH.HistoricalData = (function () {
       const dir = Math.abs(r.diff) < 0.005 ? 'flat' : (r.diff > 0 ? 'up' : 'down');
       const arrow = dir === 'up' ? '▲' : dir === 'down' ? '▼' : '→';
       const sign = r.diff > 0 ? '+' : r.diff < 0 ? '−' : '';
-      return `<div class="hist-sum-item" title="${esc(r.ds.label)}: latest ₱${r.last.toFixed(2)}${suffix}; change over the ${esc(periodText())}">
+      const pct = unit.pct ? ` (${sign}${Math.abs(r.pct).toFixed(1)}%)` : '';
+      return `<div class="hist-sum-item" title="${esc(r.ds.label)}: latest ${unit.fmt(r.last)}${suffix}; change over the ${esc(periodText())}">
         <span class="hist-sum-dot" style="background:${r.ds.color}"></span>
         <span class="hist-sum-name">${esc(r.ds.label)}</span>
-        <span class="hist-sum-val">₱${r.last.toFixed(2)}</span>
-        <span class="hist-sum-chg ${dir}">${arrow} ${sign}₱${Math.abs(r.diff).toFixed(2)} (${sign}${Math.abs(r.pct).toFixed(1)}%)</span>
+        <span class="hist-sum-val">${unit.fmt(r.last)}</span>
+        <span class="hist-sum-chg ${dir}">${arrow} ${sign}${unit.fmtDiff(r.diff)}${pct}</span>
       </div>`;
     }).join('') + (rows.length > 4 ? `<div class="hist-sum-more">+${rows.length - 4} more — hover the chart</div>` : '')
       + `<div class="hist-sum-note">change over the ${esc(periodText())}</div>`;
@@ -685,7 +743,7 @@ AgriPricePH.HistoricalData = (function () {
     const visible = baseDatasets.filter(ds => !hiddenSeries.has(ds.id));
     lastChartDatasets = visible;
     renderChartDesc(category, labels);
-    renderChartSummary(visible, unit.suffix);
+    renderChartSummary(visible, unit);
 
     const n = labels.length;
     const long = n > 400;
@@ -705,7 +763,8 @@ AgriPricePH.HistoricalData = (function () {
       backgroundColor: single ? gradientFor(ds.color) : ds.color,
       fill: single ? 'origin' : false,
       borderWidth: n > 200 ? 1.6 : 2,
-      tension: 0.25,
+      tension: ds.stepped ? 0 : 0.25,
+      stepped: !!ds.stepped,
       pointRadius: n <= 45 ? 2.5 : 0,
       pointHoverRadius: 5,
       pointHitRadius: 6,
@@ -759,8 +818,8 @@ AgriPricePH.HistoricalData = (function () {
               if (item.raw == null) return `${item.dataset.label}: —`;
               const prev = item.dataIndex > 0 ? item.dataset.data[item.dataIndex - 1] : null;
               const diff = prev != null ? item.raw - prev : null;
-              const chg = diff == null || Math.abs(diff) < 0.005 ? '' : `  (${diff > 0 ? '▲ +' : '▼ −'}₱${Math.abs(diff).toFixed(2)})`;
-              return `${item.dataset.label}: ₱${Number(item.raw).toFixed(2)}${unit.suffix}${chg}`;
+              const chg = diff == null || Math.abs(diff) < 0.005 ? '' : `  (${diff > 0 ? '▲ +' : '▼ −'}${unit.fmtDiff(diff)})`;
+              return `${item.dataset.label}: ${unit.fmt(item.raw)}${unit.suffix}${chg}`;
             },
             footer: () => 'Change vs. the day before · click to pin',
           },
@@ -775,7 +834,7 @@ AgriPricePH.HistoricalData = (function () {
         y: {
           grid: { color: 'rgba(38,84,56,0.08)' },
           title: { display: true, text: unit.axis, color: tickColor, font: { size: 11, weight: '600' } },
-          ticks: { color: tickColor, font: { size: 10.5 }, callback: (v) => `₱${Number(v).toFixed(v % 1 ? 1 : 0)}` },
+          ticks: { color: tickColor, font: { size: 10.5 }, callback: (v) => unit.tick(v) },
           grace: '5%',
         },
       },
@@ -817,6 +876,7 @@ AgriPricePH.HistoricalData = (function () {
       return;
     }
 
+    const cu = chartUnit(document.getElementById('rice-category')?.value || 'all');
     el.innerHTML = `
       <div class="hist-click-head">
         <span class="hist-click-date">${esc(label)}</span>
@@ -829,8 +889,8 @@ AgriPricePH.HistoricalData = (function () {
           return `<div class="hist-click-row">
             <span class="hist-click-dot" style="background:${r.color}"></span>
             <span class="hist-click-name">${esc(r.label)}</span>
-            <span class="hist-click-val">₱${r.cur.toFixed(2)}</span>
-            <span class="hist-click-diff ${dir}">${sign}₱${Math.abs(r.diff).toFixed(2)} (${sign}${Math.abs(r.pct).toFixed(1)}%)</span>
+            <span class="hist-click-val">${cu.fmt(r.cur)}</span>
+            <span class="hist-click-diff ${dir}">${sign}${cu.fmtDiff(r.diff)}${cu.pct ? ` (${sign}${Math.abs(r.pct).toFixed(1)}%)` : ''}</span>
           </div>`;
         }).join('')}
       </div>`;

@@ -285,8 +285,8 @@ AgriPricePH.WebScraper = (function () {
   // (Admin → Settings), plus DA-only retries while today's bulletin is still missing. This page used to
   // invent per-source schedules (rice every 4h, fuel Mondays, rates hourly, "daily 8:00 AM") that the
   // backend never ran.
-  const _LIVE_SCRAPERS = ['rice', 'fuel', 'rate', 'tariff', 'psa'];
-  const _SOURCE_ID = { rice: 'da', fuel: 'doe', rate: 'api', tariff: 'tc', psa: 'psa' };
+  const _LIVE_SCRAPERS = ['rice', 'fuel', 'rate', 'tariff', 'psa', 'cpi', 'wb'];
+  const _SOURCE_ID = { rice: 'da', fuel: 'doe', rate: 'api', tariff: 'tc', psa: 'psa', cpi: 'cpi', wb: 'wb' };
 
   function _schedule() { return (_cachedStats && _cachedStats.schedule) || null; }
 
@@ -312,6 +312,7 @@ AgriPricePH.WebScraper = (function () {
     const cadence = {
       rice: `${every} + retries`, fuel: `${every} · DOE weekly`, rate: every,
       tariff: `${every} · quarterly rate`, psa: `${every} · PSA monthly`,
+      cpi: `${every} · PSA monthly`, wb: `${every} · monthly`,
     };
     const full = sc && sc.next_full ? new Date(sc.next_full) : null;
     _LIVE_SCRAPERS.forEach(id => {

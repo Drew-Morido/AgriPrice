@@ -1,0 +1,104 @@
+{
+ "method": "permutation on the test window: one input shuffled across test samples, mean |change| of 0.25 x LSTM delta in PHP/kg",
+ "per_type": {
+  "locWellMilled": {
+   "rice_price": 0.0,
+   "fuel_diesel": 0.0,
+   "stock": 0.0,
+   "farmgate": 0.0,
+   "exchange": 0.0,
+   "core_inflation": 0.0,
+   "rice_world": 0.0,
+   "season_sin": 0.0,
+   "season_cos": 0.0
+  },
+  "locRegular": {
+   "rice_price": 0.0,
+   "fuel_diesel": 0.0,
+   "stock": 0.0,
+   "farmgate": 0.0,
+   "exchange": 0.0,
+   "core_inflation": 0.0,
+   "rice_world": 0.0,
+   "season_sin": 0.0,
+   "season_cos": 0.0
+  },
+  "locPremium": {
+   "rice_price": 0.0,
+   "fuel_diesel": 0.0,
+   "stock": 0.0,
+   "farmgate": 0.0,
+   "exchange": 0.0,
+   "core_inflation": 0.0,
+   "rice_world": 0.0,
+   "season_sin": 0.0,
+   "season_cos": 0.0
+  },
+  "locSpecial": {
+   "rice_price": 0.0,
+   "fuel_diesel": 0.0,
+   "stock": 0.0,
+   "farmgate": 2.6993638158757707e-05,
+   "exchange": 0.0,
+   "core_inflation": 0.0,
+   "rice_world": 0.0,
+   "season_sin": 0.0,
+   "season_cos": 2.84870931441561e-05
+  },
+  "impWellMilled": {
+   "rice_price": 0.0,
+   "fuel_diesel": 0.0,
+   "stock": 0.0,
+   "farmgate": 0.0,
+   "exchange": 0.0,
+   "core_inflation": 0.0,
+   "rice_world": 0.0,
+   "season_sin": 0.0,
+   "season_cos": 0.0
+  },
+  "impRegular": {
+   "rice_price": 0.0,
+   "fuel_diesel": 0.0,
+   "stock": 0.0,
+   "farmgate": 0.0,
+   "exchange": 0.0,
+   "core_inflation": 0.0,
+   "rice_world": 0.0,
+   "season_sin": 0.0,
+   "season_cos": 0.0
+  },
+  "impPremium": {
+   "rice_price": 0.0,
+   "fuel_diesel": 0.0,
+   "stock": 0.0,
+   "farmgate": 0.0,
+   "exchange": 0.0,
+   "core_inflation": 0.0,
+   "rice_world": 0.0,
+   "season_sin": 0.0,
+   "season_cos": 0.0
+  },
+  "impSpecial": {
+   "rice_price": 0.0,
+   "fuel_diesel": 0.0,
+   "stock": 0.0,
+   "farmgate": 0.0,
+   "exchange": 0.0,
+   "core_inflation": 0.0,
+   "rice_world": 0.0,
+   "season_sin": 0.0,
+   "season_cos": 0.00027191538745611983
+  }
+ },
+ "average": {
+  "season_cos": 4e-05,
+  "farmgate": 0.0,
+  "rice_price": 0.0,
+  "stock": 0.0,
+  "fuel_diesel": 0.0,
+  "exchange": 0.0,
+  "core_inflation": 0.0,
+  "rice_world": 0.0,
+  "season_sin": 0.0
+ }
+}

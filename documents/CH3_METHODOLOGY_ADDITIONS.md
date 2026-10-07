@@ -138,5 +138,5 @@ established baselines**, rather than a claim of beating them.
   in `research/stats.py` — run `py -3.13 research/stats.py --selftest` and `--slovin 100`.
 - MAE/RMSE/MAPE/R²/rolling-origin + persistence/ARIMA/ADF/shock appear in `model/meta.json` and
   the admin **Metrics** page.
-- The DTI category catalog, price-bracket, and tax schema exist (`datasets/catalog_schema.py`) and
+- The DTI category catalog, price-bracket, and tax schema exist (`datasets/scripts/catalog_schema.py`) and
   are surfaced in the admin **Rice Catalog & Taxes** page; they hold the [VERIFY] data once obtained.

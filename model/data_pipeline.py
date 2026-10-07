@@ -14,14 +14,17 @@ import pandas as pd
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(PROJECT_ROOT, "datasets", "agriprice_database.db")
 
-# Core exogenous driver set aligned with admin training spec
-FEATURE_COLUMNS = [
-    "fuel_ron95",
-    "fuel_diesel",
-    "stock",
-    "farmgate",
-    "exchange",
-]
+# Exogenous drivers. Since 2026-10-07 the set has no overlapping inputs (measured on monthly changes: RON 95 vs
+# diesel r = 0.75, each 7-day average vs its own series r = 0.98-0.99, and the target's lag/rolling columns repeat
+# what the 30-day input window already holds) and adds two economic factors the adviser asked for:
+#   core_inflation  PSA core CPI year-on-year %, which excludes food and energy so it repeats neither rice nor diesel
+#   rice_world      World Bank Viet Nam 5% rice export price, USD/t (kept in dollars: USD/PHP is its own input)
+# Fertilizer was considered and left out: it reaches retail rice through the palay farmgate price (already an input)
+# and PSA has no monthly retail/dealer fertilizer price after 2019. AGRIPRICE_LEGACY_FEATURES=1 restores the
+# previous 13-input set (RON 95, diesel and USD/PHP 7-day averages, target lag-1/lag-7/rolling-7) for comparison.
+LEGACY_FEATURES = os.environ.get("AGRIPRICE_LEGACY_FEATURES", "0").strip().lower() in ("1", "true", "yes")
+FEATURE_COLUMNS = (["fuel_ron95", "fuel_diesel", "stock", "farmgate", "exchange"] if LEGACY_FEATURES else
+                   ["fuel_diesel", "stock", "farmgate", "exchange", "core_inflation", "rice_world"])
 TARGET_COLUMN = "locWellMilled"
 RICE_COLUMNS = [
     "locWellMilled",
@@ -79,7 +82,12 @@ def add_engineered_features(df: pd.DataFrame, target: str) -> tuple[pd.DataFrame
     work["season_sin"] = np.sin(2.0 * np.pi * month / 12.0)
     work["season_cos"] = np.cos(2.0 * np.pi * month / 12.0)
 
-    # Rolling averages of exogenous drivers (smooths transport/currency noise).
+    if not LEGACY_FEATURES:
+        work = work.bfill().ffill()
+        features = [f for f in [target, *FEATURE_COLUMNS, "season_sin", "season_cos"] if f in work.columns]
+        return work, features
+
+    # Legacy set only: rolling averages of exogenous drivers and target lags.
     roll_cols = []
     for col in ROLL_DRIVERS:
         if col in work.columns:
@@ -166,7 +174,7 @@ TRUSTED_FUEL_SOURCES = ("doe_ncr_weekly", "gaswatchph")
 
 def _scrub_degenerate_fuel(df: pd.DataFrame) -> pd.DataFrame:
     """Legacy guard for old Zigwheels rows (no Source label) left in a database that has not been
-    re-imported with datasets/import_doe_fuel.py. A partial parse (RON_100 / RON_91 / Diesel_Plus all
+    re-imported with datasets/scripts/import_doe_fuel.py. A partial parse (RON_100 / RON_91 / Diesel_Plus all
     NULL) outside the range of trustworthy rows (+/-20%) is blanked, so the merge-time ffill carries
     the last good reading instead. Rows from a trusted source are never touched.
     """
@@ -279,7 +287,7 @@ def load_merged_frame() -> pd.DataFrame:
     db = _db_path()
     if not os.path.exists(db):
         raise FileNotFoundError(
-            f"Database not found at {db}. Run: python datasets/script.py"
+            f"Database not found at {db}. Run: python datasets/scripts/script.py"
         )
 
     conn = sqlite3.connect(db)
@@ -364,7 +372,7 @@ def load_merged_frame() -> pd.DataFrame:
     except Exception:
         pass
 
-    # Rice stocks and palay farmgate: official PSA OpenSTAT monthly series (datasets/import_psa.py) when
+    # Rice stocks and palay farmgate: official PSA OpenSTAT monthly series (datasets/scripts/import_psa.py) when
     # present. The older rice_stock / farmgate_prices tables stopped at Dec 2025 and differ from PSA's
     # current figures; they are only the fallback for a database that has not been re-imported.
     try:
@@ -390,6 +398,14 @@ def load_merged_frame() -> pd.DataFrame:
     except Exception:
         df_farmgate = pd.DataFrame()
 
+    # Monthly economic factors (tools/macro_factors.py): PSA core inflation and the World Bank Viet Nam 5% rice price.
+    df_macro = []
+    for table, cols in (("MACRO_core_inflation", "core_inflation"), ("MACRO_world_rice", "viet5 AS rice_world")):
+        try:
+            df_macro.append(pd.read_sql(f'SELECT Date, {cols} FROM "{table}" ORDER BY Date ASC', conn))
+        except Exception:
+            pass
+
     conn.close()
 
     if not psa_farmgate.empty:
@@ -410,14 +426,16 @@ def load_merged_frame() -> pd.DataFrame:
         )
         df_farmgate = df_farmgate[["Date", "farmgate"]]
 
-    for df in (df_rice, df_fuel, df_usd, df_stock, df_farmgate):
+    for df in (df_rice, df_fuel, df_usd, df_stock, df_farmgate, *df_macro):
         if not df.empty and "Date" in df.columns:
             df["Date"] = _parse_date_column(df["Date"])
 
     # Monthly PSA figures enter on the day they could have been known, not on the first of their month:
     # PSA publishes month M around the 7th-15th of M+1 (e.g. Aug 2026 stocks on Sep 7, farmgate on Sep 14).
     # Dated on the 1st, training let early-August days use an August figure that did not exist yet.
-    for df in (df_stock, df_farmgate):
+    # The same lag covers core inflation (PSA releases month M around the 5th of M+1) and the World Bank Pink Sheet
+    # (about the 2nd business day of M+1): both are known by the 15th of the following month.
+    for df in (df_stock, df_farmgate, *df_macro):
         if not df.empty and "Date" in df.columns:
             df["Date"] = df["Date"] + MONTHLY_RELEASE_LAG
 
@@ -446,7 +464,7 @@ def load_merged_frame() -> pd.DataFrame:
     LAST_READINESS.update(readiness)
 
     df = df_rice
-    for extra in (df_fuel, df_usd, df_stock, df_farmgate):
+    for extra in (df_fuel, df_usd, df_stock, df_farmgate, *df_macro):
         if extra is not None and not extra.empty:
             extra = extra.dropna(subset=["Date"]).sort_values("Date")
             extra = extra.groupby("Date", as_index=False).mean(numeric_only=True)
@@ -461,12 +479,15 @@ def load_merged_frame() -> pd.DataFrame:
 
     for col in FEATURE_COLUMNS + [TARGET_COLUMN]:
         if col not in df.columns:
+            if col in ("core_inflation", "rice_world"):
+                print(f"[data_pipeline] {col} missing - run datasets/scripts/import_macro_factors.py (filled with 0)")
             df[col] = 0.0
         df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0)
 
     # Keep compatibility for any legacy consumers expecting "fuel".
     if "fuel" not in df.columns:
-        df["fuel"] = (df["fuel_ron95"] + df["fuel_diesel"]) / 2.0
+        ron = pd.to_numeric(df.get("fuel_ron95", 0.0), errors="coerce").fillna(0.0)
+        df["fuel"] = (ron + df["fuel_diesel"]) / 2.0
 
     df = df.dropna(subset=[TARGET_COLUMN])
     df = df[df[TARGET_COLUMN] > 0]

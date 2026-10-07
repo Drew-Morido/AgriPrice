@@ -9,7 +9,7 @@ module that gets more capable each phase.
 `meta.json`, `scaler.joblib`) is touched. The LSTM keeps forecasting exactly the 8 categories it
 does today. Brand is a layer on top, never an input to the model.
 
-Data source for seeding: `datasets/Rice_Brand_Final_Mapping.xlsx` (34 curated brands + Akira +
+Data source for seeding: `datasets/3_source_files/brand_survey/Rice_Brand_Final_Mapping.xlsx` (34 curated brands + Akira +
 Master Chef Well-Milled = 36 rows, "Final Brand Mapping" sheet).
 
 ---
@@ -21,16 +21,16 @@ brand still shows the plain category price. This proves the plumbing works end-t
 new logic is added.
 
 **What gets built**
-1. `datasets/seed_brand_mapping.py` — reads `Rice_Brand_Final_Mapping.xlsx`'s "Final Brand
+1. `datasets/scripts/seed_brand_mapping.py` — reads `Rice_Brand_Final_Mapping.xlsx`'s "Final Brand
    Mapping" sheet and inserts each row into `rice_brand` (via the existing
-   `datasets/catalog_schema.py` tables — creates them if missing, seeds the 8 categories, then
+   `datasets/scripts/catalog_schema.py` tables — creates them if missing, seeds the 8 categories, then
    inserts brands). Idempotent: running it twice must not create duplicates.
 2. `admin/pages/rice-brands.html` + `admin/js/rice-brands.js` — new admin page, read-only table
    of all brands grouped by the 8 categories. Pulls from the **existing** `GET /api/catalog`
    endpoint — no backend changes needed this phase.
 3. Register the page in `admin/js/router.js` and add a "Rice Brands" link to the admin sidebar.
 
-**Files touched:** `datasets/seed_brand_mapping.py` (new), `admin/pages/rice-brands.html` (new),
+**Files touched:** `datasets/scripts/seed_brand_mapping.py` (new), `admin/pages/rice-brands.html` (new),
 `admin/js/rice-brands.js` (new), `admin/js/router.js` (add one route), admin nav/sidebar file
 (add one link).
 
@@ -38,9 +38,9 @@ new logic is added.
 counts match the "Coverage Summary" sheet in the xlsx (Local Well-Milled still empty — expected).
 
 **Phase 1 prompt (paste this to start):**
-> Implement Phase 1 of the Rice Brand module. (1) Write `datasets/seed_brand_mapping.py` that
-> reads the "Final Brand Mapping" sheet of `datasets/Rice_Brand_Final_Mapping.xlsx` and inserts
-> each row into the `rice_brand` table using the schema in `datasets/catalog_schema.py` (create
+> Implement Phase 1 of the Rice Brand module. (1) Write `datasets/scripts/seed_brand_mapping.py` that
+> reads the "Final Brand Mapping" sheet of `datasets/3_source_files/brand_survey/Rice_Brand_Final_Mapping.xlsx` and inserts
+> each row into the `rice_brand` table using the schema in `datasets/scripts/catalog_schema.py` (create
 > tables + seed the 8 categories if not already done, then insert brands — make it idempotent,
 > skip rows that already exist). (2) Add a new **read-only** admin page "Rice Brands"
 > (`admin/pages/rice-brands.html` + `admin/js/rice-brands.js`) listing all brands grouped by the
@@ -57,7 +57,7 @@ counts match the "Coverage Summary" sheet in the xlsx (Local Well-Milled still e
 instead of the flat category price. This is the "Stage 4" idea, made real.
 
 **What gets built**
-1. Two new tables (added to `datasets/catalog_schema.py`): `brand_price_adjustment` (brand_id,
+1. Two new tables (added to `datasets/scripts/catalog_schema.py`): `brand_price_adjustment` (brand_id,
    weight_pct, sample_date, sample_locations, sample_n, source_notes, entry_type, updated_by,
    updated_at) and `brand_weight_audit` (logs every change — mirrors the existing
    `tariff_audit` pattern).
@@ -75,7 +75,7 @@ instead of the flat category price. This is the "Stage 4" idea, made real.
 6. Only enter a weight % for brands you actually canvassed. Everything else stays unadjusted —
    that's an honest, correct state, not a gap to hide.
 
-**Files touched:** `datasets/catalog_schema.py` (2 new tables), `api/catalog_service.py` (2 new
+**Files touched:** `datasets/scripts/catalog_schema.py` (2 new tables), `api/catalog_service.py` (2 new
 functions), `api/app.py` (routes), `admin/js/rice-brands.js` (weight column + edit), `admin/js/`
 or `public/js/public-catalog.js` (adjusted price display).
 
@@ -85,7 +85,7 @@ row recording who changed it and when.
 
 **Phase 2 prompt (paste this to start):**
 > Implement Phase 2 of the Rice Brand module — the variance weight ("patong") layer. Add
-> `brand_price_adjustment` and `brand_weight_audit` tables to `datasets/catalog_schema.py`. In
+> `brand_price_adjustment` and `brand_weight_audit` tables to `datasets/scripts/catalog_schema.py`. In
 > `api/catalog_service.py` add `brand_price(canonical_key)` returning each brand's price as
 > `base_price × (1 + weight_pct/100)`, falling back to the plain base price when a brand has no
 > weight row yet; add `set_brand_weight()` validating the % is within ±20% and writing an audit

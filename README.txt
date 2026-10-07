@@ -50,7 +50,7 @@ AgriPricePH/
 │
 ├── api/                       Flask backend (port 5000)
 ├── model/                     ML train/predict, settings, admin_auth
-├── datasets/                  SQLite + import scripts
+├── datasets/                  SQLite DB, factor CSVs, backups, source files, scripts (datasets/README.md)
 ├── tools/                     Web scraper (optional)
 ├── documents/                 Exported reports
 ├── requirements.txt
@@ -129,13 +129,13 @@ AgriPricePH/
      py -3.13 -m pip install tensorflow==2.20.0
 
 2. Database (first time + 2026 data):
-     cd datasets
+     cd datasets\scripts
      py -3.13 script.py
      py -3.13 import_2026.py
 
 3. Create database (first time only):
      Double-click:  setup_database.bat
-     Or manually:   cd datasets  →  py -3.13 script.py  →  py -3.13 import_2026.py
+     Or manually:   cd datasets\scripts  →  py -3.13 script.py  →  py -3.13 import_2026.py
 
 4. Start backend (keep terminal open):
      Double-click:  run_backend.bat

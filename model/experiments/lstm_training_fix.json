@@ -1,0 +1,370 @@
+{
+ "protocol": "(fixed before looking at test):\n  - Early stopping uses the first 60% of the production validation block; the GATE window is the last 40%.\n  - Per rice type, the fixed network replaces the current one only if the hybrid's MAE on the GATE window is not\n    higher than with the current network. Test plays no part in that decision.\n  - Then, once, on the production TEST window: hybrid and ensemble skill vs naive, ARIMA wins, output spread, and\n    a permutation check of each input (does shuffling it change the network's output?).",
+ "types": {
+  "locWellMilled": {
+   "epochs": 20,
+   "best_epoch": 8,
+   "gate_mae": {
+    "current": 0.1878,
+    "fixed": 0.1875
+   },
+   "gate_picks": "fixed",
+   "arima_mae": 0.2992,
+   "current": {
+    "hybrid_skill": 11.65,
+    "ensemble_skill": 13.44,
+    "hybrid_mae": 0.2894,
+    "ensemble_mae": 0.2835,
+    "output_std_peso": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "fixed": {
+    "hybrid_skill": 11.49,
+    "ensemble_skill": 13.29,
+    "hybrid_mae": 0.2899,
+    "ensemble_mae": 0.284,
+    "output_std_peso": [
+     0.002,
+     0.0049,
+     0.0005
+    ],
+    "permutation_day1_peso": {
+     "locWellMilled": 0.0017,
+     "fuel_diesel": 0.0002,
+     "stock": 0.0002,
+     "farmgate": 0.0001,
+     "exchange": 0.0,
+     "core_inflation": 0.0003,
+     "rice_world": 0.0001,
+     "season_sin": 0.0022,
+     "season_cos": 0.0002
+    }
+   }
+  },
+  "locRegular": {
+   "epochs": 26,
+   "best_epoch": 14,
+   "gate_mae": {
+    "current": 0.2874,
+    "fixed": 0.2875
+   },
+   "gate_picks": "current",
+   "arima_mae": 0.2908,
+   "current": {
+    "hybrid_skill": 11.96,
+    "ensemble_skill": 14.7,
+    "hybrid_mae": 0.278,
+    "ensemble_mae": 0.2693,
+    "output_std_peso": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "fixed": {
+    "hybrid_skill": 11.38,
+    "ensemble_skill": 14.27,
+    "hybrid_mae": 0.2798,
+    "ensemble_mae": 0.2707,
+    "output_std_peso": [
+     0.0137,
+     0.032,
+     0.045
+    ],
+    "permutation_day1_peso": {
+     "locRegular": 0.0201,
+     "fuel_diesel": 0.0044,
+     "stock": 0.0019,
+     "farmgate": 0.0086,
+     "exchange": 0.0022,
+     "core_inflation": 0.004,
+     "rice_world": 0.0062,
+     "season_sin": 0.0034,
+     "season_cos": 0.0053
+    }
+   }
+  },
+  "locPremium": {
+   "epochs": 69,
+   "best_epoch": 57,
+   "gate_mae": {
+    "current": 0.3489,
+    "fixed": 0.3471
+   },
+   "gate_picks": "fixed",
+   "arima_mae": 0.2768,
+   "current": {
+    "hybrid_skill": 8.66,
+    "ensemble_skill": 11.15,
+    "hybrid_mae": 0.2719,
+    "ensemble_mae": 0.2645,
+    "output_std_peso": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "fixed": {
+    "hybrid_skill": 8.12,
+    "ensemble_skill": 10.84,
+    "hybrid_mae": 0.2735,
+    "ensemble_mae": 0.2654,
+    "output_std_peso": [
+     0.0223,
+     0.0326,
+     0.0301
+    ],
+    "permutation_day1_peso": {
+     "locPremium": 0.0278,
+     "fuel_diesel": 0.0086,
+     "stock": 0.0021,
+     "farmgate": 0.0034,
+     "exchange": 0.0028,
+     "core_inflation": 0.0006,
+     "rice_world": 0.0042,
+     "season_sin": 0.0083,
+     "season_cos": 0.0119
+    }
+   }
+  },
+  "locSpecial": {
+   "epochs": 60,
+   "best_epoch": 48,
+   "gate_mae": {
+    "current": 0.213,
+    "fixed": 0.2129
+   },
+   "gate_picks": "fixed",
+   "arima_mae": 0.2296,
+   "current": {
+    "hybrid_skill": 7.44,
+    "ensemble_skill": 15.02,
+    "hybrid_mae": 0.2392,
+    "ensemble_mae": 0.2196,
+    "output_std_peso": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "fixed": {
+    "hybrid_skill": -14.07,
+    "ensemble_skill": 7.99,
+    "hybrid_mae": 0.2948,
+    "ensemble_mae": 0.2378,
+    "output_std_peso": [
+     0.3393,
+     0.4969,
+     0.651
+    ],
+    "permutation_day1_peso": {
+     "locSpecial": 0.5107,
+     "fuel_diesel": 0.1986,
+     "stock": 0.0279,
+     "farmgate": 0.3086,
+     "exchange": 0.0359,
+     "core_inflation": 0.0666,
+     "rice_world": 0.1062,
+     "season_sin": 0.1378,
+     "season_cos": 0.1033
+    }
+   }
+  },
+  "impWellMilled": {
+   "epochs": 29,
+   "best_epoch": 17,
+   "gate_mae": {
+    "current": 0.5444,
+    "fixed": 0.5539
+   },
+   "gate_picks": "current",
+   "arima_mae": 0.2911,
+   "current": {
+    "hybrid_skill": 1.99,
+    "ensemble_skill": 2.26,
+    "hybrid_mae": 0.2767,
+    "ensemble_mae": 0.2759,
+    "output_std_peso": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "fixed": {
+    "hybrid_skill": -3.78,
+    "ensemble_skill": -0.38,
+    "hybrid_mae": 0.2929,
+    "ensemble_mae": 0.2833,
+    "output_std_peso": [
+     0.073,
+     0.1141,
+     0.1955
+    ],
+    "permutation_day1_peso": {
+     "impWellMilled": 0.1113,
+     "fuel_diesel": 0.0312,
+     "stock": 0.0167,
+     "farmgate": 0.0834,
+     "exchange": 0.0066,
+     "core_inflation": 0.0154,
+     "rice_world": 0.0139,
+     "season_sin": 0.0377,
+     "season_cos": 0.0255
+    }
+   }
+  },
+  "impRegular": {
+   "epochs": 51,
+   "best_epoch": 39,
+   "gate_mae": {
+    "current": 0.6902,
+    "fixed": 0.6985
+   },
+   "gate_picks": "current",
+   "arima_mae": 0.3595,
+   "current": {
+    "hybrid_skill": 5.16,
+    "ensemble_skill": 3.88,
+    "hybrid_mae": 0.3289,
+    "ensemble_mae": 0.3333,
+    "output_std_peso": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "fixed": {
+    "hybrid_skill": -3.69,
+    "ensemble_skill": 0.72,
+    "hybrid_mae": 0.3596,
+    "ensemble_mae": 0.3443,
+    "output_std_peso": [
+     0.2442,
+     0.3712,
+     0.5385
+    ],
+    "permutation_day1_peso": {
+     "impRegular": 0.3088,
+     "fuel_diesel": 0.0552,
+     "stock": 0.0653,
+     "farmgate": 0.1865,
+     "exchange": 0.022,
+     "core_inflation": 0.0511,
+     "rice_world": 0.068,
+     "season_sin": 0.1306,
+     "season_cos": 0.1999
+    }
+   }
+  },
+  "impPremium": {
+   "epochs": 40,
+   "best_epoch": 28,
+   "gate_mae": {
+    "current": 0.2867,
+    "fixed": 0.2874
+   },
+   "gate_picks": "current",
+   "arima_mae": 0.335,
+   "current": {
+    "hybrid_skill": 8.22,
+    "ensemble_skill": 6.24,
+    "hybrid_mae": 0.2867,
+    "ensemble_mae": 0.2929,
+    "output_std_peso": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "fixed": {
+    "hybrid_skill": 7.69,
+    "ensemble_skill": 5.81,
+    "hybrid_mae": 0.2884,
+    "ensemble_mae": 0.2943,
+    "output_std_peso": [
+     0.0134,
+     0.0377,
+     0.0403
+    ],
+    "permutation_day1_peso": {
+     "impPremium": 0.0104,
+     "fuel_diesel": 0.003,
+     "stock": 0.0051,
+     "farmgate": 0.0016,
+     "exchange": 0.0019,
+     "core_inflation": 0.001,
+     "rice_world": 0.0027,
+     "season_sin": 0.0033,
+     "season_cos": 0.0039
+    }
+   }
+  },
+  "impSpecial": {
+   "epochs": 82,
+   "best_epoch": 70,
+   "gate_mae": {
+    "current": 0.9949,
+    "fixed": 0.9836
+   },
+   "gate_picks": "fixed",
+   "arima_mae": 0.3386,
+   "current": {
+    "hybrid_skill": 9.02,
+    "ensemble_skill": 15.83,
+    "hybrid_mae": 0.3465,
+    "ensemble_mae": 0.3206,
+    "output_std_peso": [
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "fixed": {
+    "hybrid_skill": 9.47,
+    "ensemble_skill": 15.85,
+    "hybrid_mae": 0.3448,
+    "ensemble_mae": 0.3205,
+    "output_std_peso": [
+     0.0396,
+     0.0886,
+     0.1657
+    ],
+    "permutation_day1_peso": {
+     "impSpecial": 0.0312,
+     "fuel_diesel": 0.0146,
+     "stock": 0.0073,
+     "farmgate": 0.0507,
+     "exchange": 0.0035,
+     "core_inflation": 0.0037,
+     "rice_world": 0.0147,
+     "season_sin": 0.0364,
+     "season_cos": 0.0435
+    }
+   }
+  }
+ },
+ "summary": {
+  "current": {
+   "ensemble_skill_mean": 10.32,
+   "hybrid_skill_mean": 8.01,
+   "ensemble_beats_arima": 8,
+   "hybrid_beats_arima": 6
+  },
+  "fixed_all": {
+   "ensemble_skill_mean": 8.55,
+   "hybrid_skill_mean": 3.33,
+   "ensemble_beats_arima": 7,
+   "hybrid_beats_arima": 4
+  },
+  "gated": {
+   "ensemble_skill_mean": 9.38,
+   "hybrid_skill_mean": 5.29,
+   "ensemble_beats_arima": 7,
+   "hybrid_beats_arima": 6
+  }
+ },
+ "elapsed_s": 1088
+}

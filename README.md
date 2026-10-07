@@ -42,7 +42,7 @@ AgriPricePH/
 ├── js/                   Shared scripts (api.js, data.js, charts.js, dates.js)
 ├── api/app.py            Flask backend — REST + SSE + static file server (port 5000)
 ├── model/                ML train/predict, data pipeline, admin auth, settings, alerts
-├── datasets/             SQLite DB + historical/2026 import scripts
+├── datasets/             SQLite DB, factor CSVs, backups, source files, scripts (see datasets/README.md)
 ├── tools/                Web scraper + PDF parser
 ├── documents/            Capstone paper (.docx) + PAPER_CORRECTIONS.md reconciliation log
 ├── requirements.txt
@@ -67,7 +67,7 @@ py -3.13 -m pip install tensorflow==2.20.0   # optional, version-pinned — with
 ### 2. Build the database (first-time setup)
 
 ```bash
-cd datasets
+cd datasets/scripts
 py -3.13 script.py
 py -3.13 import_2026.py
 ```
@@ -142,7 +142,7 @@ Training and scraping stream live logs over SSE (`/api/stream-training`, `/api/s
 
 ```
 Data sources (DA PDF/HTML, fuel site, USD API, XLSX)
-        │  tools/scrap.py · datasets/import_2026.py  (auto-run on app.py startup)
+        │  tools/scrap.py · datasets/scripts/import_2026.py  (auto-run on app.py startup)
         ▼
 datasets/agriprice_database.db  (SQLite)
         │  model/data_pipeline.py → merged frame (rice, fuel, FX, weather, stock)

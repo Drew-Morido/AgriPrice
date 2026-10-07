@@ -2430,6 +2430,173 @@ from the window, not only from the fuel fix.
 - Bugs fixed: Settings → Change Password wrote a field sign-in never read (the password never changed); a PIN
   changed in Settings was overwritten by the same save; Reset Defaults silently restored the default login.
 
+### Round — Missed scrape days filled; the scraper now catches up (2026-10-06; paper edit deferred)
+- **Why:** the scraper only read DA's *newest* bulletin and open.er-api.com's *today-only* rate, so any day it
+  did not run stayed empty for good. Found: USD/PHP had **107 empty days in 2026** (May 29 – Aug 31 almost entirely,
+  plus scattered September/October days), so the exchange feature was a forward-filled flat line for three months.
+  Rice: Oct 2 and Oct 6 were still temporary estimates and Oct 3 was missing.
+- **Filled** (`datasets/backfill_missing_days.py`, backup `agriprice_database.db.backup-pre-backfill-20261006-212925`):
+  the three DA bulletins from da.gov.ph (all 8 grades, through the usual sanity guard, nothing held), and 108 USD/PHP
+  days from a dated daily rate archive (fawazahmed0 currency-api via jsDelivr, its pages.dev mirror as fallback).
+  Those rows carry `WS_currency.Source = currency_api_archive`; on overlapping days this archive is within ~PHP 0.10
+  of open.er-api.com. A stored value is never overwritten. Fuel was already complete (every DOE week is re-read each
+  cycle); DOE had not yet published the Oct 6 week.
+- **Going forward:** every scrape cycle stores any DA bulletin from the last 45 days that has no DA row, and fills any
+  USD/PHP day without a rate (`tools/scrap.py`: `backfill_rice_bulletins`, `backfill_exchange_rates`).
+- **Paper impact:** Ch. 3 data sources should name the rate archive as the gap-fill source for USD/PHP. The model was
+  trained before this fill: the next retrain sees a real 2026 exchange series instead of a flat one, so metrics may
+  shift slightly — re-read `meta.json` after retraining before quoting numbers.
+
+### Round — Is 2015–2017 PSA data? Provenance check against PSA OpenSTAT (2026-10-06; nothing changed yet)
+Prompted by the team: "2015–2017 came from PSA, 2018 onward from DA-AMAS". Checked against the four PSA OpenSTAT
+tables the team downloaded (retail 2012-based `2M/NRP/0042M4ARN01`, retail 2018-based `2M/2018NEW/0042M4ARN01`,
+wholesale `2M/NWSNEW/0052M4AWB01`, farmgate `2M/NFG/0032M4AFN01`).
+- **PSA can be scraped.** The same PXWeb JSON API that `tools/psa_openstat.py` already uses serves all four tables.
+  Every NCR rice cell fetched through the API equals the downloaded CSVs (2,067 of 2,067 identical).
+- **What PSA has:** monthly averages per region/province. Retail: Well-Milled, Regular-Milled, Special only (no
+  Premium, no local/imported split). Wholesale: Special, Premium, WMR, RMR. Farmgate: palay.
+- **The 2015–2017 rows in `DATASETS_RETAIL_PRICE_2015_2025.xlsx` (and the DB) are not PSA data in any form.**
+  (1) They do not match PSA NCR retail: mean gap PHP 3.34 (Local Well-Milled), 3.69 (Regular), 7.84 (Special), up to
+  PHP 14.85; PSA NCR Well-Milled is flat at PHP 42–45 for all three years while the file swings PHP 39–51 in yearly
+  waves. (2) Searching every PSA region, province and table, the closest series are scattered provinces (Davao,
+  Siquijor, Guimaras) and still PHP 1.7–5.2 off on average. (3) The file has eight local/imported/premium columns PSA
+  does not publish, and they move in lockstep with fixed gaps (Local Special − Local Premium = exactly PHP 7.00 on 80%
+  of days; all 8 columns change on the same day 82% of the time; 2018–Sep 2019: 100% and 99%). Verified DA data
+  (Oct 2019+) behaves differently (all 8 change together on 50% of change days). This pattern means one base series
+  plus fixed peso offsets, not an official table.
+- **2018 – Sep 2019 is not verified DA-AMAS data either** (Round 8: no DA bulletin in the local/imported template was
+  found for it). It is even further from PSA NCR (mean gap PHP 7.9–11.1, up to PHP 22.71 in Aug 2018).
+- Note for fairness: PSA's NCR average and DA's prevailing price are different measurements, so they never match
+  exactly — even verified DA data (Oct 2019–2025) sits PHP 3.5–6.6 from PSA on average, widest in Aug 2023 (price-cap
+  period). The fixed-offset structure, not the gap alone, is the evidence.
+- **Follow-up (same day): PSA old series checked too.** The team states 2015–2017 came from PSA's *old series*
+  (the only one reaching back to 2015). PSA "Retail Prices (Old Series)" `2M/RP/0042M4ARP01` (1990–2021) does carry
+  NCR monthly retail for all four grades (Special, Premium, WMR, RMR; Jan 2015 – Jul 2020 complete), and the old
+  wholesale tables `2M/WS/0012M4AWP01` and `2M/NWS/0052M4AWA01` were checked as well. **The file still matches none of
+  them:** vs old-series NCR retail the mean gap is PHP 3.0–8.4 per column (max PHP 15.52) and the correlation is about
+  zero (Local WMR −0.05, Special +0.27, Premium −0.22, Regular −0.12); PSA NCR Special stays PHP 51.54–53.28 in
+  2015–2017 while the file runs PHP 48–68. Across every region/province of all old and new tables the best fit is still
+  a scattered province (Capiz, Davao) at PHP 1.7–3.7 off. `DATASETS_RETAIL_PRICE_2015_2025.xlsx` is byte-for-byte the
+  file of the first commit (fb7c4c5, 2026-08-09), so it was not altered later in this repo. Conclusion: the team's PSA
+  downloads are genuine, but they are not what is inside the system. Option (a) below is therefore stronger than first
+  stated — the old series supplies Premium too; only the local/imported split is missing. At the Oct 2019 hand-over the
+  PSA NCR average sits PHP 1.5–6.7 above DA's prevailing prices (e.g. WMR 41.93 vs DA local 40.47 / imported 37.56).
+- **[DECIDED 2026-10-06 → option (a), see the next round]** (a) replace 2015 – Sep 2019 with real PSA NCR monthly retail scraped from the API
+  (local = imported; Premium is not published and would have to be estimated or left out), (b) start training at
+  Oct 2019, the first verified DA data, and cite PSA only as a cross-check, or (c) keep the file and disclose it as an
+  unverified compiled dataset. Either (a) or (b) needs a retrain and a Ch. 3 data-source edit. Also ask who compiled
+  `DATASETS_RETAIL_PRICE_2015_2025.xlsx` and from what — the paper must name its real source.
+
+### Round — Rice price history rebuilt from PSA and DA sources only; retrained (2026-10-06)
+Team decision on the provenance check above: every rice price must trace to an official publication, kept as one row
+per day ("flat" months) so the charts keep working.
+- **Coverage before this round** (cells backed by a DA bulletin): 2015–2018 0%, 2019 4%, 2020 11%, 2021 89%, 2022 100%,
+  2023 95%, 2024 42% (gaps up to 97 days), 2025 82%. The rest still held the original compiled file — so "verified from
+  Oct 2019" (Sep 27 docs) was too generous.
+- **New `datasets/rebuild_verified_rice_history.py`** (runs last in `script.py`; backup
+  `agriprice_database.db.backup-pre-verified-rice-20261006-223027`) rebuilds `retail_prices` 2015-01-01 → 2025-12-31:
+  - Jan 2015 – Sep 2019: PSA OpenSTAT "Cereals: Retail Prices of Agricultural Commodities" (Old Series, `2M/RP/0042M4ARP01`),
+    NCR, all four grades, monthly; each month's figure on every day of the month; local = imported (PSA has no split).
+    PSA leaves Nov–Dec 2015 and May–Jun 2016 blank; those repeat the previous month and are marked carried. Snapshot
+    `datasets/psa_retail_ncr_monthly.csv` (read through `tools/psa_openstat.fetch_retail_rice_ncr`).
+  - Oct 2019 – Dec 2020: DA Bantay Presyo / Price Watch bulletins (4–6 a month), each held to the next.
+  - 2021–2023: DA-AMAS weekly (as before), dated bulletins win on their days.
+  - Dec 2023 – Dec 2025: DA bulletins (Weekly Average Price; Daily Price Index from Mar 2025); days with no bulletin now come
+    from the DA-AMAS weekly workbook — 2024 sheet (matches the bulletins within PHP 0.90 on average over 1,202 shared cells)
+    and, for Jan–Feb 2025 only, the 2025 sheet with week 1 = the week of Jan 1 (the only alignment that fits its 53
+    columns inside 2025; too flat to confirm against bulletins, PHP 1.50 vs 1.52 — a reasoned, disclosed choice).
+  - Between two official figures the last one is carried. Result: no cell from the compiled file remains (2,026 of 32,144
+    cells coincidentally equal it). New table `rice_price_provenance` (Date, source, published_cells, carried_cells,
+    frequency). `smooth_unverified_2015_2019.py` now refuses to run (it would ramp the flat PSA months).
+  - Visible effect: a level shift on 2019-10-01 (PSA NCR average → DA prevailing; e.g. Imported WMR PHP 41.95 → 35.00) and
+    identical local/imported lines before it. The Price History "Big swings" filter already withholds one-step windows,
+    so neither the monthly PSA steps nor the hand-over appear as a swing (checked in the browser).
+- **Retrained 2026-10-06** (previous model `model/_backup_pre-verified-rice-20261006-223041/`; test 2025-10-11 → 2026-10-04,
+  359 origins; training rows that repeat the previous price 81.9% → 94.6%):
+
+  | | PSA-stock run (Oct 1) | **verified-rice run (current)** |
+  |---|---|---|
+  | ensemble skill / beats ARIMA | +10.17% / 8 of 8 | **+10.21% / 8 of 8** |
+  | worst type | impPremium +2.68% | **impWellMilled +2.56%** |
+  | hybrid skill / beats ARIMA | +7.99% / 3 of 8 | **+8.04% / 7 of 8** |
+  | within PHP 0.50 day 1/2/3 · PHP 1.00 day 1 | 87.1/84.2/82.0 · 96.2 | **87.2/84.0/82.2 · 96.2** |
+  | range coverage (walk-forward) | 91.7% | **90.8%** (91.6/91.0/89.7) |
+  | LSTM ablation | 142 vs 148, p = 0.77 | **53 vs 54, p = 1.00** |
+  | day-1 direction at chance | impRegular 46.2%, impPremium 50.0% | **impRegular 47.1% (208), impPremium 50.3%** |
+
+  **ARIMA fairness check** (`model/experiments/arima_daily_era_check.json`): the hybrid's jump from 3/8 to 7/8 is mostly
+  ARIMA getting worse on the newer test window (e.g. locWellMilled 0.2856 → 0.3058), and the drop is the same whether ARIMA
+  is fitted on the full history, from Oct 2019 or from 2021 — so it is not caused by the PSA months. Against the best of
+  four fitting windows (full / Oct 2019 / 2021 / daily era) the **ensemble still wins 8 of 8**, the hybrid 6 of 8
+  (locSpecial, impSpecial lose). The paper states both.
+- **Paper (.docx) updated** (backup `AgriPrice_Draft_Revised.docx.backup-pre-psa-rice-20261006-224320`): Ch. 1 scope and
+  limitations (PSA monthly 2015–2019), Ch. 3 data-source paragraph rewritten with the source per period and the level
+  shift, data-collection paragraph names PSA, red [UPDATED 6 OCT 2026] note; Ch. 4 test window, Table 1, accuracy,
+  direction, component ladder (+ the ARIMA-window sentence), ablation, data-engine counts (4,018 historical days, 279
+  daily 2026 rows, 187 tests) and Ch. 5 summary. The "LSTM alone −1.29%" figure is from the September component test and
+  is labelled as such (re-measuring it is the 1–1.5 h `experiments/lstm_improve.py` run).
+- Site wording: "Trained on PSA and DA rice prices from 2015", "Rice prices from 2015 to today" (was "Daily prices");
+  Admin → Data Sources → PSA explains the 2015–2019 rice history. Docs: SYSTEM_GUIDE Q6/Q7 and numbers, SYSTEM_FEATURES,
+  CLAUDE.md. Tests: `tests/test_rice_history_rebuild.py` (flat months, blank-month carry, bulletin precedence, DB equals
+  the rebuild); 187 pass.
+- **[TEAM] References:** add PSA OpenSTAT, "Cereals: Retail Prices of Agricultural Commodities" (Old Series), accessed
+  2026-10-06, https://openstat.psa.gov.ph. **[TEAM]** fuel 2015 – Nov 2024 and the USD/PHP 2015–2025 file are still from
+  undocumented datasets (rice is now fully sourced).
+
+### Round — DA daily bulletins 2018–2022 read and added; retrained (2026-10-07)
+The team pointed out that DA-AMAS has published DAILY price bulletins since 2018. Confirmed: da.gov.ph/price-monitoring
+lists ~3,300 PDFs, one per business day from Feb 2018 (the Sep 27 note that "DA's archive only goes back to 2023" was
+wrong). Approved by the team in two parts after a dry run.
+- **Collected:** `datasets/fetch_da_bulletins.py` cached every daily rice bulletin Feb 2018 – Mar 2025 into gitignored
+  `tools/debug_fetch/da_bulletins/` with `manifest.csv` (URL, bytes, sha256): 1,645 PDFs, 1.9 GB, 0 failures; 202 copied
+  from the team's own folders (D:\Downloads\retail price etc.) instead of downloaded. Apr 2025 onward was not fetched — the
+  DA Daily Price Index is already stored.
+- **Read:** `datasets/parse_da_daily_bulletins.py` classifies each page before reading and reads only known layouts. Seven
+  layouts were found: Price Watch 2018–19 (per-market triplets + NCR Prevailing/Low/High/Average; Fancy, Premium, Well
+  milled, Regular; **no local/imported split**), the Sep 2019 "Preliminary", layout A (Prevailing Low High Average), layout
+  B (High Low Prevailing), Today-vs-Yesterday / Today-vs-Last-Friday (2021–22), and the 2025 DPI. **939 days read**
+  (2018 53, 2019 193, 2020 214, 2021 205, 2022 248, Mar 2025 26). Refused, never guessed (`da_daily_bulletins_review.csv`,
+  703 files): **603 "Retail Price Range" bulletins (2023 – Feb 2025) — DA published only a low–high range, no prevailing
+  price**; 46 per-market posters (late 2021); 24 image-only/infographic pages; 20 Price Watch rows whose NCR summary was cut
+  off in the PDF text (a row must be 3k+4 values and Low ≤ Prevailing ≤ High, else it is not read — a market's figure is
+  never passed off as the NCR figure); 10 others (no rice rows, garbled font, unknown, grade order).
+- **Checks:** vs the old Bantay Presyo parser on the same 109 days: 100% identical. vs DA-AMAS weekly (a different DA
+  product): 83% identical, 90% within PHP 1. vs PSA NCR monthly: Premium/Well-milled/Regular within PHP 1.3–2.0 on average;
+  Special PHP 4.2 (DA's "Special"/"Fancy" and PSA's "Special" are defined differently — not a reading error). **Range
+  midpoints rejected:** on 2023 they sit PHP 1.83 from DA-AMAS prevailing on average (43% within PHP 1, bias +0.83).
+- **Rebuild** (`rebuild_verified_rice_history.py`, backup `agriprice_database.db.backup-pre-verified-rice-20261007-023003`):
+  PSA monthly Jan 2015 – Sep 2018; **DA daily bulletins Oct 2018 – 2022** (the DA era starts at the first bulletin after the
+  last gap > 31 days — DA posted none Apr–Sep 2018); DA weekly prevailing 2023 – Feb 2025; DPI from Mar 2025. A daily figure
+  is carried up to 14 days (a weekly figure may not interrupt a daily run — otherwise weekends flipped between two products);
+  longer gaps take PSA's month (Dec 2018, the 2020 lockdown, imported regular that DA rarely reported in 2020: 608 cells).
+  Level shift now at 2018-10-01. Training rows repeating the previous price 94.6% → 91.5%; price-change days in training
+  1,483 → 2,369. The gain is modest because DA's pre-2025 prevailing price is quoted in whole pesos and changes on few days.
+- **Retrained 2026-10-07** (previous model `model/_backup_pre-daily-bulletins-20261007-023013/`; same test window
+  2025-10-11 → 2026-10-04, 359 origins):
+
+  | | verified-rice run (Oct 6) | **daily-bulletin run (current)** |
+  |---|---|---|
+  | ensemble skill / beats ARIMA | +10.21% / 8 of 8 | **+10.34% / 8 of 8** (8/8 also vs the best of 4 ARIMA windows) |
+  | worst type | impWellMilled +2.56% | **impWellMilled +2.25%** |
+  | hybrid skill / beats ARIMA | +8.04% / 7 of 8 | **+8.03% / 6 of 8** (locSpecial, impSpecial to ARIMA) |
+  | within PHP 0.50 day 1/2/3 · PHP 1.00 day 1 | 87.2/84.0/82.2 · 96.2 | **87.4/84.5/82.3 · 96.2** |
+  | range coverage (walk-forward) | 90.8% | **90.9%** (91.8/91.1/89.9) |
+  | LSTM ablation | 53 vs 54, p = 1.00 | **113 vs 120, p = 0.69** (twice the disagreements, same verdict) |
+  | day-1 direction at chance | impRegular 47.1%, impPremium 50.3% | **impRegular 48.6% (208), impPremium 52.4%** |
+
+  This is a data-quality change, not an accuracy claim: the gain is within noise and must not be presented as an
+  improvement of the model.
+- **Paper (.docx)** updated (backup `AgriPrice_Draft_Revised.docx.backup-pre-daily-bulletins-20261007-024227`): Ch. 1 scope
+  and limitation, Ch. 3 data paragraph (sources per period, the range-only years, carry rule, level shift), data-collection
+  sentence, red [UPDATED 7 OCT 2026] note; Ch. 4 test window, Table 1, accuracy, direction, component ladder and ARIMA
+  windows, ablation (incl. that the bulletins did not change it), data-engine paragraph (939 days from 1,645 bulletins,
+  193 tests); Ch. 5 summary.
+- Tests: `tests/test_da_bulletin_reader.py` (layouts read from real snippets; range-only and image pages refused; a row
+  without its summary is not read) and the updated `tests/test_rice_history_rebuild.py`. 193 tests: 161 pass offline, 32 API
+  tests skip when :5000 is down.
+- **[TEAM] References:** add the DA price-monitoring archive (https://www.da.gov.ph/price-monitoring/, accessed 2026-10-07)
+  alongside PSA OpenSTAT.
+
 ---
 
 ## Still [VERIFY] / [ACTION]

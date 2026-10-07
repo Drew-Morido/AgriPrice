@@ -21,7 +21,7 @@ AgriPricePH.PublicAuthModal = (function () {
       kicker: 'Price History',
       title: 'Unlock Price History',
       body: 'See how rice prices really moved, day by day. Free with a quick account.',
-      perks: ['Daily prices from 2015 to today', 'All 8 local and imported rice types', 'Cheapest time to buy and the biggest price swings'],
+      perks: ['Rice prices from 2015 to today', 'All 8 local and imported rice types', 'Cheapest time to buy and the biggest price swings'],
       badge: 'Members only · Free',
     },
     statistics: {

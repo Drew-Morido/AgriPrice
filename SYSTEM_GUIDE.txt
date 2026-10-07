@@ -2,7 +2,7 @@
   AgriPricePH v4 — BUONG SYSTEM GUIDE
   Kasama ang detalyadong computation ng Machine Learning Training
 ================================================================================
-  Petsa ng dokumento: Setyembre 27, 2026 (training run: Setyembre 26, 2026)
+  Petsa ng dokumento: Oktubre 7, 2026 (training run: Oktubre 7, 2026)
   Target forecast: 8 rice types (PHP/kg), 3 araw ahead (48-72h)
   Published forecast: LSTM-based ADAPTIVE ENSEMBLE (Seksyon 6.5b)
   BASAHIN MUNA ANG SEKSYON 0 - ito ang cheat sheet para sa panel defence.
@@ -15,7 +15,7 @@
 
   Paano gamitin: hanapin ang tanong, basahin ang SAGOT, at kung pipilitin ka,
   ituro ang EBIDENSYA. Lahat ng numero dito ay galing sa tumatakbong system
-  (model/meta.json, training run 2026-09-26), hindi sa tantiya.
+  (model/meta.json, training run 2026-10-07), hindi sa tantiya.
 
   ANG ISANG PANGUNGUSAP NA DAPAT KABISADO:
   "AgriPricePH gives Filipino households and vendors an early warning on rice
@@ -24,11 +24,11 @@
 --------------------------------------------------------------------------------
   BUOD NG MGA NUMERO (kabisaduhin ang lima na ito)
 --------------------------------------------------------------------------------
-    +10.06%    skill vs naive ("bukas = ngayon"); 8/8 rice types panalo (worst +2.63%)
+    +10.34%    skill vs naive ("bukas = ngayon"); 8/8 rice types panalo (worst +2.25%)
     8/8        rice types panalo rin laban sa ARIMA(1,1,1)
-    96.1%      ng day-1 forecasts ay nasa loob ng PHP 1.00 (87.0% nasa loob ng PHP 0.50)
-    91.5%      ng totoong presyo ay pumasok sa ipinakitang price range (target 90%)
-    74/74      automated tests pumapasa
+    96.2%      ng day-1 forecasts ay nasa loob ng PHP 1.00 (87.4% nasa loob ng PHP 0.50)
+    90.9%      ng totoong presyo ay pumasok sa ipinakitang price range (target 90%)
+    193        automated tests (161 offline pumapasa; 32 kailangan ang server)
 
 --------------------------------------------------------------------------------
   Q1. Ano ang layunin ng system? (CORE PURPOSE)
@@ -50,10 +50,12 @@
 
   Ang detalye kung tatanungin pa:
     - Sinukat gamit ang paired McNemar test sa held-out data:
-      149 fixes vs 151 breaks, p = 0.95 -> HINDI significant.
+      113 fixes vs 120 breaks, p = 0.69 -> HINDI significant.
     - LSTM mag-isa: skill -1.29% (halos kinokopya lang ang huling presyo).
-      LSTM hybrid (LSTM + weekday mean-reversion): +7.80%, 8/8 vs naive, 4/8 vs ARIMA.
-      Adaptive ensemble (hybrid + ARIMA + Kalman): +10.06%, 8/8 vs naive AT vs ARIMA.
+      LSTM hybrid (LSTM + weekday mean-reversion): +8.03%, 8/8 vs naive, 6/8 vs ARIMA
+      (6/8 din laban sa pinakamalakas na ARIMA fitting window).
+      Adaptive ensemble (hybrid + ARIMA + Kalman): +10.34%, 8/8 vs naive AT vs ARIMA
+      (8/8 din kahit i-fit ang ARIMA mula Okt 2018, 2021, o daily era lang).
     - Bakit: ~544 araw pa lang ang tunay na araw-araw na datos (Abril 2025 pataas);
       ang 2015-2024 ay lingguhan. Sa near-random-walk na presyo, ang huling presyo
       ay halos pinakamahusay na hula na. Data-bound ito, hindi model-bound.
@@ -68,8 +70,8 @@
   Q3. Gaano katumpak?
 --------------------------------------------------------------------------------
   SAGOT: Average error ay PHP 0.29/kg (PHP 0.22 - 0.34 depende sa uri).
-  Sa loob ng PHP 1.00: 96.1% (day 1), 95.4% (day 2), 94.8% (day 3).
-  Sa loob ng PHP 0.50: 87.0% / 84.0% / 81.9%.
+  Sa loob ng PHP 1.00: 96.2% (day 1), 95.5% (day 2), 95.0% (day 3).
+  Sa loob ng PHP 0.50: 87.4% / 84.5% / 82.3%.
 
   HUWAG SABIHIN ANG "99%". May lumang accuracy formula sa system (Seksyon 6.8)
   na nagbibigay ng 99% sa kahit anong modelo, kaya deprecated na ito.
@@ -79,11 +81,11 @@
   Q4. Mas magaling ba kaysa sa basta-hula? / Sa ARIMA?
 --------------------------------------------------------------------------------
   SAGOT:
-    1. Kumpara sa naive ("bukas = presyo ngayon"): OO, 8/8 types, +10.06% average.
+    1. Kumpara sa naive ("bukas = presyo ngayon"): OO, 8/8 types, +10.34% average.
     2. Kumpara sa ARIMA(1,1,1): OO, 8/8 types (hal. locWellMilled PHP 0.280 vs
        ARIMA PHP 0.284; impPremium PHP 0.309 vs ARIMA PHP 0.351).
   LINAWIN KUNG ALIN: ang PUBLISHED ENSEMBLE ang panalo sa 8/8 vs ARIMA. Ang LSTM
-  hybrid mag-isa ay 4/8 lang. Huwag sabihing "tinalo ng LSTM ang ARIMA".
+  hybrid mag-isa ay 6/8. Huwag sabihing "tinalo ng LSTM ang ARIMA".
 
   Kung tatanungin "bakit hindi na lang ARIMA?":
     "Direkta naming kinumpara. Mas tumpak ang system sa lahat ng walong uri, may
@@ -95,10 +97,10 @@
 --------------------------------------------------------------------------------
   Q5. Gaano kalaki ang lamang ninyo? (mapanghamong tanong)
 --------------------------------------------------------------------------------
-  SAGOT: Mga 3 sentimo kada kilo sa average (PHP 0.285 vs naive PHP 0.317, -10%).
+  SAGOT: Mga 3 sentimo kada kilo sa average (PHP 0.282 vs naive PHP 0.315, -10%).
   Maliit sa piso, pero consistent: 8/8 types, at pumasa sa rolling-origin check
   (5 blocks ng test window). Halos random walk ang araw-araw na presyo ng bigas
-  (ADF p-value 0.083-0.212), kaya maliit talaga ang predictable na bahagi.
+  (ADF p-value 0.06-0.65), kaya maliit talaga ang predictable na bahagi.
 
   Kung tatanungin kung may bias ang resulta: "Ang test window ay nagamit sa maraming
   eksperimento, kaya maaaring bahagyang optimistic. Kaya simula Setyembre 26, 2026,
@@ -108,37 +110,50 @@
 --------------------------------------------------------------------------------
   Q6. Saan galing ang data? Verified ba?
 --------------------------------------------------------------------------------
-  SAGOT: DA Bantay Presyo / Price Watch bulletins, DA-AMAS weekly files, at DA
-  Daily Price Index PDFs. Dagdag pa: presyo ng gasolina at diesel, USD/PHP
-  exchange rate, rice stock inventory, at farmgate price.
+  SAGOT: Lahat ng presyo ng bigas ay galing sa opisyal na publikasyon ng PSA o DA -
+  walang natira sa lumang compiled file (datasets/scripts/rebuild_verified_rice_history.py):
 
-  Verified na periods:
-    2019-10 hanggang 2021-10   - 110 araw, per-bulletin PDF
-    2021-01 hanggang 2023-12   - 1,085 araw, DA-AMAS weekly
-    2023-12 hanggang 2025-12   - DA bulletin corrections
-    2026-04 hanggang 2026-09   - DA Daily Price Index
-  Ang mga butas sa 2026 public bulletins ("n/a") ay pinunan ng values na
-  direktang ipinadala ng DA sa email (naka-flag na da_dpi_verified). May
-  endorsement letters mula sa DA at DTI - dalhin sa defense.
+    Ene 2015 - Set 2018   PSA OpenSTAT, "Cereals: Retail Prices" (Old Series), NCR.
+                          BUWANAN: isang numero kada buwan, inuulit sa bawat araw ng buwan.
+                          Walang local/imported split ang PSA, kaya pareho ang dalawa.
+    Okt 2018 - 2022       DA DAILY price bulletins mula sa da.gov.ph (1,645 PDF na-download at
+                          binasa; 939 araw nabasa). Okt 2018 - Set 2019 = Price Watch, wala ring
+                          local/imported split. Walang bulletin ang DA noong Abr - Set 2018.
+    2023 - Feb 2025       DA weekly prevailing (DA-AMAS weekly, DA Weekly Average Price) - ang
+                          daily bulletin ng DA sa panahong ito ay RANGE lang (low-high), walang
+                          prevailing price, kaya hindi ginamit (hindi tugma ang gitna ng range).
+    2026                  DA Daily Price Index (+ values na ipinadala ng DA sa email,
+                          naka-flag na da_dpi_verified)
+
+  Sa pagitan ng dalawang opisyal na numero, inuulit ang huling opisyal na numero
+  ("last observed value"). Ang table na rice_price_provenance ay nagsasabi kung
+  saan galing ang bawat araw. May endorsement letters mula sa DA at DTI - dalhin.
+  Kung tanungin: "Paano kung buksan ko ang PSA OpenSTAT?" - tugma ang 2015-2019,
+  dahil doon mismo kinuha (sa API ng PSA, pareho sa CSV na dina-download sa portal).
+
+  Iba pang inputs: diesel at RON95 (DOE weekly mula Dis 2024; ang 2015-Nob 2024 ay
+  mula sa lumang dataset na hindi pa na-verify), USD/PHP, PSA rice stocks at farmgate.
 
 --------------------------------------------------------------------------------
   Q7. Araw-araw ba talaga ang datos mula 2015? (SAGUTIN NANG TAPAT)
 --------------------------------------------------------------------------------
-  SAGOT: Hindi. Mula 2015 hanggang 2024, lingguhan (o iregular) ang presyo ng DA
-  na nakuha namin, at kinakarga pasulong araw-araw para tumugma sa daily table.
-  Mula Abril 2025, araw-araw na (nagbabago ang presyo sa ~83% ng araw). Kaya ang
-  lahat ng sinusukat na performance ay galing LAMANG sa daily era (Abril 2025+).
-  Ang 2015 - Setyembre 2019 ay hindi rin namin ma-verify sa orihinal na source;
-  nakasulat ang bawat pagbabago sa documents/PAPER_CORRECTIONS.md.
-  (Naitama na rin sa papel: hindi na "fifteen years of daily data".)
+  SAGOT: Halos. Buwanan ang 2015 - Set 2018 (PSA). Daily DA bulletins ang Okt 2018 -
+  2022. Lingguhan ang 2023 - Feb 2025 (range lang ang daily ng DA noon). Daily ulit
+  mula Marso 2025 (DA Daily Price Index). Tandaan: kahit daily ang bulletin noong
+  2018-2022, madalang gumalaw ang prevailing price ng DA (buong piso, hal. P40, P45). May row
+  kada araw para tuloy-tuloy ang charts, pero inuulit lang ang huling opisyal na
+  numero sa mga araw na walang bagong publikasyon. Kaya ang lahat ng sinusukat na
+  performance ay galing LAMANG sa daily era (Okt 2025 - Set 2026 ang test window).
+  Asahan ang "talon" sa Okt 1, 2018: dito nagpapalit ang PSA (NCR average) at DA
+  (prevailing price) - magkaibang sukatan ng dalawang ahensya, hindi galaw ng merkado.
 
 --------------------------------------------------------------------------------
   Q8. Paano ang train/test split? Sigurado bang walang data leakage?
 --------------------------------------------------------------------------------
   SAGOT: Regime-aware chronological split - walang shuffle kailanman.
     - Training:   2015-01-31 hanggang 2025-03-31 (3,713 sequences)
-    - Validation: 2025-04-01 hanggang 2025-10-06 (189)
-    - Test:       2025-10-07 hanggang 2026-09-24 (353 kada rice type)
+    - Validation: 2025-04-01 hanggang 2025-10-10 (193)
+    - Test:       2025-10-11 hanggang 2026-10-04 (359 kada rice type)
 
   Bakit hindi 70/15/15: sa lumang split, 88% ng validation rows ay
   forward-filled na "walang pagbabago" - kaya pumipili ng weights ang early
@@ -152,7 +167,7 @@
   Q9. Ano ang prediction interval / yung range?
 --------------------------------------------------------------------------------
   SAGOT: Conformal prediction interval mula sa sariling errors ng ensemble sa
-  huling 60 araw. Target namin ang 90% coverage, at 91.5% ang nasukat.
+  huling 60 araw. Target namin ang 90% coverage, at 90.9% ang nasukat.
 
   Teknikal: nominal 0.93 ang setting para makuha ang ~90% totoong coverage,
   dahil hindi exchangeable ang daily price errors.
@@ -164,9 +179,9 @@
   sa halip na arrow pataas/pababa - hindi kayang hulaan ng modelo ang direksyon ng
   ganoon kaliit na galaw nang mas mahusay sa coin flip.
   Direksyon (day 1, sa totoong galaw): 57.9% - 68.9% sa 6 na uri. SA DALAWA - Imported
-  Regular (45.7%) at Imported Premium (50.3%) - hindi ito naiiba sa coin flip. Sabihin
+  Regular (48.6%) at Imported Premium (52.4%) - hindi ito naiiba sa coin flip. Sabihin
   ito nang diretso; ang presyo (level) nila ay tumatalo pa rin sa naive at ARIMA.
-  Movement ratio: 0.41 (dati 0.07 - noon kinokopya lang ang kahapon).
+  Movement ratio: 0.37 (dati 0.07 - noon kinokopya lang ang kahapon).
 
 --------------------------------------------------------------------------------
   Q11. Ano ang mga features? Ilan?
@@ -191,7 +206,7 @@
 --------------------------------------------------------------------------------
   Q13. Paano ninyo alam na hindi sira ang system? / Testing?
 --------------------------------------------------------------------------------
-  SAGOT: 74 automated tests. Binabantayan nila ang PDF reader (gamit ang mga
+  SAGOT: 193 automated tests. Binabantayan nila ang PDF reader (gamit ang mga
   totoong DA bulletin na may "n/a"), ang scraper guard, ang forecast log, ang
   model contract (dapat natatalo ang naive sa lahat ng type, hindi significantly
   mas mababa sa 50% ang direksyon, latency < 1 segundo) at ang API contract.
@@ -205,7 +220,7 @@
   Q14. Ano ang limitasyon at future work?
 --------------------------------------------------------------------------------
   SAGOT (tapat at maikli):
-    1. Hindi significant ang ambag ng LSTM network mag-isa (p = 0.95).
+    1. Hindi significant ang ambag ng LSTM network mag-isa (p = 0.69).
     2. Coin-flip ang direksyon sa Imported Regular at Imported Premium.
     3. Lingguhan ang datos bago 2025; ~544 araw pa lang ang daily era.
     4. Nagamit nang paulit-ulit ang test window - kaya may forward evaluation.
@@ -230,7 +245,7 @@
   model/experiments/*.json         - lahat ng eksperimento (pati mga tinanggihan)
   documents/PAPER_CORRECTIONS.md   - buong log ng pagbabago at mga tinanggihan
   documents/AgriPrice_Draft_Revised.docx - papel (Ch. 3 at draft Ch. 4-5 updated 2026-09-27)
-  tests/                           - 74 automated tests
+  tests/                           - 193 automated tests
   CLAUDE.md                        - buod ng arkitektura at mga babala
 
 ================================================================================
@@ -269,8 +284,8 @@ Mga pangunahing layunin:
 DALOY NG DATA (end-to-end):
 
   1. Koleksyon
-     - Historical CSV/XLSX (2015-2025) → datasets/script.py, setup_db.py
-     - 2026 daily XLSX → datasets/import_2026.py (auto sa app.py startup)
+     - Historical CSV/XLSX (2015-2025) → datasets/scripts/script.py, setup_db.py
+     - 2026 daily XLSX → datasets/scripts/import_2026.py (auto sa app.py startup)
      - Web scraper → tools/scrap.py → CSV + SQLite tables (WS_*)
 
   2. Pagsasama (merge)
@@ -327,9 +342,9 @@ MACHINE LEARNING
 
 DATABASE & DATA SCRIPTS
   datasets/agriprice_database.db — Pangunahing SQLite database
-  datasets/script.py             — Bulk import historical CSV
-  datasets/import_2026.py        — Sync 2026 XLSX (rice, fuel, USD)
-  datasets/setup_db.py           — Individual table imports (e.g. weather)
+  datasets/scripts/script.py             — Bulk import historical CSV
+  datasets/scripts/import_2026.py        — Sync 2026 XLSX (rice, fuel, USD)
+  datasets/scripts/setup_db.py           — Individual table imports (e.g. weather)
 
 WEB SCRAPER
   tools/scrap.py        — fetch_rice_prices, fetch_fuel_prices, fetch_exchange_rates
@@ -479,8 +494,8 @@ Gamit ang scaled matrix (N rows × 13 features), bumubuo ng sliding windows:
 
   Aktwal (locWellMilled, mula sa meta.json):
     train_samples = 3713   (2015-01-31 → 2025-03-31)
-    val_samples   =  189   (2025-04-01 → 2025-10-06)
-    test_samples  =  353   (2025-10-07 → 2026-09-24)
+    val_samples   =  193   (2025-04-01 → 2025-10-10)
+    test_samples  =  359   (2025-10-11 → 2026-10-04)
   Porsyento ng "walang pagbabago" na araw: train 81.9% / val 5.3% / test 8.8%
 
   BAKIT HINDI 70/15/15 (itanong ito ng panel):
@@ -559,7 +574,7 @@ Training loop (bawat epoch, bawat batch):
     Bakit weekday: ang Sunday bulletin (mas kaunting palengke) ay ~5× mas maingay
                    at binabaligtad tuwing Lunes.
   Code: model/mean_reversion.py (rolling_phi, WEEKDAY_MODE; AGRIPRICE_REVERSION_WEEKDAY=0 = luma)
-  Resulta: skill +7.80% vs naive, 8/8 types; 4/8 vs ARIMA.
+  Resulta: skill +8.03% vs naive, 8/8 types; 6/8 vs ARIMA.
 
 
 --------------------------------------------------------------------------------
@@ -578,11 +593,11 @@ Training loop (bawat epoch, bawat batch):
   Average weights sa test window: ~1/3 bawat isa (walang iisang modelong nangingibabaw).
 
   Price range (conformal): half-width = quantile ng |errors| ng ENSEMBLE sa huling
-  60 araw, nominal 0.93 → ~90% totoong coverage (nasukat: 91.5%).
+  60 araw, nominal 0.93 → ~90% totoong coverage (nasukat: 90.9%).
   "Steady": kapag |pagbabago| < PHP 0.10 (predict.STEADY_PESO), direction = "steady".
 
   Code: model/ensemble.py; AGRIPRICE_ENSEMBLE=0 para ibalik ang plain hybrid.
-  Resulta: skill +10.06% vs naive (8/8), panalo sa ARIMA 8/8.
+  Resulta: skill +10.34% vs naive (8/8), panalo sa ARIMA 8/8.
 
 
 --------------------------------------------------------------------------------
@@ -651,16 +666,16 @@ Ang y_true at y_pred ay nasa scaled space pa. Para sa interpretable error:
 
   ANG TAMANG IULAT — HONEST METRICS (meta.json v4, published ensemble):
     hit_rate_pct          — % ng forecasts na nasa loob ng PHP 0.50/1.00/1.50/2.00
-                            Aktwal (day 1/2/3): PHP 0.50 → 87.0 / 84.0 / 81.9%
-                                                PHP 1.00 → 96.1 / 95.4 / 94.8%
-    skill_vs_baseline_pct — lamang kumpara sa naive. Aktwal: +10.06%, 8/8 positive
-    beats_arima_count     — ilang type ang panalo sa ARIMA. Aktwal: 8 (hybrid: 4)
+                            Aktwal (day 1/2/3): PHP 0.50 → 87.4 / 84.5 / 82.3%
+                                                PHP 1.00 → 96.2 / 95.5 / 95.0%
+    skill_vs_baseline_pct — lamang kumpara sa naive. Aktwal: +10.34%, 8/8 positive
+    beats_arima_count     — ilang type ang panalo sa ARIMA. Aktwal: 8 (hybrid: 6)
     directional_pct       — tama ang direksyon (taas/baba). Aktwal: 57.9-68.9% sa
-                            6 na type; impRegular 45.7% at impPremium 50.3% (coin flip)
+                            6 na type; impRegular 48.6% at impPremium 52.4% (coin flip)
     directional_n         — ilang totoong galaw ang binilang (para sa binomial test)
     movement_ratio        — gaano gumalaw ang forecast vs totoong galaw.
-                            Aktwal: 0.41 (dati 0.07 = kinokopya lang ang kahapon)
-    lstm_ablation         — may naiaambag ba ang LSTM? 149 vs 151, p = 0.95, hindi significant
+                            Aktwal: 0.37 (dati 0.07 = kinokopya lang ang kahapon)
+    lstm_ablation         — may naiaambag ba ang LSTM? 113 vs 120, p = 0.69, hindi significant
     hybrid / ensemble     — kada type: numero ng LSTM hybrid mag-isa, at ensemble weights
 
   Ang UI ay nagpapakita na ng hit rate at skill, hindi ng 99.3%. Ang lumang
@@ -685,9 +700,9 @@ Ang y_true at y_pred ay nasa scaled space pa. Para sa interpretable error:
       "horizon": 3,
       "backend": "tensorflow" | "sklearn",
       "forecaster": "adaptive_ensemble",
-      "skill_vs_baseline_pct": 10.06,
+      "skill_vs_baseline_pct": 10.34,
       "beats_arima_count": 8,
-      "hybrid_skill_vs_baseline_pct": 7.8,
+      "hybrid_skill_vs_baseline_pct": 8.03,
       "hit_rate_pct": {...}, "lstm_ablation": {...},
       "split_dates": {...}, "flat_pct_by_split": {...},
       "targets": { "<rice type>": { mae_peso, baseline_mae_peso, arima, beats_arima,
@@ -832,7 +847,7 @@ REQUIREMENTS:
     para tugma sa Keras build na nag-save ng committed .keras model files)
 
 HAKBANG 1 — Database (unang beses):
-  cd datasets
+  cd datasets\scripts
   py -3.13 script.py
   py -3.13 import_2026.py
 
@@ -902,7 +917,7 @@ HAKBANG 5 — Predictions:
   Predictions maling petsa
     → Ang Day 1 ay ang araw PAGKATAPOS ng huling DA bulletin (hindi bukas ayon sa
       kalendaryo). Kung luma ang huling bulletin: patakbuhin ang scraper, o
-      py -3.13 datasets/import_2026.py, restart app.py, Ctrl+F5
+      py -3.13 datasets/scripts/import_2026.py, restart app.py, Ctrl+F5
 
   Hindi pa lumalabas ang bagong forecast/numbers pagkatapos ng update
     → I-restart ang backend (cd api && py -3.13 app.py) at Ctrl+F5 sa browser.
@@ -921,7 +936,7 @@ HAKBANG 5 — Predictions:
   Sequence y:       delta ng target sa t+1..t+3   (3 days, anchored-delta mode)
 
   Train/val/test:   regime-aware chronological split (tingnan ang Seksyon 6.3)
-                    locWellMilled: 3713 train / 189 val / 353 test
+                    locWellMilled: 3713 train / 193 val / 359 test
 
   LSTM loss:        MSE = mean((y - ŷ)²)
   LSTM metric:      MAE = mean(|y - ŷ|)   [scaled]

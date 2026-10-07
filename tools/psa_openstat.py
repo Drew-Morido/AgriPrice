@@ -21,6 +21,7 @@ import requests
 API = "https://openstat.psa.gov.ph/PXWeb/api/v1/en/DB"
 STOCKS_TABLE = "2E/CS/0032E4ECNV0.px"
 FARMGATE_TABLE = "2M/NFG/0032M4AFN01.px"
+RETAIL_OLD_TABLE = "2M/RP/0042M4ARP01.px"   # "Cereals: Retail Prices of Agricultural Commodities" (Old Series, 1990-2021)
 PHILIPPINES = "000000000"
 SOURCE = "psa_openstat"
 
@@ -92,6 +93,61 @@ def fetch_palay_farmgate(from_year: int = 2015, geolocation: str = PHILIPPINES) 
     out = out.dropna(subset=["other_variety", "fancy"], how="all").sort_values("Date").reset_index(drop=True)
     out.columns.name = None
     return out[["Date", "other_variety", "fancy"]]
+
+
+def fetch_retail_rice_ncr(from_year: int = 2015) -> pd.DataFrame:
+    """NCR monthly retail rice prices, PHP/kg, from PSA's OLD-series retail table (the only PSA retail table that
+    reaches before 2018 with all four grades): Date (month start), special, premium, well_milled, regular.
+
+    PSA publishes no local/imported split. Months PSA leaves blank come back as NaN."""
+    meta = table_meta(RETAIL_OLD_TABLE)
+    geos, commodities = _codes(meta, "Geolocation"), _codes(meta, "Commodity")
+    years, periods = _codes(meta, "Year"), _codes(meta, "Period")
+    ncr = [k for k, v in geos.items() if "NATIONAL CAPITAL REGION" in v.upper()]
+    grade = {"Rice Special": "special", "Rice Premium": "premium",
+             "Well Milled Rice (WMR)": "well_milled", "Regular Milled Rice (RMR)": "regular"}
+    rice = {k: grade[v.strip()] for k, v in commodities.items() if v.strip() in grade}
+    df = _query(RETAIL_OLD_TABLE, {"Geolocation": ncr[:1], "Commodity": list(rice),
+                                   "Year": [k for k, v in years.items() if int(v) >= from_year],
+                                   "Period": [k for k, v in periods.items() if v in _MONTHS]})
+    df["Date"] = _month_start(df["Year"].map(years), df["Period"].map(periods))
+    df["col"] = df["Commodity"].map(rice)
+    out = df.pivot_table(index="Date", columns="col", values="value").reset_index()
+    out = out.dropna(subset=list(grade.values()), how="all").sort_values("Date").reset_index(drop=True)
+    out.columns.name = None
+    return out[["Date", "special", "premium", "well_milled", "regular"]]
+
+
+CORE_CPI_OLD_TABLE = "2M/PI/CPI/2018NEW/0012M4ACP33.px"   # Core CPI, all items, PH (2018=100), Jan 1994 - Dec 2017 (backcast)
+CORE_CPI_TABLE = "2M/PI/CPI/2018NEW/0012M4ACP30.px"       # Core CPI by commodity group, PH (2018=100), Jan 2018 onward
+_ABBR = [m[:3] for m in _MONTHS]
+
+
+def fetch_core_inflation(from_year: int = 2015) -> pd.DataFrame:
+    """Monthly national CORE inflation (CPI excluding selected food and energy items): Date (month start), core_cpi
+    (index, 2018=100), core_inflation (year-on-year %, computed from the index).
+
+    PSA's year-on-year core table starts in 2019, so the rate is computed from the index, which PSA publishes
+    continuously on one base (2018=100): its backcast for 1994-2017 and its current table from 2018. Computed this
+    way it equals PSA's own published rate on every month both exist (93 of 93, Jan 2019 - Sep 2026)."""
+    first = from_year - 1                                     # a year earlier, for the first year-on-year rate
+    old_meta = table_meta(CORE_CPI_OLD_TABLE)
+    oy, op = _codes(old_meta, "Year"), _codes(old_meta, "Period")
+    old = _query(CORE_CPI_OLD_TABLE, {"Year": [k for k, v in oy.items() if int(v) >= first],
+                                      "Period": [k for k, v in op.items() if v in _MONTHS]})
+    old["Date"] = _month_start(old["Year"].map(oy), old["Period"].map(op))
+    new_meta = table_meta(CORE_CPI_TABLE)
+    ng, nc = _codes(new_meta, "Geolocation"), _codes(new_meta, "Commodity Description")
+    ny, np_ = _codes(new_meta, "Year"), _codes(new_meta, "Period")
+    new = _query(CORE_CPI_TABLE, {"Geolocation": list(ng),
+                                  "Commodity Description": [k for k, v in nc.items() if v.startswith("0 - ALL ITEMS")],
+                                  "Year": list(ny), "Period": [k for k, v in np_.items() if v in _ABBR]})
+    new["Date"] = _month_start(new["Year"].map(ny), new["Period"].map(np_).map(lambda a: _MONTHS[_ABBR.index(a)]))
+    idx = (pd.concat([old[["Date", "value"]], new[["Date", "value"]]])
+           .dropna().drop_duplicates("Date", keep="last").set_index("Date")["value"].sort_index())
+    out = pd.DataFrame({"core_cpi": idx, "core_inflation": ((idx / idx.shift(12) - 1) * 100).round(2)})
+    out = out[out.index >= pd.Timestamp(from_year, 1, 1)].dropna().reset_index()
+    return out[["Date", "core_cpi", "core_inflation"]]
 
 
 def latest_months(frame: Optional[pd.DataFrame]) -> Optional[str]:

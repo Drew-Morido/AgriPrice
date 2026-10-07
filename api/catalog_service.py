@@ -5,7 +5,7 @@ consumer-price computation). Backs the /api/catalog, /api/taxes, /api/prices/bra
 
 Empty-safe: brands/brackets/taxes are populated only from official DTI/BOC data, so every
 function degrades gracefully (returns empty lists / null base + a note) until that data exists.
-Schema is created by datasets/catalog_schema.py.
+Schema is created by datasets/scripts/catalog_schema.py.
 """
 
 from __future__ import annotations
@@ -75,7 +75,7 @@ def _has_table(conn, name) -> bool:
 
 
 def catalog_ready() -> bool:
-    """True once the catalog schema has been created (datasets/catalog_schema.py)."""
+    """True once the catalog schema has been created (datasets/scripts/catalog_schema.py)."""
     conn = _connect()
     try:
         return _has_table(conn, "dti_category")
@@ -191,7 +191,7 @@ _BRAND_IMAGE_ENSURED = False
 
 def _ensure_brand_image(conn) -> None:
     """Self-healing migration: add rice_brand.image_path if an older DB lacks it, so the catalog
-    image field works without requiring datasets/catalog_schema.py to be re-run. Runs once per
+    image field works without requiring datasets/scripts/catalog_schema.py to be re-run. Runs once per
     process (mirrors _ensure_entry_type below)."""
     global _BRAND_IMAGE_ENSURED
     if _BRAND_IMAGE_ENSURED or not _has_table(conn, "rice_brand"):
@@ -201,7 +201,7 @@ def _ensure_brand_image(conn) -> None:
         for col in ("image_path", "variety_names", "variety_source"):
             if col not in cols:
                 conn.execute(f"ALTER TABLE rice_brand ADD COLUMN {col} TEXT")
-        # Pack-size prices (datasets/import_brand_survey.py): one product, several packs.
+        # Pack-size prices (datasets/scripts/import_brand_survey.py): one product, several packs.
         conn.execute("""CREATE TABLE IF NOT EXISTS brand_pack_price (
             id INTEGER PRIMARY KEY AUTOINCREMENT, brand_id INTEGER NOT NULL REFERENCES rice_brand(id),
             pack_kg REAL, pack_price REAL NOT NULL, per_kg REAL NOT NULL, sample_date TEXT, source TEXT,
@@ -280,7 +280,7 @@ def tariff_status(date: str | None = None) -> dict:
     try:
         if not _has_table(conn, "tariff_schedule"):
             return {"ready": False, "applicable": None, "schedule": [],
-                    "note": "Tariff schedule not initialized — run datasets/seed_verified_data.py."}
+                    "note": "Tariff schedule not initialized — run datasets/scripts/seed_verified_data.py."}
         applicable = _applicable_tariff(conn, date)
         schedule = [dict(r) for r in conn.execute(
             "SELECT id,rate_pct,effective_start,effective_end,quarter_label,legal_basis,"

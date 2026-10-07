@@ -36,31 +36,53 @@ AgriPricePH.DataSources = (function () {
   ];
 
   /* Facts that aren't in the API payload. "usedBy" must stay true to the code: the DA prices are
-     the 8 forecast targets; RON 95 + diesel and USD/PHP are model input features
-     (model/data_pipeline.py FEATURE_COLUMNS); the tariff only feeds imported-rice consumer prices
+     the 8 forecast targets; diesel, USD/PHP, PSA stocks & farmgate, core inflation and the world rice
+     price are model input features (model/data_pipeline.py FEATURE_COLUMNS; RON 95 was dropped on
+     2026-10-07 because it moves with diesel); the tariff only feeds imported-rice consumer prices
      after an admin approves it. */
   const SOURCE_FACTS = {
     da:  { short: 'Rice prices', cadence: 'Daily price bulletin (business days)',
            usedBy: 'Forecast targets — all 8 rice types', unit: '/kg', route: 'predictions', routeLabel: 'Price Forecast' },
     doe: { short: 'Fuel prices', cadence: 'Weekly DOE bulletin (NCR common price)',
-           usedBy: 'Forecast inputs — RON 95 & diesel', unit: '/L', route: 'correlation', routeLabel: 'Market Drivers',
+           usedBy: 'Forecast input — diesel (RON 95 shown for reference)', unit: '/L', route: 'correlation', routeLabel: 'Market Drivers',
            // Shown behind the (i) icon next to the source name.
            info: 'Main source: DOE’s weekly “Price Monitoring of Liquid Fuels — NCR” PDF (the price most NCR stations charge).\n'
              + 'Fallback: GasWatch PH (gaswatchph.com), which republishes DOE advisories with station reports. It is used when DOE can’t be reached or has no new bulletin for 14 days, and to fill a price DOE leaves blank (#N/A) for the same week — those values are marked “Filled from GasWatch PH”.' },
     api: { short: 'Exchange rates', cadence: 'Daily reference rates',
            usedBy: 'Forecast input — USD/PHP rate', unit: '', route: 'correlation', routeLabel: 'Market Drivers' },
     psa: { short: 'Stocks & farmgate', cadence: 'Monthly (PSA publishes about the 7th–15th of the next month)',
-           usedBy: 'Forecast inputs — rice stock & palay farmgate', unit: '', route: 'correlation', routeLabel: 'Market Drivers',
+           usedBy: 'Forecast inputs — rice stock & palay farmgate; rice price history Jan 2015 – Sep 2018', unit: '', route: 'correlation', routeLabel: 'Market Drivers',
            info: 'Philippine Statistics Authority, OpenSTAT (the source PhilRice Ricelytics cites).\n'
              + 'Rice stocks: “Monthly Total Stocks Inventory by Sector” (household, commercial, NFA; metric tons). '
              + 'Farmgate: “Cereals: Farmgate Prices”, palay other variety and fancy, Philippines.\n'
              + 'The whole 2015-onward series is refreshed each sync because PSA revises past months. A month’s figure '
-             + 'is used by the model from the 15th of the following month — when PSA has actually published it.' },
+             + 'is used by the model from the 15th of the following month — when PSA has actually published it.\n'
+             + 'Rice prices Jan 2015 – Sep 2018: “Cereals: Retail Prices of Agricultural Commodities” (Old Series), NCR, monthly — '
+             + 'one figure per month, repeated on each day of the month; PSA has no local/imported split. DA daily bulletins take '
+             + 'over from Oct 2018 (datasets/scripts/rebuild_verified_rice_history.py).' },
+    cpi: { short: 'Core inflation', cadence: 'Monthly (PSA releases the CPI about the 5th of the next month)',
+           usedBy: 'Forecast input — core inflation', unit: '', route: 'correlation', routeLabel: 'Market Drivers',
+           info: 'Philippine Statistics Authority, OpenSTAT: “Core Consumer Price Index (2018=100)”, Philippines, monthly.\n'
+             + 'Core inflation leaves out selected food and energy items, so it measures the general rise in prices without '
+             + 'repeating the rice price itself or the diesel price (both are separate inputs). The year-on-year % is computed '
+             + 'from the index, joining PSA’s 2018-based series with its backcast for 2015–2017; it matches PSA’s published rates.\n'
+             + 'The whole 2015-onward series is refreshed each sync (PSA revises past months); a refresh that looks incomplete is '
+             + 'refused and the stored copy kept. A month’s figure is used by the model from the 15th of the following month.' },
+    wb:  { short: 'World rice price', cadence: 'Monthly (World Bank Pink Sheet, about the 2nd business day of the next month)',
+           usedBy: 'Forecast input — international rice price', unit: '', route: 'correlation', routeLabel: 'Market Drivers',
+           info: 'World Bank Commodity Price Data (“Pink Sheet”), monthly: Rice, Viet Namese 5% broken, US$ per metric ton. '
+             + 'Viet Nam is the Philippines’ main rice supplier, so this is the import price that matters most here. '
+             + 'Thai 5% is stored for comparison only.\n'
+             + 'Kept in US dollars on purpose — converting to pesos would repeat the USD/PHP rate, which is already a separate input.\n'
+             + 'The workbook link changes with each release, so it is found on the World Bank commodity-markets page each sync. '
+             + 'A month’s figure is used by the model from the 15th of the following month.' },
     tc:  { short: 'Rice import tariff', cadence: 'Quarterly rate (checked daily)',
            usedBy: 'Imported-rice consumer prices, after admin approval', unit: '', route: 'taxes', routeLabel: 'Taxes & Import Charges' },
   };
 
-  const LIVE_IDS = ['da', 'doe', 'api', 'tc', 'psa'];
+  const LIVE_IDS = ['da', 'doe', 'api', 'tc', 'psa', 'cpi', 'wb'];
+  // Monthly/quarterly sources: "fresh" means the source has nothing newer, not a row dated today.
+  const MONTHLY_IDS = ['psa', 'cpi', 'wb'];
   const RICE_FIELDS = [
     'Local Special', 'Local Premium', 'Local Well Milled', 'Local Regular Milled',
     'Imported Special', 'Imported Premium', 'Imported Well Milled', 'Imported Regular Milled',
@@ -334,6 +356,13 @@ Newer days wait here until every check passes, then enter automatically."></i>
         ? { tone: 'ok', badge: 'Up to date', title: `Latest PSA month: ${asOf || '—'}`, text: 'New months and revisions are picked up automatically.' }
         : { tone: 'warn', badge: 'Behind', title: `Latest PSA month: ${asOf || '—'}`, text: 'PSA has not published a newer month yet, or the last refresh failed — see the Web Scraper log.' };
     }
+    if (s.id === 'cpi' || s.id === 'wb') {
+      const who = s.id === 'cpi' ? 'PSA' : 'The World Bank';
+      const used = (s.dataSummary || []).find(r => r.label === 'Used by the model from')?.value;
+      return s.hasDataToday
+        ? { tone: 'ok', badge: 'Up to date', title: `Latest month: ${asOf || '—'}`, text: `New months and revisions are picked up automatically.${used ? ` The model uses this month from ${used}.` : ''}` }
+        : { tone: 'warn', badge: 'Behind', title: `Latest month: ${asOf || '—'}`, text: `${who} has not published a newer month yet, or the last refresh failed — see the Web Scraper log.` };
+    }
     if (s.id === 'doe') {
       // Weekly source: "up to date" means this week's bulletin, not a row dated today.
       const src = String((s.dataSummary || []).find(r => r.label === 'Source')?.value || '');
@@ -399,7 +428,7 @@ Newer days wait here until every check passes, then enter automatically."></i>
     }
     const total = _sources.length;
     const active = _sources.filter(_isActive).length;
-    const daily = _sources.filter(s => s.id !== 'tc' && s.id !== 'psa');   // monthly/quarterly sources aren't "today" feeds
+    const daily = _sources.filter(s => s.id !== 'tc' && !MONTHLY_IDS.includes(s.id));   // monthly/quarterly sources aren't "today" feeds
     const fresh = daily.filter(s => s.hasDataToday && !(s.id === 'da' && s.isEstimated)).length;
     const estimated = daily.filter(s => s.id === 'da' && s.isEstimated).length;
     const records = _sources.reduce((n, s) => n + (Number(s.totalRecords) || 0), 0);
@@ -432,8 +461,16 @@ Newer days wait here until every check passes, then enter automatically."></i>
   }
 
   function _icon(id) {
-    const map = { da: svgLeaf, doe: svgFuel, api: svgGlobe, tc: svgPercent, psa: svgChart };
+    const map = { da: svgLeaf, doe: svgFuel, api: svgGlobe, tc: svgPercent, psa: svgChart, cpi: _svgInflation, wb: _svgShip };
     return (map[id] || svgGlobe)();
+  }
+
+  function _svgInflation() {
+    return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/><line x1="3" y1="21" x2="21" y2="21"/></svg>';
+  }
+
+  function _svgShip() {
+    return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20c2 1.2 4 1.2 6 0s4-1.2 6 0 4 1.2 6 0"/><path d="M4 17l-1-5h18l-2 5"/><path d="M12 12V4"/><path d="M12 5l5 3-5 2"/></svg>';
   }
 
   function _renderList() {
@@ -477,6 +514,7 @@ Newer days wait here until every check passes, then enter automatically."></i>
     const v = item.value;
     if (typeof v !== 'number') return _esc(v);
     if (s.id === 'api') return `₱${v.toFixed(v < 1 ? 4 : 2)}`;
+    if (MONTHLY_IDS.includes(s.id)) return _esc(v.toLocaleString());
     const unit = (SOURCE_FACTS[s.id] || {}).unit || '';
     return `₱${v.toFixed(2)}<small>${unit}</small>`;
   }
@@ -507,7 +545,7 @@ Newer days wait here until every check passes, then enter automatically."></i>
     }
     return `
       <div class="ds-section-head"><span>Latest values</span>${metaLine}</div>
-      <div class="ds-values ${s.id === 'psa' ? 'is-six' : (vals.length > 4 ? 'is-grid' : '')}">
+      <div class="ds-values ${s.id === 'psa' ? 'is-six' : (vals.length > 3 ? 'is-grid' : '')}">
         ${vals.map(r => `
           <div class="ds-value">
             <span class="ds-value-label" title="${_esc(_prettyLabel(r.label))}">${_esc(_prettyLabel(r.label))}</span>
@@ -532,6 +570,7 @@ Newer days wait here until every check passes, then enter automatically."></i>
     const breakdown = hist != null
       ? (s.id === 'tc' ? `${hist} confirmed · ${scraped} detected`
         : s.id === 'psa' ? `${hist} stock months · ${scraped} farmgate months`
+        : (s.id === 'cpi' || s.id === 'wb') ? `${_esc(s.firstMonth || '—')} – ${_esc(s.latestMonth || '—')}`
         : `${hist} historical · ${scraped} scraped`) : 'Total stored';
     // `note` is secondary detail (exact timestamp, record breakdown): it's also the tooltip, so
     // the CSS can hide the visible line on tight screens without losing it.
@@ -577,7 +616,7 @@ Newer days wait here until every check passes, then enter automatically."></i>
         ${fact('Provides', _esc(s.dataType))}
         ${fact('Update cadence', _esc(facts.cadence || '—'))}
         ${fact('Last fetched', _esc(_displayLastFetch(s)), '', _esc(lastAbs))}
-        ${fact(s.id === 'tc' ? 'Quarters tracked' : s.id === 'psa' ? 'Months stored' : 'Records in database', _formatCount(s.totalRecords), '', _esc(breakdown))}
+        ${fact(s.id === 'tc' ? 'Quarters tracked' : MONTHLY_IDS.includes(s.id) ? 'Months stored' : 'Records in database', _formatCount(s.totalRecords), '', breakdown)}
         ${fact('Used by', _esc(facts.usedBy || '—'), facts.route ? `<button type="button" class="ds-link" data-goto="${facts.route}">Open ${_esc(facts.routeLabel)} →</button>` : '')}
       </div>
 
@@ -629,8 +668,9 @@ Newer days wait here until every check passes, then enter automatically."></i>
       return;
     }
     const upToDate = source.hasDataToday && !(source.id === 'da' && source.isEstimated) && source.id !== 'tc';
+    const latest = MONTHLY_IDS.includes(source.id) ? 'The latest published month' : 'Today\'s data';
     const ok = await M.confirm(upToDate
-      ? { title: 'Already up to date', text: `Today's data from ${source.name} is already in the database. Fetch again anyway?`, type: 'info', okText: 'Fetch again' }
+      ? { title: 'Already up to date', text: `${latest} from ${source.name} is already in the database. Fetch again anyway?`, type: 'info', okText: 'Fetch again' }
       : { title: `Fetch from ${source.name}?`, text: `Runs the scraper for this source now (${(source.url || '').replace(/^https?:\/\//, '')}). This can take up to a minute.`, type: 'info', okText: 'Fetch now' });
     if (!ok) return;
     await _runScrape(sourceId, source.name);
