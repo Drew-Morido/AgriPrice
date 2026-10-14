@@ -306,8 +306,8 @@ AgriPricePH.ModelDashboard = (function () {
       data: {
         labels,
         datasets: [
-          { label: 'Actual Price (₱)', data: actual, borderColor: '#1c3d28', backgroundColor: '#1c3d28', borderWidth: 2, tension: 0.3, spanGaps: false, pointRadius: 3, pointHoverRadius: 6, pointHitRadius: 12 },
-          { label: 'Simulated Forecast (₱)', data: predicted, borderColor: '#72c98d', backgroundColor: '#72c98d', borderDash: [5, 5], borderWidth: 2, tension: 0.3, pointRadius: 3, pointHoverRadius: 6, pointHitRadius: 12 },
+          { label: 'Actual retail price (₱/kg)', data: actual, borderColor: '#1c3d28', backgroundColor: '#1c3d28', borderWidth: 2, tension: 0.3, spanGaps: false, pointRadius: 3, pointHoverRadius: 6, pointHitRadius: 12 },
+          { label: 'Simulated forecast (₱/kg)', data: predicted, borderColor: '#72c98d', backgroundColor: '#72c98d', borderDash: [5, 5], borderWidth: 2, tension: 0.3, pointRadius: 3, pointHoverRadius: 6, pointHitRadius: 12 },
         ],
       },
       options: {

@@ -1330,7 +1330,7 @@ def api_data_sources():
         _build_live_source(
             "da", "DA – Dept. of Agriculture",
             "Web Scraper (BeautifulSoup + PDF)",
-            "Daily Rice Prices (8 types)",
+            "Daily retail rice prices, ₱/kg (8 types)",
             "https://www.da.gov.ph/price-monitoring/",
             "#4CAF6E", "rgba(76,175,110,0.12)",
             "WS_rice_price", EXPECTED_RICE,
@@ -2325,6 +2325,8 @@ def api_dashboard_metrics():
             # so the admin tables can show the identical figure instead of a different threshold.
             "hit_rate_050_pct": _f_list((tm.get("hit_rate_pct") or {}).get("0.50")),
             "skill_vs_baseline_pct": _f(tm.get("skill_vs_baseline_pct")),
+            # Error as a share of the price, shown beside the forecasting-method indicator (Admin -> Price Forecast).
+            "mape_pct": _f(tm.get("mape_pct")),
         }
 
     prev = prev_override or summaries.get("previous_ok_run")

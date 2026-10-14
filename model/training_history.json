@@ -10345,5 +10345,2239 @@
     "insights": [
       "Training did not complete successfully. Review the log excerpt for errors, then verify the database and Python/TensorFlow setup before retrying."
     ]
+  },
+  {
+    "id": "20261008-160322",
+    "started_at": "2026-10-08T16:03:22.771590",
+    "completed_at": "2026-10-08T16:10:02.413236",
+    "duration": "6m 39s",
+    "duration_sec": 399,
+    "ok": true,
+    "backend": "tensorflow",
+    "epochs_planned": 100,
+    "epochs_completed": 9,
+    "final_train_loss": 0.0027,
+    "final_val_loss": 0.0374,
+    "final_mae": 0.0153,
+    "mae_peso": 0.2831,
+    "rmse_peso": 0.4211,
+    "accuracy_pct": 99.38,
+    "primary_accuracy_pct": 99.35,
+    "avg_accuracy_pct": 99.38,
+    "hit_rate_pct": {
+      "0.50": [
+        87.5,
+        84.5,
+        82.4
+      ],
+      "1.00": [
+        96.2,
+        95.5,
+        95.1
+      ],
+      "1.50": [
+        98.4,
+        98.1,
+        97.7
+      ],
+      "2.00": [
+        99.4,
+        99.1,
+        98.7
+      ]
+    },
+    "skill_vs_baseline_pct": 10.3,
+    "movement_ratio": 0.3738,
+    "seed": 42,
+    "split_policy": "regime_aware_active_from_2025-04-01",
+    "split_dates": {
+      "train": [
+        "2015-01-31",
+        "2025-03-31"
+      ],
+      "val": [
+        "2025-04-01",
+        "2025-10-10"
+      ],
+      "test": [
+        "2025-10-11",
+        "2026-10-05"
+      ]
+    },
+    "flat_pct_by_split": {
+      "train": 91.5,
+      "val": 5.7,
+      "test": 8.6
+    },
+    "train_samples": 3713,
+    "test_samples": 360,
+    "last_data_date": "2026-10-07",
+    "target": "locWellMilled",
+    "trained_types": [
+      "locWellMilled",
+      "locRegular",
+      "locPremium",
+      "locSpecial",
+      "impWellMilled",
+      "impRegular",
+      "impPremium",
+      "impSpecial"
+    ],
+    "targets_meta": {
+      "locWellMilled": {
+        "target": "locWellMilled",
+        "features": [
+          "locWellMilled",
+          "fuel_diesel",
+          "stock",
+          "farmgate",
+          "exchange",
+          "core_inflation",
+          "rice_world",
+          "season_sin",
+          "season_cos"
+        ],
+        "backend": "tensorflow",
+        "delta_mode": true,
+        "seed": 42,
+        "mae_peso": 0.2831,
+        "rmse_peso": 0.4211,
+        "mape_pct": 0.5991,
+        "r2": 0.9762,
+        "rolling_eval": {
+          "method": "blocked rolling-origin over held-out test (no refit)",
+          "k": 5,
+          "block_mae": [
+            0.2397,
+            0.2452,
+            0.4117,
+            0.2223,
+            0.2966
+          ],
+          "mean": 0.2831,
+          "std": 0.0689
+        },
+        "accuracy_pct": 99.35,
+        "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
+        "hit_rate_pct": {
+          "0.25": [
+            64.2,
+            58.3,
+            54.4
+          ],
+          "0.50": [
+            87.5,
+            85.3,
+            83.9
+          ],
+          "1.00": [
+            96.1,
+            96.1,
+            95.8
+          ],
+          "1.50": [
+            98.9,
+            98.9,
+            98.9
+          ],
+          "2.00": [
+            100.0,
+            99.7,
+            99.4
+          ]
+        },
+        "baseline_hit_rate_pct": {
+          "0.25": [
+            61.4,
+            53.9,
+            49.7
+          ],
+          "0.50": [
+            82.5,
+            78.3,
+            76.4
+          ],
+          "1.00": [
+            94.2,
+            93.9,
+            92.8
+          ],
+          "1.50": [
+            98.3,
+            98.3,
+            98.6
+          ],
+          "2.00": [
+            100.0,
+            100.0,
+            99.7
+          ]
+        },
+        "directional_pct": [
+          61.7,
+          63.5,
+          62.2
+        ],
+        "directional_n": [
+          329,
+          351,
+          349
+        ],
+        "lstm_ablation": {
+          "test": "mcnemar_paired_directional",
+          "subset": "genuine_signal_only",
+          "n_scored": 940,
+          "lstm_fixes": 17,
+          "lstm_breaks": 19,
+          "n_discordant": 36,
+          "chi_square": 0.028,
+          "p_value": 0.8676,
+          "significant_at_05": false,
+          "directional_pct_with_lstm": 62.9,
+          "directional_pct_reversion_only": 63.1,
+          "excluded_tie_rows": 89,
+          "tie_row_share_pct": 8.6
+        },
+        "movement": {
+          "pred_abs_change_peso": 0.1199,
+          "true_abs_change_peso": 0.3273,
+          "ratio": 0.3664
+        },
+        "reversion": {
+          "phi": [
+            [
+              -0.278
+            ],
+            [
+              -0.3139
+            ],
+            [
+              -0.2848
+            ]
+          ],
+          "n_lags": 1,
+          "t_stat": [
+            -7.206,
+            -8.041,
+            -7.268
+          ],
+          "n_fit": 191,
+          "applied": true,
+          "shrink": 0.6,
+          "min_abs_t": 2.0,
+          "fit_rows": [
+            3743,
+            3936
+          ],
+          "rolling_window": 120,
+          "scored_with": "rolling",
+          "weekday_mode": true
+        },
+        "skill_vs_baseline_pct": 13.51,
+        "per_horizon_mae_peso": [
+          0.2479,
+          0.2923,
+          0.309
+        ],
+        "per_horizon_accuracy_pct": [
+          99.43,
+          99.33,
+          99.29
+        ],
+        "baseline_mae_peso": 0.3273,
+        "baseline_rmse_peso": 0.4863,
+        "baseline_accuracy_pct": 99.24,
+        "beats_baseline": true,
+        "arima": {
+          "order": [
+            1,
+            1,
+            1
+          ],
+          "mae_peso": 0.2989,
+          "rmse_peso": 0.4421,
+          "n": 360
+        },
+        "beats_arima": true,
+        "forecaster": "adaptive_ensemble",
+        "ensemble": {
+          "method": "adaptive inverse-MSE combination (Bates & Granger 1969)",
+          "components": [
+            "hybrid",
+            "arima",
+            "kalman"
+          ],
+          "window_days": 30,
+          "warmup_origins": 45,
+          "mean_weights_test": {
+            "hybrid": [
+              0.335,
+              0.33,
+              0.339
+            ],
+            "arima": [
+              0.304,
+              0.324,
+              0.327
+            ],
+            "kalman": [
+              0.361,
+              0.347,
+              0.334
+            ]
+          }
+        },
+        "hybrid": {
+          "mae_peso": 0.2893,
+          "skill_vs_baseline_pct": 11.63,
+          "beats_arima": true,
+          "directional_pct": [
+            59.3,
+            60.4,
+            61.9
+          ]
+        },
+        "shock": {
+          "pct": 90,
+          "threshold_peso": 1.19,
+          "count": 36,
+          "lstm_mae_peso": 0.6676,
+          "baseline_mae_peso": 0.8613,
+          "beats_baseline": true
+        },
+        "adf_pvalue": 0.2438,
+        "train_samples": 3713,
+        "val_samples": 193,
+        "test_samples": 360,
+        "split_policy": "regime_aware_active_from_2025-04-01",
+        "split_dates": {
+          "train": [
+            "2015-01-31",
+            "2025-03-31"
+          ],
+          "val": [
+            "2025-04-01",
+            "2025-10-10"
+          ],
+          "test": [
+            "2025-10-11",
+            "2026-10-05"
+          ]
+        },
+        "flat_pct_by_split": {
+          "train": 91.5,
+          "val": 5.7,
+          "test": 8.6
+        }
+      },
+      "locRegular": {
+        "target": "locRegular",
+        "features": [
+          "locRegular",
+          "fuel_diesel",
+          "stock",
+          "farmgate",
+          "exchange",
+          "core_inflation",
+          "rice_world",
+          "season_sin",
+          "season_cos"
+        ],
+        "backend": "tensorflow",
+        "delta_mode": true,
+        "seed": 42,
+        "mae_peso": 0.2699,
+        "rmse_peso": 0.4466,
+        "mape_pct": 0.6348,
+        "r2": 0.9763,
+        "rolling_eval": {
+          "method": "blocked rolling-origin over held-out test (no refit)",
+          "k": 5,
+          "block_mae": [
+            0.1924,
+            0.2277,
+            0.4122,
+            0.3179,
+            0.1994
+          ],
+          "mean": 0.2699,
+          "std": 0.084
+        },
+        "accuracy_pct": 99.31,
+        "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
+        "hit_rate_pct": {
+          "0.25": [
+            68.3,
+            65.8,
+            59.4
+          ],
+          "0.50": [
+            88.1,
+            84.4,
+            84.4
+          ],
+          "1.00": [
+            96.7,
+            96.7,
+            96.1
+          ],
+          "1.50": [
+            98.6,
+            98.9,
+            98.9
+          ],
+          "2.00": [
+            99.4,
+            99.2,
+            99.2
+          ]
+        },
+        "baseline_hit_rate_pct": {
+          "0.25": [
+            64.7,
+            59.4,
+            54.2
+          ],
+          "0.50": [
+            83.1,
+            80.6,
+            78.3
+          ],
+          "1.00": [
+            95.3,
+            94.4,
+            93.9
+          ],
+          "1.50": [
+            97.8,
+            98.1,
+            98.6
+          ],
+          "2.00": [
+            98.9,
+            98.9,
+            98.9
+          ]
+        },
+        "directional_pct": [
+          61.2,
+          62.4,
+          60.6
+        ],
+        "directional_n": [
+          322,
+          338,
+          348
+        ],
+        "lstm_ablation": {
+          "test": "mcnemar_paired_directional",
+          "subset": "genuine_signal_only",
+          "n_scored": 910,
+          "lstm_fixes": 16,
+          "lstm_breaks": 13,
+          "n_discordant": 29,
+          "chi_square": 0.138,
+          "p_value": 0.7103,
+          "significant_at_05": false,
+          "directional_pct_with_lstm": 63.4,
+          "directional_pct_reversion_only": 63.1,
+          "excluded_tie_rows": 98,
+          "tie_row_share_pct": 9.7
+        },
+        "movement": {
+          "pred_abs_change_peso": 0.1092,
+          "true_abs_change_peso": 0.3163,
+          "ratio": 0.3452
+        },
+        "reversion": {
+          "phi": [
+            [
+              -0.3249
+            ],
+            [
+              -0.2766
+            ],
+            [
+              -0.2877
+            ]
+          ],
+          "n_lags": 1,
+          "t_stat": [
+            -8.88,
+            -7.571,
+            -7.535
+          ],
+          "n_fit": 191,
+          "applied": true,
+          "shrink": 0.6,
+          "min_abs_t": 2.0,
+          "fit_rows": [
+            3743,
+            3936
+          ],
+          "rolling_window": 120,
+          "scored_with": "rolling",
+          "weekday_mode": true
+        },
+        "skill_vs_baseline_pct": 14.66,
+        "per_horizon_mae_peso": [
+          0.2409,
+          0.2742,
+          0.2947
+        ],
+        "per_horizon_accuracy_pct": [
+          99.39,
+          99.3,
+          99.25
+        ],
+        "baseline_mae_peso": 0.3163,
+        "baseline_rmse_peso": 0.5354,
+        "baseline_accuracy_pct": 99.19,
+        "beats_baseline": true,
+        "arima": {
+          "order": [
+            1,
+            1,
+            1
+          ],
+          "mae_peso": 0.2913,
+          "rmse_peso": 0.4807,
+          "n": 360
+        },
+        "beats_arima": true,
+        "forecaster": "adaptive_ensemble",
+        "ensemble": {
+          "method": "adaptive inverse-MSE combination (Bates & Granger 1969)",
+          "components": [
+            "hybrid",
+            "arima",
+            "kalman"
+          ],
+          "window_days": 30,
+          "warmup_origins": 45,
+          "mean_weights_test": {
+            "hybrid": [
+              0.333,
+              0.333,
+              0.335
+            ],
+            "arima": [
+              0.302,
+              0.305,
+              0.318
+            ],
+            "kalman": [
+              0.365,
+              0.363,
+              0.347
+            ]
+          }
+        },
+        "hybrid": {
+          "mae_peso": 0.2788,
+          "skill_vs_baseline_pct": 11.86,
+          "beats_arima": true,
+          "directional_pct": [
+            60.6,
+            62.1,
+            60.6
+          ]
+        },
+        "shock": {
+          "pct": 90,
+          "threshold_peso": 1.122,
+          "count": 36,
+          "lstm_mae_peso": 0.7343,
+          "baseline_mae_peso": 1.0235,
+          "beats_baseline": true
+        },
+        "adf_pvalue": 0.1357,
+        "train_samples": 3713,
+        "val_samples": 193,
+        "test_samples": 360,
+        "split_policy": "regime_aware_active_from_2025-04-01",
+        "split_dates": {
+          "train": [
+            "2015-01-31",
+            "2025-03-31"
+          ],
+          "val": [
+            "2025-04-01",
+            "2025-10-10"
+          ],
+          "test": [
+            "2025-10-11",
+            "2026-10-05"
+          ]
+        },
+        "flat_pct_by_split": {
+          "train": 92.3,
+          "val": 7.3,
+          "test": 10.6
+        }
+      },
+      "locPremium": {
+        "target": "locPremium",
+        "features": [
+          "locPremium",
+          "fuel_diesel",
+          "stock",
+          "farmgate",
+          "exchange",
+          "core_inflation",
+          "rice_world",
+          "season_sin",
+          "season_cos"
+        ],
+        "backend": "tensorflow",
+        "delta_mode": true,
+        "seed": 42,
+        "mae_peso": 0.2645,
+        "rmse_peso": 0.3561,
+        "mape_pct": 0.5034,
+        "r2": 0.9765,
+        "rolling_eval": {
+          "method": "blocked rolling-origin over held-out test (no refit)",
+          "k": 5,
+          "block_mae": [
+            0.3109,
+            0.2528,
+            0.2532,
+            0.1945,
+            0.3111
+          ],
+          "mean": 0.2645,
+          "std": 0.0436
+        },
+        "accuracy_pct": 99.45,
+        "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
+        "hit_rate_pct": {
+          "0.25": [
+            66.7,
+            59.7,
+            53.9
+          ],
+          "0.50": [
+            89.7,
+            84.4,
+            80.0
+          ],
+          "1.00": [
+            99.4,
+            99.4,
+            99.4
+          ],
+          "1.50": [
+            99.7,
+            99.7,
+            99.7
+          ],
+          "2.00": [
+            100.0,
+            100.0,
+            99.7
+          ]
+        },
+        "baseline_hit_rate_pct": {
+          "0.25": [
+            60.8,
+            50.8,
+            47.2
+          ],
+          "0.50": [
+            85.3,
+            78.3,
+            73.6
+          ],
+          "1.00": [
+            98.1,
+            97.2,
+            96.4
+          ],
+          "1.50": [
+            99.4,
+            99.4,
+            99.7
+          ],
+          "2.00": [
+            99.7,
+            100.0,
+            100.0
+          ]
+        },
+        "directional_pct": [
+          60.1,
+          60.0,
+          61.2
+        ],
+        "directional_n": [
+          328,
+          350,
+          356
+        ],
+        "lstm_ablation": {
+          "test": "mcnemar_paired_directional",
+          "subset": "genuine_signal_only",
+          "n_scored": 943,
+          "lstm_fixes": 19,
+          "lstm_breaks": 20,
+          "n_discordant": 39,
+          "chi_square": 0.0,
+          "p_value": 1.0,
+          "significant_at_05": false,
+          "directional_pct_with_lstm": 62.9,
+          "directional_pct_reversion_only": 63.0,
+          "excluded_tie_rows": 91,
+          "tie_row_share_pct": 8.8
+        },
+        "movement": {
+          "pred_abs_change_peso": 0.1142,
+          "true_abs_change_peso": 0.2979,
+          "ratio": 0.3835
+        },
+        "reversion": {
+          "phi": [
+            [
+              -0.2988
+            ],
+            [
+              -0.2961
+            ],
+            [
+              -0.3292
+            ]
+          ],
+          "n_lags": 1,
+          "t_stat": [
+            -7.914,
+            -7.777,
+            -8.887
+          ],
+          "n_fit": 191,
+          "applied": true,
+          "shrink": 0.6,
+          "min_abs_t": 2.0,
+          "fit_rows": [
+            3743,
+            3936
+          ],
+          "rolling_window": 120,
+          "scored_with": "rolling",
+          "weekday_mode": true
+        },
+        "skill_vs_baseline_pct": 11.2,
+        "per_horizon_mae_peso": [
+          0.2311,
+          0.2681,
+          0.2943
+        ],
+        "per_horizon_accuracy_pct": [
+          99.52,
+          99.44,
+          99.38
+        ],
+        "baseline_mae_peso": 0.2979,
+        "baseline_rmse_peso": 0.4101,
+        "baseline_accuracy_pct": 99.38,
+        "beats_baseline": true,
+        "arima": {
+          "order": [
+            1,
+            1,
+            1
+          ],
+          "mae_peso": 0.2769,
+          "rmse_peso": 0.3748,
+          "n": 360
+        },
+        "beats_arima": true,
+        "forecaster": "adaptive_ensemble",
+        "ensemble": {
+          "method": "adaptive inverse-MSE combination (Bates & Granger 1969)",
+          "components": [
+            "hybrid",
+            "arima",
+            "kalman"
+          ],
+          "window_days": 30,
+          "warmup_origins": 45,
+          "mean_weights_test": {
+            "hybrid": [
+              0.345,
+              0.331,
+              0.327
+            ],
+            "arima": [
+              0.322,
+              0.327,
+              0.319
+            ],
+            "kalman": [
+              0.333,
+              0.342,
+              0.354
+            ]
+          }
+        },
+        "hybrid": {
+          "mae_peso": 0.2722,
+          "skill_vs_baseline_pct": 8.62,
+          "beats_arima": true,
+          "directional_pct": [
+            61.9,
+            58.6,
+            63.2
+          ]
+        },
+        "shock": {
+          "pct": 90,
+          "threshold_peso": 0.844,
+          "count": 36,
+          "lstm_mae_peso": 0.5325,
+          "baseline_mae_peso": 0.699,
+          "beats_baseline": true
+        },
+        "adf_pvalue": 0.3382,
+        "train_samples": 3713,
+        "val_samples": 193,
+        "test_samples": 360,
+        "split_policy": "regime_aware_active_from_2025-04-01",
+        "split_dates": {
+          "train": [
+            "2015-01-31",
+            "2025-03-31"
+          ],
+          "val": [
+            "2025-04-01",
+            "2025-10-10"
+          ],
+          "test": [
+            "2025-10-11",
+            "2026-10-05"
+          ]
+        },
+        "flat_pct_by_split": {
+          "train": 91.5,
+          "val": 5.2,
+          "test": 8.9
+        }
+      },
+      "locSpecial": {
+        "target": "locSpecial",
+        "features": [
+          "locSpecial",
+          "fuel_diesel",
+          "stock",
+          "farmgate",
+          "exchange",
+          "core_inflation",
+          "rice_world",
+          "season_sin",
+          "season_cos"
+        ],
+        "backend": "tensorflow",
+        "delta_mode": true,
+        "seed": 42,
+        "mae_peso": 0.2197,
+        "rmse_peso": 0.3163,
+        "mape_pct": 0.3707,
+        "r2": 0.9372,
+        "rolling_eval": {
+          "method": "blocked rolling-origin over held-out test (no refit)",
+          "k": 5,
+          "block_mae": [
+            0.2117,
+            0.1456,
+            0.2325,
+            0.241,
+            0.2674
+          ],
+          "mean": 0.2196,
+          "std": 0.0411
+        },
+        "accuracy_pct": 99.59,
+        "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
+        "hit_rate_pct": {
+          "0.25": [
+            73.6,
+            68.3,
+            61.7
+          ],
+          "0.50": [
+            92.2,
+            89.4,
+            89.7
+          ],
+          "1.00": [
+            98.1,
+            98.3,
+            98.3
+          ],
+          "1.50": [
+            100.0,
+            100.0,
+            99.7
+          ],
+          "2.00": [
+            100.0,
+            100.0,
+            100.0
+          ]
+        },
+        "baseline_hit_rate_pct": {
+          "0.25": [
+            72.5,
+            62.2,
+            57.8
+          ],
+          "0.50": [
+            86.9,
+            83.3,
+            82.5
+          ],
+          "1.00": [
+            96.4,
+            96.4,
+            96.7
+          ],
+          "1.50": [
+            99.4,
+            99.4,
+            99.7
+          ],
+          "2.00": [
+            100.0,
+            100.0,
+            100.0
+          ]
+        },
+        "directional_pct": [
+          56.3,
+          63.9,
+          64.4
+        ],
+        "directional_n": [
+          327,
+          346,
+          357
+        ],
+        "lstm_ablation": {
+          "test": "mcnemar_paired_directional",
+          "subset": "genuine_signal_only",
+          "n_scored": 935,
+          "lstm_fixes": 1,
+          "lstm_breaks": 2,
+          "n_discordant": 3,
+          "chi_square": 0.0,
+          "p_value": 1.0,
+          "significant_at_05": false,
+          "directional_pct_with_lstm": 61.2,
+          "directional_pct_reversion_only": 61.3,
+          "excluded_tie_rows": 95,
+          "tie_row_share_pct": 9.2
+        },
+        "movement": {
+          "pred_abs_change_peso": 0.1033,
+          "true_abs_change_peso": 0.2589,
+          "ratio": 0.3991
+        },
+        "reversion": {
+          "phi": [
+            [
+              -0.3039
+            ],
+            [
+              -0.3018
+            ],
+            [
+              -0.3032
+            ]
+          ],
+          "n_lags": 1,
+          "t_stat": [
+            -8.098,
+            -8.081,
+            -8.143
+          ],
+          "n_fit": 191,
+          "applied": true,
+          "shrink": 0.6,
+          "min_abs_t": 2.0,
+          "fit_rows": [
+            3743,
+            3936
+          ],
+          "rolling_window": 120,
+          "scored_with": "rolling",
+          "weekday_mode": true
+        },
+        "skill_vs_baseline_pct": 15.14,
+        "per_horizon_mae_peso": [
+          0.1937,
+          0.2262,
+          0.2391
+        ],
+        "per_horizon_accuracy_pct": [
+          99.64,
+          99.58,
+          99.56
+        ],
+        "baseline_mae_peso": 0.2589,
+        "baseline_rmse_peso": 0.3885,
+        "baseline_accuracy_pct": 99.52,
+        "beats_baseline": true,
+        "arima": {
+          "order": [
+            1,
+            1,
+            1
+          ],
+          "mae_peso": 0.2297,
+          "rmse_peso": 0.3267,
+          "n": 360
+        },
+        "beats_arima": true,
+        "forecaster": "adaptive_ensemble",
+        "ensemble": {
+          "method": "adaptive inverse-MSE combination (Bates & Granger 1969)",
+          "components": [
+            "hybrid",
+            "arima",
+            "kalman"
+          ],
+          "window_days": 30,
+          "warmup_origins": 45,
+          "mean_weights_test": {
+            "hybrid": [
+              0.315,
+              0.304,
+              0.308
+            ],
+            "arima": [
+              0.321,
+              0.331,
+              0.333
+            ],
+            "kalman": [
+              0.363,
+              0.364,
+              0.358
+            ]
+          }
+        },
+        "hybrid": {
+          "mae_peso": 0.2397,
+          "skill_vs_baseline_pct": 7.42,
+          "beats_arima": false,
+          "directional_pct": [
+            53.2,
+            65.0,
+            63.3
+          ]
+        },
+        "shock": {
+          "pct": 90,
+          "threshold_peso": 0.86,
+          "count": 37,
+          "lstm_mae_peso": 0.4557,
+          "baseline_mae_peso": 0.6686,
+          "beats_baseline": true
+        },
+        "adf_pvalue": 0.6486,
+        "train_samples": 3713,
+        "val_samples": 193,
+        "test_samples": 360,
+        "split_policy": "regime_aware_active_from_2025-04-01",
+        "split_dates": {
+          "train": [
+            "2015-01-31",
+            "2025-03-31"
+          ],
+          "val": [
+            "2025-04-01",
+            "2025-10-10"
+          ],
+          "test": [
+            "2025-10-11",
+            "2026-10-05"
+          ]
+        },
+        "flat_pct_by_split": {
+          "train": 93.2,
+          "val": 4.7,
+          "test": 9.2
+        }
+      },
+      "impWellMilled": {
+        "target": "impWellMilled",
+        "features": [
+          "impWellMilled",
+          "fuel_diesel",
+          "stock",
+          "farmgate",
+          "exchange",
+          "core_inflation",
+          "rice_world",
+          "season_sin",
+          "season_cos"
+        ],
+        "backend": "tensorflow",
+        "delta_mode": true,
+        "seed": 42,
+        "mae_peso": 0.2754,
+        "rmse_peso": 0.6835,
+        "mape_pct": 0.6022,
+        "r2": 0.8849,
+        "rolling_eval": {
+          "method": "blocked rolling-origin over held-out test (no refit)",
+          "k": 5,
+          "block_mae": [
+            0.6172,
+            0.5672,
+            0.0889,
+            0.0322,
+            0.0714
+          ],
+          "mean": 0.2754,
+          "std": 0.2598
+        },
+        "accuracy_pct": 99.37,
+        "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
+        "hit_rate_pct": {
+          "0.25": [
+            78.9,
+            75.0,
+            71.1
+          ],
+          "0.50": [
+            87.5,
+            85.6,
+            83.1
+          ],
+          "1.00": [
+            94.4,
+            92.5,
+            91.7
+          ],
+          "1.50": [
+            96.9,
+            96.9,
+            95.3
+          ],
+          "2.00": [
+            98.3,
+            98.3,
+            97.2
+          ]
+        },
+        "baseline_hit_rate_pct": {
+          "0.25": [
+            80.6,
+            76.1,
+            73.6
+          ],
+          "0.50": [
+            87.2,
+            83.6,
+            81.9
+          ],
+          "1.00": [
+            93.9,
+            92.2,
+            91.4
+          ],
+          "1.50": [
+            96.1,
+            95.3,
+            94.2
+          ],
+          "2.00": [
+            97.8,
+            98.1,
+            97.2
+          ]
+        },
+        "directional_pct": [
+          62.2,
+          60.0,
+          55.8
+        ],
+        "directional_n": [
+          217,
+          270,
+          283
+        ],
+        "lstm_ablation": {
+          "test": "mcnemar_paired_directional",
+          "subset": "genuine_signal_only",
+          "n_scored": 503,
+          "lstm_fixes": 24,
+          "lstm_breaks": 33,
+          "n_discordant": 57,
+          "chi_square": 1.123,
+          "p_value": 0.2893,
+          "significant_at_05": false,
+          "directional_pct_with_lstm": 67.0,
+          "directional_pct_reversion_only": 68.8,
+          "excluded_tie_rows": 267,
+          "tie_row_share_pct": 34.7
+        },
+        "movement": {
+          "pred_abs_change_peso": 0.1063,
+          "true_abs_change_peso": 0.2816,
+          "ratio": 0.3776
+        },
+        "reversion": {
+          "phi": [
+            [
+              -0.2133
+            ],
+            [
+              -0.3053
+            ],
+            [
+              -0.2786
+            ]
+          ],
+          "n_lags": 1,
+          "t_stat": [
+            -5.241,
+            -6.89,
+            -6.195
+          ],
+          "n_fit": 191,
+          "applied": true,
+          "shrink": 0.6,
+          "min_abs_t": 2.0,
+          "fit_rows": [
+            3743,
+            3936
+          ],
+          "rolling_window": 120,
+          "scored_with": "rolling",
+          "weekday_mode": true
+        },
+        "skill_vs_baseline_pct": 2.21,
+        "per_horizon_mae_peso": [
+          0.2349,
+          0.2735,
+          0.3178
+        ],
+        "per_horizon_accuracy_pct": [
+          99.46,
+          99.37,
+          99.27
+        ],
+        "baseline_mae_peso": 0.2816,
+        "baseline_rmse_peso": 0.7295,
+        "baseline_accuracy_pct": 99.35,
+        "beats_baseline": true,
+        "arima": {
+          "order": [
+            1,
+            1,
+            1
+          ],
+          "mae_peso": 0.2904,
+          "rmse_peso": 0.6922,
+          "n": 360
+        },
+        "beats_arima": true,
+        "forecaster": "adaptive_ensemble",
+        "ensemble": {
+          "method": "adaptive inverse-MSE combination (Bates & Granger 1969)",
+          "components": [
+            "hybrid",
+            "arima",
+            "kalman"
+          ],
+          "window_days": 30,
+          "warmup_origins": 45,
+          "mean_weights_test": {
+            "hybrid": [
+              0.323,
+              0.321,
+              0.32
+            ],
+            "arima": [
+              0.327,
+              0.32,
+              0.315
+            ],
+            "kalman": [
+              0.35,
+              0.359,
+              0.364
+            ]
+          }
+        },
+        "hybrid": {
+          "mae_peso": 0.2765,
+          "skill_vs_baseline_pct": 1.83,
+          "beats_arima": true,
+          "directional_pct": [
+            61.3,
+            60.4,
+            57.6
+          ]
+        },
+        "shock": {
+          "pct": 90,
+          "threshold_peso": 1.171,
+          "count": 36,
+          "lstm_mae_peso": 1.4293,
+          "baseline_mae_peso": 1.6268,
+          "beats_baseline": true
+        },
+        "adf_pvalue": 0.0579,
+        "train_samples": 3713,
+        "val_samples": 193,
+        "test_samples": 360,
+        "split_policy": "regime_aware_active_from_2025-04-01",
+        "split_dates": {
+          "train": [
+            "2015-01-31",
+            "2025-03-31"
+          ],
+          "val": [
+            "2025-04-01",
+            "2025-10-10"
+          ],
+          "test": [
+            "2025-10-11",
+            "2026-10-05"
+          ]
+        },
+        "flat_pct_by_split": {
+          "train": 90.0,
+          "val": 25.4,
+          "test": 39.7
+        }
+      },
+      "impRegular": {
+        "target": "impRegular",
+        "features": [
+          "impRegular",
+          "fuel_diesel",
+          "stock",
+          "farmgate",
+          "exchange",
+          "core_inflation",
+          "rice_world",
+          "season_sin",
+          "season_cos"
+        ],
+        "backend": "tensorflow",
+        "delta_mode": true,
+        "seed": 42,
+        "mae_peso": 0.3352,
+        "rmse_peso": 0.6026,
+        "mape_pct": 0.7885,
+        "r2": 0.9589,
+        "rolling_eval": {
+          "method": "blocked rolling-origin over held-out test (no refit)",
+          "k": 5,
+          "block_mae": [
+            0.4302,
+            0.3599,
+            0.3202,
+            0.3739,
+            0.192
+          ],
+          "mean": 0.3352,
+          "std": 0.0798
+        },
+        "accuracy_pct": 99.14,
+        "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
+        "hit_rate_pct": {
+          "0.25": [
+            72.8,
+            61.1,
+            55.8
+          ],
+          "0.50": [
+            83.6,
+            81.4,
+            79.2
+          ],
+          "1.00": [
+            93.1,
+            91.4,
+            91.4
+          ],
+          "1.50": [
+            96.4,
+            94.7,
+            94.7
+          ],
+          "2.00": [
+            99.2,
+            97.8,
+            96.9
+          ]
+        },
+        "baseline_hit_rate_pct": {
+          "0.25": [
+            70.3,
+            65.8,
+            55.6
+          ],
+          "0.50": [
+            82.2,
+            78.6,
+            78.3
+          ],
+          "1.00": [
+            92.8,
+            87.8,
+            88.1
+          ],
+          "1.50": [
+            95.3,
+            93.1,
+            92.8
+          ],
+          "2.00": [
+            98.1,
+            98.3,
+            96.4
+          ]
+        },
+        "directional_pct": [
+          47.8,
+          48.1,
+          49.4
+        ],
+        "directional_n": [
+          209,
+          233,
+          249
+        ],
+        "lstm_ablation": {
+          "test": "mcnemar_paired_directional",
+          "subset": "genuine_signal_only",
+          "n_scored": 363,
+          "lstm_fixes": 2,
+          "lstm_breaks": 1,
+          "n_discordant": 3,
+          "chi_square": 0.0,
+          "p_value": 1.0,
+          "significant_at_05": false,
+          "directional_pct_with_lstm": 56.7,
+          "directional_pct_reversion_only": 56.5,
+          "excluded_tie_rows": 328,
+          "tie_row_share_pct": 47.5
+        },
+        "movement": {
+          "pred_abs_change_peso": 0.1422,
+          "true_abs_change_peso": 0.3479,
+          "ratio": 0.4089
+        },
+        "reversion": {
+          "phi": [
+            [
+              -0.2649
+            ],
+            [
+              -0.3473
+            ],
+            [
+              -0.2629
+            ]
+          ],
+          "n_lags": 1,
+          "t_stat": [
+            -6.783,
+            -8.993,
+            -6.854
+          ],
+          "n_fit": 191,
+          "applied": true,
+          "shrink": 0.6,
+          "min_abs_t": 2.0,
+          "fit_rows": [
+            3743,
+            3936
+          ],
+          "rolling_window": 120,
+          "scored_with": "rolling",
+          "weekday_mode": true
+        },
+        "skill_vs_baseline_pct": 3.63,
+        "per_horizon_mae_peso": [
+          0.2757,
+          0.342,
+          0.388
+        ],
+        "per_horizon_accuracy_pct": [
+          99.3,
+          99.13,
+          99.01
+        ],
+        "baseline_mae_peso": 0.3479,
+        "baseline_rmse_peso": 0.6483,
+        "baseline_accuracy_pct": 99.11,
+        "beats_baseline": true,
+        "arima": {
+          "order": [
+            1,
+            1,
+            1
+          ],
+          "mae_peso": 0.361,
+          "rmse_peso": 0.6207,
+          "n": 360
+        },
+        "beats_arima": true,
+        "forecaster": "adaptive_ensemble",
+        "ensemble": {
+          "method": "adaptive inverse-MSE combination (Bates & Granger 1969)",
+          "components": [
+            "hybrid",
+            "arima",
+            "kalman"
+          ],
+          "window_days": 30,
+          "warmup_origins": 45,
+          "mean_weights_test": {
+            "hybrid": [
+              0.376,
+              0.346,
+              0.343
+            ],
+            "arima": [
+              0.313,
+              0.319,
+              0.319
+            ],
+            "kalman": [
+              0.311,
+              0.336,
+              0.339
+            ]
+          }
+        },
+        "hybrid": {
+          "mae_peso": 0.3304,
+          "skill_vs_baseline_pct": 5.02,
+          "beats_arima": true,
+          "directional_pct": [
+            59.8,
+            46.4,
+            45.0
+          ]
+        },
+        "shock": {
+          "pct": 90,
+          "threshold_peso": 1.72,
+          "count": 37,
+          "lstm_mae_peso": 1.0961,
+          "baseline_mae_peso": 1.2916,
+          "beats_baseline": true
+        },
+        "adf_pvalue": 0.2437,
+        "train_samples": 3713,
+        "val_samples": 193,
+        "test_samples": 360,
+        "split_policy": "regime_aware_active_from_2025-04-01",
+        "split_dates": {
+          "train": [
+            "2015-01-31",
+            "2025-03-31"
+          ],
+          "val": [
+            "2025-04-01",
+            "2025-10-10"
+          ],
+          "test": [
+            "2025-10-11",
+            "2026-10-05"
+          ]
+        },
+        "flat_pct_by_split": {
+          "train": 94.3,
+          "val": 21.2,
+          "test": 41.9
+        }
+      },
+      "impPremium": {
+        "target": "impPremium",
+        "features": [
+          "impPremium",
+          "fuel_diesel",
+          "stock",
+          "farmgate",
+          "exchange",
+          "core_inflation",
+          "rice_world",
+          "season_sin",
+          "season_cos"
+        ],
+        "backend": "tensorflow",
+        "delta_mode": true,
+        "seed": 42,
+        "mae_peso": 0.2924,
+        "rmse_peso": 0.5101,
+        "mape_pct": 0.5538,
+        "r2": 0.9787,
+        "rolling_eval": {
+          "method": "blocked rolling-origin over held-out test (no refit)",
+          "k": 5,
+          "block_mae": [
+            0.3381,
+            0.3459,
+            0.2105,
+            0.3413,
+            0.226
+          ],
+          "mean": 0.2924,
+          "std": 0.0608
+        },
+        "accuracy_pct": 99.39,
+        "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
+        "hit_rate_pct": {
+          "0.25": [
+            72.5,
+            62.8,
+            55.6
+          ],
+          "0.50": [
+            89.4,
+            85.3,
+            81.4
+          ],
+          "1.00": [
+            96.4,
+            95.0,
+            93.6
+          ],
+          "1.50": [
+            98.6,
+            98.1,
+            97.2
+          ],
+          "2.00": [
+            99.4,
+            98.9,
+            98.6
+          ]
+        },
+        "baseline_hit_rate_pct": {
+          "0.25": [
+            71.9,
+            63.6,
+            56.1
+          ],
+          "0.50": [
+            88.1,
+            84.4,
+            80.3
+          ],
+          "1.00": [
+            95.3,
+            94.4,
+            92.2
+          ],
+          "1.50": [
+            96.7,
+            96.7,
+            95.8
+          ],
+          "2.00": [
+            99.2,
+            98.6,
+            98.3
+          ]
+        },
+        "directional_pct": [
+          52.8,
+          52.7,
+          53.7
+        ],
+        "directional_n": [
+          335,
+          351,
+          354
+        ],
+        "lstm_ablation": {
+          "test": "mcnemar_paired_directional",
+          "subset": "genuine_signal_only",
+          "n_scored": 727,
+          "lstm_fixes": 27,
+          "lstm_breaks": 27,
+          "n_discordant": 54,
+          "chi_square": 0.019,
+          "p_value": 0.8918,
+          "significant_at_05": false,
+          "directional_pct_with_lstm": 54.1,
+          "directional_pct_reversion_only": 54.1,
+          "excluded_tie_rows": 313,
+          "tie_row_share_pct": 30.1
+        },
+        "movement": {
+          "pred_abs_change_peso": 0.0982,
+          "true_abs_change_peso": 0.3118,
+          "ratio": 0.3148
+        },
+        "reversion": {
+          "phi": [
+            [
+              -0.2477
+            ],
+            [
+              -0.3103
+            ],
+            [
+              -0.2638
+            ]
+          ],
+          "n_lags": 1,
+          "t_stat": [
+            -6.269,
+            -7.561,
+            -6.329
+          ],
+          "n_fit": 191,
+          "applied": true,
+          "shrink": 0.6,
+          "min_abs_t": 2.0,
+          "fit_rows": [
+            3743,
+            3936
+          ],
+          "rolling_window": 120,
+          "scored_with": "rolling",
+          "weekday_mode": true
+        },
+        "skill_vs_baseline_pct": 6.24,
+        "per_horizon_mae_peso": [
+          0.2314,
+          0.2981,
+          0.3477
+        ],
+        "per_horizon_accuracy_pct": [
+          99.52,
+          99.38,
+          99.27
+        ],
+        "baseline_mae_peso": 0.3118,
+        "baseline_rmse_peso": 0.5626,
+        "baseline_accuracy_pct": 99.35,
+        "beats_baseline": true,
+        "arima": {
+          "order": [
+            1,
+            1,
+            1
+          ],
+          "mae_peso": 0.3343,
+          "rmse_peso": 0.5674,
+          "n": 360
+        },
+        "beats_arima": true,
+        "forecaster": "adaptive_ensemble",
+        "ensemble": {
+          "method": "adaptive inverse-MSE combination (Bates & Granger 1969)",
+          "components": [
+            "hybrid",
+            "arima",
+            "kalman"
+          ],
+          "window_days": 30,
+          "warmup_origins": 45,
+          "mean_weights_test": {
+            "hybrid": [
+              0.349,
+              0.347,
+              0.346
+            ],
+            "arima": [
+              0.29,
+              0.296,
+              0.292
+            ],
+            "kalman": [
+              0.36,
+              0.357,
+              0.362
+            ]
+          }
+        },
+        "hybrid": {
+          "mae_peso": 0.2862,
+          "skill_vs_baseline_pct": 8.23,
+          "beats_arima": true,
+          "directional_pct": [
+            57.6,
+            54.7,
+            55.6
+          ]
+        },
+        "shock": {
+          "pct": 90,
+          "threshold_peso": 1.121,
+          "count": 36,
+          "lstm_mae_peso": 0.9416,
+          "baseline_mae_peso": 1.1589,
+          "beats_baseline": true
+        },
+        "adf_pvalue": 0.2073,
+        "train_samples": 3713,
+        "val_samples": 193,
+        "test_samples": 360,
+        "split_policy": "regime_aware_active_from_2025-04-01",
+        "split_dates": {
+          "train": [
+            "2015-01-31",
+            "2025-03-31"
+          ],
+          "val": [
+            "2025-04-01",
+            "2025-10-10"
+          ],
+          "test": [
+            "2025-10-11",
+            "2026-10-05"
+          ]
+        },
+        "flat_pct_by_split": {
+          "train": 91.0,
+          "val": 5.2,
+          "test": 6.9
+        }
+      },
+      "impSpecial": {
+        "target": "impSpecial",
+        "features": [
+          "impSpecial",
+          "fuel_diesel",
+          "stock",
+          "farmgate",
+          "exchange",
+          "core_inflation",
+          "rice_world",
+          "season_sin",
+          "season_cos"
+        ],
+        "backend": "tensorflow",
+        "delta_mode": true,
+        "seed": 42,
+        "mae_peso": 0.3208,
+        "rmse_peso": 0.5035,
+        "mape_pct": 0.5355,
+        "r2": 0.7107,
+        "rolling_eval": {
+          "method": "blocked rolling-origin over held-out test (no refit)",
+          "k": 5,
+          "block_mae": [
+            0.488,
+            0.2691,
+            0.2991,
+            0.3197,
+            0.228
+          ],
+          "mean": 0.3208,
+          "std": 0.0891
+        },
+        "accuracy_pct": 99.41,
+        "accuracy_pct_note": "legacy 100-MAE/mean_price; scores the naive baseline higher than the model \u2014 do not report",
+        "hit_rate_pct": {
+          "0.25": [
+            64.2,
+            55.3,
+            52.8
+          ],
+          "0.50": [
+            81.7,
+            80.0,
+            77.8
+          ],
+          "1.00": [
+            95.0,
+            94.7,
+            94.2
+          ],
+          "1.50": [
+            97.8,
+            97.8,
+            97.5
+          ],
+          "2.00": [
+            98.6,
+            98.9,
+            98.9
+          ]
+        },
+        "baseline_hit_rate_pct": {
+          "0.25": [
+            60.3,
+            53.6,
+            48.9
+          ],
+          "0.50": [
+            76.1,
+            71.4,
+            67.5
+          ],
+          "1.00": [
+            90.8,
+            89.7,
+            89.4
+          ],
+          "1.50": [
+            95.3,
+            95.3,
+            94.7
+          ],
+          "2.00": [
+            98.6,
+            98.1,
+            98.1
+          ]
+        },
+        "directional_pct": [
+          68.5,
+          64.4,
+          67.4
+        ],
+        "directional_n": [
+          248,
+          278,
+          301
+        ],
+        "lstm_ablation": {
+          "test": "mcnemar_paired_directional",
+          "subset": "genuine_signal_only",
+          "n_scored": 611,
+          "lstm_fixes": 15,
+          "lstm_breaks": 11,
+          "n_discordant": 26,
+          "chi_square": 0.346,
+          "p_value": 0.5563,
+          "significant_at_05": false,
+          "directional_pct_with_lstm": 64.5,
+          "directional_pct_reversion_only": 63.8,
+          "excluded_tie_rows": 216,
+          "tie_row_share_pct": 26.1
+        },
+        "movement": {
+          "pred_abs_change_peso": 0.1504,
+          "true_abs_change_peso": 0.3809,
+          "ratio": 0.3949
+        },
+        "reversion": {
+          "phi": [
+            [
+              -0.274
+            ],
+            [
+              -0.3002
+            ],
+            [
+              -0.2803
+            ]
+          ],
+          "n_lags": 1,
+          "t_stat": [
+            -7.074,
+            -7.508,
+            -6.855
+          ],
+          "n_fit": 191,
+          "applied": true,
+          "shrink": 0.6,
+          "min_abs_t": 2.0,
+          "fit_rows": [
+            3743,
+            3936
+          ],
+          "rolling_window": 120,
+          "scored_with": "rolling",
+          "weekday_mode": true
+        },
+        "skill_vs_baseline_pct": 15.78,
+        "per_horizon_mae_peso": [
+          0.2886,
+          0.3285,
+          0.3452
+        ],
+        "per_horizon_accuracy_pct": [
+          99.46,
+          99.39,
+          99.36
+        ],
+        "baseline_mae_peso": 0.3809,
+        "baseline_rmse_peso": 0.6208,
+        "baseline_accuracy_pct": 99.29,
+        "beats_baseline": true,
+        "arima": {
+          "order": [
+            1,
+            1,
+            1
+          ],
+          "mae_peso": 0.3389,
+          "rmse_peso": 0.5203,
+          "n": 360
+        },
+        "beats_arima": true,
+        "forecaster": "adaptive_ensemble",
+        "ensemble": {
+          "method": "adaptive inverse-MSE combination (Bates & Granger 1969)",
+          "components": [
+            "hybrid",
+            "arima",
+            "kalman"
+          ],
+          "window_days": 30,
+          "warmup_origins": 45,
+          "mean_weights_test": {
+            "hybrid": [
+              0.323,
+              0.309,
+              0.299
+            ],
+            "arima": [
+              0.324,
+              0.333,
+              0.338
+            ],
+            "kalman": [
+              0.353,
+              0.358,
+              0.363
+            ]
+          }
+        },
+        "hybrid": {
+          "mae_peso": 0.3466,
+          "skill_vs_baseline_pct": 9.0,
+          "beats_arima": false,
+          "directional_pct": [
+            65.3,
+            59.0,
+            61.1
+          ]
+        },
+        "shock": {
+          "pct": 90,
+          "threshold_peso": 1.528,
+          "count": 36,
+          "lstm_mae_peso": 0.7813,
+          "baseline_mae_peso": 1.1696,
+          "beats_baseline": true
+        },
+        "adf_pvalue": 0.3771,
+        "train_samples": 3713,
+        "val_samples": 193,
+        "test_samples": 360,
+        "split_policy": "regime_aware_active_from_2025-04-01",
+        "split_dates": {
+          "train": [
+            "2015-01-31",
+            "2025-03-31"
+          ],
+          "val": [
+            "2025-04-01",
+            "2025-10-10"
+          ],
+          "test": [
+            "2025-10-11",
+            "2026-10-05"
+          ]
+        },
+        "flat_pct_by_split": {
+          "train": 92.5,
+          "val": 26.4,
+          "test": 31.1
+        }
+      }
+    },
+    "train_loss_curve": [
+      0.0034,
+      0.0031,
+      0.0031,
+      0.0031,
+      0.0031,
+      0.0031,
+      0.0032,
+      0.0031,
+      0.0031,
+      0.002,
+      0.0014,
+      0.0013,
+      0.0013,
+      0.0013,
+      0.0013,
+      0.0013,
+      0.0013,
+      0.0013,
+      0.0015,
+      0.0012,
+      0.0012,
+      0.0012,
+      0.0012,
+      0.0012,
+      0.0012,
+      0.0012,
+      0.0012,
+      0.0046,
+      0.0042,
+      0.0041,
+      0.0041,
+      0.0041,
+      0.0041,
+      0.0041,
+      0.0041,
+      0.0041,
+      0.0027,
+      0.0024,
+      0.0024,
+      0.0024,
+      0.0024,
+      0.0024,
+      0.0024,
+      0.0024,
+      0.0024,
+      0.0023,
+      0.0019,
+      0.0019,
+      0.0019,
+      0.0019,
+      0.0019,
+      0.0019,
+      0.0019,
+      0.0019,
+      0.001,
+      0.0008,
+      0.0008,
+      0.0008,
+      0.0008,
+      0.0008,
+      0.0008,
+      0.0008,
+      0.0008,
+      0.003,
+      0.0027,
+      0.0027,
+      0.0027,
+      0.0027,
+      0.0027,
+      0.0027,
+      0.0027,
+      0.0027
+    ],
+    "val_loss_curve": [
+      0.002,
+      0.002,
+      0.002,
+      0.002,
+      0.002,
+      0.002,
+      0.002,
+      0.002,
+      0.002,
+      0.0009,
+      0.0009,
+      0.0009,
+      0.0009,
+      0.0009,
+      0.0009,
+      0.0009,
+      0.0009,
+      0.0009,
+      0.0053,
+      0.0053,
+      0.0053,
+      0.0053,
+      0.0053,
+      0.0053,
+      0.0053,
+      0.0053,
+      0.0053,
+      0.008,
+      0.008,
+      0.008,
+      0.008,
+      0.008,
+      0.008,
+      0.008,
+      0.008,
+      0.008,
+      0.0022,
+      0.0022,
+      0.0022,
+      0.0022,
+      0.0022,
+      0.0022,
+      0.0022,
+      0.0022,
+      0.0022,
+      0.0053,
+      0.0053,
+      0.0053,
+      0.0053,
+      0.0053,
+      0.0053,
+      0.0053,
+      0.0053,
+      0.0053,
+      0.0005,
+      0.0005,
+      0.0005,
+      0.0005,
+      0.0005,
+      0.0005,
+      0.0005,
+      0.0005,
+      0.0005,
+      0.0374,
+      0.0374,
+      0.0374,
+      0.0374,
+      0.0374,
+      0.0374,
+      0.0374,
+      0.0374,
+      0.0374
+    ],
+    "log_excerpt": [
+      "[INFO] impPremium: repeated-price days \u2014 train 91.0% val 5.2% test 6.9%",
+      "[EPOCH] impPremium | 1/100 | loss: 0.0010 | val_loss: 0.0005 | mae: 0.0136",
+      "[EPOCH] impPremium | 2/100 | loss: 0.0008 | val_loss: 0.0005 | mae: 0.0090",
+      "[EPOCH] impPremium | 3/100 | loss: 0.0008 | val_loss: 0.0005 | mae: 0.0091",
+      "[EPOCH] impPremium | 4/100 | loss: 0.0008 | val_loss: 0.0005 | mae: 0.0088",
+      "[EPOCH] impPremium | 5/100 | loss: 0.0008 | val_loss: 0.0005 | mae: 0.0088",
+      "[EPOCH] impPremium | 6/100 | loss: 0.0008 | val_loss: 0.0005 | mae: 0.0088",
+      "[EPOCH] impPremium | 7/100 | loss: 0.0008 | val_loss: 0.0005 | mae: 0.0088",
+      "[EPOCH] impPremium | 8/100 | loss: 0.0008 | val_loss: 0.0005 | mae: 0.0088",
+      "[EPOCH] impPremium | 9/100 | loss: 0.0008 | val_loss: 0.0005 | mae: 0.0088",
+      "[SAVED] D:\\MY FILES\\website-workplace\\AgriPrice-feature-newFixes\\AgriPrice\\model\\lstm_models\\impPremium.keras",
+      "[DONE] impPremium | MAE PHP 0.2924 | within PHP1.00 96.4% (day 1) | skill vs naive 6.24% | movement ratio 0.3148",
+      "[TARGET] 8/8 impSpecial",
+      "-----------------------------------------------",
+      "[INFO] impSpecial: train=3713 val=193 test=360 n_features=9 delta_mode=True split=regime_aware_active_from_2025-04-01",
+      "[INFO] impSpecial: repeated-price days \u2014 train 92.5% val 26.4% test 31.1%",
+      "[EPOCH] impSpecial | 1/100 | loss: 0.0030 | val_loss: 0.0374 | mae: 0.0214",
+      "[EPOCH] impSpecial | 2/100 | loss: 0.0027 | val_loss: 0.0374 | mae: 0.0158",
+      "[EPOCH] impSpecial | 3/100 | loss: 0.0027 | val_loss: 0.0374 | mae: 0.0154",
+      "[EPOCH] impSpecial | 4/100 | loss: 0.0027 | val_loss: 0.0374 | mae: 0.0153",
+      "[EPOCH] impSpecial | 5/100 | loss: 0.0027 | val_loss: 0.0374 | mae: 0.0154",
+      "[EPOCH] impSpecial | 6/100 | loss: 0.0027 | val_loss: 0.0374 | mae: 0.0153",
+      "[EPOCH] impSpecial | 7/100 | loss: 0.0027 | val_loss: 0.0374 | mae: 0.0153",
+      "[EPOCH] impSpecial | 8/100 | loss: 0.0027 | val_loss: 0.0374 | mae: 0.0155",
+      "[EPOCH] impSpecial | 9/100 | loss: 0.0027 | val_loss: 0.0374 | mae: 0.0153",
+      "[SAVED] D:\\MY FILES\\website-workplace\\AgriPrice-feature-newFixes\\AgriPrice\\model\\lstm_models\\impSpecial.keras",
+      "[DONE] impSpecial | MAE PHP 0.3208 | within PHP1.00 95.0% (day 1) | skill vs naive 15.78% | movement ratio 0.3949",
+      "===============================================",
+      "[DONE] Trained 8/8 rice type(s)",
+      "[SAVED] Metadata -> D:\\MY FILES\\website-workplace\\AgriPrice-feature-newFixes\\AgriPrice\\model\\meta.json"
+    ],
+    "insights": [
+      "Validation loss is notably higher than training loss \u2014 mild overfitting may be present; early stopping helps limit this.",
+      "96.2% of next-day forecasts landed within \u20b11.00 of the real price on held-out data; average error is 10.3% lower than the naive \"tomorrow = today\" forecast.",
+      "Stopped at epoch 9/100 via early stopping \u2014 best weights were restored from the lowest validation loss.",
+      "Final epochs show decreasing validation loss \u2014 learning curve ended on a good trajectory."
+    ]
   }
 ]

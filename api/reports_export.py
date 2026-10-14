@@ -125,6 +125,7 @@ def _load_merged_prices_df() -> pd.DataFrame:
                 "Imported Well Milled" AS impWellMilled,
                 "Imported Regular Milled" AS impRegular
             FROM "WS_rice_price"
+            WHERE LOWER(COALESCE(Source, '')) != 'estimated'
             """,
             conn,
         )
@@ -133,7 +134,7 @@ def _load_merged_prices_df() -> pd.DataFrame:
 
     df_fuel_hist = pd.read_sql("SELECT Date, Diesel AS fuel FROM fuel_history", conn)
     try:
-        df_fuel_ws = pd.read_sql('SELECT Date, RON_95 AS fuel FROM "WS_fuel"', conn)
+        df_fuel_ws = pd.read_sql('SELECT Date, Diesel AS fuel FROM "WS_fuel"', conn)
     except Exception:
         df_fuel_ws = pd.DataFrame()
 
@@ -174,6 +175,8 @@ def generate_prices_csv() -> dict:
     path = os.path.join(REPORTS_DIR, fname)
     out = df.copy()
     out["Date"] = pd.to_datetime(out["Date"]).dt.strftime("%Y-%m-%d")
+    out = out.rename(columns={**{k: f"{v} retail (PHP/kg)" for k, v in _RICE_NAMES.items()},
+                              "fuel": "Diesel (PHP/L)", "exchange": "USD/PHP"})
     out.to_csv(path, index=False, encoding="utf-8-sig")
     return _file_meta(path, fname, "Price Report CSV")
 
@@ -314,14 +317,15 @@ def generate_forecast_html() -> dict:
   th {{ background: #e8f5ec; }}
   @media print {{ body {{ margin: 16px; }} }}
 </style></head><body>
-<h1>AgriPricePH — 3-Day Price Forecast (LSTM-based adaptive ensemble)</h1>
-<p class="meta">Rice type: <strong>{rice}</strong> · Last price: <strong>₱{last_p}</strong> · As of: {as_of}</p>
+<h1>AgriPricePH — 3-Day Retail Price Forecast (LSTM-based adaptive ensemble)</h1>
+<p class="meta">Rice type: <strong>{rice}</strong> · Last retail price: <strong>₱{last_p}/kg</strong> · As of: {as_of}</p>
 <p class="meta">Held-out test results for {rice}: MAE ₱{tm.get('mae_peso', metrics.get('mae_peso', '—'))} · RMSE ₱{metrics.get('rmse_peso', '—')} · next-day forecasts within ₱1.00: {_pct('1.00', 0)}{skill_txt}</p>
 <table>
   <thead><tr><th>Day</th><th>Date</th><th>Expected range (90%)</th><th>Change</th><th>Past forecasts within ₱0.50</th></tr></thead>
   <tbody>{table_rows}</tbody>
 </table>
-<p class="meta" style="margin-top:24px;">Generated {datetime.now().strftime("%Y-%m-%d %H:%M")} — AgriPricePH</p>
+<p class="meta" style="margin-top:24px;">Retail price: the prevailing price per kilogram that consumers pay in Metro Manila (NCR) markets, as monitored by the Department of Agriculture (DA-AMAS).</p>
+<p class="meta">Generated {datetime.now().strftime("%Y-%m-%d %H:%M")} — AgriPricePH</p>
 </body></html>"""
 
     fname = f"forecast_report_{date.today().isoformat()}.html"

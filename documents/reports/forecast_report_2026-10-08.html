@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"/>
+<title>AgriPricePH Forecast Report</title>
+<style>
+  body { font-family: Segoe UI, Arial, sans-serif; margin: 32px; color: #1a2e1f; }
+  h1 { color: #2D8A50; font-size: 22px; }
+  .meta { font-size: 13px; color: #555; margin-bottom: 20px; }
+  table { border-collapse: collapse; width: 100%; max-width: 640px; }
+  th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+  th { background: #e8f5ec; }
+  @media print { body { margin: 16px; } }
+</style></head><body>
+<h1>AgriPricePH — 3-Day Price Forecast (LSTM-based adaptive ensemble)</h1>
+<p class="meta">Rice type: <strong>Local Well-Milled</strong> · Last price: <strong>₱48.38</strong> · As of: October 08, 2026</p>
+<p class="meta">Held-out test results for Local Well-Milled: MAE ₱0.2831 · RMSE ₱0.4211 · next-day forecasts within ₱1.00: 96.1% · 13.5% lower error than the naive forecast</p>
+<table>
+  <thead><tr><th>Day</th><th>Date</th><th>Expected range (90%)</th><th>Change</th><th>Past forecasts within ₱0.50</th></tr></thead>
+  <tbody><tr><td>Day 1</td><td>Oct 08</td><td>₱47.91 – ₱49.05</td><td>+0.10</td><td>87.5%</td></tr><tr><td>Day 2</td><td>Oct 09</td><td>₱47.63 – ₱49.41</td><td>+0.04</td><td>85.3%</td></tr><tr><td>Day 3</td><td>Oct 10</td><td>₱47.64 – ₱49.43</td><td>+0.02</td><td>83.9%</td></tr></tbody>
+</table>
+<p class="meta" style="margin-top:24px;">Generated 2026-10-08 16:17 — AgriPricePH</p>
+</body></html>

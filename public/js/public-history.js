@@ -761,7 +761,7 @@ AgriPricePH.History = (function () {
               maxTicksLimit: 5, font: { size: 12.5, family: MONO, weight: '600' }, color: INK_MUTED, padding: 10,
               callback: (v) => peso(v, { raw: true }),
             },
-            title: axisTitle(unit === 'sack' ? 'Price per 25kg sack' : 'Price per kilo'),
+            title: axisTitle(unit === 'sack' ? 'Retail price per 25kg sack' : 'Retail price per kilo'),
           },
         },
       },

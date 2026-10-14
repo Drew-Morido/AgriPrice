@@ -205,7 +205,7 @@ AgriPricePH.PublicAuth = (function () {
       tiles: [
         { icon: 'tag', title: 'Today’s rice prices', text: 'DA retail prices for 8 local and imported rice types.' },
         { icon: 'trend', title: '3-day price forecast', text: 'Where prices may go next, with a likely price range.' },
-        { icon: 'history', title: 'Price history & charts', text: 'Rice prices since 2015, now unlocked for you.' },
+        { icon: 'history', title: 'Price history & charts', text: 'Retail rice prices since 2015, now unlocked for you.' },
       ],
       secondary: { label: 'Set up my profile', onClick: () => { window.location.href = 'profile.html'; } },
       primary: { label: 'Start exploring' },

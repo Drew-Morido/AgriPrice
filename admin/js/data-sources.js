@@ -19,7 +19,7 @@ AgriPricePH.DataSources = (function () {
 
   const SOURCE_DEFS = [
     { id: 'da', key: 'rice', preview: 'preview_rice', name: 'DA – Dept. of Agriculture',
-      type: 'Web Scraper (BeautifulSoup + PDF)', dataType: 'Daily Rice Prices (8 types)',
+      type: 'Web Scraper (BeautifulSoup + PDF)', dataType: 'Daily retail rice prices, ₱/kg (8 types)',
       url: 'https://www.da.gov.ph/price-monitoring/', color: '#4CAF6E', bgColor: 'rgba(76,175,110,0.12)' },
     { id: 'doe', key: 'fuel', preview: 'preview_fuel', name: 'DOE – NCR Pump Prices (Fuel)',
       type: 'Web Scraper (weekly DOE PDF)', dataType: 'RON95 & Diesel common price, NCR (Weekly)',
@@ -41,7 +41,8 @@ AgriPricePH.DataSources = (function () {
      2026-10-07 because it moves with diesel); the tariff only feeds imported-rice consumer prices
      after an admin approves it. */
   const SOURCE_FACTS = {
-    da:  { short: 'Rice prices', cadence: 'Daily price bulletin (business days)',
+    da:  { short: 'Retail rice prices', cadence: 'Daily price bulletin (business days)',
+           info: 'Retail price: the prevailing price per kilogram that consumers pay in Metro Manila (NCR) markets, as monitored by the Department of Agriculture (DA-AMAS).',
            usedBy: 'Forecast targets — all 8 rice types', unit: '/kg', route: 'predictions', routeLabel: 'Price Forecast' },
     doe: { short: 'Fuel prices', cadence: 'Weekly DOE bulletin (NCR common price)',
            usedBy: 'Forecast input — diesel (RON 95 shown for reference)', unit: '/L', route: 'correlation', routeLabel: 'Market Drivers',
@@ -534,7 +535,7 @@ Newer days wait here until every check passes, then enter automatically."></i>
       const grades = [['Special', 'Special'], ['Premium', 'Premium'], ['Well Milled', 'Well-Milled'], ['Regular Milled', 'Regular']];
       const cell = (v) => typeof v === 'number' ? `₱${v.toFixed(2)}` : _esc(v);
       return `
-        <div class="ds-section-head"><span>Latest values · ₱ per kg</span>${metaLine}</div>
+        <div class="ds-section-head"><span>Latest retail prices · ₱ per kg</span>${metaLine}</div>
         <table class="ds-matrix">
           <thead><tr><th></th>${grades.map(([, short]) => `<th>${short}</th>`).join('')}</tr></thead>
           <tbody>

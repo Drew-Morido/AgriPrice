@@ -159,8 +159,13 @@ def formatted_today() -> str:
 
 def save_debug_file(filename: str, content: str) -> None:
     path = os.path.join(DEBUG_DIR, filename)
-    with open(path, "w", encoding="utf-8", errors="replace") as f:
-        f.write(content)
+    try:
+        with open(path, "w", encoding="utf-8", errors="replace") as f:
+            f.write(content)
+    except OSError as exc:
+        # A debug copy must never abort a data fetch: on Windows the write fails now and then (Errno 22) while
+        # antivirus or the running backend holds the file.
+        logger.warning("Could not save debug file %s: %s", filename, exc)
 
 
 def upsert_csv(csv_path: str, row: Dict) -> None:

@@ -163,7 +163,7 @@ AgriPricePH.PublicData = (function () {
         : `${sign}₱${Math.abs(ch).toFixed(2)} (${sign}${(d.pct ?? 0).toFixed(1)}%) from yesterday`;
       card.innerHTML = `
         <div class="type">${type}${type === featured ? ' · main forecast type' : ''}</div>
-        <div><span class="price">₱${Number(d.price).toFixed(2)}</span><span class="unit"> per kg</span></div>
+        <div><span class="price">₱${Number(d.price).toFixed(2)}</span><span class="unit"> per kg · retail</span></div>
         <div class="change ${cls}">${changeText}</div>
       `;
       grid.appendChild(card);
@@ -257,7 +257,7 @@ AgriPricePH.PublicData = (function () {
       card.innerHTML = `
         <div class="day-label">${dayLabel}</div>
         <div class="forecast-price">₱${Number(d.price ?? d.wm).toFixed(2)}</div>
-        <div class="unit" style="font-size:12px;color:var(--text-muted)">per kg</div>
+        <div class="unit" style="font-size:12px;color:var(--text-muted)">per kg · retail</div>
         ${confPct != null ? `<div class="conf">Model confidence: ${confPct.toFixed(0)}%</div>` : ''}
       `;
       row.appendChild(card);
@@ -568,7 +568,7 @@ AgriPricePH.PublicData = (function () {
     const options = customLegend
       ? buildHistoricalChartOptions()
       : {
-          ...chartOptions('Price in pesos per kg'),
+          ...chartOptions('Retail price (₱ per kg)'),
           plugins: {
             legend: { position: 'top', labels: { boxWidth: 10, font: { size: 10 }, padding: 8 } },
           },

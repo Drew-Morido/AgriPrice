@@ -2597,6 +2597,44 @@ wrong). Approved by the team in two parts after a dry run.
 - **[TEAM] References:** add the DA price-monitoring archive (https://www.da.gov.ph/price-monitoring/, accessed 2026-10-07)
   alongside PSA OpenSTAT.
 
+### Round — DA-AMAS feedback: every rice price labelled "retail price (₱/kg)" (2026-10-14)
+
+DA-AMAS asked that the system say the prices are **retail** prices (feedback B1 in `documents/TODO_FEEDBACK.md`).
+- One definition, used everywhere it is shown: *"Retail price: the prevailing price per kilogram that consumers pay in
+  Metro Manila (NCR) markets, as monitored by the Department of Agriculture (DA-AMAS)."* Price History adds that
+  January 2015 – September 2018 uses the PSA's monthly NCR retail price.
+- Public: Price Forecast (page title "Retail Rice Price Forecast", "retail price outlook", "DA retail price · ₱ per
+  kilo", "Expected retail price", the definition under the Price Summary), landing page (hero "Retail rice prices",
+  the price section text, the legend with the definition as a tooltip), Price History (kicker + definition tooltip,
+  chart axis), Charts & Stats (axis, source line), Rice Catalog subtitle, login / sign-up headlines, unlock prompts.
+- Admin: Dashboard ("Today's Retail Rice Prices (₱/kg)" with the definition tooltip, "Retail Rice Price Forecast",
+  "Retail Rice Price Trend"), Price History (table headers, CSV export headers, chart help), Price Forecast (subtitle,
+  axis), Model Dashboard chart labels, Data Sources (DA card name, data type, definition behind the (i)), Web Scraper,
+  Settings, topbar search group.
+- Exports: the Price Report CSV now has readable headers ("Local Special retail (PHP/kg)", "Diesel (PHP/L)", "USD/PHP")
+  instead of internal keys, and the forecast report says "Retail Price Forecast" and prints the definition.
+- Two export bugs fixed on the way: the Price Report CSV mixed diesel (2015–2025) with **RON 95** (the scraped weeks)
+  in one "fuel" column; it is diesel throughout now. It also included the temporary **estimated** rice row for a day DA
+  had not published yet; that row is left out now.
+- **Paper:** where the paper says "rice prices" for the DA/PSA series, say "retail rice prices (₱/kg, NCR)", and use the
+  definition above in Ch. 3 (data). Not yet edited in the .docx.
+
+### Round — DA-AMAS feedback: forecasting-method indicator on the next-day prediction (2026-10-14)
+
+Admin → Price Forecast → the **3-Day Price Forecast** card now shows which of the three models carries tomorrow's
+forecast (feedback B6): a "Forecasting models today" block (info icon with a general description) with the average
+share of each model across the four rice types shown (LSTM hybrid / ARIMA / Kalman filter) and "Strongest today:
+Kalman filter 35%", marked "(about equal)" when the lead is under 2 points. It follows the Local / Imported toggle. The
+price cards themselves show only the price (a per-card model line was tried and removed as clutter). The banner no
+longer clips its popovers: its decorative circles are background gradients now, so it does not need overflow: hidden.
+- The shares are the ensemble's real weights for that rice type and forecast day (`model/ensemble.py`: 1 / each
+  method's error over its last 30 realised forecasts), already in each forecast row as `weights` (day 1 is used).
+  `mape_pct` was also added to `/api/predictions` and `/api/dashboard-metrics` `by_target` for later use.
+- The weights sit close together on most days (around 30–37% each), so all three are shown and a lead under 2 points
+  reads "about equal" instead of naming a winner. This is consistent with the ablation: the LSTM is one of three
+  methods with a similar share, not the source of the accuracy.
+- **Paper:** Ch. 4 can cite the indicator as how the system makes the ensemble's choice visible to the user.
+
 ---
 
 ## Still [VERIFY] / [ACTION]

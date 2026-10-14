@@ -807,7 +807,7 @@ AgriPricePH.Dashboard = (function () {
     const titleEl = document.getElementById('dash-trend-title');
     const legendEl = document.getElementById('dash-trend-legend');
     if (titleEl) {
-      titleEl.textContent = `Rice Price Trend — Last 90 Days (${cfg.title})`;
+      titleEl.textContent = `Retail Rice Price Trend — Last 90 Days (${cfg.title})`;
     }
     if (legendEl) {
       legendEl.innerHTML = cfg.labels.map((label, i) => `

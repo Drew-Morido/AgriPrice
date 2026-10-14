@@ -241,6 +241,7 @@ AgriPricePH.Landpage = (function () {
   }
 
   const INFO_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r=".6" fill="currentColor"/></svg>';
+  const RETAIL_DEF = 'Retail price: the prevailing price per kilogram that consumers pay in Metro Manila (NCR) markets, as monitored by the Department of Agriculture (DA-AMAS).';
   const SURVEY_TIP = 'Shop prices were canvassed in local markets every day for 30 days (Aug 6 – Sep 4, 2026), and verified by the local government. The 30th and last day, Sep 4, is the one used.';
   const infoTip = (text, cls = '') => `<span class="lp-tip ${cls}" tabindex="0" role="note" aria-label="${esc(text)}" data-tip="${esc(text)}">${INFO_SVG}</span>`;
 
@@ -430,13 +431,13 @@ AgriPricePH.Landpage = (function () {
     // Header + legend say exactly where each number comes from.
     const desc = $('#home-prices-desc');
     if (desc) {
-      desc.innerHTML = `Today&rsquo;s Department of Agriculture price for every grade${_asOf ? ` (as of ${esc(_asOf)})` : ''}, tomorrow&rsquo;s expected range, and the brands you&rsquo;ll find on the shelf.`;
+      desc.innerHTML = `Today&rsquo;s Department of Agriculture retail price (₱/kg) for every grade${_asOf ? ` (as of ${esc(_asOf)})` : ''}, tomorrow&rsquo;s expected range, and the brands you&rsquo;ll find on the shelf.`;
     }
     const legend = $('#home-prices-legend');
     if (legend) {
       const shopDate = prettyDay(Object.values(_brandsByGrade).map((g) => g.asOf).filter(Boolean).sort().pop());
       legend.innerHTML = [
-        `<span><i class="lg-today"></i><b>Today</b> DA daily price monitoring${_asOf ? `, ${esc(_asOf)}` : ''}</span>`,
+        `<span><i class="lg-today"></i><b>Today</b> DA daily retail price monitoring, ₱/kg${_asOf ? `, ${esc(_asOf)}` : ''} ${infoTip(RETAIL_DEF, 'lp-tip--dark')}</span>`,
         Object.keys(_forecastByKey).length ? '<span><i class="lg-range"></i><b>Tomorrow</b> AgriPricePH forecast &mdash; about 9 in 10 past forecasts landed inside this range</span>' : '',
         Object.keys(_brandsByGrade).length ? `<span><i class="lg-brands"></i><b>In shops</b> brand shelf prices ${infoTip(SURVEY_TIP, 'lp-tip--dark')}</span>` : '',
       ].join('');

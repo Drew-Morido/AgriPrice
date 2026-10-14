@@ -365,6 +365,62 @@ AgriPricePH.Predictions = (function () {
       </div>`;
   }
 
+  // DA-AMAS asked which of the three forecasting models a forecast relies on. The ensemble (model/ensemble.py)
+  // gives each model a weight of 1 / its error over its last 30 realised forecasts, per rice type and forecast day;
+  // each forecast row carries those weights (`weights`). The 3-Day Price Forecast card shows tomorrow's (day 1)
+  // weights averaged over the four rice types shown, and names the strongest model. Weights often sit close
+  // together, so a lead under 2 points is marked "(about equal)" rather than presented as a clear winner.
+  const METHOD_INFO = [
+    { key: 'hybrid', label: 'LSTM hybrid', color: '#6EE7A0' },
+    { key: 'arima', label: 'ARIMA', color: '#93C5FD' },
+    { key: 'kalman', label: 'Kalman filter', color: '#FCD34D' },
+  ];
+  const METHOD_TIP = 'AgriPricePH forecasts each rice type with three models: an LSTM neural network with a '
+    + 'mean-reversion correction (LSTM hybrid), an ARIMA time-series model, and a Kalman filter. Every day, each model '
+    + 'gets a weight based on how accurate it was over its last 30 forecasts, separately for each rice type and '
+    + 'forecast day: the more accurate, the bigger its share of the final forecast.\n\nThe bar shows each model\'s '
+    + 'average share in tomorrow\'s forecast for the four rice types shown. "Strongest today" is the model with the '
+    + 'biggest share; "(about equal)" means it leads by less than 2 points. These are the live weights of the current '
+    + 'forecast.';
+
+  /** Day-1 weights for one rice type as [{key,label,color,pct}], or null when the forecast has none. */
+  function dayOneWeights(riceKey) {
+    const w = _forecast?.forecasts_by_key?.[riceKey]?.[0]?.weights;
+    if (!w || typeof w !== 'object') return null;
+    return METHOD_INFO.map((m) => ({ ...m, pct: Number(w[m.key] || 0) * 100 }));
+  }
+
+  /** "Kalman filter 35%" plus whether its lead over the runner-up is under 2 points. */
+  function leader(parts) {
+    const sorted = [...parts].sort((x, y) => y.pct - x.pct);
+    return { text: `${sorted[0].label} ${Math.round(sorted[0].pct)}%`, close: sorted[0].pct - sorted[1].pct < 2 };
+  }
+
+  function renderHeroMethod(keys) {
+    const el = document.getElementById('hero-method');
+    if (!el) return;
+    const per = keys.map(dayOneWeights).filter(Boolean);
+    if (!per.length) {
+      el.innerHTML = '';
+      return;
+    }
+    const avg = METHOD_INFO.map((m, i) => ({ ...m, pct: per.reduce((sum, p) => sum + p[i].pct, 0) / per.length }));
+    const top = leader(avg);
+    const bar = avg.map((m) =>
+      `<div title="${escapeAttr(m.label)} ${Math.round(m.pct)}%" style="width:${m.pct.toFixed(1)}%;background:${m.color};"></div>`).join('');
+    const legend = avg.map((m) =>
+      `<span class="hero-method-key"><i style="background:${m.color}"></i>${escapeAttr(m.label)} ${Math.round(m.pct)}%</span>`).join('');
+    el.innerHTML = `
+      <div class="hero-method-head">
+        Forecasting models today
+        <i class="ti ti-info-circle stat-info-icon tooltip-wide tooltip-left hero-method-info" tabindex="0" role="img"
+           aria-label="${escapeAttr(METHOD_TIP)}" data-tooltip="${escapeAttr(METHOD_TIP)}"></i>
+      </div>
+      <div class="hero-method-line">Strongest today: <b>${escapeAttr(top.text)}</b>${top.close ? ' <span class="hero-method-close">(about equal)</span>' : ''}</div>
+      <div class="hero-method-bar">${bar}</div>
+      <div class="hero-method-legend">${legend}</div>`;
+  }
+
   function renderHeroFromApi(data, type) {
     const container = document.getElementById('hero-prices');
     if (!container || !data.current_prices) return;
@@ -384,6 +440,7 @@ AgriPricePH.Predictions = (function () {
           <div class="hero-price-change">${known ? 'Live DB price' : 'No price recorded'}</div>
         </div>`;
     }).join('');
+    renderHeroMethod(keys);
   }
 
   /**
@@ -475,7 +532,7 @@ AgriPricePH.Predictions = (function () {
     ], {
       labels: [...histLabels, ...predLabels],
       padding: { top: 20, right: 20, bottom: 36, left: 54 },
-      yAxisLabel: '₱ per kg',
+      yAxisLabel: 'Retail ₱ per kg',
       pointNotes,
     });
   }

@@ -1092,6 +1092,7 @@ def _build_payload(meta, cache_key):
             "by_target": {
                 k: {
                     "mae_peso": v.get("mae_peso"),
+                    "mape_pct": v.get("mape_pct"),
                     "baseline_mae_peso": v.get("baseline_mae_peso"),
                     "hit_rate_pct": v.get("hit_rate_pct"),
                     "skill_vs_baseline_pct": v.get("skill_vs_baseline_pct"),

@@ -435,7 +435,7 @@ AgriPricePH.Stats = (function () {
           },
           y: {
             grid: { color: 'rgba(255,255,255,0.07)' }, border: { display: false },
-            title: { display: true, text: unit === 'sack' ? 'Price (₱ per 25-kg sack)' : 'Price (₱ per kilo)', color: 'rgba(233,247,238,0.7)', font: { family: "'Plus Jakarta Sans', sans-serif", size: 13, weight: '700' } },
+            title: { display: true, text: unit === 'sack' ? 'Retail price (₱ per 25-kg sack)' : 'Retail price (₱ per kilo)', color: 'rgba(233,247,238,0.7)', font: { family: "'Plus Jakarta Sans', sans-serif", size: 13, weight: '700' } },
             ticks: { color: 'rgba(233,247,238,0.72)', font: { family: "'JetBrains Mono', monospace", size: 12.5 }, maxTicksLimit: 6, callback: (v) => money(v, unit === 'sack' ? 0 : 2) },
             grace: '12%',
           },

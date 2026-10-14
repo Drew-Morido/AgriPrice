@@ -127,7 +127,7 @@ AgriPricePH.Data = (function () {
       id: 'da',
       name: 'DA – Dept. of Agriculture',
       type: 'Web Scraper (BeautifulSoup)',
-      dataType: 'Daily Rice Prices (8 types)',
+      dataType: 'Daily retail rice prices, ₱/kg (8 types)',
       status: 'active',
       lastFetch: '2 mins ago',
       recordsToday: '128',

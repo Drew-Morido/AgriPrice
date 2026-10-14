@@ -1,0 +1,2999 @@
+{
+  "ready": true,
+  "backend": "tensorflow",
+  "rice_type": "All rice types (LSTM-based adaptive ensemble)",
+  "target": "locWellMilled",
+  "horizon": 3,
+  "last_price": 48.38,
+  "last_data_date": "2026-10-07",
+  "as_of_date": "2026-10-08",
+  "as_of_display": "October 08, 2026",
+  "last_date": "2026-10-08",
+  "forecast": [
+    {
+      "day": 1,
+      "date": "Oct 08",
+      "date_iso": "2026-10-08",
+      "price": 48.48,
+      "change": 0.1,
+      "direction": "up",
+      "confidence": 0.931,
+      "model": "ensemble",
+      "weights": {
+        "hybrid": 0.318,
+        "arima": 0.376,
+        "kalman": 0.306
+      },
+      "components": {
+        "hybrid": 48.42,
+        "arima": 48.5,
+        "kalman": 48.53
+      },
+      "low": 47.91,
+      "high": 49.05,
+      "interval_pct": 90
+    },
+    {
+      "day": 2,
+      "date": "Oct 09",
+      "date_iso": "2026-10-09",
+      "price": 48.52,
+      "change": 0.04,
+      "direction": "steady",
+      "confidence": 0.92,
+      "model": "ensemble",
+      "weights": {
+        "hybrid": 0.29,
+        "arima": 0.368,
+        "kalman": 0.342
+      },
+      "components": {
+        "hybrid": 48.45,
+        "arima": 48.56,
+        "kalman": 48.53
+      },
+      "low": 47.63,
+      "high": 49.41,
+      "interval_pct": 90
+    },
+    {
+      "day": 3,
+      "date": "Oct 10",
+      "date_iso": "2026-10-10",
+      "price": 48.54,
+      "change": 0.02,
+      "direction": "steady",
+      "confidence": 0.915,
+      "model": "ensemble",
+      "weights": {
+        "hybrid": 0.283,
+        "arima": 0.384,
+        "kalman": 0.333
+      },
+      "components": {
+        "hybrid": 48.48,
+        "arima": 48.59,
+        "kalman": 48.53
+      },
+      "low": 47.64,
+      "high": 49.43,
+      "interval_pct": 90
+    }
+  ],
+  "forecasts_by_key": {
+    "locWellMilled": [
+      {
+        "day": 1,
+        "date": "Oct 08",
+        "date_iso": "2026-10-08",
+        "price": 48.48,
+        "change": 0.1,
+        "direction": "up",
+        "confidence": 0.931,
+        "model": "ensemble",
+        "weights": {
+          "hybrid": 0.318,
+          "arima": 0.376,
+          "kalman": 0.306
+        },
+        "components": {
+          "hybrid": 48.42,
+          "arima": 48.5,
+          "kalman": 48.53
+        },
+        "low": 47.91,
+        "high": 49.05,
+        "interval_pct": 90
+      },
+      {
+        "day": 2,
+        "date": "Oct 09",
+        "date_iso": "2026-10-09",
+        "price": 48.52,
+        "change": 0.04,
+        "direction": "steady",
+        "confidence": 0.92,
+        "model": "ensemble",
+        "weights": {
+          "hybrid": 0.29,
+          "arima": 0.368,
+          "kalman": 0.342
+        },
+        "components": {
+          "hybrid": 48.45,
+          "arima": 48.56,
+          "kalman": 48.53
+        },
+        "low": 47.63,
+        "high": 49.41,
+        "interval_pct": 90
+      },
+      {
+        "day": 3,
+        "date": "Oct 10",
+        "date_iso": "2026-10-10",
+        "price": 48.54,
+        "change": 0.02,
+        "direction": "steady",
+        "confidence": 0.915,
+        "model": "ensemble",
+        "weights": {
+          "hybrid": 0.283,
+          "arima": 0.384,
+          "kalman": 0.333
+        },
+        "components": {
+          "hybrid": 48.48,
+          "arima": 48.59,
+          "kalman": 48.53
+        },
+        "low": 47.64,
+        "high": 49.43,
+        "interval_pct": 90
+      }
+    ],
+    "locRegular": [
+      {
+        "day": 1,
+        "date": "Oct 08",
+        "date_iso": "2026-10-08",
+        "price": 45.09,
+        "change": -0.08,
+        "direction": "steady",
+        "confidence": 0.926,
+        "model": "ensemble",
+        "weights": {
+          "hybrid": 0.316,
+          "arima": 0.314,
+          "kalman": 0.37
+        },
+        "components": {
+          "hybrid": 45.1,
+          "arima": 45.06,
+          "kalman": 45.1
+        },
+        "low": 44.58,
+        "high": 45.59,
+        "interval_pct": 90
+      },
+      {
+        "day": 2,
+        "date": "Oct 09",
+        "date_iso": "2026-10-09",
+        "price": 45.1,
+        "change": 0.01,
+        "direction": "steady",
+        "confidence": 0.917,
+        "model": "ensemble",
+        "weights": {
+          "hybrid": 0.298,
+          "arima": 0.314,
+          "kalman": 0.388
+        },
+        "components": {
+          "hybrid": 45.09,
+          "arima": 45.09,
+          "kalman": 45.11
+        },
+        "low": 44.6,
+        "high": 45.59,
+        "interval_pct": 90
+      },
+      {
+        "day": 3,
+        "date": "Oct 10",
+        "date_iso": "2026-10-10",
+        "price": 45.09,
+        "change": -0.01,
+        "direction": "steady",
+        "confidence": 0.911,
+        "model": "ensemble",
+        "weights": {
+          "hybrid": 0.319,
+          "arima": 0.316,
+          "kalman": 0.365
+        },
+        "components": {
+          "hybrid": 45.09,
+          "arima": 45.08,
+          "kalman": 45.1
+        },
+        "low": 44.52,
+        "high": 45.66,
+        "interval_pct": 90
+      }
+    ],
+    "locPremium": [
+      {
+        "day": 1,
+        "date": "Oct 08",
+        "date_iso": "2026-10-08",
+        "price": 53.92,
+        "change": 0.14,
+        "direction": "up",
+        "confidence": 0.941,
+        "model": "ensemble",
+        "weights": {
+          "hybrid": 0.342,
+          "arima": 0.351,
+          "kalman": 0.307
+        },
+        "components": {
+          "hybrid": 53.84,
+          "arima": 53.92,
+          "kalman": 54.02
+        },
+        "low": 53.3,
+        "high": 54.55,
+        "interval_pct": 90
+      },
+      {
+        "day": 2,
+        "date": "Oct 09",
+        "date_iso": "2026-10-09",
+        "price": 53.96,
+        "change": 0.03,
+        "direction": "steady",
+        "confidence": 0.932,
+        "model": "ensemble",
+        "weights": {
+          "hybrid": 0.294,
+          "arima": 0.313,
+          "kalman": 0.393
+        },
+        "components": {
+          "hybrid": 53.89,
+          "arima": 53.93,
+          "kalman": 54.03
+        },
+        "low": 53.17,
+        "high": 54.75,
+        "interval_pct": 90
+      },
+      {
+        "day": 3,
+        "date": "Oct 10",
+        "date_iso": "2026-10-10",
+        "price": 53.97,
+        "change": 0.02,
+        "direction": "steady",
+        "confidence": 0.926,
+        "model": "ensemble",
+        "weights": {
+          "hybrid": 0.287,
+          "arima": 0.303,
+          "kalman": 0.409
+        },
+        "components": {
+          "hybrid": 53.95,
+          "arima": 53.93,
+          "kalman": 54.02
+        },
+        "low": 53.11,
+        "high": 54.84,
+        "interval_pct": 90
+      }
+    ],
+    "locSpecial": [
+      {
+        "day": 1,
+        "date": "Oct 08",
+        "date_iso": "2026-10-08",
+        "price": 60.12,
+        "change": 0.07,
+        "direction": "steady",
+        "confidence": 0.95,
+        "model": "ensemble",
+        "weights": {
+          "hybrid": 0.312,
+          "arima": 0.373,
+          "kalman": 0.315
+        },
+        "components": {
+          "hybrid": 60.09,
+          "arima": 60.15,
+          "kalman": 60.13
+        },
+        "low": 59.53,
+        "high": 60.72,
+        "interval_pct": 90
+      },
+      {
+        "day": 2,
+        "date": "Oct 09",
+        "date_iso": "2026-10-09",
+        "price": 60.14,
+        "change": 0.02,
+        "direction": "steady",
+        "confidence": 0.948,
+        "model": "ensemble",
+        "weights": {
+          "hybrid": 0.275,
+          "arima": 0.361,
+          "kalman": 0.364
+        },
+        "components": {
+          "hybrid": 60.13,
+          "arima": 60.18,
+          "kalman": 60.13
+        },
+        "low": 59.48,
+        "high": 60.81,
+        "interval_pct": 90
+      },
+      {
+        "day": 3,
+        "date": "Oct 10",
+        "date_iso": "2026-10-10",
+        "price": 60.15,
+        "change": 0.01,
+        "direction": "steady",
+        "confidence": 0.945,
+        "model": "ensemble",
+        "weights": {
+          "hybrid": 0.271,
+          "arima": 0.373,
+          "kalman": 0.357
+        },
+        "components": {
+          "hybrid": 60.14,
+          "arima": 60.18,
+          "kalman": 60.13
+        },
+        "low": 59.46,
+        "high": 60.85,
+        "interval_pct": 90
+      }
+    ],
+    "impWellMilled": [
+      {
+        "day": 1,
+        "date": "Oct 08",
+        "date_iso": "2026-10-08",
+        "price": 48.34,
+        "change": 0.01,
+        "direction": "steady",
+        "confidence": 0.934,
+        "model": "ensemble",
+        "weights": {
+          "hybrid": 0.348,
+          "arima": 0.313,
+          "kalman": 0.338
+        },
+        "components": {
+          "hybrid": 48.35,
+          "arima": 48.31,
+          "kalman": 48.36
+        },
+        "low": 48.1,
+        "high": 48.58,
+        "interval_pct": 90
+      },
+      {
+        "day": 2,
+        "date": "Oct 09",
+        "date_iso": "2026-10-09",
+        "price": 48.33,
+        "change": -0.01,
+        "direction": "steady",
+        "confidence": 0.924,
+        "model": "ensemble",
+        "weights": {
+          "hybrid": 0.331,
+          "arima": 0.292,
+          "kalman": 0.377
+        },
+        "components": {
+          "hybrid": 48.34,
+          "arima": 48.3,
+          "kalman": 48.35
+        },
+        "low": 48.06,
+        "high": 48.6,
+        "interval_pct": 90
+      },
+      {
+        "day": 3,
+        "date": "Oct 10",
+        "date_iso": "2026-10-10",
+        "price": 48.33,
+        "change": -0.0,
+        "direction": "steady",
+        "confidence": 0.913,
+        "model": "ensemble",
+        "weights": {
+          "hybrid": 0.343,
+          "arima": 0.285,
+          "kalman": 0.371
+        },
+        "components": {
+          "hybrid": 48.35,
+          "arima": 48.29,
+          "kalman": 48.35
+        },
+        "low": 48.02,
+        "high": 48.65,
+        "interval_pct": 90
+      }
+    ],
+    "impRegular": [
+      {
+        "day": 1,
+        "date": "Oct 08",
+        "date_iso": "2026-10-08",
+        "price": 44.09,
+        "change": -0.24,
+        "direction": "down",
+        "confidence": 0.916,
+        "model": "ensemble",
+        "weights": {
+          "hybrid": 0.346,
+          "arima": 0.37,
+          "kalman": 0.285
+        },
+        "components": {
+          "hybrid": 44.33,
+          "arima": 43.96,
+          "kalman": 43.98
+        },
+        "low": 43.34,
+        "high": 44.84,
+        "interval_pct": 90
+      },
+      {
+        "day": 2,
+        "date": "Oct 09",
+        "date_iso": "2026-10-09",
+        "price": 44.1,
+        "change": 0.01,
+        "direction": "steady",
+        "confidence": 0.897,
+        "model": "ensemble",
+        "weights": {
+          "hybrid": 0.351,
+          "arima": 0.363,
+          "kalman": 0.286
+        },
+        "components": {
+          "hybrid": 44.33,
+          "arima": 43.97,
+          "kalman": 43.99
+        },
+        "low": 43.24,
+        "high": 44.96,
+        "interval_pct": 90
+      },
+      {
+        "day": 3,
+        "date": "Oct 10",
+        "date_iso": "2026-10-10",
+        "price": 44.09,
+        "change": -0.01,
+        "direction": "steady",
+        "confidence": 0.884,
+        "model": "ensemble",
+        "weights": {
+          "hybrid": 0.324,
+          "arima": 0.347,
+          "kalman": 0.329
+        },
+        "components": {
+          "hybrid": 44.33,
+          "arima": 43.97,
+          "kalman": 43.98
+        },
+        "low": 43.34,
+        "high": 44.84,
+        "interval_pct": 90
+      }
+    ],
+    "impPremium": [
+      {
+        "day": 1,
+        "date": "Oct 08",
+        "date_iso": "2026-10-08",
+        "price": 55.36,
+        "change": -0.03,
+        "direction": "steady",
+        "confidence": 0.941,
+        "model": "ensemble",
+        "weights": {
+          "hybrid": 0.364,
+          "arima": 0.309,
+          "kalman": 0.326
+        },
+        "components": {
+          "hybrid": 55.36,
+          "arima": 55.32,
+          "kalman": 55.4
+        },
+        "low": 54.86,
+        "high": 55.86,
+        "interval_pct": 90
+      },
+      {
+        "day": 2,
+        "date": "Oct 09",
+        "date_iso": "2026-10-09",
+        "price": 55.37,
+        "change": 0.01,
+        "direction": "steady",
+        "confidence": 0.925,
+        "model": "ensemble",
+        "weights": {
+          "hybrid": 0.362,
+          "arima": 0.288,
+          "kalman": 0.35
+        },
+        "components": {
+          "hybrid": 55.4,
+          "arima": 55.31,
+          "kalman": 55.4
+        },
+        "low": 54.77,
+        "high": 55.97,
+        "interval_pct": 90
+      },
+      {
+        "day": 3,
+        "date": "Oct 10",
+        "date_iso": "2026-10-10",
+        "price": 55.37,
+        "change": 0.0,
+        "direction": "steady",
+        "confidence": 0.914,
+        "model": "ensemble",
+        "weights": {
+          "hybrid": 0.365,
+          "arima": 0.296,
+          "kalman": 0.339
+        },
+        "components": {
+          "hybrid": 55.4,
+          "arima": 55.3,
+          "kalman": 55.4
+        },
+        "low": 54.68,
+        "high": 56.06,
+        "interval_pct": 90
+      }
+    ],
+    "impSpecial": [
+      {
+        "day": 1,
+        "date": "Oct 08",
+        "date_iso": "2026-10-08",
+        "price": 60.8,
+        "change": -0.08,
+        "direction": "steady",
+        "confidence": 0.935,
+        "model": "ensemble",
+        "weights": {
+          "hybrid": 0.337,
+          "arima": 0.347,
+          "kalman": 0.316
+        },
+        "components": {
+          "hybrid": 60.89,
+          "arima": 60.76,
+          "kalman": 60.76
+        },
+        "low": 60.23,
+        "high": 61.38,
+        "interval_pct": 90
+      },
+      {
+        "day": 2,
+        "date": "Oct 09",
+        "date_iso": "2026-10-09",
+        "price": 60.79,
+        "change": -0.01,
+        "direction": "steady",
+        "confidence": 0.927,
+        "model": "ensemble",
+        "weights": {
+          "hybrid": 0.315,
+          "arima": 0.327,
+          "kalman": 0.358
+        },
+        "components": {
+          "hybrid": 60.88,
+          "arima": 60.73,
+          "kalman": 60.76
+        },
+        "low": 60.18,
+        "high": 61.4,
+        "interval_pct": 90
+      },
+      {
+        "day": 3,
+        "date": "Oct 10",
+        "date_iso": "2026-10-10",
+        "price": 60.8,
+        "change": 0.01,
+        "direction": "steady",
+        "confidence": 0.923,
+        "model": "ensemble",
+        "weights": {
+          "hybrid": 0.329,
+          "arima": 0.317,
+          "kalman": 0.354
+        },
+        "components": {
+          "hybrid": 60.9,
+          "arima": 60.72,
+          "kalman": 60.77
+        },
+        "low": 60.11,
+        "high": 61.49,
+        "interval_pct": 90
+      }
+    ]
+  },
+  "current_prices": {
+    "locWellMilled": 48.38,
+    "locRegular": 45.17,
+    "locPremium": 53.78,
+    "locSpecial": 60.05,
+    "impWellMilled": 48.33,
+    "impRegular": 44.33,
+    "impPremium": 55.39,
+    "impSpecial": 60.88
+  },
+  "metrics": {
+    "mae_peso": 0.2831,
+    "rmse_peso": 0.4211,
+    "hit_rate_pct": {
+      "0.50": [
+        87.5,
+        84.5,
+        82.4
+      ],
+      "1.00": [
+        96.2,
+        95.5,
+        95.1
+      ],
+      "1.50": [
+        98.4,
+        98.1,
+        97.7
+      ],
+      "2.00": [
+        99.4,
+        99.1,
+        98.7
+      ]
+    },
+    "skill_vs_baseline_pct": 10.3,
+    "movement_ratio": 0.3738,
+    "baseline_mae_peso": 0.3273,
+    "beats_baseline": true,
+    "forecaster": "adaptive_ensemble",
+    "beats_arima_count": 8,
+    "hybrid_skill_vs_baseline_pct": 7.95,
+    "hybrid_beats_arima_count": 6,
+    "accuracy_pct": 99.35,
+    "avg_accuracy_pct": 99.38,
+    "accuracy_pct_note": "legacy 100-MAE/mean_price; do not report - use hit_rate_pct",
+    "by_target": {
+      "locWellMilled": {
+        "mae_peso": 0.2831,
+        "baseline_mae_peso": 0.3273,
+        "hit_rate_pct": {
+          "0.25": [
+            64.2,
+            58.3,
+            54.4
+          ],
+          "0.50": [
+            87.5,
+            85.3,
+            83.9
+          ],
+          "1.00": [
+            96.1,
+            96.1,
+            95.8
+          ],
+          "1.50": [
+            98.9,
+            98.9,
+            98.9
+          ],
+          "2.00": [
+            100.0,
+            99.7,
+            99.4
+          ]
+        },
+        "skill_vs_baseline_pct": 13.51,
+        "directional_pct": [
+          61.7,
+          63.5,
+          62.2
+        ],
+        "movement": {
+          "pred_abs_change_peso": 0.1199,
+          "true_abs_change_peso": 0.3273,
+          "ratio": 0.3664
+        },
+        "beats_baseline": true,
+        "beats_arima": true,
+        "arima_mae_peso": 0.2989,
+        "hybrid": {
+          "mae_peso": 0.2893,
+          "skill_vs_baseline_pct": 11.63,
+          "beats_arima": true,
+          "directional_pct": [
+            59.3,
+            60.4,
+            61.9
+          ]
+        },
+        "ensemble": {
+          "method": "adaptive inverse-MSE combination (Bates & Granger 1969)",
+          "components": [
+            "hybrid",
+            "arima",
+            "kalman"
+          ],
+          "window_days": 30,
+          "warmup_origins": 45,
+          "mean_weights_test": {
+            "hybrid": [
+              0.335,
+              0.33,
+              0.339
+            ],
+            "arima": [
+              0.304,
+              0.324,
+              0.327
+            ],
+            "kalman": [
+              0.361,
+              0.347,
+              0.334
+            ]
+          }
+        },
+        "reversion": {
+          "phi": [
+            [
+              -0.278
+            ],
+            [
+              -0.3139
+            ],
+            [
+              -0.2848
+            ]
+          ],
+          "n_lags": 1,
+          "t_stat": [
+            -7.206,
+            -8.041,
+            -7.268
+          ],
+          "n_fit": 191,
+          "applied": true,
+          "shrink": 0.6,
+          "min_abs_t": 2.0,
+          "fit_rows": [
+            3743,
+            3936
+          ],
+          "rolling_window": 120,
+          "scored_with": "rolling",
+          "weekday_mode": true
+        },
+        "accuracy_pct": 99.35,
+        "per_horizon_accuracy_pct": [
+          99.43,
+          99.33,
+          99.29
+        ],
+        "per_horizon_mae_peso": [
+          0.2479,
+          0.2923,
+          0.309
+        ]
+      },
+      "locRegular": {
+        "mae_peso": 0.2699,
+        "baseline_mae_peso": 0.3163,
+        "hit_rate_pct": {
+          "0.25": [
+            68.3,
+            65.8,
+            59.4
+          ],
+          "0.50": [
+            88.1,
+            84.4,
+            84.4
+          ],
+          "1.00": [
+            96.7,
+            96.7,
+            96.1
+          ],
+          "1.50": [
+            98.6,
+            98.9,
+            98.9
+          ],
+          "2.00": [
+            99.4,
+            99.2,
+            99.2
+          ]
+        },
+        "skill_vs_baseline_pct": 14.66,
+        "directional_pct": [
+          61.2,
+          62.4,
+          60.6
+        ],
+        "movement": {
+          "pred_abs_change_peso": 0.1092,
+          "true_abs_change_peso": 0.3163,
+          "ratio": 0.3452
+        },
+        "beats_baseline": true,
+        "beats_arima": true,
+        "arima_mae_peso": 0.2913,
+        "hybrid": {
+          "mae_peso": 0.2788,
+          "skill_vs_baseline_pct": 11.86,
+          "beats_arima": true,
+          "directional_pct": [
+            60.6,
+            62.1,
+            60.6
+          ]
+        },
+        "ensemble": {
+          "method": "adaptive inverse-MSE combination (Bates & Granger 1969)",
+          "components": [
+            "hybrid",
+            "arima",
+            "kalman"
+          ],
+          "window_days": 30,
+          "warmup_origins": 45,
+          "mean_weights_test": {
+            "hybrid": [
+              0.333,
+              0.333,
+              0.335
+            ],
+            "arima": [
+              0.302,
+              0.305,
+              0.318
+            ],
+            "kalman": [
+              0.365,
+              0.363,
+              0.347
+            ]
+          }
+        },
+        "reversion": {
+          "phi": [
+            [
+              -0.3249
+            ],
+            [
+              -0.2766
+            ],
+            [
+              -0.2877
+            ]
+          ],
+          "n_lags": 1,
+          "t_stat": [
+            -8.88,
+            -7.571,
+            -7.535
+          ],
+          "n_fit": 191,
+          "applied": true,
+          "shrink": 0.6,
+          "min_abs_t": 2.0,
+          "fit_rows": [
+            3743,
+            3936
+          ],
+          "rolling_window": 120,
+          "scored_with": "rolling",
+          "weekday_mode": true
+        },
+        "accuracy_pct": 99.31,
+        "per_horizon_accuracy_pct": [
+          99.39,
+          99.3,
+          99.25
+        ],
+        "per_horizon_mae_peso": [
+          0.2409,
+          0.2742,
+          0.2947
+        ]
+      },
+      "locPremium": {
+        "mae_peso": 0.2645,
+        "baseline_mae_peso": 0.2979,
+        "hit_rate_pct": {
+          "0.25": [
+            66.7,
+            59.7,
+            53.9
+          ],
+          "0.50": [
+            89.7,
+            84.4,
+            80.0
+          ],
+          "1.00": [
+            99.4,
+            99.4,
+            99.4
+          ],
+          "1.50": [
+            99.7,
+            99.7,
+            99.7
+          ],
+          "2.00": [
+            100.0,
+            100.0,
+            99.7
+          ]
+        },
+        "skill_vs_baseline_pct": 11.2,
+        "directional_pct": [
+          60.1,
+          60.0,
+          61.2
+        ],
+        "movement": {
+          "pred_abs_change_peso": 0.1142,
+          "true_abs_change_peso": 0.2979,
+          "ratio": 0.3835
+        },
+        "beats_baseline": true,
+        "beats_arima": true,
+        "arima_mae_peso": 0.2769,
+        "hybrid": {
+          "mae_peso": 0.2722,
+          "skill_vs_baseline_pct": 8.62,
+          "beats_arima": true,
+          "directional_pct": [
+            61.9,
+            58.6,
+            63.2
+          ]
+        },
+        "ensemble": {
+          "method": "adaptive inverse-MSE combination (Bates & Granger 1969)",
+          "components": [
+            "hybrid",
+            "arima",
+            "kalman"
+          ],
+          "window_days": 30,
+          "warmup_origins": 45,
+          "mean_weights_test": {
+            "hybrid": [
+              0.345,
+              0.331,
+              0.327
+            ],
+            "arima": [
+              0.322,
+              0.327,
+              0.319
+            ],
+            "kalman": [
+              0.333,
+              0.342,
+              0.354
+            ]
+          }
+        },
+        "reversion": {
+          "phi": [
+            [
+              -0.2988
+            ],
+            [
+              -0.2961
+            ],
+            [
+              -0.3292
+            ]
+          ],
+          "n_lags": 1,
+          "t_stat": [
+            -7.914,
+            -7.777,
+            -8.887
+          ],
+          "n_fit": 191,
+          "applied": true,
+          "shrink": 0.6,
+          "min_abs_t": 2.0,
+          "fit_rows": [
+            3743,
+            3936
+          ],
+          "rolling_window": 120,
+          "scored_with": "rolling",
+          "weekday_mode": true
+        },
+        "accuracy_pct": 99.45,
+        "per_horizon_accuracy_pct": [
+          99.52,
+          99.44,
+          99.38
+        ],
+        "per_horizon_mae_peso": [
+          0.2311,
+          0.2681,
+          0.2943
+        ]
+      },
+      "locSpecial": {
+        "mae_peso": 0.2197,
+        "baseline_mae_peso": 0.2589,
+        "hit_rate_pct": {
+          "0.25": [
+            73.6,
+            68.3,
+            61.7
+          ],
+          "0.50": [
+            92.2,
+            89.4,
+            89.7
+          ],
+          "1.00": [
+            98.1,
+            98.3,
+            98.3
+          ],
+          "1.50": [
+            100.0,
+            100.0,
+            99.7
+          ],
+          "2.00": [
+            100.0,
+            100.0,
+            100.0
+          ]
+        },
+        "skill_vs_baseline_pct": 15.14,
+        "directional_pct": [
+          56.3,
+          63.9,
+          64.4
+        ],
+        "movement": {
+          "pred_abs_change_peso": 0.1033,
+          "true_abs_change_peso": 0.2589,
+          "ratio": 0.3991
+        },
+        "beats_baseline": true,
+        "beats_arima": true,
+        "arima_mae_peso": 0.2297,
+        "hybrid": {
+          "mae_peso": 0.2397,
+          "skill_vs_baseline_pct": 7.42,
+          "beats_arima": false,
+          "directional_pct": [
+            53.2,
+            65.0,
+            63.3
+          ]
+        },
+        "ensemble": {
+          "method": "adaptive inverse-MSE combination (Bates & Granger 1969)",
+          "components": [
+            "hybrid",
+            "arima",
+            "kalman"
+          ],
+          "window_days": 30,
+          "warmup_origins": 45,
+          "mean_weights_test": {
+            "hybrid": [
+              0.315,
+              0.304,
+              0.308
+            ],
+            "arima": [
+              0.321,
+              0.331,
+              0.333
+            ],
+            "kalman": [
+              0.363,
+              0.364,
+              0.358
+            ]
+          }
+        },
+        "reversion": {
+          "phi": [
+            [
+              -0.3039
+            ],
+            [
+              -0.3018
+            ],
+            [
+              -0.3032
+            ]
+          ],
+          "n_lags": 1,
+          "t_stat": [
+            -8.098,
+            -8.081,
+            -8.143
+          ],
+          "n_fit": 191,
+          "applied": true,
+          "shrink": 0.6,
+          "min_abs_t": 2.0,
+          "fit_rows": [
+            3743,
+            3936
+          ],
+          "rolling_window": 120,
+          "scored_with": "rolling",
+          "weekday_mode": true
+        },
+        "accuracy_pct": 99.59,
+        "per_horizon_accuracy_pct": [
+          99.64,
+          99.58,
+          99.56
+        ],
+        "per_horizon_mae_peso": [
+          0.1937,
+          0.2262,
+          0.2391
+        ]
+      },
+      "impWellMilled": {
+        "mae_peso": 0.2754,
+        "baseline_mae_peso": 0.2816,
+        "hit_rate_pct": {
+          "0.25": [
+            78.9,
+            75.0,
+            71.1
+          ],
+          "0.50": [
+            87.5,
+            85.6,
+            83.1
+          ],
+          "1.00": [
+            94.4,
+            92.5,
+            91.7
+          ],
+          "1.50": [
+            96.9,
+            96.9,
+            95.3
+          ],
+          "2.00": [
+            98.3,
+            98.3,
+            97.2
+          ]
+        },
+        "skill_vs_baseline_pct": 2.21,
+        "directional_pct": [
+          62.2,
+          60.0,
+          55.8
+        ],
+        "movement": {
+          "pred_abs_change_peso": 0.1063,
+          "true_abs_change_peso": 0.2816,
+          "ratio": 0.3776
+        },
+        "beats_baseline": true,
+        "beats_arima": true,
+        "arima_mae_peso": 0.2904,
+        "hybrid": {
+          "mae_peso": 0.2765,
+          "skill_vs_baseline_pct": 1.83,
+          "beats_arima": true,
+          "directional_pct": [
+            61.3,
+            60.4,
+            57.6
+          ]
+        },
+        "ensemble": {
+          "method": "adaptive inverse-MSE combination (Bates & Granger 1969)",
+          "components": [
+            "hybrid",
+            "arima",
+            "kalman"
+          ],
+          "window_days": 30,
+          "warmup_origins": 45,
+          "mean_weights_test": {
+            "hybrid": [
+              0.323,
+              0.321,
+              0.32
+            ],
+            "arima": [
+              0.327,
+              0.32,
+              0.315
+            ],
+            "kalman": [
+              0.35,
+              0.359,
+              0.364
+            ]
+          }
+        },
+        "reversion": {
+          "phi": [
+            [
+              -0.2133
+            ],
+            [
+              -0.3053
+            ],
+            [
+              -0.2786
+            ]
+          ],
+          "n_lags": 1,
+          "t_stat": [
+            -5.241,
+            -6.89,
+            -6.195
+          ],
+          "n_fit": 191,
+          "applied": true,
+          "shrink": 0.6,
+          "min_abs_t": 2.0,
+          "fit_rows": [
+            3743,
+            3936
+          ],
+          "rolling_window": 120,
+          "scored_with": "rolling",
+          "weekday_mode": true
+        },
+        "accuracy_pct": 99.37,
+        "per_horizon_accuracy_pct": [
+          99.46,
+          99.37,
+          99.27
+        ],
+        "per_horizon_mae_peso": [
+          0.2349,
+          0.2735,
+          0.3178
+        ]
+      },
+      "impRegular": {
+        "mae_peso": 0.3352,
+        "baseline_mae_peso": 0.3479,
+        "hit_rate_pct": {
+          "0.25": [
+            72.8,
+            61.1,
+            55.8
+          ],
+          "0.50": [
+            83.6,
+            81.4,
+            79.2
+          ],
+          "1.00": [
+            93.1,
+            91.4,
+            91.4
+          ],
+          "1.50": [
+            96.4,
+            94.7,
+            94.7
+          ],
+          "2.00": [
+            99.2,
+            97.8,
+            96.9
+          ]
+        },
+        "skill_vs_baseline_pct": 3.63,
+        "directional_pct": [
+          47.8,
+          48.1,
+          49.4
+        ],
+        "movement": {
+          "pred_abs_change_peso": 0.1422,
+          "true_abs_change_peso": 0.3479,
+          "ratio": 0.4089
+        },
+        "beats_baseline": true,
+        "beats_arima": true,
+        "arima_mae_peso": 0.361,
+        "hybrid": {
+          "mae_peso": 0.3304,
+          "skill_vs_baseline_pct": 5.02,
+          "beats_arima": true,
+          "directional_pct": [
+            59.8,
+            46.4,
+            45.0
+          ]
+        },
+        "ensemble": {
+          "method": "adaptive inverse-MSE combination (Bates & Granger 1969)",
+          "components": [
+            "hybrid",
+            "arima",
+            "kalman"
+          ],
+          "window_days": 30,
+          "warmup_origins": 45,
+          "mean_weights_test": {
+            "hybrid": [
+              0.376,
+              0.346,
+              0.343
+            ],
+            "arima": [
+              0.313,
+              0.319,
+              0.319
+            ],
+            "kalman": [
+              0.311,
+              0.336,
+              0.339
+            ]
+          }
+        },
+        "reversion": {
+          "phi": [
+            [
+              -0.2649
+            ],
+            [
+              -0.3473
+            ],
+            [
+              -0.2629
+            ]
+          ],
+          "n_lags": 1,
+          "t_stat": [
+            -6.783,
+            -8.993,
+            -6.854
+          ],
+          "n_fit": 191,
+          "applied": true,
+          "shrink": 0.6,
+          "min_abs_t": 2.0,
+          "fit_rows": [
+            3743,
+            3936
+          ],
+          "rolling_window": 120,
+          "scored_with": "rolling",
+          "weekday_mode": true
+        },
+        "accuracy_pct": 99.14,
+        "per_horizon_accuracy_pct": [
+          99.3,
+          99.13,
+          99.01
+        ],
+        "per_horizon_mae_peso": [
+          0.2757,
+          0.342,
+          0.388
+        ]
+      },
+      "impPremium": {
+        "mae_peso": 0.2924,
+        "baseline_mae_peso": 0.3118,
+        "hit_rate_pct": {
+          "0.25": [
+            72.5,
+            62.8,
+            55.6
+          ],
+          "0.50": [
+            89.4,
+            85.3,
+            81.4
+          ],
+          "1.00": [
+            96.4,
+            95.0,
+            93.6
+          ],
+          "1.50": [
+            98.6,
+            98.1,
+            97.2
+          ],
+          "2.00": [
+            99.4,
+            98.9,
+            98.6
+          ]
+        },
+        "skill_vs_baseline_pct": 6.24,
+        "directional_pct": [
+          52.8,
+          52.7,
+          53.7
+        ],
+        "movement": {
+          "pred_abs_change_peso": 0.0982,
+          "true_abs_change_peso": 0.3118,
+          "ratio": 0.3148
+        },
+        "beats_baseline": true,
+        "beats_arima": true,
+        "arima_mae_peso": 0.3343,
+        "hybrid": {
+          "mae_peso": 0.2862,
+          "skill_vs_baseline_pct": 8.23,
+          "beats_arima": true,
+          "directional_pct": [
+            57.6,
+            54.7,
+            55.6
+          ]
+        },
+        "ensemble": {
+          "method": "adaptive inverse-MSE combination (Bates & Granger 1969)",
+          "components": [
+            "hybrid",
+            "arima",
+            "kalman"
+          ],
+          "window_days": 30,
+          "warmup_origins": 45,
+          "mean_weights_test": {
+            "hybrid": [
+              0.349,
+              0.347,
+              0.346
+            ],
+            "arima": [
+              0.29,
+              0.296,
+              0.292
+            ],
+            "kalman": [
+              0.36,
+              0.357,
+              0.362
+            ]
+          }
+        },
+        "reversion": {
+          "phi": [
+            [
+              -0.2477
+            ],
+            [
+              -0.3103
+            ],
+            [
+              -0.2638
+            ]
+          ],
+          "n_lags": 1,
+          "t_stat": [
+            -6.269,
+            -7.561,
+            -6.329
+          ],
+          "n_fit": 191,
+          "applied": true,
+          "shrink": 0.6,
+          "min_abs_t": 2.0,
+          "fit_rows": [
+            3743,
+            3936
+          ],
+          "rolling_window": 120,
+          "scored_with": "rolling",
+          "weekday_mode": true
+        },
+        "accuracy_pct": 99.39,
+        "per_horizon_accuracy_pct": [
+          99.52,
+          99.38,
+          99.27
+        ],
+        "per_horizon_mae_peso": [
+          0.2314,
+          0.2981,
+          0.3477
+        ]
+      },
+      "impSpecial": {
+        "mae_peso": 0.3208,
+        "baseline_mae_peso": 0.3809,
+        "hit_rate_pct": {
+          "0.25": [
+            64.2,
+            55.3,
+            52.8
+          ],
+          "0.50": [
+            81.7,
+            80.0,
+            77.8
+          ],
+          "1.00": [
+            95.0,
+            94.7,
+            94.2
+          ],
+          "1.50": [
+            97.8,
+            97.8,
+            97.5
+          ],
+          "2.00": [
+            98.6,
+            98.9,
+            98.9
+          ]
+        },
+        "skill_vs_baseline_pct": 15.78,
+        "directional_pct": [
+          68.5,
+          64.4,
+          67.4
+        ],
+        "movement": {
+          "pred_abs_change_peso": 0.1504,
+          "true_abs_change_peso": 0.3809,
+          "ratio": 0.3949
+        },
+        "beats_baseline": true,
+        "beats_arima": true,
+        "arima_mae_peso": 0.3389,
+        "hybrid": {
+          "mae_peso": 0.3466,
+          "skill_vs_baseline_pct": 9.0,
+          "beats_arima": false,
+          "directional_pct": [
+            65.3,
+            59.0,
+            61.1
+          ]
+        },
+        "ensemble": {
+          "method": "adaptive inverse-MSE combination (Bates & Granger 1969)",
+          "components": [
+            "hybrid",
+            "arima",
+            "kalman"
+          ],
+          "window_days": 30,
+          "warmup_origins": 45,
+          "mean_weights_test": {
+            "hybrid": [
+              0.323,
+              0.309,
+              0.299
+            ],
+            "arima": [
+              0.324,
+              0.333,
+              0.338
+            ],
+            "kalman": [
+              0.353,
+              0.358,
+              0.363
+            ]
+          }
+        },
+        "reversion": {
+          "phi": [
+            [
+              -0.274
+            ],
+            [
+              -0.3002
+            ],
+            [
+              -0.2803
+            ]
+          ],
+          "n_lags": 1,
+          "t_stat": [
+            -7.074,
+            -7.508,
+            -6.855
+          ],
+          "n_fit": 191,
+          "applied": true,
+          "shrink": 0.6,
+          "min_abs_t": 2.0,
+          "fit_rows": [
+            3743,
+            3936
+          ],
+          "rolling_window": 120,
+          "scored_with": "rolling",
+          "weekday_mode": true
+        },
+        "accuracy_pct": 99.41,
+        "per_horizon_accuracy_pct": [
+          99.46,
+          99.39,
+          99.36
+        ],
+        "per_horizon_mae_peso": [
+          0.2886,
+          0.3285,
+          0.3452
+        ]
+      }
+    }
+  },
+  "model_notes": {
+    "method": "Adaptive ensemble: per-type LSTM hybrid + ARIMA(1,1,1) + weekday Kalman filter, weighted by each one's accuracy over the last 30 days",
+    "primary_model": "ensemble",
+    "trained_types": [
+      "locWellMilled",
+      "locRegular",
+      "locPremium",
+      "locSpecial",
+      "impWellMilled",
+      "impRegular",
+      "impPremium",
+      "impSpecial"
+    ],
+    "lstm_count": 8,
+    "avg_accuracy_pct": 99.38,
+    "formula_mode": false
+  },
+  "history": {
+    "labels": [
+      "09/08/2026",
+      "09/09/2026",
+      "09/10/2026",
+      "09/11/2026",
+      "09/12/2026",
+      "09/13/2026",
+      "09/14/2026",
+      "09/15/2026",
+      "09/16/2026",
+      "09/17/2026",
+      "09/18/2026",
+      "09/19/2026",
+      "09/20/2026",
+      "09/21/2026",
+      "09/22/2026",
+      "09/23/2026",
+      "09/24/2026",
+      "09/25/2026",
+      "09/26/2026",
+      "09/27/2026",
+      "09/28/2026",
+      "09/29/2026",
+      "09/30/2026",
+      "10/01/2026",
+      "10/02/2026",
+      "10/03/2026",
+      "10/04/2026",
+      "10/05/2026",
+      "10/06/2026",
+      "10/07/2026"
+    ],
+    "values": [
+      49.27,
+      49.21,
+      48.68,
+      48.7,
+      47.97,
+      48.01,
+      48.69,
+      48.77,
+      48.86,
+      48.86,
+      48.84,
+      48.33,
+      48.4,
+      48.36,
+      48.72,
+      48.98,
+      49.0,
+      48.96,
+      48.66,
+      48.8,
+      49.35,
+      49.14,
+      49.5,
+      49.27,
+      49.37,
+      48.39,
+      48.38,
+      48.77,
+      48.69,
+      48.38
+    ]
+  },
+  "history_backtest": {
+    "locWellMilled": [
+      {
+        "date_iso": "2026-09-08",
+        "predicted": 49.03,
+        "actual": 49.27
+      },
+      {
+        "date_iso": "2026-09-09",
+        "predicted": 49.16,
+        "actual": 49.21
+      },
+      {
+        "date_iso": "2026-09-10",
+        "predicted": 49.16,
+        "actual": 48.68
+      },
+      {
+        "date_iso": "2026-09-11",
+        "predicted": 48.85,
+        "actual": 48.7
+      },
+      {
+        "date_iso": "2026-09-12",
+        "predicted": 48.76,
+        "actual": 47.97
+      },
+      {
+        "date_iso": "2026-09-13",
+        "predicted": 48.24,
+        "actual": 48.01
+      },
+      {
+        "date_iso": "2026-09-14",
+        "predicted": 48.22,
+        "actual": 48.69
+      },
+      {
+        "date_iso": "2026-09-15",
+        "predicted": 48.62,
+        "actual": 48.77
+      },
+      {
+        "date_iso": "2026-09-16",
+        "predicted": 48.71,
+        "actual": 48.86
+      },
+      {
+        "date_iso": "2026-09-17",
+        "predicted": 48.81,
+        "actual": 48.86
+      },
+      {
+        "date_iso": "2026-09-18",
+        "predicted": 48.83,
+        "actual": 48.84
+      },
+      {
+        "date_iso": "2026-09-19",
+        "predicted": 48.82,
+        "actual": 48.33
+      },
+      {
+        "date_iso": "2026-09-20",
+        "predicted": 48.5,
+        "actual": 48.4
+      },
+      {
+        "date_iso": "2026-09-21",
+        "predicted": 48.49,
+        "actual": 48.36
+      },
+      {
+        "date_iso": "2026-09-22",
+        "predicted": 48.41,
+        "actual": 48.72
+      },
+      {
+        "date_iso": "2026-09-23",
+        "predicted": 48.61,
+        "actual": 48.98
+      },
+      {
+        "date_iso": "2026-09-24",
+        "predicted": 48.87,
+        "actual": 49.0
+      },
+      {
+        "date_iso": "2026-09-25",
+        "predicted": 48.93,
+        "actual": 48.96
+      },
+      {
+        "date_iso": "2026-09-26",
+        "predicted": 48.93,
+        "actual": 48.66
+      },
+      {
+        "date_iso": "2026-09-27",
+        "predicted": 48.74,
+        "actual": 48.8
+      },
+      {
+        "date_iso": "2026-09-28",
+        "predicted": 48.78,
+        "actual": 49.35
+      },
+      {
+        "date_iso": "2026-09-29",
+        "predicted": 49.22,
+        "actual": 49.14
+      },
+      {
+        "date_iso": "2026-09-30",
+        "predicted": 49.14,
+        "actual": 49.5
+      },
+      {
+        "date_iso": "2026-10-01",
+        "predicted": 49.39,
+        "actual": 49.27
+      },
+      {
+        "date_iso": "2026-10-02",
+        "predicted": 49.28,
+        "actual": 49.37
+      },
+      {
+        "date_iso": "2026-10-03",
+        "predicted": 49.34,
+        "actual": 48.39
+      },
+      {
+        "date_iso": "2026-10-04",
+        "predicted": 48.71,
+        "actual": 48.38
+      },
+      {
+        "date_iso": "2026-10-05",
+        "predicted": 48.63,
+        "actual": 48.77
+      },
+      {
+        "date_iso": "2026-10-06",
+        "predicted": 48.78,
+        "actual": 48.69
+      },
+      {
+        "date_iso": "2026-10-07",
+        "predicted": 48.73,
+        "actual": 48.38
+      }
+    ],
+    "locRegular": [
+      {
+        "date_iso": "2026-09-08",
+        "predicted": 44.84,
+        "actual": 44.79
+      },
+      {
+        "date_iso": "2026-09-09",
+        "predicted": 44.8,
+        "actual": 44.75
+      },
+      {
+        "date_iso": "2026-09-10",
+        "predicted": 44.76,
+        "actual": 44.65
+      },
+      {
+        "date_iso": "2026-09-11",
+        "predicted": 44.69,
+        "actual": 44.65
+      },
+      {
+        "date_iso": "2026-09-12",
+        "predicted": 44.66,
+        "actual": 44.48
+      },
+      {
+        "date_iso": "2026-09-13",
+        "predicted": 44.55,
+        "actual": 44.59
+      },
+      {
+        "date_iso": "2026-09-14",
+        "predicted": 44.55,
+        "actual": 44.65
+      },
+      {
+        "date_iso": "2026-09-15",
+        "predicted": 44.63,
+        "actual": 44.57
+      },
+      {
+        "date_iso": "2026-09-16",
+        "predicted": 44.59,
+        "actual": 44.57
+      },
+      {
+        "date_iso": "2026-09-17",
+        "predicted": 44.57,
+        "actual": 44.57
+      },
+      {
+        "date_iso": "2026-09-18",
+        "predicted": 44.57,
+        "actual": 44.58
+      },
+      {
+        "date_iso": "2026-09-19",
+        "predicted": 44.58,
+        "actual": 44.76
+      },
+      {
+        "date_iso": "2026-09-20",
+        "predicted": 44.68,
+        "actual": 44.77
+      },
+      {
+        "date_iso": "2026-09-21",
+        "predicted": 44.72,
+        "actual": 44.76
+      },
+      {
+        "date_iso": "2026-09-22",
+        "predicted": 44.75,
+        "actual": 44.35
+      },
+      {
+        "date_iso": "2026-09-23",
+        "predicted": 44.48,
+        "actual": 44.52
+      },
+      {
+        "date_iso": "2026-09-24",
+        "predicted": 44.48,
+        "actual": 44.37
+      },
+      {
+        "date_iso": "2026-09-25",
+        "predicted": 44.43,
+        "actual": 44.86
+      },
+      {
+        "date_iso": "2026-09-26",
+        "predicted": 44.71,
+        "actual": 44.8
+      },
+      {
+        "date_iso": "2026-09-27",
+        "predicted": 44.79,
+        "actual": 44.75
+      },
+      {
+        "date_iso": "2026-09-28",
+        "predicted": 44.77,
+        "actual": 44.61
+      },
+      {
+        "date_iso": "2026-09-29",
+        "predicted": 44.65,
+        "actual": 44.44
+      },
+      {
+        "date_iso": "2026-09-30",
+        "predicted": 44.5,
+        "actual": 45.02
+      },
+      {
+        "date_iso": "2026-10-01",
+        "predicted": 44.85,
+        "actual": 45.0
+      },
+      {
+        "date_iso": "2026-10-02",
+        "predicted": 44.97,
+        "actual": 45.24
+      },
+      {
+        "date_iso": "2026-10-03",
+        "predicted": 45.15,
+        "actual": 45.43
+      },
+      {
+        "date_iso": "2026-10-04",
+        "predicted": 45.32,
+        "actual": 45.43
+      },
+      {
+        "date_iso": "2026-10-05",
+        "predicted": 45.37,
+        "actual": 44.69
+      },
+      {
+        "date_iso": "2026-10-06",
+        "predicted": 44.93,
+        "actual": 44.9
+      },
+      {
+        "date_iso": "2026-10-07",
+        "predicted": 44.87,
+        "actual": 45.17
+      }
+    ],
+    "locPremium": [
+      {
+        "date_iso": "2026-09-08",
+        "predicted": 54.36,
+        "actual": 54.64
+      },
+      {
+        "date_iso": "2026-09-09",
+        "predicted": 54.53,
+        "actual": 54.47
+      },
+      {
+        "date_iso": "2026-09-10",
+        "predicted": 54.49,
+        "actual": 54.04
+      },
+      {
+        "date_iso": "2026-09-11",
+        "predicted": 54.24,
+        "actual": 54.05
+      },
+      {
+        "date_iso": "2026-09-12",
+        "predicted": 54.15,
+        "actual": 53.47
+      },
+      {
+        "date_iso": "2026-09-13",
+        "predicted": 53.79,
+        "actual": 53.72
+      },
+      {
+        "date_iso": "2026-09-14",
+        "predicted": 53.81,
+        "actual": 54.04
+      },
+      {
+        "date_iso": "2026-09-15",
+        "predicted": 54.0,
+        "actual": 54.0
+      },
+      {
+        "date_iso": "2026-09-16",
+        "predicted": 54.01,
+        "actual": 54.05
+      },
+      {
+        "date_iso": "2026-09-17",
+        "predicted": 54.04,
+        "actual": 54.05
+      },
+      {
+        "date_iso": "2026-09-18",
+        "predicted": 54.05,
+        "actual": 54.14
+      },
+      {
+        "date_iso": "2026-09-19",
+        "predicted": 54.11,
+        "actual": 53.76
+      },
+      {
+        "date_iso": "2026-09-20",
+        "predicted": 53.91,
+        "actual": 53.7
+      },
+      {
+        "date_iso": "2026-09-21",
+        "predicted": 53.84,
+        "actual": 53.78
+      },
+      {
+        "date_iso": "2026-09-22",
+        "predicted": 53.82,
+        "actual": 54.32
+      },
+      {
+        "date_iso": "2026-09-23",
+        "predicted": 54.16,
+        "actual": 54.38
+      },
+      {
+        "date_iso": "2026-09-24",
+        "predicted": 54.3,
+        "actual": 54.44
+      },
+      {
+        "date_iso": "2026-09-25",
+        "predicted": 54.37,
+        "actual": 54.12
+      },
+      {
+        "date_iso": "2026-09-26",
+        "predicted": 54.2,
+        "actual": 53.7
+      },
+      {
+        "date_iso": "2026-09-27",
+        "predicted": 53.93,
+        "actual": 53.7
+      },
+      {
+        "date_iso": "2026-09-28",
+        "predicted": 53.86,
+        "actual": 54.37
+      },
+      {
+        "date_iso": "2026-09-29",
+        "predicted": 54.23,
+        "actual": 54.27
+      },
+      {
+        "date_iso": "2026-09-30",
+        "predicted": 54.25,
+        "actual": 54.79
+      },
+      {
+        "date_iso": "2026-10-01",
+        "predicted": 54.62,
+        "actual": 54.79
+      },
+      {
+        "date_iso": "2026-10-02",
+        "predicted": 54.7,
+        "actual": 54.62
+      },
+      {
+        "date_iso": "2026-10-03",
+        "predicted": 54.63,
+        "actual": 53.72
+      },
+      {
+        "date_iso": "2026-10-04",
+        "predicted": 54.1,
+        "actual": 53.76
+      },
+      {
+        "date_iso": "2026-10-05",
+        "predicted": 54.0,
+        "actual": 54.27
+      },
+      {
+        "date_iso": "2026-10-06",
+        "predicted": 54.24,
+        "actual": 54.28
+      },
+      {
+        "date_iso": "2026-10-07",
+        "predicted": 54.28,
+        "actual": 53.78
+      }
+    ],
+    "locSpecial": [
+      {
+        "date_iso": "2026-09-08",
+        "predicted": 60.34,
+        "actual": 60.51
+      },
+      {
+        "date_iso": "2026-09-09",
+        "predicted": 60.42,
+        "actual": 60.34
+      },
+      {
+        "date_iso": "2026-09-10",
+        "predicted": 60.34,
+        "actual": 60.13
+      },
+      {
+        "date_iso": "2026-09-11",
+        "predicted": 60.22,
+        "actual": 60.12
+      },
+      {
+        "date_iso": "2026-09-12",
+        "predicted": 60.17,
+        "actual": 59.52
+      },
+      {
+        "date_iso": "2026-09-13",
+        "predicted": 59.83,
+        "actual": 59.81
+      },
+      {
+        "date_iso": "2026-09-14",
+        "predicted": 59.88,
+        "actual": 60.07
+      },
+      {
+        "date_iso": "2026-09-15",
+        "predicted": 60.03,
+        "actual": 60.12
+      },
+      {
+        "date_iso": "2026-09-16",
+        "predicted": 60.09,
+        "actual": 60.08
+      },
+      {
+        "date_iso": "2026-09-17",
+        "predicted": 60.08,
+        "actual": 60.12
+      },
+      {
+        "date_iso": "2026-09-18",
+        "predicted": 60.1,
+        "actual": 60.22
+      },
+      {
+        "date_iso": "2026-09-19",
+        "predicted": 60.17,
+        "actual": 59.78
+      },
+      {
+        "date_iso": "2026-09-20",
+        "predicted": 59.95,
+        "actual": 59.72
+      },
+      {
+        "date_iso": "2026-09-21",
+        "predicted": 59.89,
+        "actual": 59.84
+      },
+      {
+        "date_iso": "2026-09-22",
+        "predicted": 59.88,
+        "actual": 60.29
+      },
+      {
+        "date_iso": "2026-09-23",
+        "predicted": 60.15,
+        "actual": 60.33
+      },
+      {
+        "date_iso": "2026-09-24",
+        "predicted": 60.27,
+        "actual": 60.16
+      },
+      {
+        "date_iso": "2026-09-25",
+        "predicted": 60.19,
+        "actual": 60.13
+      },
+      {
+        "date_iso": "2026-09-26",
+        "predicted": 60.16,
+        "actual": 59.89
+      },
+      {
+        "date_iso": "2026-09-27",
+        "predicted": 60.02,
+        "actual": 59.87
+      },
+      {
+        "date_iso": "2026-09-28",
+        "predicted": 59.99,
+        "actual": 60.31
+      },
+      {
+        "date_iso": "2026-09-29",
+        "predicted": 60.21,
+        "actual": 60.31
+      },
+      {
+        "date_iso": "2026-09-30",
+        "predicted": 60.26,
+        "actual": 60.71
+      },
+      {
+        "date_iso": "2026-10-01",
+        "predicted": 60.57,
+        "actual": 60.66
+      },
+      {
+        "date_iso": "2026-10-02",
+        "predicted": 60.6,
+        "actual": 60.48
+      },
+      {
+        "date_iso": "2026-10-03",
+        "predicted": 60.51,
+        "actual": 59.92
+      },
+      {
+        "date_iso": "2026-10-04",
+        "predicted": 60.19,
+        "actual": 59.89
+      },
+      {
+        "date_iso": "2026-10-05",
+        "predicted": 60.12,
+        "actual": 60.51
+      },
+      {
+        "date_iso": "2026-10-06",
+        "predicted": 60.42,
+        "actual": 60.35
+      },
+      {
+        "date_iso": "2026-10-07",
+        "predicted": 60.36,
+        "actual": 60.05
+      }
+    ],
+    "impWellMilled": [
+      {
+        "date_iso": "2026-09-08",
+        "predicted": 47.92,
+        "actual": 47.97
+      },
+      {
+        "date_iso": "2026-09-09",
+        "predicted": 47.96,
+        "actual": 48.01
+      },
+      {
+        "date_iso": "2026-09-10",
+        "predicted": 48.0,
+        "actual": 48.0
+      },
+      {
+        "date_iso": "2026-09-11",
+        "predicted": 48.0,
+        "actual": 48.0
+      },
+      {
+        "date_iso": "2026-09-12",
+        "predicted": 48.0,
+        "actual": 48.02
+      },
+      {
+        "date_iso": "2026-09-13",
+        "predicted": 48.01,
+        "actual": 48.02
+      },
+      {
+        "date_iso": "2026-09-14",
+        "predicted": 48.01,
+        "actual": 47.96
+      },
+      {
+        "date_iso": "2026-09-15",
+        "predicted": 47.97,
+        "actual": 48.04
+      },
+      {
+        "date_iso": "2026-09-16",
+        "predicted": 48.02,
+        "actual": 48.04
+      },
+      {
+        "date_iso": "2026-09-17",
+        "predicted": 48.04,
+        "actual": 48.04
+      },
+      {
+        "date_iso": "2026-09-18",
+        "predicted": 48.04,
+        "actual": 48.23
+      },
+      {
+        "date_iso": "2026-09-19",
+        "predicted": 48.19,
+        "actual": 48.03
+      },
+      {
+        "date_iso": "2026-09-20",
+        "predicted": 48.08,
+        "actual": 47.76
+      },
+      {
+        "date_iso": "2026-09-21",
+        "predicted": 47.93,
+        "actual": 48.11
+      },
+      {
+        "date_iso": "2026-09-22",
+        "predicted": 48.09,
+        "actual": 48.29
+      },
+      {
+        "date_iso": "2026-09-23",
+        "predicted": 48.24,
+        "actual": 48.26
+      },
+      {
+        "date_iso": "2026-09-24",
+        "predicted": 48.25,
+        "actual": 48.09
+      },
+      {
+        "date_iso": "2026-09-25",
+        "predicted": 48.11,
+        "actual": 48.13
+      },
+      {
+        "date_iso": "2026-09-26",
+        "predicted": 48.12,
+        "actual": 48.31
+      },
+      {
+        "date_iso": "2026-09-27",
+        "predicted": 48.25,
+        "actual": 48.31
+      },
+      {
+        "date_iso": "2026-09-28",
+        "predicted": 48.27,
+        "actual": 48.51
+      },
+      {
+        "date_iso": "2026-09-29",
+        "predicted": 48.46,
+        "actual": 48.42
+      },
+      {
+        "date_iso": "2026-09-30",
+        "predicted": 48.41,
+        "actual": 48.71
+      },
+      {
+        "date_iso": "2026-10-01",
+        "predicted": 48.66,
+        "actual": 48.43
+      },
+      {
+        "date_iso": "2026-10-02",
+        "predicted": 48.44,
+        "actual": 48.55
+      },
+      {
+        "date_iso": "2026-10-03",
+        "predicted": 48.51,
+        "actual": 48.29
+      },
+      {
+        "date_iso": "2026-10-04",
+        "predicted": 48.36,
+        "actual": 48.4
+      },
+      {
+        "date_iso": "2026-10-05",
+        "predicted": 48.38,
+        "actual": 48.43
+      },
+      {
+        "date_iso": "2026-10-06",
+        "predicted": 48.43,
+        "actual": 48.35
+      },
+      {
+        "date_iso": "2026-10-07",
+        "predicted": 48.37,
+        "actual": 48.33
+      }
+    ],
+    "impRegular": [
+      {
+        "date_iso": "2026-09-08",
+        "predicted": 45.25,
+        "actual": 45.25
+      },
+      {
+        "date_iso": "2026-09-09",
+        "predicted": 45.25,
+        "actual": 45.25
+      },
+      {
+        "date_iso": "2026-09-10",
+        "predicted": 45.25,
+        "actual": 45.25
+      },
+      {
+        "date_iso": "2026-09-11",
+        "predicted": 45.25,
+        "actual": 45.25
+      },
+      {
+        "date_iso": "2026-09-12",
+        "predicted": 45.25,
+        "actual": 45.25
+      },
+      {
+        "date_iso": "2026-09-13",
+        "predicted": 45.25,
+        "actual": 45.25
+      },
+      {
+        "date_iso": "2026-09-14",
+        "predicted": 45.25,
+        "actual": 45.25
+      },
+      {
+        "date_iso": "2026-09-15",
+        "predicted": 45.25,
+        "actual": 45.25
+      },
+      {
+        "date_iso": "2026-09-16",
+        "predicted": 45.25,
+        "actual": 45.25
+      },
+      {
+        "date_iso": "2026-09-17",
+        "predicted": 45.25,
+        "actual": 45.25
+      },
+      {
+        "date_iso": "2026-09-18",
+        "predicted": 45.25,
+        "actual": 45.0
+      },
+      {
+        "date_iso": "2026-09-19",
+        "predicted": 45.08,
+        "actual": 45.0
+      },
+      {
+        "date_iso": "2026-09-20",
+        "predicted": 45.04,
+        "actual": 45.0
+      },
+      {
+        "date_iso": "2026-09-21",
+        "predicted": 45.03,
+        "actual": 45.0
+      },
+      {
+        "date_iso": "2026-09-22",
+        "predicted": 45.01,
+        "actual": 45.0
+      },
+      {
+        "date_iso": "2026-09-23",
+        "predicted": 45.0,
+        "actual": 45.0
+      },
+      {
+        "date_iso": "2026-09-24",
+        "predicted": 45.0,
+        "actual": 45.0
+      },
+      {
+        "date_iso": "2026-09-25",
+        "predicted": 45.0,
+        "actual": 45.0
+      },
+      {
+        "date_iso": "2026-09-26",
+        "predicted": 45.0,
+        "actual": 45.0
+      },
+      {
+        "date_iso": "2026-09-27",
+        "predicted": 45.0,
+        "actual": 45.0
+      },
+      {
+        "date_iso": "2026-09-28",
+        "predicted": 45.0,
+        "actual": 45.0
+      },
+      {
+        "date_iso": "2026-09-29",
+        "predicted": 45.0,
+        "actual": 45.0
+      },
+      {
+        "date_iso": "2026-09-30",
+        "predicted": 45.0,
+        "actual": 45.0
+      },
+      {
+        "date_iso": "2026-10-01",
+        "predicted": 45.0,
+        "actual": 45.0
+      },
+      {
+        "date_iso": "2026-10-02",
+        "predicted": 45.0,
+        "actual": 45.86
+      },
+      {
+        "date_iso": "2026-10-03",
+        "predicted": 45.59,
+        "actual": 44.25
+      },
+      {
+        "date_iso": "2026-10-04",
+        "predicted": 44.73,
+        "actual": 44.25
+      },
+      {
+        "date_iso": "2026-10-05",
+        "predicted": 44.56,
+        "actual": 43.0
+      },
+      {
+        "date_iso": "2026-10-06",
+        "predicted": 43.34,
+        "actual": 43.4
+      },
+      {
+        "date_iso": "2026-10-07",
+        "predicted": 43.43,
+        "actual": 44.33
+      }
+    ],
+    "impPremium": [
+      {
+        "date_iso": "2026-09-08",
+        "predicted": 53.54,
+        "actual": 53.77
+      },
+      {
+        "date_iso": "2026-09-09",
+        "predicted": 53.73,
+        "actual": 53.67
+      },
+      {
+        "date_iso": "2026-09-10",
+        "predicted": 53.67,
+        "actual": 53.37
+      },
+      {
+        "date_iso": "2026-09-11",
+        "predicted": 53.42,
+        "actual": 53.37
+      },
+      {
+        "date_iso": "2026-09-12",
+        "predicted": 53.39,
+        "actual": 53.58
+      },
+      {
+        "date_iso": "2026-09-13",
+        "predicted": 53.55,
+        "actual": 53.68
+      },
+      {
+        "date_iso": "2026-09-14",
+        "predicted": 53.6,
+        "actual": 53.42
+      },
+      {
+        "date_iso": "2026-09-15",
+        "predicted": 53.45,
+        "actual": 53.47
+      },
+      {
+        "date_iso": "2026-09-16",
+        "predicted": 53.48,
+        "actual": 53.51
+      },
+      {
+        "date_iso": "2026-09-17",
+        "predicted": 53.51,
+        "actual": 53.46
+      },
+      {
+        "date_iso": "2026-09-18",
+        "predicted": 53.48,
+        "actual": 53.73
+      },
+      {
+        "date_iso": "2026-09-19",
+        "predicted": 53.68,
+        "actual": 54.05
+      },
+      {
+        "date_iso": "2026-09-20",
+        "predicted": 53.95,
+        "actual": 54.07
+      },
+      {
+        "date_iso": "2026-09-21",
+        "predicted": 54.01,
+        "actual": 54.37
+      },
+      {
+        "date_iso": "2026-09-22",
+        "predicted": 54.28,
+        "actual": 54.33
+      },
+      {
+        "date_iso": "2026-09-23",
+        "predicted": 54.31,
+        "actual": 54.46
+      },
+      {
+        "date_iso": "2026-09-24",
+        "predicted": 54.43,
+        "actual": 54.54
+      },
+      {
+        "date_iso": "2026-09-25",
+        "predicted": 54.51,
+        "actual": 54.62
+      },
+      {
+        "date_iso": "2026-09-26",
+        "predicted": 54.6,
+        "actual": 54.86
+      },
+      {
+        "date_iso": "2026-09-27",
+        "predicted": 54.78,
+        "actual": 54.9
+      },
+      {
+        "date_iso": "2026-09-28",
+        "predicted": 54.84,
+        "actual": 54.95
+      },
+      {
+        "date_iso": "2026-09-29",
+        "predicted": 54.92,
+        "actual": 54.76
+      },
+      {
+        "date_iso": "2026-09-30",
+        "predicted": 54.79,
+        "actual": 55.29
+      },
+      {
+        "date_iso": "2026-10-01",
+        "predicted": 55.21,
+        "actual": 54.91
+      },
+      {
+        "date_iso": "2026-10-02",
+        "predicted": 54.97,
+        "actual": 55.17
+      },
+      {
+        "date_iso": "2026-10-03",
+        "predicted": 55.14,
+        "actual": 55.02
+      },
+      {
+        "date_iso": "2026-10-04",
+        "predicted": 55.05,
+        "actual": 55.36
+      },
+      {
+        "date_iso": "2026-10-05",
+        "predicted": 55.18,
+        "actual": 55.24
+      },
+      {
+        "date_iso": "2026-10-06",
+        "predicted": 55.23,
+        "actual": 55.17
+      },
+      {
+        "date_iso": "2026-10-07",
+        "predicted": 55.18,
+        "actual": 55.39
+      }
+    ],
+    "impSpecial": [
+      {
+        "date_iso": "2026-09-08",
+        "predicted": 59.24,
+        "actual": 58.94
+      },
+      {
+        "date_iso": "2026-09-09",
+        "predicted": 59.1,
+        "actual": 59.61
+      },
+      {
+        "date_iso": "2026-09-10",
+        "predicted": 59.48,
+        "actual": 59.61
+      },
+      {
+        "date_iso": "2026-09-11",
+        "predicted": 59.56,
+        "actual": 59.61
+      },
+      {
+        "date_iso": "2026-09-12",
+        "predicted": 59.58,
+        "actual": 60.13
+      },
+      {
+        "date_iso": "2026-09-13",
+        "predicted": 59.88,
+        "actual": 59.59
+      },
+      {
+        "date_iso": "2026-09-14",
+        "predicted": 59.71,
+        "actual": 59.61
+      },
+      {
+        "date_iso": "2026-09-15",
+        "predicted": 59.64,
+        "actual": 59.88
+      },
+      {
+        "date_iso": "2026-09-16",
+        "predicted": 59.8,
+        "actual": 59.88
+      },
+      {
+        "date_iso": "2026-09-17",
+        "predicted": 59.84,
+        "actual": 59.88
+      },
+      {
+        "date_iso": "2026-09-18",
+        "predicted": 59.86,
+        "actual": 60.0
+      },
+      {
+        "date_iso": "2026-09-19",
+        "predicted": 59.94,
+        "actual": 60.0
+      },
+      {
+        "date_iso": "2026-09-20",
+        "predicted": 59.97,
+        "actual": 60.24
+      },
+      {
+        "date_iso": "2026-09-21",
+        "predicted": 60.08,
+        "actual": 60.22
+      },
+      {
+        "date_iso": "2026-09-22",
+        "predicted": 60.14,
+        "actual": 60.22
+      },
+      {
+        "date_iso": "2026-09-23",
+        "predicted": 60.17,
+        "actual": 60.24
+      },
+      {
+        "date_iso": "2026-09-24",
+        "predicted": 60.21,
+        "actual": 60.22
+      },
+      {
+        "date_iso": "2026-09-25",
+        "predicted": 60.21,
+        "actual": 60.22
+      },
+      {
+        "date_iso": "2026-09-26",
+        "predicted": 60.22,
+        "actual": 60.2
+      },
+      {
+        "date_iso": "2026-09-27",
+        "predicted": 60.21,
+        "actual": 60.21
+      },
+      {
+        "date_iso": "2026-09-28",
+        "predicted": 60.21,
+        "actual": 60.05
+      },
+      {
+        "date_iso": "2026-09-29",
+        "predicted": 60.12,
+        "actual": 60.16
+      },
+      {
+        "date_iso": "2026-09-30",
+        "predicted": 60.16,
+        "actual": 60.28
+      },
+      {
+        "date_iso": "2026-10-01",
+        "predicted": 60.24,
+        "actual": 60.25
+      },
+      {
+        "date_iso": "2026-10-02",
+        "predicted": 60.25,
+        "actual": 60.41
+      },
+      {
+        "date_iso": "2026-10-03",
+        "predicted": 60.34,
+        "actual": 60.41
+      },
+      {
+        "date_iso": "2026-10-04",
+        "predicted": 60.38,
+        "actual": 60.41
+      },
+      {
+        "date_iso": "2026-10-05",
+        "predicted": 60.38,
+        "actual": 60.61
+      },
+      {
+        "date_iso": "2026-10-06",
+        "predicted": 60.51,
+        "actual": 60.88
+      },
+      {
+        "date_iso": "2026-10-07",
+        "predicted": 60.72,
+        "actual": 60.88
+      }
+    ]
+  },
+  "data_readiness": {
+    "ready_through": "2026-10-07",
+    "newest_day": "2026-10-08",
+    "held": [
+      {
+        "date": "2026-10-08",
+        "missing": [
+          "DA rice bulletin (verified, not an estimate) — only a temporary estimate — DA has not published this day"
+        ]
+      }
+    ]
+  }
+}

@@ -305,10 +305,10 @@ AgriPricePH.HistoricalData = (function () {
 
         let csvContent = [
             "Date/Period","Day","Month","Year",
-            "Local Special (₱/kg)","Local Premium (₱/kg)",
-            "Local Well Milled (₱/kg)","Local Regular (₱/kg)",
-            "Imported Special (₱/kg)","Imported Premium (₱/kg)",
-            "Imported Well Milled (₱/kg)","Imported Regular (₱/kg)",
+            "Local Special retail (₱/kg)","Local Premium retail (₱/kg)",
+            "Local Well Milled retail (₱/kg)","Local Regular retail (₱/kg)",
+            "Imported Special retail (₱/kg)","Imported Premium retail (₱/kg)",
+            "Imported Well Milled retail (₱/kg)","Imported Regular retail (₱/kg)",
             "Diesel Fuel (₱/L)","USD/PHP"
         ].join(',') + '\n';
 
@@ -488,7 +488,7 @@ AgriPricePH.HistoricalData = (function () {
       }
     } else if (category === 'all') {
       colspan = 5;
-      headHtml = `<tr><th>Date / Period</th><th>Rice Type</th><th>Local (₱/kg)</th><th>Imported (₱/kg)</th><th>Change (Local)</th></tr>`;
+      headHtml = `<tr><th>Date / Period</th><th>Rice Type</th><th>Local retail (₱/kg)</th><th>Imported retail (₱/kg)</th><th>Change (Local)</th></tr>`;
       grouped = groupSeriesByFrequency(labels, [
         { key: 'loc', arr: pickTypeArray('local', type) },
         { key: 'imp', arr: pickTypeArray('imported', type) },
@@ -499,7 +499,7 @@ AgriPricePH.HistoricalData = (function () {
       }
     } else { // local / imported
       colspan = 4;
-      headHtml = '<tr><th>Date / Period</th><th>Rice Type</th><th>Avg Price (₱/kg)</th><th>Change</th></tr>';
+      headHtml = '<tr><th>Date / Period</th><th>Rice Type</th><th>Avg Retail Price (₱/kg)</th><th>Change</th></tr>';
       const typeName = `${category === 'local' ? 'Local' : 'Imported'} ${RICE_TYPE_LABELS[type] || type}`;
       grouped = groupSeriesByFrequency(labels, [{ key: 'v', arr: pickTypeArray(category, type) }], frequency);
       for (let i = grouped.length - 1; i >= 0; i--) {
