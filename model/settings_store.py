@@ -40,7 +40,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     },
     "notifications": {
         "email_alerts": False,
-        "alert_email": "admin@agripriceph.gov.ph",
+        "alert_email": "agripriceph@gmail.com",
         "browser_notifications": True,
         "alert_check_on_startup": True,
     },

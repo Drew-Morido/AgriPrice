@@ -460,6 +460,14 @@ def load_merged_frame() -> pd.DataFrame:
         stock_last=df_stock["Date"].max() if not df_stock.empty else None,
         farmgate_last=df_farmgate["Date"].max() if not df_farmgate.empty else None,
     )
+    # The day each rice type's price was actually taken (its newest official DA value up to the last ready day):
+    # the frame forward-fills, so a type missing from the latest bulletin would otherwise look current.
+    through = pd.Timestamp(readiness["ready_through"]) if readiness.get("ready_through") else newest
+    readiness["price_dates"] = {}
+    for col in rice_cols:
+        seen = df_rice.loc[(df_rice[col] > 0) & (df_rice["Date"] <= through), "Date"] if through is not None else []
+        if len(seen):
+            readiness["price_dates"][col] = pd.Timestamp(seen.max()).strftime("%Y-%m-%d")
     LAST_READINESS.clear()
     LAST_READINESS.update(readiness)
 

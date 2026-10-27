@@ -581,3 +581,16 @@ html.theme-dark .ds-matrix thead th { background: rgba(0,0,0,0.15); }
 @keyframes ds-spin {
   to { transform: rotate(360deg); }
 }
+/* DA covered markets (B5) */
+.ds-markets {
+  margin: 14px 0 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 10px);
+  padding: 10px 14px;
+  background: var(--bg-card);
+}
+.ds-markets summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+.ds-markets summary i { color: var(--accent-green, #4CAF6E); }
+.ds-markets-note { margin: 10px 0 6px; font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+.ds-markets ol { margin: 6px 0 2px; padding-left: 22px; columns: 3 180px; column-gap: 24px; font-size: 12.5px; line-height: 1.8; color: var(--text-secondary); }
+.ds-markets li { break-inside: avoid; }

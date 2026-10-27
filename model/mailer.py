@@ -238,3 +238,80 @@ def send_reset_code_email(to_email: str, name: str, code: str) -> tuple[bool, st
         return True, ""
     except Exception as exc:  # noqa: BLE001 — surfaced to the caller, not swallowed
         return False, str(exc)
+
+
+# ── Price-alert email (model/alerts_engine.py via api/app.py::_run_alert_check) ──────────────────────────
+
+_ALERT_COLORS = {"danger": "#C0392B", "warning": "#D68910", "info": "#2471A3", "success": "#1E8449"}
+
+
+def _alert_rows_html(entries: list[dict]) -> str:
+    rows = []
+    for e in entries:
+        color = _ALERT_COLORS.get(e.get("type"), _ACCENT)
+        rows.append(
+            f'<tr><td style="padding:12px 0;border-bottom:1px solid {_LINE};">'
+            f'<div style="font-family:{_SANS};font-size:14px;font-weight:bold;color:{color};">'
+            f'{html.escape(str(e.get("title") or "Price alert"))}</div>'
+            f'<div style="font-family:{_SANS};font-size:14px;line-height:21px;color:{_INK};margin-top:4px;">'
+            f'{html.escape(str(e.get("desc") or ""))}</div></td></tr>')
+    return "".join(rows)
+
+
+def send_alert_email(to_emails: list[str], entries: list[dict], data_date: str | None,
+                     site_url: str = "http://127.0.0.1:5000/admin/") -> tuple[bool, str]:
+    """One email listing the alerts a check just raised. Returns (ok, error_message)."""
+    app_password = os.environ.get(GMAIL_APP_PASSWORD_ENV)
+    if not app_password:
+        return False, f"{GMAIL_APP_PASSWORD_ENV} is not set on the server."
+    to_emails = [t.strip() for t in to_emails if t and "@" in t]
+    if not to_emails or not entries:
+        return False, "No recipient or nothing to send."
+
+    n = len(entries)
+    day = f" (DA bulletin of {data_date})" if data_date else ""
+    msg = MIMEMultipart("related")
+    msg["Subject"] = f"AgriPricePH: {n} new price alert{'s' if n != 1 else ''}{day}"
+    msg["From"] = f"AgriPricePH <{GMAIL_SENDER}>"
+    msg["To"] = ", ".join(to_emails)
+
+    text = [f"AgriPricePH found {n} new price alert{'s' if n != 1 else ''}{day}.", ""]
+    text += [f"- {e.get('title')}: {e.get('desc')}" for e in entries]
+    text += ["", f"Review or change the alert rules in Admin -> Price Alerts: {site_url}",
+             "You get this email because email alerts are on in Admin -> Settings -> Notifications."]
+
+    body = f"""<!doctype html><html><body style="margin:0;padding:0;background:{_PAPER};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:{_PAPER};"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border:1px solid {_LINE};border-radius:12px;">
+<tr><td style="background:{_HEADER_BG};padding:18px 24px;border-radius:12px 12px 0 0;">
+<img src="cid:{LOGO_CID}" width="28" height="28" alt="" style="vertical-align:middle;">
+<span style="font-family:{_SERIF};font-size:20px;color:#ffffff;vertical-align:middle;margin-left:8px;">AgriPricePH</span></td></tr>
+<tr><td style="padding:22px 24px 8px;">
+<div style="font-family:{_SERIF};font-size:22px;color:{_INK};">{n} new price alert{'s' if n != 1 else ''}</div>
+<div style="font-family:{_SANS};font-size:13px;color:{_INK_SOFT};margin-top:4px;">Checked automatically after the latest data update{html.escape(day)}.</div>
+</td></tr>
+<tr><td style="padding:0 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">{_alert_rows_html(entries)}</table></td></tr>
+<tr><td style="padding:18px 24px 24px;font-family:{_SANS};font-size:12px;line-height:18px;color:{_MUTED};">
+Review or change the rules in Admin &rarr; Price Alerts. You get this email because email alerts are on in Admin &rarr; Settings &rarr; Notifications.
+</td></tr></table></td></tr></table></body></html>"""
+
+    alt = MIMEMultipart("alternative")
+    msg.attach(alt)
+    alt.attach(MIMEText("\n".join(text), "plain", "utf-8"))
+    alt.attach(MIMEText(body, "html", "utf-8"))
+    try:
+        with open(LOGO_PATH, "rb") as f:
+            logo = MIMEImage(f.read())
+        logo.add_header("Content-ID", f"<{LOGO_CID}>")
+        logo.add_header("Content-Disposition", "inline", filename="agripriceph-logo.png")
+        msg.attach(logo)
+    except OSError:
+        pass   # the email still makes sense without the logo
+    try:
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, context=context, timeout=10) as server:
+            server.login(GMAIL_SENDER, app_password)
+            server.sendmail(GMAIL_SENDER, to_emails, msg.as_string())
+        return True, ""
+    except Exception as exc:  # noqa: BLE001 — reported in the system log, never fatal
+        return False, str(exc)

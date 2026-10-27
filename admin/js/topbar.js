@@ -58,6 +58,8 @@ AgriPricePH.Topbar = (function () {
       keywords: ['training', 'train', 'train model', 'lstm training', 'epoch'] },
     { id: 'model-dashboard', group: 'Modules', label: 'Model Dashboard', route: 'model-dashboard',
       keywords: ['lstm', 'lstm model', 'neural network', 'model architecture', 'metrics', 'mae', 'rmse', 'accuracy', 'performance', 'model dashboard'] },
+    { id: 'forecast-compare', group: 'Modules', label: 'Forecast vs Actual', route: 'forecast-compare',
+      keywords: ['forecast vs actual', 'actual', 'comparison', 'compare', 'with factors', 'without factors', 'backtest', 'replay', 'play'] },
     { id: 'corr', group: 'Modules', label: 'Market Drivers', route: 'correlation',
       keywords: ['market drivers', 'correlation analysis', 'correlation', 'drivers', 'diesel', 'usd/php', 'drift'] },
     { id: 'sources', group: 'Modules', label: 'Data Sources', route: 'data-sources',
@@ -370,7 +372,11 @@ AgriPricePH.Topbar = (function () {
       AgriPricePH.Data.notifLog = _alertsCache.map(n => ({
         type: n.type, title: n.title, desc: n.desc, time: n.time,
       }));
-      updateBadge(summary?.triggered_today ?? _alertsCache.length);
+      // Opening the panel reads the notifications.
+      if (summary?.unread > 0) {
+        AgriPricePH.API.alertsMarkRead?.().catch(() => {});
+      }
+      updateBadge(0);
     } catch {
       _alertsCache = AgriPricePH.Data.notifLog || [];
     }
@@ -387,22 +393,55 @@ AgriPricePH.Topbar = (function () {
       });
     } else {
       body.innerHTML = _alertsCache.map(n => renderAlertRow(n)).join('');
+      body.onclick = (e) => {
+        const open = e.target.closest('[data-open-alert]');
+        if (open) {
+          e.stopPropagation();
+          closeAlertsPanel();
+          AgriPricePH.Navigation.setContext('alerts', { logId: open.dataset.openAlert });
+          AgriPricePH.Router.navigate('alerts');
+          return;
+        }
+        const row = e.target.closest('.topbar-alert-row');
+        if (row) {
+          e.stopPropagation();
+          const was = row.classList.contains('is-open');
+          body.querySelectorAll('.topbar-alert-row.is-open').forEach(r => r.classList.remove('is-open'));
+          row.classList.toggle('is-open', !was);
+          row.setAttribute('aria-expanded', String(!was));
+        }
+      };
     }
 
     if (footer) {
-      footer.textContent = 'Latest triggered price alerts from the notification log.';
+      footer.textContent = 'Checked automatically after every data update and forecast refresh.';
     }
   }
 
+  // One notification. A click opens its summary in place (rice type, rule, condition, price, DA day);
+  // "Open in Price Alerts" goes to the page with the same details open.
   function renderAlertRow(n) {
-    const c = COLORS[n.type] || COLORS.info;
     const dot = n.type === 'danger' ? 'red' : n.type === 'warning' ? 'orange' : 'blue';
+    const price = n.price != null && !isNaN(n.price) ? `₱${Number(n.price).toFixed(2)}` : '—';
+    const day = n.data_date ? new Date(String(n.data_date).slice(0, 10) + 'T12:00:00')
+      .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+    const when = n.created_at ? new Date(n.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+    const item = (k, v) => `<div><span>${k}</span><b>${escapeHtml(v)}</b></div>`;
     return `
-      <div class="topbar-alert-row">
+      <div class="topbar-alert-row${n.read === false ? ' is-unread' : ''}" role="button" tabindex="0" aria-expanded="false">
         <span class="alert-dot ${dot}"></span>
         <div class="topbar-alert-text">
           <div class="topbar-alert-title">${escapeHtml(n.title || 'Alert')}</div>
           <div class="topbar-alert-desc">${escapeHtml(n.desc || '')}</div>
+          <div class="topbar-alert-detail">
+            ${item('Rice type', n.rice || '—')}
+            ${item('Rule', n.rule_name || '—')}
+            ${item('Condition', `${n.condition_label || n.condition || '—'} ${n.threshold_text || ''}`)}
+            ${item('Price then', price)}
+            ${item('DA bulletin', day)}
+            ${item('Triggered', when)}
+            ${n.id ? `<button type="button" class="btn btn-outline btn-sm" data-open-alert="${escapeHtml(n.id)}">Open in Price Alerts</button>` : ''}
+          </div>
         </div>
         <span class="topbar-alert-time">${escapeHtml(n.time || '—')}</span>
       </div>`;
@@ -411,19 +450,21 @@ AgriPricePH.Topbar = (function () {
   async function refreshAlertBadge() {
     try {
       const summary = await AgriPricePH.API.alertsSummary();
-      updateBadge(summary?.triggered_today ?? 0, summary?.recent?.length);
+      updateBadge(summary?.unread ?? 0);
     } catch {
-      const n = (AgriPricePH.Data.notifLog || []).length;
-      updateBadge(0, n);
+      updateBadge(0);
     }
   }
 
-  function updateBadge(triggeredToday, recentCount) {
+  /** The bell shows how many alerts nobody has opened yet (new ones arrive from the automatic checks). */
+  function updateBadge(unread) {
     const dot = document.getElementById('topbar-notif-dot');
     if (!dot) return;
-    const show = (triggeredToday > 0) || (recentCount > 0);
-    dot.hidden = !show;
-    dot.title = triggeredToday > 0 ? `${triggeredToday} alert(s) today` : 'Recent alerts';
+    const n = Number(unread) || 0;
+    dot.hidden = n <= 0;
+    dot.classList.toggle('has-count', n > 0);
+    dot.textContent = n > 0 ? (n > 99 ? '99+' : String(n)) : '';
+    dot.title = n > 0 ? `${n} new price alert${n === 1 ? '' : 's'}` : '';
   }
 
   function escapeHtml(s) {

@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="css/public.css?v=20261001" />
   <link rel="stylesheet" href="css/landpage-nav.css" />
   <link rel="stylesheet" href="css/public-alert.css?v=20261001c" />
+  <link rel="stylesheet" href="css/site-footer.css?v=20261028" />
   <style>
     /* AgriPricePH — Rice Catalog (public, NCR rice catalog). Card-based catalog so brand detail already
        tracked in the admin Rice Brands module (verification, image, source, survey provenance) has
@@ -476,9 +477,9 @@
     .rc-modal-asof { font-size: 11.5px; font-weight: 600; color: var(--lp-text-secondary, #3a5045); margin-top: 4px; }
     .rc-modal-price-note { font-size: 12px; line-height: 1.55; color: var(--lp-text-secondary, #3a5045); margin-top: 6px; }
     .rc-modal-price-note.is-stale { color: #8a5a00; }
-    .rc-modal-outlook { display: flex; gap: 9px; align-items: flex-start; margin-top: 14px; padding: 10px 12px; border: 1px solid var(--lp-border, rgba(53,115,80,.14)); border-radius: 10px; font-size: 12px; line-height: 1.55; color: var(--lp-text-secondary, #3a5045); }
+    .rc-modal-outlook { display: flex; flex-direction: column; gap: 7px; align-items: flex-start; margin-top: 14px; padding: 10px 12px; border: 1px solid var(--lp-border, rgba(53,115,80,.14)); border-radius: 10px; font-size: 12px; line-height: 1.55; color: var(--lp-text-secondary, #3a5045); }
     .rc-modal-outlook[hidden] { display: none; }
-    .rc-trend { flex-shrink: 0; font-size: 11px; font-weight: 700; border-radius: 99px; padding: 2px 8px; white-space: nowrap; }
+    .rc-trend { align-self: flex-start; flex-shrink: 0; font-size: 11px; font-weight: 700; border-radius: 99px; padding: 2px 8px; white-space: nowrap; }
     .rc-trend--up { background: #fdecea; color: #a12a1f; }
     .rc-trend--down { background: var(--lp-green-50, #edf8f3); color: var(--lp-green-700, #2a5c3f); }
     .rc-trend--flat { background: #eef1ef; color: #4a5a50; }
@@ -538,6 +539,7 @@
         the source. <strong>Each brand's price is an expected range</strong> for that product, based
         on its category's price and how that brand usually sells against it.
       </p>
+      <div data-da-stamp style="color: rgba(255,255,255,0.9);"></div>
     </header>
 
     <div class="rc-toolbar">
@@ -611,15 +613,15 @@
 </main>
 
 <script src="../js/data.js"></script>
-<script src="../js/api.js?v=20261001b"></script>
+<script src="../js/api.js?v=20261027"></script>
 <script src="js/public-alert.js?v=20261001c"></script>
 <script src="js/public-auth.js?v=20261014"></script>
 <script src="js/public-auth-modal.js?v=20261014"></script>
-<script src="js/public-shell.js"></script>
+<script src="js/public-shell.js?v=20261028b"></script>
 <script src="js/public-pages.js"></script>
 <script src="js/public-varieties.js?v=6"></script>
 <script src="js/rice-photos.js?v=1"></script>
 <script src="js/image-zoom.js?v=1"></script>
-<script src="js/public-catalog.js?v=27"></script>
+<script src="js/public-catalog.js?v=20261028"></script>
 </body>
 </html>

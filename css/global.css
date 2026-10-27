@@ -330,6 +330,16 @@ a { text-decoration: none; color: inherit; }
 }
 
 .notif-dot[hidden] { display: none; }
+.notif-dot.has-count {
+  width: auto; height: auto; min-width: 16px;
+  top: 2px; right: 1px;
+  padding: 1px 4px;
+  border-radius: 999px;
+  font-size: 9.5px; font-weight: 700; line-height: 12px;
+  color: #fff; text-align: center;
+}
+.topbar-alert-row.is-unread .topbar-alert-title { font-weight: 700; }
+.topbar-alert-row.is-unread { background: var(--bg-input); }
 
 /* ── Global search suggestions ── */
 .search-suggestions {
@@ -922,3 +932,13 @@ input::-ms-reveal,
 input::-ms-clear { display: none; }
 input::-webkit-credentials-auto-fill-button,
 input::-webkit-strong-password-auto-fill-button { visibility: hidden; display: none !important; }
+/* Bell panel: a notification opens its summary in place */
+.topbar-alert-row { cursor: pointer; }
+.topbar-alert-row:focus-visible { outline: 2px solid var(--color-accent, #4CAF6E); outline-offset: -2px; }
+.topbar-alert-detail { display: none; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-color); font-size: 11.5px; }
+.topbar-alert-row.is-open .topbar-alert-detail { display: grid; gap: 4px; }
+.topbar-alert-row.is-open .topbar-alert-desc { white-space: normal; overflow: visible; -webkit-line-clamp: unset; display: block; }
+.topbar-alert-detail > div { display: flex; justify-content: space-between; gap: 10px; }
+.topbar-alert-detail span { color: var(--text-muted); }
+.topbar-alert-detail b { color: var(--text-primary); font-weight: 600; text-align: right; }
+.topbar-alert-detail .btn { margin-top: 6px; justify-self: start; }

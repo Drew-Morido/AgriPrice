@@ -28,8 +28,20 @@ AgriPricePH.Landpage = (function () {
   let _brandsByGrade = {}; // canonical key -> { brands, names, min, max, asOf } (public-varieties.js)
   let _varieties = [];   // top varieties for the Popular rice strip (public-varieties.js)
   let _brands = [];      // every brand product with a price today, for the ticker
+  let _daByKey = {};     // canonical key -> { price, date }: today's DA price per grade (/api/predictions)
+  let _brandPayload = null;
 
   function $(sel) { return document.querySelector(sel); }
+
+  // "2026-10-26" -> "Oct 26" / "October 26, 2026" (the DA bulletin day a price was taken from).
+  function shortDate(iso) {
+    const d = new Date(iso + 'T12:00:00');
+    return isNaN(d) ? iso : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+  function longDate(iso) {
+    const d = new Date(iso + 'T12:00:00');
+    return isNaN(d) ? iso : d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  }
 
   function labelFor(origin, suffix) {
     return origin === 'local' ? `Local ${suffix}` : `Imported ${suffix}`;
@@ -42,16 +54,18 @@ AgriPricePH.Landpage = (function () {
 
   const OFFLINE_TEXT = 'Live prices can&rsquo;t be reached right now. Please check back shortly.';
 
+  const ARROW_UP = '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8H1z" fill="currentColor"/></svg>';
+  const ARROW_DOWN = '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M5 8.5 1 2h8z" fill="currentColor"/></svg>';
+  const ARROW_FLAT = '<svg viewBox="0 0 10 10" aria-hidden="true"><rect x="1.5" y="4.25" width="7" height="1.5" rx=".75" fill="currentColor"/></svg>';
+
+  // Badge text is HTML: an SVG arrow (same size up or down, unlike the ▲/▼ glyphs) plus the number.
   function formatPctBadge(pct) {
     if (pct == null) return null;
     const n = Number(pct);
-    if (n > 0.05) return { cls: 'up', text: `▲ ${Math.abs(n).toFixed(1)}%` };
-    if (n < -0.05) return { cls: 'down', text: `▼ ${Math.abs(n).toFixed(1)}%` };
-    return { cls: 'flat', text: '— 0.0%' };
+    if (n > 0.05) return { cls: 'up', text: `${ARROW_UP}<span>${Math.abs(n).toFixed(1)}%</span>` };
+    if (n < -0.05) return { cls: 'down', text: `${ARROW_DOWN}<span>${Math.abs(n).toFixed(1)}%</span>` };
+    return { cls: 'flat', text: `${ARROW_FLAT}<span>0.0%</span>` };
   }
-
-  const ARROW_UP = '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1.5 9 8H1z" fill="currentColor"/></svg>';
-  const ARROW_DOWN = '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M5 8.5 1 2h8z" fill="currentColor"/></svg>';
 
   /** Red ▲ when the price went up since the previous DA day, green ▼ when it went down. */
   function formatTickerChange(pct) {
@@ -59,7 +73,7 @@ AgriPricePH.Landpage = (function () {
     const n = Number(pct);
     if (n > 0.05) return `<span class="ticker-move up" title="Up ${Math.abs(n).toFixed(1)}% since the previous day">${ARROW_UP}${Math.abs(n).toFixed(1)}%</span>`;
     if (n < -0.05) return `<span class="ticker-move down" title="Down ${Math.abs(n).toFixed(1)}% since the previous day">${ARROW_DOWN}${Math.abs(n).toFixed(1)}%</span>`;
-    return '<span class="ticker-move flat" title="No change since the previous day">0.0%</span>';
+    return `<span class="ticker-move flat" title="No change since the previous day">${ARROW_FLAT}0.0%</span>`;
   }
 
   function splitPrice(price) {
@@ -107,7 +121,10 @@ AgriPricePH.Landpage = (function () {
           if (raw == null || Number(raw) <= 0) return;
           // The change vs yesterday comes from the history below; until then it is unknown
           // (it used to borrow data.js's sample change, beside a real price).
-          _pricesByLabel[label] = { price: Number(raw), change: null, pct: null };
+          // The DA bulletin day this price was taken from (falls back to the newest bulletin day).
+          const taken = (data.price_dates && data.price_dates[key]) || data.last_data_date || null;
+          _pricesByLabel[label] = { price: Number(raw), change: null, pct: null, date: taken };
+          _daByKey[key] = { price: Number(raw), date: taken };
         });
       }
       if (data?.forecasts_by_key) {
@@ -132,7 +149,7 @@ AgriPricePH.Landpage = (function () {
           const pct = +((change / prev) * 100).toFixed(2);
           const cur = _pricesByLabel[label];
           if (!(cur?.price > 0)) return;   // no live price for this grade: nothing to annotate
-          _pricesByLabel[label] = { price: cur.price, change, pct };
+          _pricesByLabel[label] = { ...cur, change, pct };
         });
       }
     } catch { /* keep mock */ }
@@ -242,6 +259,13 @@ AgriPricePH.Landpage = (function () {
 
   const INFO_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r=".6" fill="currentColor"/></svg>';
   const RETAIL_DEF = 'Retail price: the prevailing price per kilogram that consumers pay in Metro Manila (NCR) markets, as monitored by the Department of Agriculture (DA-AMAS).';
+  // "DA · Oct 27": the DA bulletin day a price is based on (same pill as the grade cards below).
+  function daPill(iso, cls = 'hsc-date') {
+    return iso ? `<span class="${cls}" title="Based on the DA price of ${esc(longDate(iso))}">${CAL_ICON} DA · ${esc(shortDate(iso))}</span>` : '';
+  }
+  const CAL_ICON = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>';
+  const DA_BRAND_TIP = 'Each brand\'s price is today\'s DA price for its grade, adjusted by how far above or below that grade the brand usually sells (measured when shop prices were canvassed in local markets, Aug 6 – Sep 4, 2026). The range runs from the cheapest to the priciest brand.';
+
   const SURVEY_TIP = 'Shop prices were canvassed in local markets every day for 30 days (Aug 6 – Sep 4, 2026), and verified by the local government. The 30th and last day, Sep 4, is the one used.';
   const infoTip = (text, cls = '') => `<span class="lp-tip ${cls}" tabindex="0" role="note" aria-label="${esc(text)}" data-tip="${esc(text)}">${INFO_SVG}</span>`;
 
@@ -271,6 +295,7 @@ AgriPricePH.Landpage = (function () {
         ${(() => { const ph = varietyPhoto(v); return ph ? `<div class="pop-photo"><img src="${esc(ph.src)}" alt="" loading="lazy" ${ph.credit ? `title="${esc(ph.credit)}"` : ''}>${ph.own ? '' : '<span class="pop-photo-tag">Representative photo</span>'}</div>` : ''; })()}
         <div class="pop-top"><span class="pop-ico">${GRAIN_ICON}</span><span class="pop-name">${esc(v.name)}</span></div>
         <div class="pop-price">${priceRange(v)}<span> /kg</span></div>
+        ${daPill(v.daDate, 'pop-date')}
         <div class="pop-meta"><b>${v.brands} brand${v.brands === 1 ? '' : 's'}</b> sell it
           <div>${v.gradeLabels.map((g) => `<span class="pop-grade">${esc(g)}</span>`).join('')}</div>
         </div>
@@ -278,13 +303,29 @@ AgriPricePH.Landpage = (function () {
       </a>`).join('');
 
     const when = prettyDay(_varieties.map((v) => v.asOf).filter(Boolean).sort().pop());
-    $('#popular-note').innerHTML = `Ranked by how many brands sell each variety in our catalog. Prices are the range of shop prices across those brands — not a daily market price or a forecast ${infoTip(SURVEY_TIP)}. For today's market rates and the 3-day forecast, see the grade prices below.`;
+    $('#popular-note').innerHTML = `Ranked by how many brands sell each variety in our catalog. Prices are the expected shop prices across those brands, from today's DA price for each grade ${infoTip(DA_BRAND_TIP)}. For the 3-day forecast, see the grade prices below.`;
     sec.hidden = false;
+  }
+
+  /** Popular rice priced like the Rice Catalog: today's DA price for the brand's grade x (1 + its usual gap,
+   *  measured in the shop canvass). So the range is dated by the DA bulletin, not the canvass day. Products
+   *  without a measured gap are left out of the range rather than shown at the plain grade price. */
+  function priceVarietiesFromDa() {
+    if (!_brandPayload || !Object.keys(_daByKey).length) return;
+    const daPrice = (b, key) => {
+      const da = _daByKey[key];
+      if (!da || b.weight_pct == null || !Number.isFinite(Number(b.weight_pct))) return null;
+      const p = da.price * (1 + Number(b.weight_pct) / 100);
+      return { min: p, max: p, date: da.date };
+    };
+    const priced = AgriPricePH.Varieties.summarize(_brandPayload, daPrice).slice(0, POPULAR_COUNT);
+    if (priced.length) _varieties = priced;
   }
 
   async function loadVarieties() {
     try {
       const bp = await AgriPricePH.API.brandPrices();
+      _brandPayload = bp;
       _varieties = AgriPricePH.Varieties.summarize(bp).slice(0, POPULAR_COUNT);
       _brandsByGrade = AgriPricePH.Varieties.byGrade(bp);
       _brands = brandsForTicker(bp);
@@ -307,11 +348,11 @@ AgriPricePH.Landpage = (function () {
            aria-label="${esc(v.name)}: shop prices ${priceRange(v)} per kilo from ${v.brands} brands. See them in the Rice Catalog">
           <div class="hsc-name">${(() => { const ph = varietyPhoto(v); return ph ? `<img class="hsc-thumb" src="${esc(ph.src)}" alt="" loading="lazy">` : ''; })()}<span class="hsc-name-text">${esc(v.name)}</span><span class="hsc-badge brands">${v.brands} brand${v.brands === 1 ? '' : 's'}</span></div>
           <div class="hsc-value hsc-value--range">${priceRange(v)}</div>
-          <div class="hsc-sub">per kilogram · ${esc(v.gradeLabels.join(', '))}</div>
+          <div class="hsc-foot"><span class="hsc-sub">per kg · ${esc(v.gradeLabels.join(', '))}</span>${daPill(v.daDate)}</div>
         </a>`).join('');
       if (note) {
         const when = prettyDay(_varieties.map((v) => v.asOf).filter(Boolean).sort().pop());
-        note.innerHTML = `Shop-price range across brands ${infoTip(SURVEY_TIP, 'lp-tip--dark lp-tip--right')} · tap a rice to see the brands`;
+        note.innerHTML = `Expected shop prices across brands ${infoTip(DA_BRAND_TIP, 'lp-tip--dark lp-tip--right')} · tap a rice to see the brands`;
         note.hidden = false;
       }
       return;
@@ -336,16 +377,16 @@ AgriPricePH.Landpage = (function () {
       }
       const { whole, frac } = splitPrice(d.price);
       const badge = formatPctBadge(d.pct);
+      const g = _brandsByGrade[keyFor(_origin, suffix)];
+      const brands = g && g.brands ? `<span class="hsc-badge brands">${g.brands} brand${g.brands === 1 ? '' : 's'}</span>` : '';
       return `
         <div class="hero-stat-card">
-          <div class="hsc-label">${short}</div>
+          <div class="hsc-label-row"><span class="hsc-label">${short}</span>${brands}</div>
           <div class="hsc-row">
-            <div>
-              <div class="hsc-value">₱${whole}<span>.${frac}</span></div>
-              <div class="hsc-sub">per kilogram · today</div>
-            </div>
+            <div class="hsc-value">₱${whole}<span>.${frac}</span></div>
             ${badge ? `<div class="hsc-badge ${badge.cls}">${badge.text}</div>` : ''}
           </div>
+          <div class="hsc-foot"><span class="hsc-sub">per kg</span>${daPill(d.date)}</div>
         </div>`;
     }).join('');
   }
@@ -364,8 +405,8 @@ AgriPricePH.Landpage = (function () {
     const d = getEntry(label);
     const changeCls = Number(d.pct) > 0.05 ? 'up' : Number(d.pct) < -0.05 ? 'down' : 'flat';
     const changeText = Number(d.change) === 0
-      ? '— No change'
-      : `${Number(d.change) > 0 ? '▲' : '▼'} ₱${Math.abs(Number(d.change)).toFixed(2)} vs yesterday`;
+      ? `${ARROW_FLAT}<span>No change</span>`
+      : `${Number(d.change) > 0 ? ARROW_UP : ARROW_DOWN}<span>₱${Math.abs(Number(d.change)).toFixed(2)} vs yesterday</span>`;
     const changePill = d.change == null ? '' : `<div><span class="pc-change ${changeCls}">${changeText}</span></div>`;
 
     // Tomorrow: the model's calibrated band — the same range the Price Forecast page shows.
@@ -396,7 +437,9 @@ AgriPricePH.Landpage = (function () {
 
     return `
       <div class="price-card${featured ? ' featured' : ''}">
-        <div class="pc-head"><div class="pc-type">${suffix}</div>${_live ? '<span class="pc-today">Today</span>' : ''}</div>
+        <div class="pc-head"><div class="pc-type">${suffix}</div>${_live && d.date
+          ? `<span class="pc-today" title="Price taken from the DA bulletin of ${esc(longDate(d.date))}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg> DA · ${esc(shortDate(d.date))}</span>`
+          : (_live ? '<span class="pc-today">Today</span>' : '')}</div>
         <div class="pc-price">${d.price == null ? '—' : peso(d.price)}<span>/kg</span></div>
         ${changePill}
         ${range}
@@ -612,6 +655,7 @@ AgriPricePH.Landpage = (function () {
     bindOriginToggle();
     bindBackTop();
     await Promise.all([loadPrices(), loadVarieties()]);
+    priceVarietiesFromDa();
     syncPopularTab();
     renderPopular();
     renderTicker();

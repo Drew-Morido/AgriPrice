@@ -1,0 +1,319 @@
+/* AgriPricePH — the one public footer (markup: public/js/public-shell.js → buildFooter).
+   Self-contained colours so it looks the same on every page, whatever page stylesheet is loaded. */
+footer.site-footer {
+  --sf-950: #0d2117;
+  --sf-700: #2a5c3f;
+  --sf-400: #52b07a;
+  --sf-300: #78ca97;
+  --sf-200: #aae0be;
+  position: relative;
+  background:
+    radial-gradient(ellipse 70% 80% at 8% 0%, rgba(82, 176, 122, 0.12), transparent 55%),
+    var(--sf-950);
+  padding: 0 28px;
+  border-top: 1px solid rgba(120, 202, 151, 0.16);
+  overflow: hidden;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  color: rgba(255, 255, 255, 0.58);
+}
+
+footer.site-footer::before {
+  content: '';
+  display: block;
+  height: 3px;
+  margin: 0 -28px;
+  background: linear-gradient(90deg, transparent, var(--sf-400) 22%, var(--sf-200) 50%, var(--sf-400) 78%, transparent);
+  opacity: 0.7;
+}
+
+.site-footer .footer-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 52px 0 36px;
+  display: grid;
+  grid-template-columns: 1.45fr 0.75fr 0.75fr 1.05fr;
+  gap: 40px 32px;
+  align-items: start;
+}
+
+.site-footer .footer-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+  margin-bottom: 14px;
+}
+
+.site-footer .footer-logo-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--sf-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1px rgba(120, 202, 151, 0.25);
+}
+
+.site-footer .footer-logo-icon svg { width: 20px; height: 20px; display: block; }
+
+.site-footer .footer-name {
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-size: 22px;
+  font-weight: 400;
+  color: #f3faf6;
+  letter-spacing: -0.3px;
+}
+
+.site-footer .footer-tagline {
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.48);
+  max-width: 320px;
+  margin: 0 0 16px;
+}
+
+/* "Last updated" pill */
+.site-footer .footer-updated {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(120, 202, 151, 0.1);
+  border: 1px solid rgba(120, 202, 151, 0.22);
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.35;
+}
+.site-footer .footer-updated b { color: #fff; font-weight: 700; }
+.site-footer .footer-updated .dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  background: var(--sf-300);
+  box-shadow: 0 0 0 3px rgba(120, 202, 151, 0.18);
+}
+.site-footer .footer-updated.is-offline .dot { background: #94a3b8; box-shadow: none; }
+
+.site-footer .footer-col h3 {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sf-300);
+  margin: 6px 0 16px;
+}
+
+.site-footer .footer-col ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.site-footer .footer-col a {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.58);
+  text-decoration: none;
+  transition: color 0.18s;
+}
+.site-footer .footer-col a:hover { color: #fff; }
+
+.site-footer .footer-source-copy {
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: rgba(255, 255, 255, 0.48);
+  margin: 0;
+}
+
+/* ── "Where the data comes from": its own section above the footer (light; dark with the site theme) ── */
+.site-sources {
+  --ss-bg: #f3f8f4;
+  --ss-card: #ffffff;
+  --ss-line: rgba(45, 106, 79, 0.14);
+  --ss-head: #2d6a4f;
+  --ss-title: #10291b;
+  --ss-text: #3a5045;
+  --ss-muted: #5f7468;
+  --ss-soft: rgba(45, 106, 79, 0.07);
+  background: var(--ss-bg);
+  border-top: 1px solid var(--ss-line);
+  padding: 44px 28px 48px;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  color: var(--ss-text);
+}
+html.theme-dark .site-sources {
+  --ss-bg: #0f1a14;
+  --ss-card: rgba(255, 255, 255, 0.04);
+  --ss-line: rgba(120, 202, 151, 0.16);
+  --ss-head: #78ca97;
+  --ss-title: #f3faf6;
+  --ss-text: rgba(255, 255, 255, 0.66);
+  --ss-muted: rgba(255, 255, 255, 0.45);
+  --ss-soft: rgba(120, 202, 151, 0.07);
+}
+.site-sources-inner { max-width: 1180px; margin: 0 auto; }
+.site-sources-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.site-sources-head h2 {
+  margin: 0;
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-size: 26px;
+  font-weight: 400;
+  letter-spacing: -0.3px;
+  color: var(--ss-title);
+}
+.site-sources-head p { margin: 0; font-size: 13px; color: var(--ss-muted); }
+
+/* Where the price figure comes from, and DA's covered markets (B5) */
+.site-sources .footer-price-source {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--ss-soft);
+  border: 1px solid var(--ss-line);
+}
+.site-sources .footer-price-source p { margin: 0; font-size: 13.5px; line-height: 1.65; color: var(--ss-text); }
+.site-sources .footer-price-source b { color: var(--ss-title); }
+.site-sources .footer-markets { margin-top: 10px; }
+.site-sources .footer-markets[hidden] { display: none; }
+.site-sources .footer-markets summary {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ss-head);
+  list-style: none;
+}
+.site-sources .footer-markets summary::-webkit-details-marker { display: none; }
+.site-sources .footer-markets summary::before { content: '▸'; transition: transform 0.18s; }
+.site-sources .footer-markets[open] summary::before { transform: rotate(90deg); }
+.site-sources .footer-markets summary:focus-visible { outline: 2px solid var(--ss-head); outline-offset: 2px; border-radius: 4px; }
+.site-sources .footer-markets ol {
+  margin: 12px 0 0;
+  padding: 0 0 0 22px;
+  columns: 4 200px;
+  column-gap: 28px;
+  font-size: 13px;
+  line-height: 1.85;
+  color: var(--ss-text);
+}
+.site-sources .footer-markets li { break-inside: avoid; }
+.site-sources .footer-markets li::marker { color: var(--ss-head); font-size: 11px; }
+
+.site-sources .source-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+.site-sources .source-chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--ss-card);
+  border: 1px solid var(--ss-line);
+  text-decoration: none;
+  transition: border-color 0.18s, transform 0.18s, box-shadow 0.18s;
+  min-width: 0;
+}
+.site-sources .source-chip:hover {
+  border-color: var(--ss-head);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(16, 41, 27, 0.08);
+}
+.site-sources .source-chip:focus-visible { outline: 2px solid var(--ss-head); outline-offset: 2px; }
+.site-sources .source-chip.is-primary { border-color: var(--ss-head); }
+.site-sources .source-logo {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: block;
+  box-shadow: 0 1px 4px rgba(16, 41, 27, 0.18);
+}
+.site-sources .source-logo--icon {
+  background: #fff;
+  color: #1d4ed8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.site-sources .source-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.site-sources .source-text b { font-size: 13.5px; font-weight: 700; line-height: 1.3; color: var(--ss-title); }
+.site-sources .source-text span { font-size: 12px; line-height: 1.4; color: var(--ss-muted); }
+
+.site-footer .footer-bottom {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 18px 0 28px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+}
+.site-footer .footer-bottom p { font-size: 12px; line-height: 1.5; color: rgba(255, 255, 255, 0.34); margin: 0; }
+
+@media (max-width: 1100px) {
+  .site-sources .source-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 1024px) {
+  .site-footer .footer-inner { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 640px) {
+  footer.site-footer { padding: 0 16px; }
+  footer.site-footer::before { margin: 0 -16px; }
+  .site-footer .footer-inner { grid-template-columns: 1fr; gap: 28px; padding: 40px 0 28px; }
+  .site-sources { padding: 32px 16px 36px; }
+  .site-sources .source-grid { grid-template-columns: 1fr 1fr; }
+  .site-footer .footer-bottom { flex-direction: column; align-items: flex-start; }
+}
+
+@media (max-width: 420px) {
+  .site-sources .source-grid { grid-template-columns: 1fr; }
+}
+
+/* "DA prices updated: <day>" stamp, placed next to the prices on each page (public-shell.js renderDaStamps).
+   Built from currentColor so it reads on the dark hero bands and on light cards alike. */
+.da-stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  margin-top: 12px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.35;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  background: color-mix(in srgb, currentColor 7%, transparent);
+}
+.da-stamp:empty { display: none; }
+.da-stamp b { font-weight: 700; }
+.da-stamp-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  background: #4caf6e;
+  box-shadow: 0 0 0 3px rgba(76, 175, 110, 0.2);
+}
+.da-stamp.is-offline .da-stamp-dot { background: #94a3b8; box-shadow: none; }
+.da-stamp-sep { opacity: 0.55; }
+@media (max-width: 480px) { .da-stamp { font-size: 12px; border-radius: 14px; } }

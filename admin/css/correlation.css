@@ -139,3 +139,8 @@ html.theme-dark .corr-status-pill { background: rgba(76,175,110,.18); color: var
 
 @media (max-width: 980px) { .corr-main-grid { grid-template-columns: 1fr; } }
 @media (max-width: 900px) { .corr-stat-strip { grid-template-columns: repeat(2, 1fr); } }
+
+/* Server-calculated factors: method / period / p-value behind an (i); unsigned or not-calculated rows */
+.corr-method-tip { margin-left: 6px; font-size: 13px; opacity: .6; cursor: help; }
+.corr-method-tip:hover, .corr-method-tip:focus { opacity: 1; }
+.corr-impact-cell.flat { color: var(--c-ink3, #5f7468); }

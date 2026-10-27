@@ -18,6 +18,8 @@ from typing import Dict, List, Optional
 import pandas as pd
 import requests
 
+from db_write import replace_table   # atomic table swap: readers never see a half-written table
+
 API = "https://openstat.psa.gov.ph/PXWeb/api/v1/en/DB"
 STOCKS_TABLE = "2E/CS/0032E4ECNV0.px"
 FARMGATE_TABLE = "2M/NFG/0032M4AFN01.px"
@@ -194,10 +196,10 @@ def write_tables(conn, stocks: pd.DataFrame, farmgate: pd.DataFrame) -> None:
         out = df.copy()
         out["Date"] = out["Date"].dt.strftime("%Y-%m-%d")
         out["Source"] = SOURCE
-        out.to_sql(name, conn, if_exists="replace", index=False)
-    pd.DataFrame([
+        replace_table(conn, out, name)
+    replace_table(conn, pd.DataFrame([
         {"table": "PSA_rice_stocks", "psa_table": STOCKS_TABLE, "psa_updated": table_updated(STOCKS_TABLE),
          "latest_month": latest_months(stocks), "fetched_at": pd.Timestamp.now().isoformat(timespec="seconds")},
         {"table": "PSA_farmgate", "psa_table": FARMGATE_TABLE, "psa_updated": table_updated(FARMGATE_TABLE),
          "latest_month": latest_months(farmgate), "fetched_at": pd.Timestamp.now().isoformat(timespec="seconds")},
-    ]).to_sql("PSA_meta", conn, if_exists="replace", index=False)
+    ]), "PSA_meta")

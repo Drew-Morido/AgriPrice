@@ -7,10 +7,10 @@
    Real, live-computed from /api/historical-data (same source used elsewhere): Pearson r between
    diesel/USD-PHP and the selected rice type, the trend chart, drift detection ("diverging" vs
    "tracking"), and per-source data-completeness ("signal reliability"). The backend has no
-   correlation endpoint — Rice Stock Level, Rainfall, Month (seasonality), and Import Tariff can't
-   be recomputed client-side (stock/rainfall/tariff series aren't exposed by /api/historical-data),
-   so those four keep the app's existing vetted research figures (previously hardcoded in this same
-   page) rather than being invented from nothing or silently dropped.
+   correlation endpoint for those. Rice Stock Level, Rainfall, Month (seasonality) and Import Tariff are
+   calculated on the server for the selected rice type (GET /api/market-drivers, model/market_drivers.py:
+   monthly, detrended, with p-values), or labelled "Not calculated" with the reason. They used to be fixed
+   numbers typed into this file, the same for every rice type.
    ============================================ */
 
 window.AgriPricePH = window.AgriPricePH || {};
@@ -29,20 +29,10 @@ AgriPricePH.Correlation = (function () {
     impWellMilled: 'Imported Well-Milled', impRegular: 'Imported Regular-Milled',
   };
 
-  // Vetted findings that can't be recomputed from what /api/historical-data exposes (no stock,
-  // rainfall, or tariff time series client-side) — see file header. These match the numbers this
-  // page has carried since the correlation study was written up.
-  const STATIC_FACTORS = [
-    { key: 'stock', name: 'Rice Stock Level', r: -0.63, significant: true, icon: 'ti-building-warehouse',
-      detail: 'High warehouse stock cools market speculation, causing retail prices to dip or stabilize.' },
-    { key: 'rainfall', name: 'Rainfall', r: 0.41, significant: true, icon: 'ti-cloud-rain',
-      detail: 'Heavy rain disrupts harvest logistics and drying, tightening near-term supply.' },
-    { key: 'month', name: 'Month (Seasonality)', r: 0.33, significant: true, icon: 'ti-calendar',
-      detail: 'Lean-season months (Jul–Sep) see mild seasonal price pressure ahead of harvest.' },
-    { key: 'tariff', name: 'Import Tariff', r: -0.03, significant: false, icon: 'ti-receipt-tax',
-      detail: 'Policy step-variable (15–35% band, reviewed quarterly) — see the note below the table. Imported rice only.',
-      importedOnly: true },
-  ];
+  // Server-calculated factors (GET /api/market-drivers), per rice type — see file header.
+  const SERVER_ICONS = { stock: 'ti-building-warehouse', rainfall: 'ti-cloud-rain', month: 'ti-calendar', tariff: 'ti-receipt-tax' };
+  let serverFactors = [];   // [{key, name, status, r, p, n, period, significant, unsigned, detail, method, note}]
+  let serverFor = null;     // rice type the serverFactors belong to
 
   let masterData = { labels: [] };
   let selectedClass = 'locWellMilled';
@@ -132,8 +122,22 @@ AgriPricePH.Correlation = (function () {
     bindRangeSelect();
     bindSearchBox();
 
-    await fetchHistorical();
+    await Promise.all([fetchHistorical(), fetchServerFactors()]);
     renderAll();
+  }
+
+  async function fetchServerFactors() {
+    const type = selectedClass;
+    try {
+      const res = await AgriPricePH.API.marketDrivers(type);
+      if (!res || res.ready === false) throw new Error(res?.error || 'unavailable');
+      if (type !== selectedClass) return;
+      serverFactors = (res.factors || []).map(f => ({ ...f, icon: SERVER_ICONS[f.key] || 'ti-chart-dots' }));
+      serverFor = type;
+    } catch {
+      serverFactors = [];
+      serverFor = null;
+    }
   }
 
   function destroy() {
@@ -394,10 +398,12 @@ AgriPricePH.Correlation = (function () {
     const el = document.getElementById('corr-driver-list');
     if (!el) return;
 
-    const stockFactor = STATIC_FACTORS.find(f => f.key === 'stock');
+    // Ranked by |r|: the live factors plus the server-calculated stock and rainfall (month is unsigned eta and
+    // tariff is a policy step, so they are shown in the table but not ranked against Pearson r values).
+    const calculated = serverFactors.filter(f => f.status === 'calculated' && (f.key === 'stock' || f.key === 'rainfall'));
     const drift = detectDrift(masterData.fuel || [], masterData[selectedClass] || []);
 
-    const rows = [...liveFactors, stockFactor]
+    const rows = [...liveFactors, ...calculated]
       .map(f => ({ ...f, score: Math.round(Math.abs(f.r || 0) * 100), flagged: f.key === 'diesel' && !!drift }))
       .sort((a, b) => b.score - a.score);
 
@@ -440,10 +446,19 @@ AgriPricePH.Correlation = (function () {
     const dynamic = liveFactors.map(f => ({
       name: f.name, icon: f.icon, r: f.r, significant: f.significant, detail: f.detail, importedOnly: false,
     }));
-    const staticRows = STATIC_FACTORS.map(f => ({
-      name: f.name, icon: f.icon, r: f.r, significant: f.significant, detail: f.detail, importedOnly: !!f.importedOnly,
+    const serverRows = serverFactors.map(f => ({
+      name: f.name, icon: f.icon, r: f.r, significant: f.significant, importedOnly: f.key === 'tariff',
+      detail: [f.detail, f.note].filter(Boolean).join(' '),
+      notCalculated: f.status !== 'calculated', unsigned: !!f.unsigned,
+      method: f.status === 'calculated'
+        ? `${f.method} ${f.period} · ${f.n} months · p = ${f.p < 0.001 ? '< 0.001' : f.p.toFixed(3)}`
+        : f.method,
     }));
-    return [...dynamic, ...staticRows];
+    if (!serverRows.length) {
+      serverRows.push({ name: 'Stock, rainfall, month, tariff', icon: 'ti-chart-dots', r: null, significant: false,
+        notCalculated: true, detail: 'Could not load the calculated factors from the server.', method: '' });
+    }
+    return [...dynamic, ...serverRows];
   }
 
   function renderTable() {
@@ -462,13 +477,20 @@ AgriPricePH.Correlation = (function () {
       const arrowSvg = dir === 'up'
         ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>`
         : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>`;
-      const strength = r.r == null ? 'Unavailable' : `${strengthLabel(r.r)} (${r.r >= 0 ? 'Drives Up' : 'Drives Down'})`;
+      const strength = r.notCalculated ? 'Not calculated'
+        : r.r == null ? 'Unavailable'
+        : r.unsigned ? `${strengthLabel(r.r)} seasonal pattern (η ${r.r.toFixed(2)})`
+        : `${strengthLabel(r.r)} (${r.r >= 0 ? 'Drives Up' : 'Drives Down'}, r ${r.r >= 0 ? '+' : ''}${r.r.toFixed(2)})`;
+      const methodTip = r.method
+        ? ` <i class="ti ti-info-circle corr-method-tip" tabindex="0" role="img" title="${esc(r.method)}" aria-label="${esc(r.method)}"></i>` : '';
+      const status = r.notCalculated ? '<span class="corr-status-pill ns">No data</span>'
+        : `<span class="corr-status-pill${r.significant ? '' : ' ns'}">${r.significant ? 'Verified' : 'Not significant'}</span>`;
       const nameSuffix = r.importedOnly ? ' <span class="corr-status-pill ns" style="margin-left:6px;">imported rice</span>' : '';
       return `<tr>
         <td><div class="corr-factor-row"><span class="corr-factor-icon"><i class="ti ${esc(r.icon)}"></i></span> ${esc(r.name)}${nameSuffix}</div></td>
-        <td><div class="corr-impact-cell ${dir}">${r.r == null ? '' : arrowSvg} ${esc(strength)}</div></td>
+        <td><div class="corr-impact-cell ${r.unsigned || r.notCalculated ? 'flat' : dir}">${r.r == null || r.unsigned || r.notCalculated ? '' : arrowSvg} ${esc(strength)}${methodTip}</div></td>
         <td>${esc(r.detail)}</td>
-        <td><span class="corr-status-pill${r.significant ? '' : ' ns'}">${r.significant ? 'Verified' : 'Not significant'}</span></td>
+        <td>${status}</td>
       </tr>`;
     }).join('');
   }
@@ -478,7 +500,13 @@ AgriPricePH.Correlation = (function () {
     const sel = document.getElementById('corr-class-select');
     if (!sel) return;
     sel.value = selectedClass;
-    sel.addEventListener('change', (e) => { selectedClass = e.target.value; renderAll(); });
+    sel.addEventListener('change', async (e) => {
+      selectedClass = e.target.value;
+      renderAll();
+      await fetchServerFactors();
+      renderDriverList();
+      renderTable();
+    });
   }
 
   function bindRangeSelect() {

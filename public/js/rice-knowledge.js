@@ -36,11 +36,15 @@
     }
   };
 
+  // The four degrees of milling in PNS/BAFS 290:2025. Degree of milling is how much bran is left on the
+  // kernel; it is separate from the PNS grade (broken grains), shown in the table below the grain.
   var millCopy = [
-    { kicker: 'Grade · Regular', title: 'Still a little rustic', copy: 'More brokens, less shine. Bran still clings to the kernel — the budget sack most wet markets know well.' },
-    { kicker: 'Grade · Well-milled', title: 'The household standard', copy: 'Whiter, smoother, fewer broken grains. This is the everyday kanin for most Filipino tables.' },
-    { kicker: 'Grade · Premium', title: 'Whole, long, and bright', copy: 'Head rice with a polish. Special lots add aroma — Dinorado, Jasmine — and a higher price per kilo.' }
+    { kicker: 'Degree of milling · Undermilled', title: 'Most of the bran stays', copy: 'More than 40% of the kernels still show streaks of bran, so it looks browner and keeps more of its fibre and oil.' },
+    { kicker: 'Degree of milling · Regular milled', title: 'Some bran streaks left', copy: '20 to 40% of the kernels show bran streaks. DA lists it as "Regular milled, 20–40% bran streak", usually the cheapest white rice in the market.' },
+    { kicker: 'Degree of milling · Well-milled', title: 'Clean and white', copy: 'Fewer than 20% of the kernels show bran streaks. DA lists it as "Well milled, 1–19% bran streak", the everyday rice for most households.' },
+    { kicker: 'Degree of milling · Overmilled', title: 'Polished past white', copy: 'Milled beyond well-milled, so almost no bran is left and some of the kernel itself is polished away. Whiter, but with fewer nutrients and less rice per sack of palay.' }
   ];
+  var millNames = ['Undermilled', 'Regular milled', 'Well-milled', 'Overmilled'];
 
   function setPart(id) {
     var data = parts[id];
@@ -74,8 +78,9 @@
   var shine = document.getElementById('endo-shine');
   function applyMill(v) {
     var n = Number(v);
-    if (bran) bran.style.opacity = String(1 - n * 0.42);
-    if (shine) shine.style.opacity = String(0.2 + n * 0.4);
+    if (bran) bran.style.opacity = String(1 - n * 0.3);
+    if (shine) shine.style.opacity = String(0.15 + n * 0.28);
+    if (mill) mill.setAttribute('aria-valuetext', millNames[n] || '');
     document.querySelectorAll('.class-card').forEach(function (card) {
       card.classList.toggle('is-on', Number(card.getAttribute('data-class')) === n);
     });
@@ -91,6 +96,9 @@
   }
   if (mill) {
     mill.addEventListener('input', function () { applyMill(mill.value); });
+    // Start the grain at the slider's position (Well-milled) without replacing the opening text.
+    if (bran) bran.style.opacity = String(1 - Number(mill.value) * 0.3);
+    if (shine) shine.style.opacity = String(0.15 + Number(mill.value) * 0.28);
   }
   document.querySelectorAll('.class-card').forEach(function (card) {
     card.addEventListener('click', function () {
@@ -157,7 +165,7 @@
       var message = (cform.message.value || '').trim();
       var subject = encodeURIComponent('AgriPricePH inquiry' + (name ? ' from ' + name : ''));
       var body = encodeURIComponent('From: ' + name + ' <' + email + '>\n\n' + message);
-      window.location.href = 'mailto:hello@agripriceph.ph?subject=' + subject + '&body=' + body;
+      window.location.href = 'mailto:agripriceph@gmail.com?subject=' + subject + '&body=' + body;
     });
   }
 })();

@@ -301,9 +301,30 @@ Newer days wait here until every check passes, then enter automatically."></i>
       ${waiting}`;
   }
 
+  // DA's covered markets, read from the newest Daily Price Index (tools/da_markets.py via /api/site-status).
+  let _markets = { list: [], date: null };
+  async function _fetchMarkets() {
+    try {
+      const st = await AgriPricePH.API.siteStatus();
+      _markets = { list: Array.isArray(st?.markets) ? st.markets : [], date: st?.markets_bulletin_date || null };
+      if (_selected === 'da' && _sources.length) _render();
+    } catch { /* optional */ }
+  }
+
+  function _renderMarkets(s) {
+    if (s.id !== 'da' || !_markets.list.length) return '';
+    const when = _markets.date ? ` · list from the bulletin of ${_esc(_markets.date)}` : '';
+    return `<details class="ds-markets">
+        <summary><i class="ti ti-building-store"></i> ${_markets.list.length} covered NCR wet markets${when}</summary>
+        <p class="ds-markets-note">The DA prevailing retail price is the average across these markets, as printed at the end of each Daily Price Index. Shown on the public home page under "Where the data comes from".</p>
+        <ol>${_markets.list.map(m => `<li>${_esc(m)}</li>`).join('')}</ol>
+      </details>`;
+  }
+
   async function _fetch() {
     if (!AgriPricePH.API) return;
     _fetchReadiness();
+    _fetchMarkets();
     try {
       const data = await AgriPricePH.API.dataSources();
       if (data.sources && data.sources.length) {
@@ -621,6 +642,7 @@ Newer days wait here until every check passes, then enter automatically."></i>
         ${fact('Used by', _esc(facts.usedBy || '—'), facts.route ? `<button type="button" class="ds-link" data-goto="${facts.route}">Open ${_esc(facts.routeLabel)} →</button>` : '')}
       </div>
 
+      ${_renderMarkets(s)}
       ${_renderValues(s)}`;
   }
 

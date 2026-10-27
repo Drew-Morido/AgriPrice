@@ -491,3 +491,37 @@ html:not([data-admin-role="admin"]) .admin-only { display: none !important; }
   margin: 0 0 16px;
 }
 .role-viewonly svg { color: var(--color-info); flex-shrink: 0; margin-top: 1px; }
+
+/* Price Alerts: rules created automatically for every rice type (alerts_engine.default_rules_for) */
+.alert-default-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--accent-green, #2d8a50);
+  background: rgba(76, 175, 110, 0.12);
+  border: 1px solid rgba(76, 175, 110, 0.25);
+  vertical-align: 1px;
+}
+
+/* Price Alerts: Local / Imported / All-types tabs, rice-type groups, notification detail */
+.alerts-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 14px; padding: 4px; background: var(--bg-input); border-radius: 12px; width: fit-content; max-width: 100%; }
+.alerts-tab { border: 0; background: transparent; color: var(--text-secondary); font: inherit; font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: 9px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.alerts-tab:hover { color: var(--text-primary); }
+.alerts-tab.active { background: var(--bg-card); color: var(--text-primary); box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,.08)); }
+.alerts-tab:focus-visible { outline: 2px solid var(--accent-green, #4CAF6E); outline-offset: 2px; }
+.alerts-tab-count { min-width: 20px; padding: 1px 7px; border-radius: 999px; font-size: 11px; background: rgba(76,175,110,.14); color: var(--accent-green, #2d8a50); text-align: center; }
+.alert-group-title { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin: 14px 0 6px; }
+.alert-group-title:first-child { margin-top: 0; }
+.notif-item.is-clickable { cursor: pointer; border-radius: 8px; transition: background .15s; }
+.notif-item.is-clickable:hover, .notif-item.is-clickable:focus-visible { background: var(--bg-input); outline: none; }
+.notif-item.is-unread .notif-title { font-weight: 700; }
+.notif-meta { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+.alert-detail { max-width: 520px; }
+.alert-detail-desc { font-size: 14px; line-height: 1.6; color: var(--text-primary); margin: 0 0 14px; }
+.alert-detail-grid { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 0 0 18px; font-size: 13px; }
+.alert-detail-grid dt { color: var(--text-muted); }
+.alert-detail-grid dd { margin: 0; color: var(--text-primary); font-weight: 600; }
+.alert-type-pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: capitalize; }

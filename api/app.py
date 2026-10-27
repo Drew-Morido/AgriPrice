@@ -283,6 +283,11 @@ def _setup_logging() -> None:
         )
         root.addHandler(con_handler)
 
+    # One console line per HTTP request (every page, stylesheet, script and image) is noise, and on Windows each
+    # line is a chance to block: see _disable_console_quickedit. Request errors (4xx/5xx) are still printed.
+    if os.environ.get("AGRIPRICE_ACCESS_LOG", "0") != "1":
+        logging.getLogger("werkzeug").setLevel(logging.WARNING)
+
     # Let scraper logs flow to root only (single output line per event).
     scraper_log = logging.getLogger("agriprice_scraper")
     scraper_log.setLevel(logging.INFO)
@@ -337,7 +342,65 @@ def _refresh_forecast_async() -> None:
                 logger.info("Forecast is up to date with the latest verified data.")
         except Exception as exc:
             logger.warning("Forecast refresh after scrape skipped: %s", exc)
+        _run_alert_check("after the data update")
     threading.Thread(target=_run, daemon=True).start()
+
+
+_ALERT_CHECK_LOCK = threading.Lock()
+
+
+def _run_alert_check(reason: str) -> dict | None:
+    """Evaluate every active price-alert rule and notify: the admin bell (the alert log) and, when switched on
+    in Admin -> Settings -> Notifications, one email to the alert address(es). Runs after every scrape, every
+    forecast refresh and at server start; a rule fires at most once per DA bulletin day per rice type."""
+    if not _ALERTS_AVAILABLE:
+        return None
+    if not _ALERT_CHECK_LOCK.acquire(blocking=False):
+        return None                                     # a check is already running on the same data
+    logger = logging.getLogger("agriprice_scraper")
+    try:
+        from alerts_engine import invalidate_context_cache, record_check
+        invalidate_context_cache()
+        result = evaluate_alerts()
+        new = result.get("new_entries") or []
+        record_check(reason, len(new))
+        level_map = {"danger": "ERROR", "warning": "WARN", "info": "INFO", "success": "SUCCESS"}
+        for entry in new:
+            _add_log(level_map.get(entry.get("type"), "INFO"), f"[ALERT] {entry.get('desc', entry.get('title', ''))}")
+        logger.info("Price alerts checked (%s): %s new.", reason, len(new))
+        if new:
+            _email_alerts(new, result.get("data_date"))
+        return result
+    except Exception as exc:
+        logger.warning("Price-alert check skipped (%s): %s", reason, exc)
+        return None
+    finally:
+        _ALERT_CHECK_LOCK.release()
+
+
+def _email_alerts(entries: list, data_date: str | None) -> None:
+    logger = logging.getLogger("agriprice_scraper")
+    try:
+        from settings_store import get_settings
+        notif = (get_settings() or {}).get("notifications") or {}
+        if not notif.get("email_alerts"):
+            return
+        import re as _re
+        to = [t for t in _re.split(r"[,;\s]+", str(notif.get("alert_email") or "")) if "@" in t]
+        if not to:
+            logger.warning("Email alerts are on but no alert email address is set (Admin -> Settings).")
+            return
+        from mailer import is_configured, send_alert_email
+        if not is_configured():
+            logger.warning("Email alerts are on but the Gmail app password is not set in .env.")
+            return
+        ok, err = send_alert_email(to, entries, data_date)
+        if ok:
+            logger.info("Alert email sent to %s address(es).", len(to))
+        else:
+            logger.warning("Alert email failed: %s", err)
+    except Exception as exc:
+        logger.warning("Alert email skipped: %s", exc)
 
 
 def _do_scrape(skip=()) -> bool:
@@ -462,6 +525,15 @@ def _export_factor_files() -> None:
         logging.getLogger("agriprice_scraper").info("Factor CSVs and per-factor backups refreshed (%s files).", written)
     except Exception as exc:
         logging.getLogger("agriprice_scraper").warning("Factor export skipped: %s", exc)
+    # The covered-market list printed at the end of the newest DA Daily Price Index (tools/da_markets.py).
+    try:
+        import da_markets
+        got = da_markets.refresh()
+        if got:
+            logging.getLogger("agriprice_scraper").info(
+                "DA covered markets: %s (bulletin %s).", len(got["markets"]), got.get("bulletin_date"))
+    except Exception as exc:
+        logging.getLogger("agriprice_scraper").warning("DA market list skipped: %s", exc)
 
 
 def _do_scrape_one(source_id: str) -> bool:
@@ -968,6 +1040,49 @@ def api_data_readiness():
         return jsonify({"ready": False, "error": str(exc)}), 503
 
 
+# Public footer "last updated" line (public/js/public-shell.js): the newest DA bulletin day the site's prices come
+# from, when the scraper last checked the sources, and DA's covered markets. No paths, counts or logs.
+# Admin → Market Drivers: rice stocks, rainfall, month and import tariff, calculated for one rice type
+# (model/market_drivers.py). Aggregate statistics only; read-only.
+@app.route("/api/market-drivers", methods=["GET"])
+def api_market_drivers():
+    target = (request.args.get("type") or "locWellMilled").strip()
+    if target not in ("locWellMilled", "locRegular", "locPremium", "locSpecial",
+                      "impWellMilled", "impRegular", "impPremium", "impSpecial"):
+        return jsonify({"ready": False, "error": "unknown rice type"}), 400
+    try:
+        from market_drivers import compute
+        return jsonify({"ready": True, **compute(target)})
+    except Exception as exc:
+        return jsonify({"ready": False, "error": str(exc)}), 503
+
+
+@app.route("/api/site-status", methods=["GET"])
+def api_site_status():
+    da_date = None
+    try:
+        from data_pipeline import LAST_READINESS
+        if not LAST_READINESS:
+            from predict import _get_merged_frame
+            _get_merged_frame()
+        da_date = LAST_READINESS.get("ready_through")
+    except Exception:
+        pass
+    markets = {}
+    try:
+        import da_markets
+        markets = da_markets.load()
+    except Exception:
+        pass
+    return jsonify({
+        "da_date": da_date,
+        "last_checked": _last_scrape_ts.isoformat() if _last_scrape_ts else None,
+        # Where the price comes from (DA-AMAS feedback B5): the markets DA averages over, as printed in the bulletin.
+        "markets": markets.get("markets") or [],
+        "markets_bulletin_date": markets.get("bulletin_date"),
+    })
+
+
 # Forward evaluation of the published forecast: forecasts logged before their DA price existed, scored now
 # (model/forecast_log.py). The clean check on days no experiment has ever seen.
 @app.route("/api/forecast-check", methods=["GET"])
@@ -977,6 +1092,26 @@ def api_forecast_check():
         return jsonify(forecast_log.score())
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# ── /api/forecast-compare ─────────────────────────────────────────────────────
+# Admin -> Forecast vs Actual: the day-1 forecast with the factors, the same forecast without them (price-only
+# LSTM), "tomorrow = today", and the real DA retail price for each day of a window (model/forecast_compare.py).
+# Optional ?start=YYYY-MM-DD&end=YYYY-MM-DD; the default starts the day after the model's training data ends.
+# The result is cached; when data or models change it is rebuilt in the background and `building` says so.
+@app.route("/api/forecast-compare", methods=["GET"])
+def api_forecast_compare():
+    try:
+        import forecast_compare as fc
+        data = fc.ensure(background=True)
+        state = fc.status()
+        if data is None:
+            return jsonify({"ready": False, **state}), 202
+        start = (request.args.get("start") or "").strip() or None
+        end = (request.args.get("end") or "").strip() or None
+        return jsonify({"ready": True, **state, **fc.window(data, start, end)})
+    except Exception as e:
+        return jsonify({"ready": False, "error": str(e)}), 500
 
 
 # ── /api/scrape-review ────────────────────────────────────────────────────────
@@ -3111,11 +3246,7 @@ def api_alerts():
         return resp
     try:
         if request.args.get("evaluate", "").lower() in ("1", "true", "yes"):
-            result = evaluate_alerts()
-            level_map = {"danger": "ERROR", "warning": "WARN", "info": "INFO", "success": "SUCCESS"}
-            for entry in result.get("new_entries", []):
-                lvl = level_map.get(entry.get("type"), "INFO")
-                _add_log(lvl, f"[ALERT] {entry.get('desc', entry.get('title', ''))}")
+            result = _run_alert_check("manual check") or evaluate_alerts()
             return jsonify({"ready": True, **result})
         return jsonify({
             "ready": True,
@@ -3134,21 +3265,32 @@ def api_alerts_evaluate():
     ok, resp = _require_admin()
     if not ok:
         return resp
-    try:
-        result = evaluate_alerts()
-        level_map = {"danger": "ERROR", "warning": "WARN", "info": "INFO", "success": "SUCCESS"}
-        for entry in result.get("new_entries", []):
-            lvl = level_map.get(entry.get("type"), "INFO")
-            _add_log(lvl, f"[ALERT] {entry.get('desc', entry.get('title', ''))}")
-        return jsonify({"success": True, **result})
-    except Exception as exc:
-        return jsonify({"success": False, "error": str(exc)}), 500
+    result = _run_alert_check("manual check")
+    if result is None:
+        return jsonify({"success": False, "error": "An alert check is already running; try again in a moment."}), 409
+    return jsonify({"success": True, **result})
+
+
+@app.route("/api/alerts/read", methods=["POST"])
+def api_alerts_mark_read():
+    """Mark every notification as read (the admin opened the bell panel)."""
+    if not _ALERTS_AVAILABLE:
+        return jsonify({"success": False, "error": _ALERTS_IMPORT_ERROR}), 503
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
+    from alerts_engine import mark_all_read
+    return jsonify({"success": True, "marked": mark_all_read()})
 
 
 @app.route("/api/alerts/summary", methods=["GET"])
 def api_alerts_summary():
+    """Bell badge + latest notifications. Admin only: the entries name prices and thresholds."""
     if not _ALERTS_AVAILABLE:
         return jsonify({"ready": False, "error": _ALERTS_IMPORT_ERROR}), 503
+    ok, resp = _require_admin()
+    if not ok:
+        return resp
     try:
         return jsonify({"ready": True, **alerts_get_summary()})
     except Exception as exc:
@@ -4256,6 +4398,29 @@ def _parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
+def _disable_console_quickedit() -> None:
+    """Stop the Windows console from freezing the server.
+
+    With QuickEdit on (the Windows default), one click inside the "AgriPricePH Backend" window starts a text
+    selection, and from then on every write to that console blocks until the selection is cleared. Request
+    threads that log anything hang, so pages wait for data until someone clicks or presses a key in the window.
+    This turns QuickEdit off for this console window only, while the server runs; nothing is saved.
+    """
+    if os.name != "nt" or os.environ.get("AGRIPRICE_KEEP_QUICKEDIT") == "1":
+        return
+    try:
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.GetStdHandle(-10)            # STD_INPUT_HANDLE
+        mode = ctypes.c_uint32()
+        if not handle or not kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+            return                                     # no console (pythonw, redirected input)
+        ENABLE_QUICK_EDIT_MODE, ENABLE_EXTENDED_FLAGS = 0x0040, 0x0080
+        kernel32.SetConsoleMode(handle, (mode.value & ~ENABLE_QUICK_EDIT_MODE) | ENABLE_EXTENDED_FLAGS)
+    except Exception:
+        pass
+
+
 def main() -> int:
     args = _parse_args()
     _setup_logging()
@@ -4276,6 +4441,7 @@ def main() -> int:
         return 0
 
     # ── default / --serve: Flask API server + background auto-scrape ──────────
+    _disable_console_quickedit()
     print("AgriPricePH — API Server Mode")
     _auto_import_2026()
     print(f"  Dashboard     http://{args.host}:{args.port}/")
@@ -4331,16 +4497,24 @@ def main() -> int:
     threading.Thread(target=_warm_lstm_cache, daemon=True).start()
 
     def _startup_alert_check() -> None:
-        if not _ALERTS_AVAILABLE:
-            return
         try:
-            evaluate_alerts()
-        except Exception as exc:
-            logging.getLogger("agriprice_scraper").warning(
-                "Startup alert check skipped: %s", exc
-            )
+            from settings_store import get_settings
+            if ((get_settings() or {}).get("notifications") or {}).get("alert_check_on_startup") is False:
+                return
+        except Exception:
+            pass
+        _run_alert_check("server start")
 
     threading.Thread(target=_startup_alert_check, daemon=True).start()
+
+    # Every new forecast (after a scrape, a retrain, or a rebuild a visitor triggered) re-checks the alerts.
+    try:
+        import predict as _predict_mod
+        _predict_mod.REFRESH_LISTENERS.append(
+            lambda _payload: threading.Thread(
+                target=_run_alert_check, args=("forecast refresh",), daemon=True).start())
+    except Exception as exc:
+        logging.getLogger("agriprice_scraper").warning("Alert check after forecast refresh not wired: %s", exc)
 
     try:
         app.run(host=args.host, port=args.port, threaded=True, use_reloader=False)

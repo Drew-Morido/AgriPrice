@@ -2635,7 +2635,86 @@ longer clips its popovers: its decorative circles are background gradients now, 
   methods with a similar share, not the source of the accuracy.
 - **Paper:** Ch. 4 can cite the indicator as how the system makes the ensemble's choice visible to the user.
 
+### Round — Forecast vs Actual page: 20 days, with and without factors (2026-10-27)
+
+Ma'am Shein asked for a page where the panel can watch the forecasts against the real prices, with and without the
+factors, over at least 15 days (TODO A1). Admin → **Forecast vs Actual** (`admin/pages/forecast-compare.html`,
+`admin/js/forecast-compare.js`, `GET /api/forecast-compare`, `model/forecast_compare.py`):
+- **Without factors** = 8 LSTMs trained with the production recipe but the rice price as the only input
+  (`model/price_only.py`, `model/lstm_models_price_only/`); everything after the network (weekday reversion, ARIMA,
+  Kalman, adaptive weights) is identical, so the two forecasts differ only in what the LSTM sees.
+- Each point is the **day-1 forecast made the day before** from data available that day; LSTM weights fixed,
+  reversion coefficient and ensemble weights re-estimated from past data only. Default window Oct 7 – Oct 26, 2026
+  (20 days; the network was fitted on data through Mar 31, 2025). A Play button replays it day by day.
+- **Result, all 8 types, Oct 7–26:** average error ₱0.215 with factors, ₱0.216 without, ₱0.228 "tomorrow = today"
+  (5.7% / 5.3% lower); within ₱0.50 on 91.2% of days, within ₱1.00 on 98.8%. The two forecasts differ by ₱0.003 on
+  average. Per type, impRegular is worse than naive in this window (₱0.169 vs ₱0.154) and impWellMilled ties.
+- **What it means (say it this way):** for a next-day forecast the price's own recent movement carries the
+  prediction; adding the factors changes it by less than a centavo. This matches the LSTM ablation (p = 0.69) and
+  the finding that the production LSTM's output barely depends on its inputs. Never present the accuracy as coming
+  from the factors.
+- **Paper:** add to Ch. 4 as the forward-style check (window after training, with/without-factor comparison), with
+  the numbers above and the impRegular caveat. AVP script for it: `documents/AVP_1M45_SCRIPT.md`.
+
 ---
+
+### Round — DA-AMAS feedback: sources, markets, price dates, forecast summary, PNS (2026-10-27)
+
+What changed in the app (B5, B7, B8, B9, B10 in `documents/TODO_FEEDBACK.md`):
+
+- **One footer on every public page** (`public/js/public-shell.js`, `public/css/site-footer.css`): the data sources
+  with their logos (DA, DOE, PSA, World Bank; ExchangeRate-API), "Last updated: DA prices of <day>" from
+  `GET /api/site-status`, and the contact address agripriceph@gmail.com. A line says the logos belong to their
+  agencies and the project is not affiliated with or endorsed by them.
+- **Price source and markets (B5):** the footer states "DA-AMAS Daily Price Index, NCR: the prevailing retail price,
+  averaged across the N covered NCR wet markets" (N from the newest bulletin), with the market list. On 2026-10-28 the list
+  moved into its own "Where the data comes from" section just above the footer, and on 2026-10-28 (team feedback) that
+  section was limited to the home page. Every public page instead shows "DA prices updated: <day>" next to its prices. The list is read from the newest bulletin PDF
+  after each scrape (`tools/da_markets.py` → `model/da_markets.json`), never typed in. The count follows the bulletin:
+  29 markets on Sunday Oct 25, 2026, 33 on Tuesday Oct 27 (Sunday bulletins cover fewer markets). Earlier history is credited to PSA OpenSTAT (Jan 2015 – Sep 2018) and DA
+  bulletins (Oct 2018 – Feb 2025). Admin → Data Sources → DA shows the same list.
+- **Price dates (B8):** each front-page rice card shows the DA bulletin day its price was taken from
+  (`/api/predictions` → `price_dates`, the newest official DA day per type, never the scraper's "estimated" row).
+  The "Popular rice" ranges are now priced like the Rice Catalog: today's DA price for the brand's grade x (1 + the
+  brand's usual gap measured in the Aug 6 – Sep 4, 2026 shop canvass), so they carry the DA day too (2026-10-28).
+  Before, they showed the raw Sep 4 canvass prices. Fixed on the way: brand base prices (`api/catalog_service.py`) were taken from the newest
+  WS_rice_price row, which could be the estimated row; they now use the newest official DA row, ordered by real date.
+- **Forecast summary (B9):** a short automatic paragraph under the forecast graph, public and admin
+  (`js/forecast-narrative.js`). It is built only from numbers already on the page: latest DA price and day, the range of
+  the last 7 bulletins, the 3 forecast days with the likely range, the measured share of next-day forecasts within
+  ₱0.50, and a reminder to read the range. Moves under ₱0.10 are "about the same" (`predict.STEADY_PESO`).
+- **PNS (B10):** the home page grain section now separates the two PNS/BAFS 290:2025 ideas the old slider mixed:
+  a degree-of-milling slider (undermilled, regular milled, well-milled, overmilled; by share of kernels with bran
+  streaks) and a table of PNS grades by broken grains (Premium 5%, Grade 1 10%, Grade 2 15%, Grade 3 25%, Grade 4 35%,
+  Grade 5 45%), with a link to the standard. A note says DA's Special / Premium / Well-milled / Regular milled are
+  market categories used for price monitoring, not PNS grades. The old slider had "Premium" as a third milling degree,
+  which the standard does not say.
+
+**Paper:** if Ch. 3 or the UI description lists the public features, add the footer sources and market list, the price
+dates, and the forecast summary; describe the 8 price series as **DA market categories**, not PNS grades. No model,
+data or metric changed. [TEAM VERIFY: check the market names against the PDF of a recent bulletin. TEAM INPUT REQUIRED: the city / market where the brand shop prices were canvassed; the survey file records only "NCR" and the rice's origin, so the catalog says "Local markets, Metro Manila (NCR)".]
+
+### Round — Automated alerts, default alerts, calculated Market Drivers (2026-10-28)
+
+- **Automated alerts (B2):** the alert rules are now checked automatically after every scrape, every forecast
+  refresh and at server start (`api/app.py::_run_alert_check`), not only when an admin presses "Run Check Now".
+  New alerts appear on the admin bell with an unread count, and one email per check goes to the alert address
+  when Admin → Settings → Notifications → Email alerts is on (Gmail app password in `.env`). A rule fires at most
+  once per DA bulletin day per rice type, so a price that stays above a threshold gives one notice per bulletin.
+- **Default alerts (B3):** every rice type gets "price above" and "price below" rules set 5% above / below its DA
+  price on the day they were created, plus "moved ₱1.00 or more since the previous bulletin" and "tomorrow's
+  forecast moves ₱1.00 or more" for all types (`alerts_engine.default_rules_for`). They are ordinary rules: editable,
+  can be switched off or deleted (a deleted default is not re-created), and new rules can still be added.
+- **Market Drivers (D4):** Rice Stock Level, Rainfall, Month and Import Tariff were fixed numbers in
+  `admin/js/correlation.js` (r = -0.63, 0.41, 0.33, -0.03, the same for every rice type). They are now calculated per
+  rice type (`model/market_drivers.py`, `GET /api/market-drivers`): monthly averages, price detrended against its
+  12-month average, Pearson r with p-value (month: correlation ratio eta with ANOVA p). For Local Well-Milled:
+  stock r = -0.23 (p = 0.008), rainfall r = +0.07 (p = 0.44, data ends Dec 2025), month eta = 0.19 (p = 0.96).
+  The old figures are not reproduced by the data. Import tariff is **not calculated**: the tariff schedule in the
+  system holds only one rate (15%), and it applies to imported rice only; the old -0.03 came from a 2019–2026 series
+  that is no longer in the database. p-values treat months as independent, so "significant" is indicative.
+  **Paper:** the draft does not cite the old figures (checked); if a later chapter discusses market drivers, use the
+  calculated values with their method and say rainfall data ends Dec 2025.
 
 ## Still [VERIFY] / [ACTION]
 - **[TEAM]** fill every red `[TEAM INPUT REQUIRED]` note in the .docx: SOP 3–6 survey tables and conclusions, per-stratum

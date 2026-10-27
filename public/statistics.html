@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="css/public.css?v=20261001" />
   <link rel="stylesheet" href="css/landpage-nav.css" />
   <link rel="stylesheet" href="css/public-alert.css?v=20261001c" />
+  <link rel="stylesheet" href="css/site-footer.css?v=20261028" />
   <style>
 /* AgriPricePH — Charts & Stats (fit-to-screen, tabbed, calm).
    Same identity as before: the dark-forest → green banner with the growing-bar backdrop, a light dotted
@@ -238,25 +239,6 @@ html.theme-dark .page-wrap{background:linear-gradient(180deg,#0f1a14,#0d1812 60%
 .mv-row:nth-child(7) .mv-bar,.bd-row:nth-child(7) .bd-bar{animation-delay:.24s}
 .mv-row:nth-child(8) .mv-bar,.bd-row:nth-child(8) .bd-bar{animation-delay:.28s}
 
-/* ══════════ FOOTER ══════════ */
-.site-footer{background:linear-gradient(180deg,#eef8f1,#e5f3ea);border-top:1px solid rgba(61,150,96,.2);padding:30px 0 26px}
-html.theme-dark .site-footer{background:linear-gradient(180deg,#0d1812,#0a1610);border-top-color:rgba(76,175,110,.18)}
-.footer-inner{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:30px}
-.footer-logo{display:flex;align-items:center;gap:10px}
-.footer-brand-name{font-family:var(--f-display);font-size:18px;color:#20452f}
-.footer-tagline{font-size:13px;color:#3d6650;line-height:1.5;margin:6px 0 0}
-.footer-stats{display:flex;gap:26px;background:rgba(255,255,255,.75);border:1px solid rgba(61,150,96,.2);border-radius:14px;padding:14px 22px}
-.footer-stat{display:flex;flex-direction:column;align-items:center;gap:4px}
-.footer-stat-num{font-family:var(--f-mono);font-size:18px;font-weight:600;color:#27613c;line-height:1}
-.footer-stat-lbl{font-size:11px;color:#4e7a60;font-weight:700;text-transform:uppercase;letter-spacing:.7px;white-space:nowrap}
-.footer-meta{display:flex;flex-direction:column;gap:5px;text-align:right}
-.footer-source{font-size:12.5px;color:#3d6650;font-weight:600}
-.footer-copy{font-size:12px;color:#5f8a71}
-html.theme-dark .footer-brand-name{color:#e8f0eb}
-html.theme-dark .footer-tagline,html.theme-dark .footer-source{color:#9bb0a4}
-html.theme-dark .footer-stats{background:rgba(21,40,32,.6);border-color:rgba(76,175,110,.22)}
-html.theme-dark .footer-stat-num{color:#8fd8ab}
-html.theme-dark .footer-stat-lbl{color:#9bb0a4}
 
 @media (prefers-reduced-motion:reduce){
   .hero-bg-bars rect,.st-card.is-entering,.st-card.is-entering .mv-bar,.st-card.is-entering .og-dot,.st-card.is-entering .bd-bar,.live-dot{animation:none !important}
@@ -288,8 +270,6 @@ html.theme-dark .footer-stat-lbl{color:#9bb0a4}
   .tr-chart{flex:none;height:280px}
   .bd-grid{grid-template-columns:1fr}
   .bd-form{max-width:460px;width:100%;margin:0 auto}
-  .footer-inner{grid-template-columns:1fr;text-align:center;gap:20px}
-  .footer-stats{justify-content:center}.footer-meta{text-align:center}
 }
 @media(max-width:760px){
   .wrap{padding:0 14px}
@@ -358,7 +338,7 @@ html.theme-dark .footer-stat-lbl{color:#9bb0a4}
         <div class="hero-eyebrow"><span class="hero-eyebrow-dot"></span>Charts &amp; Stats</div>
         <h1>All 8 rice types, <em>side by side</em></h1>
       </div>
-      <div class="hero-asof"><span class="live-dot"></span><span id="st-asof">Loading the latest DA prices&hellip;</span></div>
+      <div class="hero-asof" data-da-stamp></div>
     </div>
   </div>
 
@@ -546,39 +526,19 @@ html.theme-dark .footer-stat-lbl{color:#9bb0a4}
     </div>
   </div>
 
-  <footer class="site-footer">
-    <div class="wrap footer-inner">
-      <div>
-        <div class="footer-logo">
-          <svg width="26" height="26" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="13" stroke="rgba(101,190,130,0.4)" stroke-width="1.5"/><path d="M8 17C10 12 14 10 20 12" stroke="#65be82" stroke-width="1.8" stroke-linecap="round"/><path d="M8 17C11 20 16 20 20 17" stroke="#3d9660" stroke-width="1.8" stroke-linecap="round"/><circle cx="14" cy="14" r="2" fill="#65be82"/></svg>
-          <span class="footer-brand-name">AgriPricePH</span>
-        </div>
-        <p class="footer-tagline">Philippine rice prices — clear, daily and free.</p>
-      </div>
-      <div class="footer-stats">
-        <div class="footer-stat"><span class="footer-stat-num" id="ft-days">30</span><span class="footer-stat-lbl">Days compared</span></div>
-        <div class="footer-stat"><span class="footer-stat-num">8</span><span class="footer-stat-lbl">Rice types</span></div>
-        <div class="footer-stat"><span class="footer-stat-num" id="ft-latest">—</span><span class="footer-stat-lbl">Latest reading</span></div>
-      </div>
-      <div class="footer-meta">
-        <span class="footer-source">Source: DA-AMAS retail price monitoring, NCR markets (₱/kg)</span>
-        <span class="footer-copy">© 2026 AgriPricePH · All figures in Philippine pesos</span>
-      </div>
-    </div>
-  </footer>
   </div>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="js/public-rice.js"></script>
 <script src="../js/data.js"></script>
-<script src="../js/api.js?v=20261001b"></script>
+<script src="../js/api.js?v=20261027"></script>
 <script src="js/public-alert.js?v=20261001c"></script>
 <script src="js/public-auth.js?v=20261014"></script>
 <script src="js/public-auth-modal.js?v=20261014"></script>
-<script src="js/public-shell.js"></script>
+<script src="js/public-shell.js?v=20261028b"></script>
 <script src="js/public-data.js?v=20261014"></script>
-<script src="js/public-stats.js?v=20261014"></script>
+<script src="js/public-stats.js?v=20261028"></script>
 <script src="js/public-pages.js?v=2"></script>
 </body>
 </html>

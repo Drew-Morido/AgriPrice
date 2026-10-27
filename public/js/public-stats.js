@@ -188,9 +188,11 @@ AgriPricePH.Stats = (function () {
   function renderHero() {
     const today = RICE.map((r) => ({ r, l: latest(r.key) })).filter((x) => x.l);
     const lastIso = today.reduce((m, x) => (x.l.iso > m ? x.l.iso : m), '');
-    $('st-asof').textContent = lastIso ? `Latest DA reading: ${longDate(lastIso)}` : 'No recent DA reading';
-    $('ft-latest').textContent = lastIso ? shortDate(lastIso) : '—';
-    $('ft-days').textContent = String(period);
+    // The hero's "DA prices updated" stamp is filled by public-shell.js (same source on every page).
+    if ($('st-asof')) $('st-asof').textContent = lastIso ? `Latest DA reading: ${longDate(lastIso)}` : 'No recent DA reading';
+    // The old page footer showed these; the shared footer (public-shell.js) replaced it.
+    if ($('ft-latest')) $('ft-latest').textContent = lastIso ? shortDate(lastIso) : '—';
+    if ($('ft-days')) $('ft-days').textContent = String(period);
   }
 
   /* ─────────────────────── 01 · movers ─────────────────────── */
@@ -658,7 +660,7 @@ AgriPricePH.Stats = (function () {
     const msg = '<div class="st-empty">Live prices are unavailable right now. Please try again in a moment.</div>';
     ['st-movers', 'st-origin', 'st-trend'].forEach((id) => { $(id).innerHTML = msg; });
     $('bd-summary').textContent = 'Live prices are unavailable right now.';
-    $('st-asof').textContent = 'Live prices are unavailable right now';
+    if ($('st-asof')) $('st-asof').textContent = 'Live prices are unavailable right now';
   }
 
   async function init() {

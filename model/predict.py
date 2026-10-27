@@ -136,6 +136,12 @@ def _holdout_accuracy_confidence(tmeta: dict, meta: dict | None = None, day_idx:
     return 0.75
 
 
+def _price_dates(prices: dict) -> dict:
+    """The DA bulletin day each published current price was taken from (data_pipeline.LAST_READINESS)."""
+    dates = (LAST_READINESS or {}).get("price_dates") or {}
+    return {k: dates[k] for k in prices if k in dates}
+
+
 def _targets_meta(meta: dict) -> dict:
     if isinstance(meta.get("targets"), dict) and meta["targets"]:
         return meta["targets"]
@@ -878,6 +884,11 @@ def _readiness_snapshot() -> dict:
     }
 
 
+# Called with the new payload each time a forecast is (re)built: api/app.py runs the price-alert check here,
+# so "tomorrow's forecast moves" alerts follow every forecast refresh. Listeners must return quickly.
+REFRESH_LISTENERS: list = []
+
+
 def _payload_cache_key(meta: dict) -> tuple:
     """Identity of the inputs a forecast depends on.
 
@@ -1064,6 +1075,7 @@ def _build_payload(meta, cache_key):
         "forecast": primary_days,
         "forecasts_by_key": forecasts_by_key,
         "current_prices": all_rice,
+        "price_dates": _price_dates(all_rice),
         "metrics": {
             "mae_peso": primary_meta.get("mae_peso") or meta.get("mae_peso"),
             "rmse_peso": primary_meta.get("rmse_peso") or meta.get("rmse_peso"),
@@ -1148,6 +1160,11 @@ def _build_payload(meta, cache_key):
     _PAYLOAD_CACHE["key"] = cache_key
     _PAYLOAD_CACHE["payload"] = copy.deepcopy(payload)
     _save_payload_to_disk(cache_key, payload)
+    for listener in list(REFRESH_LISTENERS):
+        try:
+            listener(payload)
+        except Exception as exc:
+            print(f"[predict] refresh listener failed ({exc})")
     return payload
 
 

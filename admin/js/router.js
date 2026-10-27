@@ -9,6 +9,7 @@ AgriPricePH.Router = (function () {
     'historical':   { title: 'Price History',            module: 'HistoricalData' },
     'web-scraper':  { title: 'Web Scraper',              module: 'WebScraper' },
     'model-dashboard': { title: 'Model Dashboard',       module: 'ModelDashboard' },
+    'forecast-compare': { title: 'Forecast vs Actual',    module: 'ForecastCompare' },
     'training':     { title: 'Model Training',           module: 'Training' },
     'correlation':  { title: 'Market Drivers',           module: 'Correlation' },
     'reports':      { title: 'Reports & Export',         module: 'Reports' },

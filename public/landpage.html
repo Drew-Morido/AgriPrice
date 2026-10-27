@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="css/landpage-nav.css" />
   <link rel="stylesheet" href="css/landpage.css" />
   <link rel="stylesheet" href="css/public-alert.css?v=20261001c" />
+  <link rel="stylesheet" href="css/site-footer.css?v=20261028" />
   <style>
     html.public-site { scrollbar-width: none; -ms-overflow-style: none; }
     html.public-site::-webkit-scrollbar { display: none; width: 0; height: 0; }
@@ -323,7 +324,7 @@
 
     .hsc-row {
       display: flex;
-      align-items: baseline;
+      align-items: center;
       justify-content: space-between;
       gap: 12px;
     }
@@ -338,12 +339,35 @@
 
     .hsc-unit { font-size: 13px; color: rgba(255,255,255,0.4); font-family: var(--font-body); }
 
+    /* Arrow in a fixed 9px slot, tabular digits, one minimum width: every ▲ / ▼ badge lines up. */
     .hsc-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      min-width: 66px;
       font-size: 11px;
       font-weight: 700;
-      padding: 3px 9px;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+      padding: 5px 9px;
       border-radius: 99px;
+      white-space: nowrap;
+      align-self: center;
+      flex-shrink: 0;
     }
+    .hsc-badge svg, .pc-change svg { width: 9px; height: 9px; flex-shrink: 0; display: block; }
+    .hsc-badge.brands { min-width: 0; }
+    .hsc-label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .hsc-label-row .hsc-label { margin-bottom: 0; }
+    .hsc-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; min-width: 0; }
+    .hsc-foot .hsc-sub { margin-top: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .hsc-date, .pop-date {
+      display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; flex-shrink: 0;
+      font-size: 10.5px; font-weight: 600; line-height: 1; padding: 4px 8px; border-radius: 999px;
+    }
+    .hsc-date { color: var(--green-200); background: rgba(120, 202, 151, 0.12); border: 1px solid rgba(120, 202, 151, 0.22); }
+    .pop-date { color: var(--green-700); background: rgba(45, 106, 79, 0.08); border: 1px solid rgba(45, 106, 79, 0.16); margin: 2px 0 10px; align-self: flex-start; }
 
     /* Buyer's convention, as on Price History / Charts & Stats: pricier = red, cheaper = green. */
     .hsc-badge.up {
@@ -451,9 +475,10 @@
     .ticker-move {
       display: inline-flex; align-items: center; gap: 4px;
       font-family: var(--font-mono); font-size: 11.5px; font-weight: 700;
-      padding: 2px 8px; border-radius: 99px;
+      font-variant-numeric: tabular-nums; line-height: 1; min-width: 58px; justify-content: center;
+      padding: 4px 8px; border-radius: 99px;
     }
-    .ticker-move svg { width: 10px; height: 10px; }
+    .ticker-move svg { width: 9px; height: 9px; flex-shrink: 0; display: block; }
     .ticker-move.up { color: #fca5a5; background: rgba(239, 68, 68, 0.18); }
     .ticker-move.down { color: #86efac; background: rgba(34, 197, 94, 0.18); }
     .ticker-move.flat { color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.08); }
@@ -747,9 +772,11 @@
     .pc-change {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
       font-size: 12px;
       font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
       margin-top: 10px;
       padding: 3px 9px;
       border-radius: 99px;
@@ -766,7 +793,7 @@
     .price-card { display: flex; flex-direction: column; }
     .pc-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
     .pc-head .pc-type { margin-bottom: 0; }
-    .pc-today { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.35); }
+    .pc-today { font-size: 11.5px; font-weight: 600; color: var(--green-200); background: rgba(120,202,151,0.1); border: 1px solid rgba(120,202,151,0.2); border-radius: 999px; padding: 3px 9px; white-space: nowrap; }
     .pc-range {
       margin-top: 14px; padding: 10px 12px; border-radius: 10px;
       background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
@@ -954,132 +981,6 @@
     .contact-form textarea { min-height: 88px; resize: vertical; }
     .contact-form button { font-family: var(--font-body); font-size: 14px; font-weight: 700; color: var(--green-900); background: #fff; border: 0; border-radius: var(--radius-sm); padding: 12px 16px; cursor: pointer; }
     .contact-note { font-size: 11.5px; color: rgba(255,255,255,0.4); margin-top: 12px; }
-
-    /* ── FOOTER ── */
-    footer.site-footer {
-      position: relative;
-      background:
-        radial-gradient(ellipse 70% 80% at 8% 0%, rgba(82, 176, 122, 0.12), transparent 55%),
-        var(--green-950);
-      padding: 0 28px;
-      border-top: 1px solid rgba(120, 202, 151, 0.16);
-      overflow: hidden;
-    }
-
-    footer.site-footer::before {
-      content: '';
-      display: block;
-      height: 3px;
-      margin: 0 -28px;
-      background: linear-gradient(90deg, transparent, var(--green-400) 22%, var(--green-200) 50%, var(--green-400) 78%, transparent);
-      opacity: 0.7;
-    }
-
-    .footer-inner {
-      max-width: 1180px;
-      margin: 0 auto;
-      padding: 56px 0 40px;
-      display: grid;
-      grid-template-columns: 1.45fr 0.75fr 0.75fr 1.05fr;
-      gap: 40px 32px;
-      align-items: start;
-    }
-
-    .footer-logo {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      text-decoration: none;
-      color: inherit;
-      margin-bottom: 14px;
-    }
-
-    .footer-logo-icon {
-      width: 38px;
-      height: 38px;
-      border-radius: 10px;
-      background: var(--green-700);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      box-shadow: 0 0 0 1px rgba(120, 202, 151, 0.25);
-    }
-
-    .footer-logo-icon svg {
-      width: 20px;
-      height: 20px;
-      display: block;
-    }
-
-    .footer-name {
-      font-family: var(--font-display);
-      font-size: 22px;
-      font-weight: 400;
-      color: #f3faf6;
-      letter-spacing: -0.3px;
-    }
-
-    .footer-tagline {
-      font-size: 13.5px;
-      line-height: 1.65;
-      color: rgba(255, 255, 255, 0.48);
-      max-width: 320px;
-      margin: 0;
-    }
-
-    .footer-col h3 {
-      font-family: var(--font-body);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--green-300);
-      margin: 6px 0 16px;
-    }
-
-    .footer-col ul {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .footer-col a {
-      font-size: 14px;
-      color: rgba(255, 255, 255, 0.58);
-      text-decoration: none;
-      transition: color 0.18s;
-    }
-
-    .footer-col a:hover { color: #fff; }
-
-    .footer-source-copy {
-      font-size: 13.5px;
-      line-height: 1.65;
-      color: rgba(255, 255, 255, 0.48);
-      margin: 0;
-    }
-
-    .footer-bottom {
-      max-width: 1180px;
-      margin: 0 auto;
-      padding: 18px 0 28px;
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .footer-bottom p {
-      font-size: 12px;
-      color: rgba(255, 255, 255, 0.32);
-      margin: 0;
-    }
 
     /* ── HERO FLOATING GRAINS ── */
     .hero-float-grains {
@@ -1309,6 +1210,61 @@
       background: var(--green-600);
       border-color: var(--green-400);
       color: #fff;
+    }
+
+    .mill-std { display: inline-block; margin-left: 6px; font-size: 10px; font-weight: 700; letter-spacing: .08em; color: var(--green-300); opacity: .85; }
+    /* Four stops at 0, 1/3, 2/3 and 1 of the track: each label sits under its stop. */
+    .mill-labels { position: relative; height: 16px; display: block; }
+    .mill-labels span { position: absolute; top: 0; white-space: nowrap; transform: translateX(-50%); }
+    .mill-labels span:nth-child(1) { left: 0; transform: none; }
+    .mill-labels span:nth-child(2) { left: 33.33%; }
+    .mill-labels span:nth-child(3) { left: 66.67%; }
+    .mill-labels span:nth-child(4) { left: auto; right: 0; transform: none; }
+
+    /* PNS grades table + DA market categories (B10) */
+    .pns-panel { display: grid; grid-template-columns: 1.25fr 1fr; gap: 18px; margin-top: 36px; }
+    .pns-table-card, .pns-note {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: var(--radius-xl);
+      padding: 26px 28px;
+    }
+    .pns-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+    .pns-panel h3 { font-family: var(--font-display); font-size: 26px; font-weight: 400; color: #fff; margin: 0; line-height: 1.15; }
+    .pns-link {
+      display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--green-200);
+      text-decoration: none; padding: 8px 12px; border-radius: 99px; border: 1px solid rgba(120,202,151,0.3); background: rgba(120,202,151,0.08);
+      transition: background .2s, color .2s;
+    }
+    .pns-link:hover { background: rgba(120,202,151,0.18); color: #fff; }
+    .pns-link:focus-visible { outline: 2px solid var(--green-300); outline-offset: 2px; }
+    .pns-table-wrap { overflow-x: auto; }
+    .pns-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .pns-table th, .pns-table td { padding: 11px 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .pns-table thead th { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,0.45); }
+    .pns-table tbody th { color: #fff; font-weight: 700; white-space: nowrap; }
+    .pns-table tbody td { color: rgba(255,255,255,0.78); font-family: var(--font-mono); white-space: nowrap; }
+    .pns-table tbody tr:first-child th { color: var(--green-200); }
+    .pns-table tbody tr:last-child th, .pns-table tbody tr:last-child td { border-bottom: 0; }
+    .pns-bar-col { width: 45%; }
+    .pns-bar { display: block; height: 8px; border-radius: 99px; background: rgba(255,255,255,0.08); position: relative; overflow: hidden; }
+    .pns-bar::after { content: ''; position: absolute; inset: 0 auto 0 0; width: calc(var(--w) * 100 / 45); border-radius: inherit; background: linear-gradient(90deg, var(--green-300), #e6c37a); }
+    .pns-foot, .pns-small { font-size: 12px; line-height: 1.6; color: rgba(255,255,255,0.45); margin: 14px 0 0; }
+    .pns-note p { color: rgba(255,255,255,0.72); font-size: 14.5px; line-height: 1.7; margin: 12px 0 0; }
+    .pns-note b { color: #fff; }
+    .pns-map { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 8px; }
+    .pns-map li { display: flex; align-items: baseline; gap: 10px; font-size: 13.5px; color: rgba(255,255,255,0.7); line-height: 1.5; }
+    .pns-map li span {
+      flex: 0 0 118px; font-weight: 700; color: #fff; font-size: 12.5px; padding: 4px 10px; border-radius: 99px;
+      background: rgba(120,202,151,0.12); border: 1px solid rgba(120,202,151,0.22); text-align: center;
+    }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+    @media (max-width: 900px) { .pns-panel { grid-template-columns: 1fr; } }
+    @media (max-width: 480px) {
+      .pns-table-card, .pns-note { padding: 20px 18px; }
+      .pns-bar-col { display: none; }
+      .pns-map li { flex-direction: column; gap: 4px; }
+      .pns-map li span { flex: none; }
     }
 
     .class-grid {
@@ -1585,14 +1541,11 @@
       .trivia-tall .trivia-copy { min-height: 280px; }
       .flip-board { grid-template-columns: 1fr 1fr; }
       .faq-layout { grid-template-columns: 1fr; }
-      .footer-inner { grid-template-columns: 1fr 1fr; }
     }
 
     @media (max-width: 640px) {
       section { padding: 64px 20px; }
       .stats-row { grid-template-columns: 1fr 1fr; }
-      .footer-inner { grid-template-columns: 1fr; gap: 28px; padding: 40px 0 28px; }
-      .footer-bottom { flex-direction: column; align-items: flex-start; }
       .hero h1 { letter-spacing: -0.8px; }
       .flip-board { grid-template-columns: 1fr; }
     }
@@ -1774,8 +1727,8 @@
       <div class="know-reveal">
         <div class="eyebrow" style="color: var(--green-300);">Know Your Grain</div>
         <h2 class="section-title" style="color: #fff;">The Anatomy of Rice<br>Classifications</h2>
-        <p class="section-desc" style="color: rgba(255,255,255,0.6);">Tap a layer of the grain, then drag the miller to see how Regular, Well-Milled, and Premium rice actually differ.</p>
-        <p class="know-hint" style="color: var(--green-200);">Interactive · click the grain · slide to mill</p>
+        <p class="section-desc" style="color: rgba(255,255,255,0.6);">Tap a layer of the grain, then slide the miller through the four degrees of milling in the Philippine National Standard. Below: the PNS grades, which are about broken grains, not milling.</p>
+        <p class="know-hint" style="color: var(--green-200);">Interactive · click the grain · slide to mill · based on PNS/BAFS 290:2025</p>
       </div>
 
       <div class="anatomy-layout know-reveal">
@@ -1811,9 +1764,9 @@
             <ellipse class="grain-part" data-part="germ" cx="100" cy="276" rx="22" ry="28" fill="url(#germGrad)"/>
           </svg>
           <div class="mill-control">
-            <label for="mill-range">Milling degree</label>
-            <input id="mill-range" type="range" min="0" max="2" step="1" value="1" />
-            <div class="mill-labels"><span>Regular</span><span>Well-milled</span><span>Premium</span></div>
+            <label for="mill-range">Degree of milling <span class="mill-std">PNS/BAFS 290:2025</span></label>
+            <input id="mill-range" type="range" min="0" max="3" step="1" value="2" aria-valuetext="Well-milled" />
+            <div class="mill-labels"><span>Undermilled</span><span>Regular</span><span>Well-milled</span><span>Overmilled</span></div>
           </div>
         </div>
 
@@ -1833,31 +1786,43 @@
         </div>
       </div>
 
-      <div class="class-grid know-reveal" id="class-grid">
-        <article class="class-card" data-class="0" tabindex="0">
-          <img alt="Duller, bran-flecked rice grains, less polished" src="https://images.pexels.com/photos/4110253/pexels-photo-4110253.jpeg?auto=compress&cs=tinysrgb&w=800" />
-          <div class="class-card-body">
-            <div class="class-num">01</div>
-            <h3>Regular Milled Rice</h3>
-            <p>More broken grains, less shine — some bran still clings to the kernel. The most affordable sack in the palengke.</p>
+      <div class="pns-panel know-reveal" id="pns-grades">
+        <div class="pns-table-card">
+          <div class="pns-head">
+            <div>
+              <div class="anatomy-kicker">PNS grades of milled rice</div>
+              <h3>Grade is about broken grains</h3>
+            </div>
+            <a class="pns-link" href="https://bafs.da.gov.ph/wp-content/uploads/2025/12/PNS-BAFS-290-2025-Paddy-and-Milled-Rice-%E2%80%94-Product-Standard-%E2%80%94-Grading-and-Classification-1.pdf" target="_blank" rel="noopener noreferrer">Read PNS/BAFS 290:2025
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></a>
           </div>
-        </article>
-        <article class="class-card is-on" data-class="1" tabindex="0">
-          <img alt="Clean, uniformly white well-milled rice grains" src="https://images.pexels.com/photos/4110251/pexels-photo-4110251.jpeg?auto=compress&cs=tinysrgb&w=800" />
-          <div class="class-card-body">
-            <div class="class-num">02</div>
-            <h3>Well-Milled Rice</h3>
-            <p>Smoother, whiter, fewer brokens. The everyday choice for most Filipino households.</p>
+          <div class="pns-table-wrap">
+            <table class="pns-table">
+              <thead><tr><th scope="col">PNS grade</th><th scope="col">Broken grains, at most</th><th scope="col" class="pns-bar-col"><span class="sr-only">Share of broken grains</span></th></tr></thead>
+              <tbody>
+                <tr><th scope="row">Premium</th><td>5%</td><td class="pns-bar-col"><span class="pns-bar" style="--w:5%"></span></td></tr>
+                <tr><th scope="row">Grade 1</th><td>10%</td><td class="pns-bar-col"><span class="pns-bar" style="--w:10%"></span></td></tr>
+                <tr><th scope="row">Grade 2</th><td>15%</td><td class="pns-bar-col"><span class="pns-bar" style="--w:15%"></span></td></tr>
+                <tr><th scope="row">Grade 3</th><td>25%</td><td class="pns-bar-col"><span class="pns-bar" style="--w:25%"></span></td></tr>
+                <tr><th scope="row">Grade 4</th><td>35%</td><td class="pns-bar-col"><span class="pns-bar" style="--w:35%"></span></td></tr>
+                <tr><th scope="row">Grade 5</th><td>45%</td><td class="pns-bar-col"><span class="pns-bar" style="--w:45%"></span></td></tr>
+              </tbody>
+            </table>
           </div>
-        </article>
-        <article class="class-card" data-class="2" tabindex="0">
-          <img alt="Premium long-grain cooked rice" src="https://images.pexels.com/photos/723198/pexels-photo-723198.jpeg?auto=compress&cs=tinysrgb&w=800" />
-          <div class="class-card-body">
-            <div class="class-num">03</div>
-            <h3>Premium &amp; Special</h3>
-            <p>Whole, long, pristine grains — or aromatic types like Dinorado and Jasmine with a distinct scent and bite.</p>
-          </div>
-        </article>
+          <p class="pns-foot">Each grade also has limits on chalky, damaged and discoloured kernels, foreign matter and moisture. The full table is in the standard.</p>
+        </div>
+        <aside class="pns-note">
+          <div class="anatomy-kicker">How this site names rice</div>
+          <h3>DA price categories are market categories</h3>
+          <p>The Department of Agriculture&rsquo;s price bulletin sorts rice into <b>Special, Premium, Well-milled</b> and <b>Regular milled</b>. These are the market categories used for price monitoring, and they are what AgriPricePH tracks and forecasts. They are not the PNS grades in the table.</p>
+          <ul class="pns-map">
+            <li><span>Premium</span> DA spec: 5% broken</li>
+            <li><span>Well-milled</span> DA spec: 1&ndash;19% bran streak</li>
+            <li><span>Regular milled</span> DA spec: 20&ndash;40% bran streak</li>
+            <li><span>Special</span> special and aromatic rice, such as Dinorado and Jasmine</li>
+          </ul>
+          <p class="pns-small">Specs as printed in the DA Daily Price Index (NCR).</p>
+        </aside>
       </div>
       <p class="know-photo-credit">Photo credits: Pexels (grain close-ups, rice panicle, seedlings, plated rice) · Unsplash (uncooked rice grains) — free stock photography.</p>
     </div>
@@ -2004,6 +1969,7 @@
         <div>
           <div class="eyebrow" style="color: var(--green-300);">Prices</div>
           <h2 class="section-title">All 8 rice types,<br>right now</h2>
+          <div data-da-stamp style="color: rgba(255,255,255,0.86);"></div>
           <p class="section-desc" id="home-prices-desc">Today&rsquo;s Department of Agriculture price for every grade, tomorrow&rsquo;s expected range, and the brands you&rsquo;ll find on the shelf.</p>
         </div>
         <a href="current-prices.html" class="btn-hero-secondary" style="white-space: nowrap; flex-shrink:0;">View full table →</a>
@@ -2080,7 +2046,7 @@
           <h3>Talk to the team</h3>
           <p>Questions about the site or a listing — send a note. We read messages on weekdays.</p>
           <div class="contact-lines">
-            <a href="mailto:hello@agripriceph.ph">hello@agripriceph.ph</a>
+            <a href="mailto:agripriceph@gmail.com">agripriceph@gmail.com</a>
             <a href="https://www.da.gov.ph/contact-us/" target="_blank" rel="noopener noreferrer">DA Contact Us — official programs</a>
             <span>Philippines · replies in Filipino or English</span>
           </div>
@@ -2112,52 +2078,6 @@
   </section>
 
   <!-- FOOTER -->
-  <footer class="site-footer">
-    <div class="footer-inner">
-      <div class="footer-brand-col">
-        <a href="landpage.html" class="footer-logo" aria-label="AgriPricePH home">
-          <span class="footer-logo-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/>
-              <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
-            </svg>
-          </span>
-          <span class="footer-name">AgriPricePH</span>
-        </a>
-        <p class="footer-tagline">Rice price intelligence for Filipino vendors and households — live rates, a short forecast, and the names you&rsquo;ll see on the sack.</p>
-      </div>
-      <nav class="footer-col" aria-label="Explore">
-        <h3>Explore</h3>
-        <ul>
-          <li><a href="current-prices.html">Price Forecast</a></li>
-          <li><a href="rice-catalog.html">Rice Catalog</a></li>
-          <li><a href="historical.html">Price History</a></li>
-          <li><a href="statistics.html">Charts &amp; Stats</a></li>
-        </ul>
-      </nav>
-      <nav class="footer-col" aria-label="Help">
-        <h3>Help</h3>
-        <ul>
-          <li><a href="#faq">FAQs</a></li>
-          <li><a href="#contact">Contact</a></li>
-          <li><a href="#" data-auth-open="login">Log in</a></li>
-          <li><a href="#" data-auth-open="signup">Sign up free</a></li>
-        </ul>
-      </nav>
-      <div class="footer-col">
-        <h3>Contact</h3>
-        <p class="footer-source-copy">
-          <a href="mailto:hello@agripriceph.ph">hello@agripriceph.ph</a><br />
-          <a href="https://www.da.gov.ph/contact-us/" target="_blank" rel="noopener noreferrer">DA Contact Us</a><br />
-          Philippines · Filipino or English
-        </p>
-      </div>
-    </div>
-    <div class="footer-bottom">
-      <p>© 2026 AgriPricePH</p>
-      <p>Philippines · Data from the Department of Agriculture</p>
-    </div>
-  </footer>
 
   <button type="button" class="back-top" id="home-back-top" aria-label="Back to top">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
@@ -2166,17 +2086,17 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="../js/dates.js"></script>
   <script src="../js/data.js"></script>
-  <script src="../js/api.js?v=20261001b"></script>
+  <script src="../js/api.js?v=20261027"></script>
   <script src="js/public-rice.js"></script>
   <script src="js/public-alert.js?v=20261001c"></script>
   <script src="js/public-auth.js?v=20261014"></script>
   <script src="js/public-auth-modal.js?v=20261014"></script>
-  <script src="js/public-shell.js"></script>
+  <script src="js/public-shell.js?v=20261028b"></script>
   <script src="js/public-data.js?v=20261014"></script>
-  <script src="js/public-varieties.js?v=7"></script>
+  <script src="js/public-varieties.js?v=20261028"></script>
   <script src="js/rice-photos.js"></script>
-  <script src="js/landpage.js?v=20261014"></script>
-  <script src="js/rice-knowledge.js"></script>
+  <script src="js/landpage.js?v=20261028b"></script>
+  <script src="js/rice-knowledge.js?v=20261027"></script>
   <script src="js/public-pages.js"></script>
 </body>
 </html>

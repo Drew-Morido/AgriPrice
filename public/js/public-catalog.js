@@ -134,10 +134,6 @@
     const info = BRAND_INFO[b.id] || {};
     const grade = gradeName(key);
     const catAsOf = catRange && catRange.asOf ? fmtDate(catRange.asOf) : null;
-    const catSrc = !catRange ? 'no price data'
-      : catRange.source === 'da' ? 'the DA prevailing range'
-      : catRange.source === 'forecast' ? "the model's forecast range"
-      : 'the latest category price';
     const surveyed = fmtDate(info.sample_date);
     const sMin = info.surveyed_price_min, sMax = info.surveyed_price_max;
     const shelf = sMin == null ? null
@@ -154,20 +150,16 @@
     })();
     const stale = false;
     const staleNote = '';
-    const checked = '';   // the canvass window lives in the (i) next to "Last verified"
+    const checked = '';   // the canvass window lives in the (i) next to "Priced at"
     const surveyStory = window30
       ? `Prices were canvassed in local markets every day for ${SURVEY_DAYS} days, from ${window30.start} to ${window30.end}. ${window30.endShort} was the ${SURVEY_DAYS}th and last day, so its prices are the ones used.`
       : '';
-    const follows = catRange && catRange.source === 'forecast'
-      ? `Because it is tied to the ${grade} price forecast, which is built from DA prices, it rises when DA prices rise and falls when they fall.`
-      : `Because it is tied to the DA price, it rises when the DA price rises and falls when it falls.`;
-
     if (info.fixed_price && info.price != null) {
       return {
         text: `${peso(info.price)}/kg`, stale, shelf, fixed: true, survey: surveyStory,
         asOf: checked,
         note: 'Government-set price — it does not move with the market range.',
-        how: 'This price is set by the government, so it is shown as one figure and is not adjusted with the market range.',
+        how: 'Set by the government, so it stays the same and does not follow market prices.',
       };
     }
     const pk = b._pack;
@@ -187,7 +179,7 @@
         stale, asOf: checked, note: staleNote,
         shelf: pk.pack_kg ? `${peso(pk.pack_price)} for ${kg}kg (${peso(pk.per_kg)}/kg)` : `${peso(pk.per_kg)}/kg`,
         survey: surveyStory,
-        how: `This ${pk.pack_kg ? `${kg}kg pack` : 'product'} sells for ${pk.pack_kg ? `${peso(pk.pack_price)} (${peso(pk.per_kg)} per kilo)` : `${peso(pk.per_kg)} per kilo`}. We keep the same difference between that price and the ${grade} price, and apply it to ${catSrc}${catAsOf ? ` (as of ${catAsOf})` : ''}. ${follows}`,
+        how: `Based on this ${pk.pack_kg ? 'pack' : 'product'}'s store price, kept at the same gap from today's DA ${grade} price. When the DA price moves, this price moves with it.`,
       };
     }
     if (info.estimated && info.weight_pct != null && catRange) {
@@ -200,14 +192,14 @@
         asOf: checked,
         note: staleNote,
         survey: surveyStory,
-        how: `This brand sells ${rel}, so we apply that same difference to ${catSrc}${catAsOf ? ` (as of ${catAsOf})` : ''}. ${follows}`,
+        how: `This brand usually sells ${rel}. We apply that gap to today's DA price, so it moves when the DA price moves.`,
       };
     }
     return {
       text: catRange ? formatRange(catRange.min, catRange.max) : '—', stale: false, shelf,
       asOf: catAsOf ? `Category range as of ${catAsOf}` : '',
       note: catRange ? `No store price for this brand yet — showing the ${grade} category range.` : 'No price data available yet.',
-      how: catRange ? `This brand has not been priced in stores yet, so we show the range for ${grade} rice from ${catSrc}.` : '',
+      how: catRange ? `No store price yet, so this shows today's DA range for ${grade} rice.` : '',
     };
   }
 
@@ -255,6 +247,16 @@
     }
     const loc = String(b.location || '').trim();
     return (!loc || /unspecified|^ncr\b|^imported\b|^philippines$/i.test(loc)) ? '' : loc;
+  }
+
+  // Where the store price was seen. The canvass records only the region (NCR), not a city or market, so
+  // that is what is shown; "Last verified" and the canvass window sit behind the (i).
+  function pricedAtHtml(b, price) {
+    const verified = b.last_verified ? fmtDate(b.last_verified) || b.last_verified : '';
+    const tip = [verified ? `Last verified: ${verified}.` : '', price.survey || '',
+      'The DA price it follows is the average across the DA-covered wet markets in Metro Manila.']
+      .filter(Boolean).join(' ');
+    return `Local markets, Metro Manila (NCR) ${infoTip(tip)}`;
   }
 
   // Other products sold under the same brand name, in any category (each is its own card).
@@ -501,10 +503,8 @@
       }).join('<br>')) +
       item('Varieties', esc(varietiesOf(b).join(', '))) +
       item('Origin', esc(originOf(b))) +
-      item('Source', sourceHtml) +
-      item('Last verified', b.last_verified
-        ? `${esc(fmtDate(b.last_verified) || b.last_verified)}${price.survey ? ` ${infoTip(price.survey)}` : ''}`
-        : '');
+      item('Priced at', pricedAtHtml(b, price)) +
+      item('Source', sourceHtml);
 
     const sibEl = document.getElementById('rc-modal-siblings');
     if (sibEl) {

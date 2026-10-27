@@ -314,6 +314,26 @@ When adding a new data source or feature column, it needs to be threaded through
 added to `FEATURE_COLUMNS` — then the model must be retrained since `scaler.joblib` and
 `meta.json` are fit to the old feature set.
 
+## Price alerts and Market Drivers (2026-10-28, `tests/test_alerts_auto.py`)
+
+- Alerts are checked automatically after every scrape, every forecast refresh (`predict.REFRESH_LISTENERS`) and at
+  server start, through `api/app.py::_run_alert_check` only; it notifies the admin bell (unread count) and, when
+  Settings → Notifications → Email alerts is on, emails `alert_email`. A rule fires once per DA bulletin day per type.
+- Default rules (`alerts_engine.default_rules_for`) are created once per id (`model/alerts_state.json`); never re-add a
+  default the admin deleted.
+- Market Drivers stock / rainfall / month / tariff come from `model/market_drivers.py`; never type fixed r values into
+  `admin/js/correlation.js` again. Tariff stays "not calculated" while `tariff_schedule` has a single rate.
+
+## Live-database writes (2026-10-28, `tests/test_db_write.py`)
+
+- Never rewrite a live table with `DataFrame.to_sql(..., if_exists="replace")`: it drops the table before the new rows
+  exist, and a forecast built in that window read no DOE fuel weeks, cut the data at Jan 12, 2026 and cached those
+  prices. Use `tools/db_write.replace_table(conn, df, name)` (side table + DROP/RENAME in one transaction). The
+  scraper, PSA/macro refresh, `import_2026.py` (runs at every server start) and `import_doe_fuel.py` use it.
+- The server turns off Windows console QuickEdit (`api/app.py::_disable_console_quickedit`) and does not print one line
+  per HTTP request (`AGRIPRICE_ACCESS_LOG=1` brings them back): a click in the backend window used to freeze every
+  request that logged, until someone clicked the window again.
+
 ## Security rules (2026-10-01 audit, `tests/test_security.py`)
 
 - Lockouts key on `request.remote_addr` (X-Forwarded-For only with `AGRIPRICE_TRUST_PROXY=1`) **and** on the

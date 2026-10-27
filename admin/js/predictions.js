@@ -301,6 +301,7 @@ AgriPricePH.Predictions = (function () {
 
     updateTitles(label, riceKey);
     renderForecastChart(hist, forecast, riceKey);
+    renderNarrative(hist, forecast, riceKey);
     renderForecastTable(forecast, lastPrice, riceKey);
     updateTomorrowCard(forecast[0], label, lastPrice, riceKey);
   }
@@ -535,6 +536,24 @@ AgriPricePH.Predictions = (function () {
       yAxisLabel: 'Retail ₱ per kg',
       pointNotes,
     });
+  }
+
+  /** Short summary under the graph, built from the same numbers (js/forecast-narrative.js). */
+  function renderNarrative(hist, forecast, riceKey) {
+    const el = document.getElementById('pred-narrative');
+    if (!el || !AgriPricePH.ForecastNarrative) return;
+    const live = _forecast?.forecasts_by_key?.[riceKey];
+    const text = Array.isArray(live) && live.length ? AgriPricePH.ForecastNarrative.build({
+      name: RICE_LABELS[riceKey],
+      today: getLastPrice(riceKey),
+      todayDate: _forecast?.price_dates?.[riceKey] || _forecast?.last_data_date,
+      history: hist.values,
+      days: (forecast || []).map(f => ({ date: f.date_iso || f.date, price: f.price, low: f.low, high: f.high })),
+      hit050: usingHitRate(riceKey) && forecast?.[0] ? trainAccuracyPct(riceKey, forecast[0]) : null,
+      audience: 'admin',
+    }) : '';
+    el.textContent = text;
+    el.hidden = !text;
   }
 
   function renderForecastTable(forecast, lastPrice, riceKey) {

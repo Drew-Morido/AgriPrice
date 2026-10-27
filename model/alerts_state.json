@@ -1,0 +1,27 @@
+{
+  "seeded_defaults": [
+    "default-all-day-change",
+    "default-all-forecast-move",
+    "default-impPremium-above",
+    "default-impPremium-below",
+    "default-impRegular-above",
+    "default-impRegular-below",
+    "default-impSpecial-above",
+    "default-impSpecial-below",
+    "default-impWellMilled-above",
+    "default-impWellMilled-below",
+    "default-locPremium-above",
+    "default-locPremium-below",
+    "default-locRegular-above",
+    "default-locRegular-below",
+    "default-locSpecial-above",
+    "default-locSpecial-below",
+    "default-locWellMilled-above",
+    "default-locWellMilled-below"
+  ],
+  "last_check": {
+    "at": "2026-10-28T00:07:14",
+    "reason": "after the data update",
+    "new": 0
+  }
+}

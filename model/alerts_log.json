@@ -10,7 +10,7 @@
     "threshold": 5.0,
     "condition": "change_up",
     "created_at": "2026-05-28T02:34:27",
-    "read": false
+    "read": true
   },
   {
     "id": "log-2232fd09a581",
@@ -23,7 +23,7 @@
     "threshold": 5.0,
     "condition": "change_up",
     "created_at": "2026-07-27T22:39:48",
-    "read": false
+    "read": true
   },
   {
     "id": "log-6e0ccee5474c",
@@ -36,7 +36,7 @@
     "threshold": 5.0,
     "condition": "change_up",
     "created_at": "2026-08-09T15:07:04",
-    "read": false
+    "read": true
   },
   {
     "id": "log-fe0f08d11971",
@@ -49,7 +49,7 @@
     "threshold": 5.0,
     "condition": "change_up",
     "created_at": "2026-08-09T15:07:04",
-    "read": false
+    "read": true
   },
   {
     "id": "log-0310ee637481",
@@ -62,7 +62,7 @@
     "threshold": 5.0,
     "condition": "change_up",
     "created_at": "2026-08-09T15:07:04",
-    "read": false
+    "read": true
   },
   {
     "id": "log-1f91d192a234",
@@ -75,7 +75,7 @@
     "threshold": 5.0,
     "condition": "change_up",
     "created_at": "2026-08-10T00:27:50",
-    "read": false
+    "read": true
   },
   {
     "id": "log-d2313d3a31dc",
@@ -88,7 +88,7 @@
     "threshold": 5.0,
     "condition": "change_up",
     "created_at": "2026-08-10T00:27:50",
-    "read": false
+    "read": true
   },
   {
     "id": "log-f5616f5b3580",
@@ -101,7 +101,7 @@
     "threshold": 5.0,
     "condition": "change_up",
     "created_at": "2026-08-10T00:27:50",
-    "read": false
+    "read": true
   },
   {
     "id": "log-6c929328892b",
@@ -114,7 +114,7 @@
     "threshold": 5.0,
     "condition": "change_up",
     "created_at": "2026-08-10T09:32:15",
-    "read": false
+    "read": true
   },
   {
     "id": "log-f12678579c92",
@@ -127,7 +127,7 @@
     "threshold": 5.0,
     "condition": "change_up",
     "created_at": "2026-08-10T09:32:15",
-    "read": false
+    "read": true
   },
   {
     "id": "log-22d3320fc047",
@@ -140,7 +140,7 @@
     "threshold": 5.0,
     "condition": "change_up",
     "created_at": "2026-08-10T09:32:15",
-    "read": false
+    "read": true
   },
   {
     "id": "log-43dac316f293",
@@ -153,7 +153,7 @@
     "threshold": 5.0,
     "condition": "change_up",
     "created_at": "2026-08-12T01:29:15",
-    "read": false
+    "read": true
   },
   {
     "id": "log-18b469a27772",
@@ -166,7 +166,7 @@
     "threshold": 5.0,
     "condition": "change_up",
     "created_at": "2026-08-12T01:29:15",
-    "read": false
+    "read": true
   },
   {
     "id": "log-ecb8c3723cd1",
@@ -179,7 +179,7 @@
     "threshold": 5.0,
     "condition": "change_up",
     "created_at": "2026-08-12T01:29:15",
-    "read": false
+    "read": true
   },
   {
     "id": "log-ae7303ac847a",
@@ -192,7 +192,7 @@
     "threshold": 5.0,
     "condition": "change_up",
     "created_at": "2026-09-01T22:07:40",
-    "read": false
+    "read": true
   },
   {
     "id": "log-65f09bcc77e2",
@@ -205,7 +205,7 @@
     "threshold": 5.0,
     "condition": "change_up",
     "created_at": "2026-09-01T22:07:40",
-    "read": false
+    "read": true
   },
   {
     "id": "log-a2ed024d6e86",
@@ -218,7 +218,7 @@
     "threshold": 5.0,
     "condition": "change_up",
     "created_at": "2026-09-01T22:07:40",
-    "read": false
+    "read": true
   },
   {
     "id": "log-94aa3f231fca",
@@ -231,6 +231,6 @@
     "threshold": 5.0,
     "condition": "change_up",
     "created_at": "2026-09-02T18:55:51",
-    "read": false
+    "read": true
   }
 ]

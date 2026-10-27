@@ -504,6 +504,18 @@ def fao_indicative(current_price: float, baseline_price: float | None = None) ->
     }
 
 
+# Newest official DA row first. WS_rice_price dates are MM/DD/YYYY text, so ORDER BY Date alone would put
+# 12/31/2026 above 01/02/2027; and the scraper's temporary "estimated" row (DA has not published that day)
+# must never become a brand's base price (DA-AMAS feedback B8).
+def _ws_official_filter(conn) -> str:
+    cols = {r[1] for r in conn.execute('PRAGMA table_info("WS_rice_price")')}
+    return " AND LOWER(COALESCE(Source, '')) != 'estimated'" if "Source" in cols else ""
+
+
+_WS_ORDER = ("ORDER BY CASE WHEN Date LIKE '__/__/____' THEN substr(Date,7,4)||substr(Date,1,2)||substr(Date,4,2) "
+             "ELSE replace(substr(Date,1,10),'-','') END DESC")
+
+
 def _latest_base_price(conn, canonical_key: str) -> tuple[float | None, str]:
     """Base price: latest bracket midpoint if available, else latest WS_rice_price value."""
     if _has_table(conn, "rice_price_bracket"):
@@ -517,10 +529,10 @@ def _latest_base_price(conn, canonical_key: str) -> tuple[float | None, str]:
     if col and _has_table(conn, "WS_rice_price"):
         try:
             row = conn.execute(
-                f'SELECT "{col}" AS v FROM "WS_rice_price" WHERE "{col}" IS NOT NULL '
-                'ORDER BY Date DESC LIMIT 1').fetchone()
+                f'SELECT "{col}" AS v FROM "WS_rice_price" WHERE "{col}" IS NOT NULL'
+                f'{_ws_official_filter(conn)} {_WS_ORDER} LIMIT 1').fetchone()
             if row and row["v"] is not None:
-                return float(row["v"]), "latest scraped price"
+                return float(row["v"]), "latest DA price"
         except sqlite3.OperationalError:
             pass
     return None, "no price data"
@@ -540,8 +552,8 @@ def _latest_base_date(conn, canonical_key: str) -> str | None:
     if col and _has_table(conn, "WS_rice_price"):
         try:
             row = conn.execute(
-                f'SELECT Date FROM "WS_rice_price" WHERE "{col}" IS NOT NULL '
-                'ORDER BY Date DESC LIMIT 1').fetchone()
+                f'SELECT Date FROM "WS_rice_price" WHERE "{col}" IS NOT NULL'
+                f'{_ws_official_filter(conn)} {_WS_ORDER} LIMIT 1').fetchone()
             if row and row["Date"]:
                 raw = str(row["Date"])
                 if "/" in raw:  # MM/DD/YYYY

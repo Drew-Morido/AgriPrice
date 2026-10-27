@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="css/public.css?v=20261001" />
 <link rel="stylesheet" href="css/landpage-nav.css" />
 <link rel="stylesheet" href="css/public-alert.css?v=20261001c" />
+  <link rel="stylesheet" href="css/site-footer.css?v=20261028" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
 /* ==========================================================================
@@ -336,6 +337,9 @@ html.theme-dark .chart-title em{color:var(--g300)}
 .chart-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 24px;font-size:13px;color:var(--ink3)}
 .chart-empty[hidden]{display:none}
 canvas{width:100%!important;height:100%!important}
+.fc-narrative{margin:14px 30px 0;padding:12px 16px;border-radius:14px;background:rgba(45,106,79,0.06);border:1px solid rgba(45,106,79,0.14);font-size:13.5px;line-height:1.6;color:var(--ink2,#3d3d35)}
+.fc-narrative::before{content:'In short';display:block;font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#2d6a4f;margin-bottom:4px}
+@media (max-width:640px){.fc-narrative{margin:12px 16px 0}}
 .chart-bottom{display:grid;grid-template-columns:1fr 1px 1fr 1px 1fr;border-top:1px solid var(--bd);margin-top:20px}
 .divider-v{background:var(--bd)}
 .cb-cell{padding:24px 30px}
@@ -506,6 +510,7 @@ html.public-compact .brand-compare-head{padding:16px 20px 10px}
         </div>
         <div class="hero-title" id="hero-title">Well-Milled<br><em>retail price outlook</em></div>
         <div class="hero-sub" id="hero-sub">Loading live prices&hellip;</div>
+        <div data-da-stamp style="color: rgba(255,255,255,0.88);"></div>
         <button type="button" id="brand-clear-btn" class="brand-clear-btn" hidden>&larr; Back to category view</button>
       </div>
       <div class="hero-right">
@@ -559,6 +564,7 @@ html.public-compact .brand-compare-head{padding:16px 20px 10px}
         <div class="legend"><div class="leg-item"><div class="leg-line actual"></div> Real price</div><div class="leg-item"><div class="leg-line pred"></div> Expected price</div><div class="leg-item"><div class="leg-swatch"></div> Price range estimate</div></div>
       </div>
       <div class="chart-body"><canvas id="fc"></canvas><div class="chart-empty" id="fc-empty" hidden></div></div>
+      <p class="fc-narrative" id="fc-narrative" aria-live="polite" hidden></p>
       <div class="chart-bottom">
         <div class="cb-cell">
           <div class="cb-lbl">Expected price tomorrow</div>
@@ -630,12 +636,13 @@ html.public-compact .brand-compare-head{padding:16px 20px 10px}
 
 <script src="../js/dates.js"></script>
 <script src="../js/data.js"></script>
-<script src="../js/api.js?v=20261001b"></script>
+<script src="../js/api.js?v=20261027"></script>
+<script src="../js/forecast-narrative.js?v=20261027"></script>
 <script src="js/public-rice.js"></script>
 <script src="js/public-alert.js?v=20261001c"></script>
 <script src="js/public-auth.js?v=20261014"></script>
 <script src="js/public-auth-modal.js?v=20261014"></script>
-<script src="js/public-shell.js"></script>
+<script src="js/public-shell.js?v=20261028b"></script>
 <script src="js/public-pages.js"></script>
 
 <script>
@@ -1221,6 +1228,7 @@ function updateUI(key) {
 
   renderTypicalPrice(catD.today, group.label);
   renderBrandCompare();
+  renderNarrative(key, group, catD, catHistory);
   initChart({
     history, today: d.today, d1: d.d1, d2: d.d2, d3: d.d3,
     lo1: scaledBand('lo1'), hi1: scaledBand('hi1'),
@@ -1228,6 +1236,29 @@ function updateUI(key) {
     lo3: scaledBand('lo3'), hi3: scaledBand('hi3'),
     date1: d.date1, date2: d.date2, date3: d.date3,
   });
+}
+
+/** The short summary under the graph (js/forecast-narrative.js). It always describes the DA category,
+    even with a brand selected, because the forecast and its track record are the category's. */
+function renderNarrative(key, group, catD, catHistory) {
+  const el = document.getElementById('fc-narrative');
+  if (!el || !AgriPricePH.ForecastNarrative) return;
+  const apiKey = TAB_TO_API_KEY[key];
+  const text = AgriPricePH.ForecastNarrative.build({
+    name: `${activeOrigin === 'local' ? 'Local' : 'Imported'} ${group.label}`,
+    today: catD.today,
+    todayDate: apiPredictions?.price_dates?.[apiKey] || apiPredictions?.last_data_date,
+    history: catHistory.values,
+    days: [
+      { date: catD.date1, price: catD.d1, low: catD.lo1, high: catD.hi1 },
+      { date: catD.date2, price: catD.d2, low: catD.lo2, high: catD.hi2 },
+      { date: catD.date3, price: catD.d3, low: catD.lo3, high: catD.hi3 },
+    ],
+    hit050: catD.hit1,
+    audience: 'public',
+  });
+  el.textContent = text;
+  el.hidden = !text;
 }
 
 function selectOrigin(origin) {

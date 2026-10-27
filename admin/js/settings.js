@@ -162,7 +162,7 @@ AgriPricePH.Settings = (function () {
       },
       notifications: {
         email_alerts: false,
-        alert_email: 'admin@agripriceph.gov.ph',
+        alert_email: 'agripriceph@gmail.com',
         browser_notifications: true,
         alert_check_on_startup: true,
       },

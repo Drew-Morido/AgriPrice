@@ -31,19 +31,60 @@ AgriPricePH.Alerts = (function () {
     { value: 'below', label: 'Price below (₱)', thresholdStep: '0.01', placeholder: '44.00' },
     { value: 'change_up', label: '3-day change greater than (%)', thresholdStep: '0.1', placeholder: '5' },
     { value: 'change_down', label: '3-day drop greater than (%)', thresholdStep: '0.1', placeholder: '5' },
+    { value: 'day_change', label: 'Moved since the previous bulletin by at least (₱)', thresholdStep: '0.01', placeholder: '1.00' },
+    { value: 'forecast_move', label: "Tomorrow's forecast moves by at least (₱)", thresholdStep: '0.01', placeholder: '1.00' },
     { value: 'confidence_below', label: 'Forecast confidence below (%)', thresholdStep: '1', placeholder: '75' },
   ];
+
+  // Which group is shown: rules and notifications for local rice, imported rice, or the rules that cover
+  // every type. Remembered for the session.
+  const TABS = { local: 'Local rice', imported: 'Imported rice', all: 'All rice types' };
+  let _tab = (() => { try { return sessionStorage.getItem('agriprice_alert_tab') || 'local'; } catch { return 'local'; } })();
+  let _pendingLogId = null;   // a notification to open once the data has loaded (from the bell)
+  const RICE_ORDER = RICE_OPTIONS.map(o => o.value);
 
   function init() {
     populateFormSelects();
     bindEvents();
+    setTab(_tab, true);
     loadAlerts();
+  }
+
+  function ruleOrigin(r) {
+    return r.origin || (String(r.rice_key).startsWith('imp') ? 'imported' : String(r.rice_key).startsWith('loc') ? 'local' : 'all');
+  }
+  function entryInTab(n, tab) {
+    if (tab === 'all') return n.rule_scope === 'all';
+    return (n.origin || (String(n.rice_key).startsWith('imp') ? 'imported' : 'local')) === tab;
+  }
+
+  function setTab(tab, quiet) {
+    _tab = TABS[tab] ? tab : 'local';
+    try { sessionStorage.setItem('agriprice_alert_tab', _tab); } catch { /* private mode */ }
+    document.querySelectorAll('[data-alert-tab]').forEach(b => {
+      const on = b.dataset.alertTab === _tab;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    const rt = document.getElementById('alerts-rules-title');
+    const lt = document.getElementById('alerts-log-title');
+    if (rt) rt.textContent = `Alert Rules · ${TABS[_tab]}`;
+    if (lt) lt.textContent = `Notification Log · ${TABS[_tab]}`;
+    if (!quiet) { renderAlertRules(); renderNotifLog(); }
+  }
+
+  function updateTabCounts() {
+    ['local', 'imported', 'all'].forEach(t => {
+      const el = document.querySelector(`[data-tab-count="${t}"]`);
+      if (el) el.textContent = String(_rules.filter(r => ruleOrigin(r) === t).length);
+    });
   }
 
   function destroy() {
     _bound = false;
     _loadGen += 1;
     closeModal();
+    closeDetail();
   }
 
   function populateFormSelects() {
@@ -80,6 +121,26 @@ AgriPricePH.Alerts = (function () {
     _bound = true;
 
     document.getElementById('add-alert-btn')?.addEventListener('click', () => openModal());
+    document.querySelectorAll('[data-alert-tab]').forEach(b =>
+      b.addEventListener('click', () => setTab(b.dataset.alertTab)));
+    document.getElementById('notif-log-list')?.addEventListener('click', (e) => {
+      const item = e.target.closest('[data-log-id]');
+      if (item) openDetail(item.dataset.logId);
+    });
+    document.getElementById('notif-log-list')?.addEventListener('keydown', (e) => {
+      const item = e.target.closest('[data-log-id]');
+      if (item && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openDetail(item.dataset.logId); }
+    });
+    ['alert-detail-close', 'alert-detail-done'].forEach(id =>
+      document.getElementById(id)?.addEventListener('click', closeDetail));
+    document.getElementById('alert-detail-overlay')?.addEventListener('click', (e) => {
+      if (e.target.id === 'alert-detail-overlay') closeDetail();
+    });
+    document.getElementById('alert-detail-edit')?.addEventListener('click', (e) => {
+      const id = e.currentTarget.dataset.ruleId;
+      closeDetail();
+      if (id) openModal(id);
+    });
     document.getElementById('alerts-run-check-btn')?.addEventListener('click', () => runEvaluate(true));
     document.getElementById('clear-notif-log-btn')?.addEventListener('click', clearLog);
     document.getElementById('alert-modal-close')?.addEventListener('click', closeModal);
@@ -138,6 +199,7 @@ AgriPricePH.Alerts = (function () {
       syncLocalData();
       refreshUI(data.summary || {});
       AgriPricePH.Topbar?.refreshAlertBadge?.();
+      openPendingDetail();
     } catch (e) {
       if (gen !== _loadGen) return;
       console.warn('Alerts API offline:', e);
@@ -257,6 +319,13 @@ AgriPricePH.Alerts = (function () {
     const active = summary.active_rules ?? _rules.filter(r => r.active).length;
     const today = summary.triggered_today ?? 0;
     el.textContent = `${total} rules configured · ${active} active · ${today} triggered today`;
+    const hint = document.getElementById('alerts-rules-hint');
+    const lc = summary.last_check;
+    if (hint) {
+      hint.textContent = lc && lc.at
+        ? `Checked automatically after every data update · last check ${new Date(lc.at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} (${lc.reason}, ${lc.new} new)`
+        : 'Checked automatically after every data update and forecast refresh';
+    }
   }
 
   function renderAlertRules() {
@@ -272,15 +341,28 @@ AgriPricePH.Alerts = (function () {
     }
     if (empty) empty.style.display = 'none';
 
-    list.innerHTML = _rules.map(r => {
+    updateTabCounts();
+    const shown = _rules.filter(r => ruleOrigin(r) === _tab)
+      .sort((a, b) => RICE_ORDER.indexOf(a.rice_key) - RICE_ORDER.indexOf(b.rice_key));
+    if (!shown.length) {
+      list.innerHTML = `<div class="text-muted" style="padding:16px 0;font-size:13px;text-align:center;">No rules for ${escapeHtml(TABS[_tab].toLowerCase())} yet. Click <strong>Add Alert</strong> to create one.</div>`;
+      return;
+    }
+    let lastGroup = null;
+    list.innerHTML = shown.map(r => {
+      const group = _tab === 'all' ? null : r.rice;
+      const heading = group && group !== lastGroup ? `<div class="alert-group-title">${escapeHtml(group)}</div>` : '';
+      lastGroup = group;
       const c = COLORS[r.type] || COLORS.warning;
       const triggered = (r.triggered || 0) > 0
         ? `<span class="alert-triggered-badge">${r.triggered}× triggered</span>` : '';
-      return `
+      const dflt = r.default
+        ? '<span class="alert-default-badge" title="Created automatically for every rice type. You can edit, switch off or delete it.">Default</span>' : '';
+      return `${heading}
         <div class="alert-rule-item${r.active ? '' : ' inactive'}" data-rule-id="${r.id}">
           <div class="alert-rule-icon" style="background:${c}22;">${svgBell(c)}</div>
           <div class="alert-rule-main">
-            <div class="alert-rule-name">${escapeHtml(r.name)}${triggered}</div>
+            <div class="alert-rule-name">${escapeHtml(r.name)}${dflt}${triggered}</div>
             <div class="alert-rule-desc">${escapeHtml(r.rice)} — ${escapeHtml(r.condition_label || r.condition)} ${escapeHtml(r.value)}</div>
           </div>
           <div class="alert-rule-value" style="color:${c}">${escapeHtml(r.value)}</div>
@@ -308,18 +390,79 @@ AgriPricePH.Alerts = (function () {
     }
     if (empty) empty.style.display = 'none';
 
-    list.innerHTML = _log.map(n => {
+    const shown = _log.filter(n => entryInTab(n, _tab));
+    if (!shown.length) {
+      list.innerHTML = `<div class="text-muted" style="padding:16px 0;font-size:13px;text-align:center;">No notifications for ${escapeHtml(TABS[_tab].toLowerCase())} yet.</div>`;
+      return;
+    }
+    list.innerHTML = shown.map(n => {
       const c = COLORS[n.type] || COLORS.info;
       return `
-        <div class="notif-item">
+        <div class="notif-item is-clickable${n.read === false ? ' is-unread' : ''}" data-log-id="${escapeHtml(n.id)}" tabindex="0" role="button"
+             aria-label="Open the details of: ${escapeHtml(n.title)}">
           <div class="notif-icon" style="background:${c}22;">${svgBell(c)}</div>
           <div style="flex:1;min-width:0;">
             <div class="notif-title">${escapeHtml(n.title)}</div>
             <div class="notif-desc">${escapeHtml(n.desc)}</div>
+            <div class="notif-meta">${escapeHtml(n.rice || '')}${n.data_date ? ` · DA bulletin ${escapeHtml(fmtDay(n.data_date))}` : ''}</div>
           </div>
           <span class="notif-time">${escapeHtml(n.time || '—')}</span>
         </div>`;
     }).join('');
+  }
+
+  function fmtDay(iso) {
+    const d = new Date(String(iso).slice(0, 10) + 'T12:00:00');
+    return isNaN(d) ? String(iso) : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+  function fmtStamp(iso) {
+    const d = new Date(iso);
+    return isNaN(d) ? '—' : d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+
+  /** The full summary of one notification (also opened from the bell, see applySearchContext). */
+  function openDetail(logId) {
+    const n = _log.find(x => String(x.id) === String(logId));
+    const overlay = document.getElementById('alert-detail-overlay');
+    if (!n || !overlay) return false;
+    const c = COLORS[n.type] || COLORS.info;
+    document.getElementById('alert-detail-title').textContent = n.title || 'Price alert';
+    document.getElementById('alert-detail-desc').textContent = n.desc || '';
+    const price = n.price != null && !isNaN(n.price) ? `₱${Number(n.price).toFixed(2)} per kg` : '—';
+    const rows = [
+      ['Severity', `<span class="alert-type-pill" style="background:${c}22;color:${c};">${escapeHtml(n.type || 'info')}</span>`],
+      ['Rice type', escapeHtml(n.rice || '—')],
+      ['Rule', escapeHtml(n.rule_name || '—') + (n.rule_exists === false ? ' <span class="text-muted">(deleted)</span>' : '')],
+      ['Condition', `${escapeHtml(n.condition_label || n.condition || '—')} ${escapeHtml(n.threshold_text || '')}`],
+      ['Price then', escapeHtml(price)],
+      ['DA bulletin', n.data_date ? escapeHtml(fmtDay(n.data_date)) : '—'],
+      ['Triggered', `${escapeHtml(fmtStamp(n.created_at))} <span class="text-muted">(${escapeHtml(n.time || '')})</span>`],
+    ];
+    document.getElementById('alert-detail-grid').innerHTML =
+      rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+    const edit = document.getElementById('alert-detail-edit');
+    if (edit) {
+      const ok = n.rule_exists !== false && _rules.some(r => r.id === n.rule_id);
+      edit.hidden = !ok;
+      edit.dataset.ruleId = ok ? n.rule_id : '';
+    }
+    overlay.hidden = false;
+    return true;
+  }
+
+  function closeDetail() {
+    const overlay = document.getElementById('alert-detail-overlay');
+    if (overlay) overlay.hidden = true;
+  }
+
+  function openPendingDetail() {
+    if (!_pendingLogId) return;
+    const n = _log.find(x => String(x.id) === String(_pendingLogId));
+    _pendingLogId = null;
+    if (!n) return;
+    const tab = n.rule_scope === 'all' && _tab === 'all' ? 'all' : (n.origin === 'imported' ? 'imported' : 'local');
+    if (tab !== _tab) setTab(tab);
+    openDetail(n.id);
   }
 
   function openModal(ruleId) {
@@ -460,8 +603,11 @@ AgriPricePH.Alerts = (function () {
     return _log.slice(0, limit);
   }
 
-  function applySearchContext() {
-    /* no-op — navigates to alerts page only */
+  /** From the bell: { logId } opens that notification's details once the page has its data. */
+  function applySearchContext(ctx) {
+    if (!ctx || !ctx.logId) return;
+    _pendingLogId = ctx.logId;
+    if (!_loading && _log.length) openPendingDetail();
   }
 
   return { init, destroy, loadAlerts, getRecentAlerts, applySearchContext };

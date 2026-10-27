@@ -1,0 +1,55 @@
+{
+ "trained_at": "2026-10-26T23:51:32",
+ "inputs": "rice price only",
+ "data_last_date": "2026-10-26",
+ "targets": {
+  "locWellMilled": {
+   "train_rows": 3713,
+   "val_rows": 200,
+   "split": "regime_aware_active_from_2025-04-01",
+   "seconds": 110.1
+  },
+  "locRegular": {
+   "train_rows": 3713,
+   "val_rows": 200,
+   "split": "regime_aware_active_from_2025-04-01",
+   "seconds": 91.9
+  },
+  "locPremium": {
+   "train_rows": 3713,
+   "val_rows": 200,
+   "split": "regime_aware_active_from_2025-04-01",
+   "seconds": 28.1
+  },
+  "locSpecial": {
+   "train_rows": 3713,
+   "val_rows": 200,
+   "split": "regime_aware_active_from_2025-04-01",
+   "seconds": 23.7
+  },
+  "impWellMilled": {
+   "train_rows": 3713,
+   "val_rows": 200,
+   "split": "regime_aware_active_from_2025-04-01",
+   "seconds": 91.8
+  },
+  "impRegular": {
+   "train_rows": 3713,
+   "val_rows": 200,
+   "split": "regime_aware_active_from_2025-04-01",
+   "seconds": 89.3
+  },
+  "impPremium": {
+   "train_rows": 3713,
+   "val_rows": 200,
+   "split": "regime_aware_active_from_2025-04-01",
+   "seconds": 94.0
+  },
+  "impSpecial": {
+   "train_rows": 3713,
+   "val_rows": 200,
+   "split": "regime_aware_active_from_2025-04-01",
+   "seconds": 91.7
+  }
+ }
+}

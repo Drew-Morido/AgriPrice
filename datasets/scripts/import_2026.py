@@ -12,6 +12,8 @@ import os
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import paths  # noqa: E402  (datasets/scripts/paths.py: every datasets/ location)
+sys.path.insert(0, paths.TOOLS_DIR)
+from db_write import replace_table  # noqa: E402  (atomic swap: the running server never reads a half-written table)
 import sqlite3
 from datetime import date
 
@@ -102,7 +104,7 @@ def _upsert_table(conn: sqlite3.Connection, table: str, new_df: pd.DataFrame) ->
         merged = merged.sort_values("Date")
         merged = merged.drop_duplicates(subset=["Date"], keep="last")
 
-    merged.to_sql(table, conn, if_exists="replace", index=False)
+    replace_table(conn, merged, table)
     return len(new_df)
 
 
@@ -139,7 +141,7 @@ def import_all(verbose: bool = True) -> dict:
                 )
                 merged_f = merged_f.drop(columns=["Diesel_new"], errors="ignore")
             merged_f = merged_f.sort_values("Date").drop_duplicates(subset=["Date"], keep="last")
-            merged_f.to_sql("fuel_history", conn, if_exists="replace", index=False)
+            replace_table(conn, merged_f, "fuel_history")
             stats["fuel_history"] = len(fuel)
         except Exception:
             fuel.to_sql("fuel_history", conn, if_exists="append", index=False)

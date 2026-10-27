@@ -15,9 +15,18 @@
   </div>
 </div>
 
+<div class="alerts-tabs" role="tablist" aria-label="Rice group">
+  <button type="button" class="alerts-tab active" role="tab" aria-selected="true" data-alert-tab="local">
+    Local rice <span class="alerts-tab-count" data-tab-count="local">0</span></button>
+  <button type="button" class="alerts-tab" role="tab" aria-selected="false" data-alert-tab="imported">
+    Imported rice <span class="alerts-tab-count" data-tab-count="imported">0</span></button>
+  <button type="button" class="alerts-tab" role="tab" aria-selected="false" data-alert-tab="all">
+    All rice types <span class="alerts-tab-count" data-tab-count="all">0</span></button>
+</div>
+
 <div class="card" style="margin-bottom:20px;">
   <div class="card-header">
-    <span class="card-title">Alert Rules</span>
+    <span class="card-title" id="alerts-rules-title">Alert Rules</span>
     <span class="text-xs text-muted" id="alerts-rules-hint">Live prices from database</span>
   </div>
   <div class="card-body">
@@ -30,7 +39,7 @@
 
 <div class="card">
   <div class="card-header">
-    <span class="card-title">Notification Log</span>
+    <span class="card-title" id="alerts-log-title">Notification Log</span>
     <button class="btn btn-ghost btn-sm" id="clear-notif-log-btn" type="button">Clear Log</button>
   </div>
   <div class="card-body">
@@ -84,6 +93,23 @@
           <button type="submit" class="btn btn-primary" id="alert-form-submit">Save Rule</button>
         </div>
       </form>
+    </div>
+  </div>
+</div>
+
+<div class="alert-modal-overlay" id="alert-detail-overlay" hidden>
+  <div class="alert-modal card alert-detail" role="dialog" aria-labelledby="alert-detail-title">
+    <div class="card-header">
+      <span class="card-title" id="alert-detail-title">Alert</span>
+      <button type="button" class="btn btn-ghost btn-sm" id="alert-detail-close" aria-label="Close">✕</button>
+    </div>
+    <div class="card-body">
+      <p class="alert-detail-desc" id="alert-detail-desc"></p>
+      <dl class="alert-detail-grid" id="alert-detail-grid"></dl>
+      <div class="alert-form-actions">
+        <button type="button" class="btn btn-outline" id="alert-detail-done">Close</button>
+        <button type="button" class="btn btn-primary" id="alert-detail-edit">Edit this rule</button>
+      </div>
     </div>
   </div>
 </div>

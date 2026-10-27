@@ -21,6 +21,212 @@ AgriPricePH.PublicShell = (function () {
     { id: 'statistics', href: 'statistics.html', label: 'Charts & Stats' },
   ];
 
+  const CONTACT_EMAIL = 'agripriceph@gmail.com';
+
+  // Where every number on the site comes from (same order as Admin → Data Sources). DA is the price source.
+  const SOURCES = [
+    { logo: 'da.png', name: 'Department of Agriculture', what: 'Daily retail rice prices (DA-AMAS bulletin)',
+      href: 'https://www.da.gov.ph/price-monitoring/', primary: true },
+    { logo: 'doe.png', name: 'Department of Energy', what: 'Weekly NCR fuel prices',
+      href: 'https://doe.gov.ph/retail-pump-prices-metro-manila' },
+    { logo: 'psa.png', name: 'Philippine Statistics Authority', what: 'Rice stocks, farmgate price, core inflation',
+      href: 'https://openstat.psa.gov.ph' },
+    { logo: 'worldbank.png', name: 'World Bank', what: 'World rice price (Pink Sheet)',
+      href: 'https://www.worldbank.org/en/research/commodity-markets' },
+    { icon: true, name: 'ExchangeRate-API', what: 'Daily USD/PHP exchange rate',
+      href: 'https://www.exchangerate-api.com' },
+  ];
+
+  const FX_ICON = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M4 8h13l-3-3"/><path d="M20 16H7l3 3"/></svg>`;
+
+  function assetBase() {
+    return isAdminPath() ? '../public/' : '';
+  }
+
+  /** The one public footer: links, contact and "last updated". The data sources sit just above it (buildSources). */
+  function buildFooter() {
+    const pub = assetBase();
+    return `
+      <footer class="site-footer" id="public-site-footer">
+        <div class="footer-inner">
+          <div class="footer-brand-col">
+            <a href="${pub}landpage.html" class="footer-logo" aria-label="AgriPricePH home">
+              <span class="footer-logo-icon">${BRAND_LOGO_SVG}</span>
+              <span class="footer-name">AgriPricePH</span>
+            </a>
+            <p class="footer-tagline">Retail rice prices in Metro Manila from official sources, with a 3-day forecast, for Filipino vendors and households.</p>
+            <div class="footer-updated" id="footer-updated" aria-live="polite">
+              <span class="dot" aria-hidden="true"></span><span>Checking the latest DA data…</span>
+            </div>
+          </div>
+          <nav class="footer-col" aria-label="Explore">
+            <h3>Explore</h3>
+            <ul>
+              ${NAV_ITEMS.filter((i) => i.id !== 'home').map((i) => `<li><a href="${pub}${i.href}">${i.label}</a></li>`).join('')}
+            </ul>
+          </nav>
+          <nav class="footer-col" aria-label="Help">
+            <h3>Help</h3>
+            <ul>
+              <li><a href="${pub}landpage.html#faq">FAQs</a></li>
+              <li><a href="${pub}landpage.html#contact">Contact</a></li>
+              <li><a href="${pub}login.html">Log in</a></li>
+              <li><a href="${pub}signup.html">Sign up free</a></li>
+            </ul>
+          </nav>
+          <div class="footer-col">
+            <h3>Contact</h3>
+            <p class="footer-source-copy">
+              <a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a><br />
+              <a href="https://www.da.gov.ph/contact-us/" target="_blank" rel="noopener noreferrer">DA Contact Us</a><br />
+              Philippines · Filipino or English
+            </p>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <p>© ${new Date().getFullYear()} AgriPricePH · Retail price = the prevailing price per kilo consumers pay in Metro Manila markets, as monitored by DA.</p>
+          <p>A student capstone project. Logos belong to their agencies; AgriPricePH is not affiliated with or endorsed by them.</p>
+        </div>
+      </footer>`;
+  }
+
+  /** "Where the data comes from": its own section just above the footer, on every public page. */
+  function buildSources() {
+    const pub = assetBase();
+    const chips = SOURCES.map((src) => {
+      const logo = src.icon
+        ? `<span class="source-logo source-logo--icon">${FX_ICON}</span>`
+        : `<img class="source-logo" src="${pub}assets/img/sources/${src.logo}" alt="" width="46" height="46" loading="lazy">`;
+      return `<a class="source-chip${src.primary ? ' is-primary' : ''}" href="${src.href}" target="_blank" rel="noopener noreferrer"
+          title="${src.name}: ${src.what}">
+          ${logo}
+          <span class="source-text"><b>${src.name}</b><span>${src.what}</span></span>
+        </a>`;
+    }).join('');
+
+    return `
+      <section class="site-sources" id="public-site-sources" aria-labelledby="site-sources-title">
+        <div class="site-sources-inner">
+          <div class="site-sources-head">
+            <h2 id="site-sources-title">Where the data comes from</h2>
+            <p>Collected automatically from these official sources every day.</p>
+          </div>
+          <div class="footer-price-source">
+            <p><b>Rice prices:</b> DA-AMAS Daily Price Index, National Capital Region: the prevailing retail price,
+              averaged across the <span id="footer-market-count">covered NCR wet markets</span>
+              <span id="footer-market-date"></span>.
+              Earlier history: PSA OpenSTAT NCR monthly average (Jan 2015 – Sep 2018) and DA price bulletins
+              (Oct 2018 – Feb 2025).</p>
+            <details class="footer-markets" id="footer-markets" hidden>
+              <summary>See the markets</summary>
+              <ol id="footer-market-list"></ol>
+            </details>
+          </div>
+          <div class="source-grid">${chips}</div>
+                </div>
+      </section>`;
+  }
+
+  function longDate(iso) {
+    const d = new Date(String(iso).slice(0, 10) + 'T12:00:00');
+    return isNaN(d) ? '' : d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  }
+
+  /** DA's covered markets, as printed at the end of the newest Daily Price Index (tools/da_markets.py). */
+  function renderMarkets(markets, bulletinDate) {
+    if (!Array.isArray(markets) || !markets.length) return;
+    const count = document.getElementById('footer-market-count');
+    const when = document.getElementById('footer-market-date');
+    const list = document.getElementById('footer-market-list');
+    const box = document.getElementById('footer-markets');
+    if (count) count.textContent = `${markets.length} covered NCR wet markets`;
+    if (when && bulletinDate) when.textContent = `(list from the bulletin of ${longDate(bulletinDate)})`;
+    if (list) {
+      list.innerHTML = '';
+      markets.forEach((name) => {
+        const li = document.createElement('li');
+        li.textContent = name;
+        list.appendChild(li);
+      });
+    }
+    if (box) box.hidden = false;
+  }
+
+  // One /api/site-status call per page, shared by the footer and the "DA prices as of" stamps.
+  let _statusPromise = null;
+  function siteStatus() {
+    if (!_statusPromise) {
+      _statusPromise = Promise.resolve(AgriPricePH.API?.siteStatus?.()).catch(() => null);
+    }
+    return _statusPromise;
+  }
+
+  function shortDay(iso) {
+    const d = new Date(String(iso).slice(0, 10) + 'T12:00:00');
+    return isNaN(d) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  /** Fill every [data-da-stamp] with the newest DA bulletin day the page's prices come from (DA-AMAS
+   *  feedback: show when the rice price was last updated from the DA, next to the prices). */
+  async function renderDaStamps(root) {
+    const els = (root || document).querySelectorAll('[data-da-stamp]');
+    if (!els.length) return;
+    const st = await siteStatus();
+    const checked = st && st.last_checked ? new Date(st.last_checked) : null;
+    const checkedTxt = checked && !isNaN(checked)
+      ? `${checked.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${checked.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+      : '';
+    els.forEach((el) => {
+      el.classList.add('da-stamp');
+      if (!st || !st.da_date) {
+        el.classList.add('is-offline');
+        el.innerHTML = '<span class="da-stamp-dot" aria-hidden="true"></span><span>DA price date unavailable (server offline)</span>';
+        return;
+      }
+      el.classList.remove('is-offline');
+      el.title = 'The newest Department of Agriculture (DA-AMAS) daily price bulletin in AgriPricePH. '
+        + 'The system checks DA for a new bulletin every few hours during the day.'
+        + (checkedTxt ? ` Last check: ${checkedTxt}.` : '');
+      el.innerHTML = `<span class="da-stamp-dot" aria-hidden="true"></span>`
+        + `<span>DA prices updated: <b>${shortDay(st.da_date)}</b>${checkedTxt ? `<span class="da-stamp-sep"> · </span>checked ${checkedTxt}` : ''}</span>`;
+    });
+  }
+
+  async function loadFooterStatus() {
+    renderDaStamps();
+    const box = document.getElementById('footer-updated');
+    if (!box) return;
+    try {
+      const st = await siteStatus();
+      if (!st || !st.da_date) throw new Error('no date');
+      const checked = st.last_checked ? new Date(st.last_checked) : null;
+      const when = checked && !isNaN(checked)
+        ? ` · sources checked ${checked.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${checked.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+        : '';
+      renderMarkets(st.markets, st.markets_bulletin_date);
+      box.classList.remove('is-offline');
+      box.innerHTML = `<span class="dot" aria-hidden="true"></span><span>Last updated: DA prices of <b>${longDate(st.da_date)}</b>${when}</span>`;
+    } catch {
+      box.classList.add('is-offline');
+      box.innerHTML = '<span class="dot" aria-hidden="true"></span><span>Last updated: unavailable (server offline)</span>';
+    }
+  }
+
+  function injectFooter() {
+    if (document.getElementById('public-site-footer')) return;
+    document.querySelectorAll('footer.site-footer').forEach((el) => el.remove());   // old static copies
+    const wrap = document.createElement('div');
+    // "Where the data comes from" (sources, markets) sits above the footer on the home page only.
+    const parts = (getActivePage() === 'home' ? buildSources() : '') + buildFooter();
+    wrap.innerHTML = parts.trim();
+    const nodes = [...wrap.children];
+    const app = document.getElementById('public-app');
+    if (app) app.after(...nodes);
+    else document.body.append(...nodes);
+    loadFooterStatus();
+  }
+
   function isAdminPath() {
     return (window.location.pathname || '').replace(/\\/g, '/').includes('/admin/');
   }
@@ -181,11 +387,13 @@ AgriPricePH.PublicShell = (function () {
 
     if (document.getElementById('public-page-content')) {
       mountModuleLayout();
+      injectFooter();
       return;
     }
 
     if (getActivePage() === 'home' || document.body.dataset.publicNav === 'true') {
       injectNavbar('home');
+      injectFooter();
     }
   }
 
@@ -193,6 +401,10 @@ AgriPricePH.PublicShell = (function () {
     init,
     injectNavbar,
     buildNavbar,
+    buildFooter,
+    buildSources,
+    injectFooter,
+    renderDaStamps,
     homeHref,
     NAV_ITEMS,
   };

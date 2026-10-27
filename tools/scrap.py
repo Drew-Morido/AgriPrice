@@ -184,11 +184,19 @@ def upsert_csv(csv_path: str, row: Dict) -> None:
     combined.to_csv(csv_path, index=False)
 
 def upsert_sqlite(table_name: str, row: Dict) -> None:
-    """Nagsasave ng scraped data sa existing SQLite db at nagki-create ng table kung wala pa."""
-    conn = sqlite3.connect(DB_PATH)
+    """Nagsasave ng scraped data sa existing SQLite db at nagki-create ng table kung wala pa.
+
+    The table is swapped in atomically (tools/db_write.py), so the forecast never reads it half-written.
+    It used to fall back to replacing the whole table with this one row on ANY error (a "database is
+    locked" read included); now only a table that does not exist yet is created from the row."""
+    from db_write import replace_table, table_exists
+    conn = sqlite3.connect(DB_PATH, timeout=30)
     new_df = pd.DataFrame([row])
-    
+
     try:
+        if not table_exists(conn, table_name):
+            replace_table(conn, new_df, table_name)
+            return
         # Subukang basahin ang existing table para sa deduplication
         old_df = pd.read_sql(f'SELECT * FROM "{table_name}"', conn)
         combined = pd.concat([old_df, new_df], ignore_index=True)
@@ -201,10 +209,7 @@ def upsert_sqlite(table_name: str, row: Dict) -> None:
         else:
             combined = combined.drop_duplicates(keep="last")
             
-        combined.to_sql(table_name, conn, if_exists="replace", index=False)
-    except Exception:
-        # Kapag nagka-error (ex. hindi pa nag-eexist yung WS_ table), create new table
-        new_df.to_sql(table_name, conn, if_exists="replace", index=False)
+        replace_table(conn, combined, table_name)
     finally:
         conn.close()
 

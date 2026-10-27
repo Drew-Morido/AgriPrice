@@ -155,6 +155,8 @@ AgriPricePH.API = (function () {
     setBase,
     dataSources: () => get('/api/data-sources', { noCache: true }),
     dataReadiness: () => get('/api/data-readiness', { noCache: true }),
+    siteStatus: () => get('/api/site-status', { noCache: true }),
+    marketDrivers: (type) => getLenient(`/api/market-drivers?type=${encodeURIComponent(type)}`),
     scrapeStatus: () => get('/api/scrape-status', { noCache: true }),
     runScraper: (source) => post('/api/run-scraper', source ? { source } : {}),
     // Shared by Dashboard, Price History, Market Drivers, Model Dashboard and Price Forecast: one request
@@ -262,6 +264,7 @@ AgriPricePH.API = (function () {
     alerts: (evaluate) => getLenient(evaluate ? '/api/alerts?evaluate=1' : '/api/alerts'),
     alertsEvaluate: () => post('/api/alerts/evaluate'),
     alertsSummary: () => getLenient('/api/alerts/summary'),
+    alertsMarkRead: () => post('/api/alerts/read'),
     settings: () => get('/api/settings'),
     updateSettings: (body) => put('/api/settings', body),
     resetSettings: () => post('/api/settings/reset'),

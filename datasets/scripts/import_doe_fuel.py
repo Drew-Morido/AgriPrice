@@ -71,7 +71,8 @@ def main() -> int:
         out = pd.concat([keep, new], ignore_index=True)
         out["_d"] = pd.to_datetime(out["Date"], format="%m/%d/%Y", errors="coerce")
         out = out.sort_values("_d").drop(columns="_d")
-        out.to_sql("WS_fuel", conn, if_exists="replace", index=False)
+        from db_write import replace_table   # tools/: atomic swap while the server may be reading
+        replace_table(conn, out, "WS_fuel")
         filled = sum(1 for r in weeks if r.get("filled"))
         print(f"WS_fuel: replaced {len(old) - len(keep)} row(s), wrote {len(new)} DOE week(s) "
               f"({filled} with GasWatch-filled blanks) "

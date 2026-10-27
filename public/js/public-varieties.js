@@ -74,12 +74,14 @@ AgriPricePH.Varieties = (function () {
    * One row per variety, most-listed first (ties: more products, then A–Z).
    * `payload` is the /api/brand-prices response: { categories: [{ canonical_key, brands: [...] }] }.
    */
-  function summarize(payload) {
+  function summarize(payload, priceOf) {
+    // priceOf(b, canonicalKey) -> { min, max, date } overrides the canvassed shop price (the homepage passes
+    // today's DA price for the grade x the brand's usual gap, the same way the Rice Catalog prices a brand).
     const map = new Map();
     (payload?.categories || []).forEach((cat) => {
       (cat.brands || []).forEach((b) => {
         if (b.fixed_price || /^nfa\b/i.test(String(b.brand_name || '').trim())) return;   // government-set price — not a market variety price
-        const shop = shopPrice(b);
+        const shop = priceOf ? priceOf(b, cat.canonical_key) : shopPrice(b);
         if (!shop) return;                                  // no shop price seen for this product
         varietiesOf(b).forEach((name) => {
           if (NOT_A_NAMED_RICE.test(name)) return;
@@ -92,6 +94,7 @@ AgriPricePH.Varieties = (function () {
           v.max = Math.max(v.max, shop.max);
           v.grades.add(cat.canonical_key);
           if (b.sample_date && (!v.asOf || b.sample_date > v.asOf)) v.asOf = b.sample_date;
+          if (shop.date && (!v.daDate || shop.date > v.daDate)) v.daDate = shop.date;
           if (!v.image && b.image_path) v.image = b.image_path;   // a brand's own uploaded photo
           if (!v.sample) v.sample = b;                             // for a representative rice photo
         });

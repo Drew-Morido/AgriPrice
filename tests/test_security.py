@@ -199,7 +199,7 @@ def test_admin_token_is_not_read_from_the_url(env):
 
 
 # ── 7 ──
-@pytest.mark.parametrize("url", ["/api/alerts", "/api/alerts/log", "/api/stream-training", "/api/stream-scrape", "/api/scrape-review"])
+@pytest.mark.parametrize("url", ["/api/alerts", "/api/alerts/log", "/api/alerts/summary", "/api/stream-training", "/api/stream-scrape", "/api/scrape-review"])
 def test_admin_reads_need_a_session(env, url):
     c, e = client(env)
     assert c.get(url, environ_base=e).status_code == 401

@@ -18,6 +18,8 @@ from typing import Dict, List
 
 import pandas as pd
 
+from db_write import replace_table   # atomic table swap: readers never see a half-written table
+
 import psa_openstat as psa
 import worldbank_pinksheet as wb
 
@@ -56,7 +58,7 @@ def write(conn, frames: Dict[str, pd.DataFrame]) -> None:
         out = df.copy()
         out["Date"] = out["Date"].dt.strftime("%Y-%m-%d")
         out["Source"] = TABLES[name][2]
-        out.to_sql(name, conn, if_exists="replace", index=False)
+        replace_table(conn, out, name)
         _stamp(conn, name, out)
     conn.commit()
 

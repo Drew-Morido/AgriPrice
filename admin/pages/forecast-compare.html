@@ -1,0 +1,96 @@
+<div class="fc-page">
+
+  <div class="section-header fc-header">
+    <div>
+      <div class="section-title">Forecast vs Actual</div>
+      <div class="section-subtitle" id="fc-subtitle">Each day's forecast, made the day before, against the real DA retail price</div>
+    </div>
+    <span class="fc-live" id="fc-status">Loading…</span>
+  </div>
+
+  <div class="card fc-controls">
+    <div class="fc-field">
+      <label for="fc-type">Rice type</label>
+      <select id="fc-type" class="form-select">
+        <option value="locWellMilled">Local Well-Milled</option>
+        <option value="locRegular">Local Regular Milled</option>
+        <option value="locPremium">Local Premium</option>
+        <option value="locSpecial">Local Special</option>
+        <option value="impWellMilled">Imported Well-Milled</option>
+        <option value="impRegular">Imported Regular Milled</option>
+        <option value="impPremium">Imported Premium</option>
+        <option value="impSpecial">Imported Special</option>
+      </select>
+    </div>
+    <div class="fc-field">
+      <label for="fc-start">From</label>
+      <input type="date" id="fc-start" class="form-input">
+    </div>
+    <div class="fc-field">
+      <label for="fc-end">To</label>
+      <input type="date" id="fc-end" class="form-input">
+    </div>
+    <div class="fc-field">
+      <label for="fc-speed">Replay speed</label>
+      <select id="fc-speed" class="form-select">
+        <option value="2400">Slow (for video)</option>
+        <option value="1200" selected>Normal</option>
+        <option value="500">Fast</option>
+      </select>
+    </div>
+    <div class="fc-field">
+      <label for="fc-view">Show</label>
+      <select id="fc-view" class="form-select">
+        <option value="both" selected>Both forecasts</option>
+        <option value="with">With factors only</option>
+        <option value="without">Without factors only</option>
+      </select>
+    </div>
+    <div class="fc-buttons">
+      <button type="button" class="btn btn-primary btn-sm" id="fc-play"><i class="ti ti-player-play"></i> <span>Play</span></button>
+      <button type="button" class="btn btn-outline btn-sm" id="fc-reset"><i class="ti ti-refresh"></i> Show all</button>
+    </div>
+  </div>
+
+  <div class="fc-stats" id="fc-stats"></div>
+
+  <div class="card">
+    <div class="card-header fc-chart-head">
+      <div>
+        <span class="card-title" id="fc-chart-title">Local Well-Milled · retail price (₱/kg)</span>
+        <i class="ti ti-info-circle stat-info-icon tooltip-wide tooltip-left" tabindex="0" role="img"
+           data-tooltip="Green: the real DA retail price. Purple: the published forecast, which feeds the factors (diesel, exchange rate, rice stocks, farmgate price, core inflation, world rice price, season) to its LSTM. Orange (wide band under the purple line): the same forecast with a price-only LSTM; use Show to see each one alone. Grey: tomorrow = today. Every forecast point was made the day before, from data available that day."></i>
+      </div>
+      <div class="fc-readout" id="fc-readout" aria-live="polite"></div>
+    </div>
+    <div class="card-body">
+      <div class="fc-chart-wrap"><canvas id="fc-chart" aria-label="Actual retail price and day-1 forecasts with and without factors"></canvas></div>
+    </div>
+  </div>
+
+  <div class="fc-two">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Day by day</span></div>
+      <div class="fc-table-wrap">
+        <table class="data-table fc-table">
+          <thead>
+            <tr><th>Date</th><th>Actual</th><th>With factors</th><th>Off by</th><th>Without factors</th><th>Off by</th></tr>
+          </thead>
+          <tbody id="fc-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">All 8 rice types</span></div>
+      <div class="fc-table-wrap">
+        <table class="data-table fc-table">
+          <thead>
+            <tr><th>Rice type</th><th>With factors</th><th>Without factors</th><th>Tomorrow = today</th></tr>
+          </thead>
+          <tbody id="fc-alltypes"></tbody>
+        </table>
+      </div>
+      <p class="fc-note" id="fc-note"></p>
+    </div>
+  </div>
+</div>
